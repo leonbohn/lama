@@ -4,11 +4,11 @@ version = "0.1.0"
 description = "Learning And Manipulation of Automata"
 
 [workspace]
-members = ["automata", "bin"]
+members = ["automata"]
 
 
 [[bin]]
 name = "lama"
-path = "bin/src/main.rs"
+path = "bin/main.rs"
 test = false
 doctest = false
