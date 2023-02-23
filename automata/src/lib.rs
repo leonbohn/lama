@@ -11,10 +11,10 @@ mod boundedness;
 pub use boundedness::{Boundedness, FiniteKind, InfiniteKind};
 
 pub trait Alphabet: Clone {
-    type C: Clone + Eq + Ord + Debug;
+    type C: Clone + Eq + Debug;
 }
 
-impl<C: Clone + Eq + Ord + Debug> Alphabet for C {
+impl<C: Clone + Eq + Debug> Alphabet for C {
     type C = C;
 }
 

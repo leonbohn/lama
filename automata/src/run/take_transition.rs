@@ -1,7 +1,8 @@
-use crate::run::{PartialRun, RunOutput};
+use crate::run::{RunOutput, Walker};
 use crate::ts::{SymbolFor, TransitionSystem};
 use crate::words::Word;
 
+/// Implementors of this trait can take individual transitions in a system of type `TS`.
 pub trait TakeTransition {
     type TS: TransitionSystem;
 
@@ -9,7 +10,7 @@ pub trait TakeTransition {
 }
 
 impl<'ts, 'w, TS: TransitionSystem, W: Word<S = SymbolFor<TS>>> TakeTransition
-    for PartialRun<'ts, 'w, W, TS>
+    for Walker<'ts, 'w, W, TS>
 where
     TS::Transition: From<(TS::Q, SymbolFor<TS>, TS::Q)>,
 {

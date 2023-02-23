@@ -1,9 +1,11 @@
-use std::{collections::HashSet, marker::PhantomData};
-
 use crate::Alphabet;
 
-// pub mod deterministic;
 pub mod labels;
+pub mod transition;
+
+/// An implementation of a deterministic `TransitionSystem` in form of an edge list.
+#[cfg(feature = "det")]
+pub mod deterministic;
 
 /// Implemented by objects which have a designated initial state.
 pub trait Pointed<Q> {
@@ -19,27 +21,6 @@ pub trait TransitionTarget {
     type Output;
     fn is_deterministic() -> bool;
 }
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct Deterministic<T>(PhantomData<T>);
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct Nondeterministic<T>(PhantomData<T>);
-
-impl<T> TransitionTarget for Deterministic<T> {
-    type Output = T;
-    fn is_deterministic() -> bool {
-        true
-    }
-}
-
-impl<T> TransitionTarget for Nondeterministic<T> {
-    type Output = HashSet<T>;
-    fn is_deterministic() -> bool {
-        false
-    }
-}
-
 pub trait Transition {
     type Sym;
     type Id;
@@ -84,7 +65,10 @@ pub trait IntoStateReferences<'a>: TransitionSystem + 'a {
 }
 
 pub trait Growable: TransitionSystem {
+    /// Add a new state to the transition system..
     fn add_state(&mut self) -> Self::Q;
+
+    /// Add a new transition to the transition system. If the transition did not exist before, `None` is returned. Otherwise, the old target state is returned.
     fn add_transition<X: AsRef<SymbolFor<Self>>>(
         &mut self,
         from: Self::Q,

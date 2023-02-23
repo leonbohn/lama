@@ -6,7 +6,7 @@ use crate::{
     Boundedness, FiniteKind, InfiniteKind,
 };
 
-use super::PartialRun;
+use super::Walker;
 
 pub trait RunResult<RunKind: Boundedness> {
     type Success;
@@ -15,7 +15,7 @@ pub trait RunResult<RunKind: Boundedness> {
 }
 
 impl<'ts, 'w, TS: TransitionSystem, W: Word<S = SymbolFor<TS>, Kind = FiniteKind>>
-    RunResult<FiniteKind> for PartialRun<'ts, 'w, W, TS>
+    RunResult<FiniteKind> for Walker<'ts, 'w, W, TS>
 {
     type Success = TS::Q;
 
@@ -27,7 +27,7 @@ impl<'ts, 'w, TS: TransitionSystem, W: Word<S = SymbolFor<TS>, Kind = FiniteKind
 }
 
 impl<'ts, 'w, TS: TransitionSystem, W: Word<S = SymbolFor<TS>, Kind = InfiniteKind>>
-    RunResult<InfiniteKind> for PartialRun<'ts, 'w, W, TS>
+    RunResult<InfiniteKind> for Walker<'ts, 'w, W, TS>
 {
     type Success = HashSet<TS::Q>;
 

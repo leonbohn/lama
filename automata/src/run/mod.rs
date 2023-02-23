@@ -1,10 +1,11 @@
-mod partial_run;
+mod escaping;
 mod run_result;
 mod take_transition;
+mod walker;
 
-pub use partial_run::PartialRun;
 pub use run_result::RunResult;
 pub use take_transition::TakeTransition;
+pub use walker::Walker;
 
 use crate::words::{FiniteWord, Word};
 
@@ -19,7 +20,7 @@ pub enum RunOutput<TS: TransitionSystem> {
 
 pub trait Run<W: Word>: TransitionSystem + Sized {
     type Output;
-    fn run<'ts, 'w, X: AsRef<W>>(&'ts self, on: &'w X) -> PartialRun<'ts, 'w, W, Self>;
+    fn run<'ts, 'w, X: AsRef<W>>(&'ts self, on: &'w X) -> Walker<'ts, 'w, W, Self>;
 }
 
 impl<T: TransitionSystem + Pointed<OutputOf<T>>> Run<FiniteWord<T::S>> for T {
@@ -28,8 +29,8 @@ impl<T: TransitionSystem + Pointed<OutputOf<T>>> Run<FiniteWord<T::S>> for T {
     fn run<'ts, 'w, X: AsRef<FiniteWord<T::S>>>(
         &'ts self,
         on: &'w X,
-    ) -> PartialRun<'ts, 'w, FiniteWord<T::S>, T> {
-        PartialRun {
+    ) -> Walker<'ts, 'w, FiniteWord<T::S>, T> {
+        Walker {
             word: on.as_ref(),
             ts: self,
             state: Some(self.initial()),
