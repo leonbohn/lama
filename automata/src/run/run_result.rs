@@ -19,7 +19,7 @@ impl<'ts, 'w, TS: TransitionSystem, W: Word<S = SymbolFor<TS>, Kind = FiniteKind
 {
     type Success = TS::Q;
 
-    type Failure = (FiniteWord<SymbolFor<TS>>, TS::Transition);
+    type Failure = (FiniteWord<SymbolFor<TS>>, TS::Trigger);
 
     fn run_result(&self) -> Result<Self::Success, Self::Failure> {
         todo!()
@@ -31,7 +31,7 @@ impl<'ts, 'w, TS: TransitionSystem, W: Word<S = SymbolFor<TS>, Kind = InfiniteKi
 {
     type Success = HashSet<TS::Q>;
 
-    type Failure = (FiniteWord<SymbolFor<TS>>, TS::Transition);
+    type Failure = (FiniteWord<SymbolFor<TS>>, TS::Trigger);
 
     fn run_result(&self) -> Result<Self::Success, Self::Failure> {
         todo!()

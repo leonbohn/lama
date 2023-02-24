@@ -12,7 +12,7 @@ use crate::words::{FiniteWord, Word};
 use crate::ts::{OutputOf, Pointed, SymbolFor, TransitionSystem};
 
 pub enum RunOutput<TS: TransitionSystem> {
-    Transition(TS::Transition),
+    Transition(TS::Trigger),
     WordEnd,
     Missing(TS::Q, SymbolFor<TS>),
     FailedBefore,

@@ -12,7 +12,7 @@ pub trait TakeTransition {
 impl<'ts, 'w, TS: TransitionSystem, W: Word<S = SymbolFor<TS>>> TakeTransition
     for Walker<'ts, 'w, W, TS>
 where
-    TS::Transition: From<(TS::Q, SymbolFor<TS>, TS::Q)>,
+    TS::Trigger: From<(TS::Q, SymbolFor<TS>, TS::Q)>,
 {
     type TS = TS;
 

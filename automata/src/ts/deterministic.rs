@@ -1,7 +1,10 @@
+use crate::Alphabet;
+
 use super::transition::DeterministicTransition;
-use super::{FiniteState, Growable, IntoStateReferences, Transition, TransitionSystem};
+use super::{FiniteState, Growable, Shrinkable, StateIndex, SymbolFor, TransitionSystem};
+
 use itertools::Itertools;
-use std::{collections::BTreeSet, fmt::Debug, hash::Hash};
+use std::{fmt::Debug, hash::Hash};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Deterministic<S = char, Q = u32> {
@@ -40,7 +43,7 @@ impl<I: IntoIterator<Item = (u32, char, u32)>> From<I> for Deterministic {
         Self {
             states: edges
                 .iter()
-                .flat_map(|DeterministicTransition(from, _, to)| vec![from.clone(), to.clone()])
+                .flat_map(|DeterministicTransition(from, _, to)| vec![*from, *to])
                 .unique()
                 .collect(),
             edges,
@@ -50,12 +53,12 @@ impl<I: IntoIterator<Item = (u32, char, u32)>> From<I> for Deterministic {
 
 impl<S, Q> TransitionSystem for Deterministic<S, Q>
 where
-    S: Clone + Eq + Hash + Debug,
-    Q: Debug + Hash + Eq + Clone,
+    S: Alphabet,
+    Q: StateIndex,
 {
     type Q = Q;
     type S = S;
-    type Transition = DeterministicTransition<S, Q>;
+    type Trigger = (Q, S);
 
     fn succ(&self, from: &Self::Q, on: &Self::S) -> Option<Self::Q> {
         self.edges
@@ -67,8 +70,8 @@ where
 
 impl<Q, S> FiniteState for Deterministic<S, Q>
 where
-    Q: Debug + Hash + Eq + Clone,
-    S: Clone + Eq + Hash + Debug,
+    Q: StateIndex,
+    S: Alphabet,
 {
     fn states(&self) -> Vec<Self::Q> {
         self.states.clone()
@@ -81,17 +84,19 @@ where
 
 impl<Q, S> Growable for Deterministic<S, Q>
 where
-    Q: Debug + Hash + Eq + Clone + Ord,
-    S: Clone + Eq + Hash + Debug + Ord,
+    Q: StateIndex,
+    S: Alphabet,
 {
     fn add_state(&mut self) -> Self::Q {
-        todo!()
+        let new_state: Q = StateIndex::create(self.states.len());
+        self.states.push(new_state.clone());
+        new_state
     }
 
-    fn add_transition<X: AsRef<Self::S>>(
+    fn add_transition<X: AsRef<SymbolFor<Self>>>(
         &mut self,
         from: Self::Q,
-        on: Self::S,
+        on: SymbolFor<Self>,
         to: Self::Q,
     ) -> std::option::Option<Q> {
         let old_target = self
@@ -107,5 +112,36 @@ where
         self.clear_targets(&from, &on);
         self.edges.push(DeterministicTransition(from, on, to));
         old_target
+    }
+}
+
+impl<S, Q> Shrinkable for Deterministic<S, Q>
+where
+    Q: StateIndex,
+    S: Alphabet,
+{
+    fn remove_state(&mut self, state: Self::Q) -> Option<Self::Q> {
+        let output = self.states.iter().find(|&s| s == &state).cloned();
+        self.states.retain(|s| s != &state);
+        output
+    }
+
+    fn remove_transition<X: AsRef<super::SymbolFor<Self>>>(
+        &mut self,
+        from: Self::Q,
+        on: super::SymbolFor<Self>,
+    ) -> Option<Self::Q> {
+        let output = self
+            .edges
+            .iter()
+            .find_map(|DeterministicTransition(f, s, t)| {
+                if f == &from && s == &on {
+                    Some(t.clone())
+                } else {
+                    None
+                }
+            });
+        self.clear_targets(&from, &on);
+        output
     }
 }

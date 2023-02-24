@@ -1,4 +1,72 @@
-use crate::ts::Transition;
+pub trait TransitionTarget {
+    type Output;
+    fn is_deterministic() -> bool;
+}
+
+pub trait TransitionTrigger {
+    type S;
+    type Q;
+    fn from(&self) -> &Self::Q;
+    fn on(&self) -> &Self::S;
+}
+
+impl<T: TransitionTrigger> TransitionTrigger for &T {
+    type S = T::S;
+    type Q = T::Q;
+    fn from(&self) -> &Self::Q {
+        (*self).from()
+    }
+    fn on(&self) -> &Self::S {
+        (*self).on()
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Trigger<S, Q>(pub Q, pub S);
+
+impl<Q, S> TransitionTrigger for Trigger<S, Q> {
+    type S = S;
+    type Q = Q;
+    fn from(&self) -> &Self::Q {
+        &self.0
+    }
+    fn on(&self) -> &Self::S {
+        &self.1
+    }
+}
+
+impl<Q, S> TransitionTrigger for (Q, S) {
+    type S = S;
+    type Q = Q;
+    fn from(&self) -> &Self::Q {
+        &self.0
+    }
+    fn on(&self) -> &Self::S {
+        &self.1
+    }
+}
+
+pub trait Transition {
+    type S;
+    type Q;
+    fn from(&self) -> &Self::Q;
+    fn to(&self) -> &Self::Q;
+    fn symbol(&self) -> &Self::S;
+}
+
+impl<T: Transition> Transition for &T {
+    type S = T::S;
+    type Q = T::Q;
+    fn from(&self) -> &Self::Q {
+        (*self).from()
+    }
+    fn to(&self) -> &Self::Q {
+        (*self).to()
+    }
+    fn symbol(&self) -> &Self::S {
+        (*self).symbol()
+    }
+}
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct DeterministicTransition<S, Q>(pub Q, pub S, pub Q);
@@ -19,19 +87,19 @@ impl<Q, S> Transition for DeterministicTransition<S, Q>
 where
     S: Clone + Eq + std::hash::Hash + std::fmt::Debug,
 {
-    type Sym = S;
+    type S = S;
 
-    type Id = Q;
+    type Q = Q;
 
-    fn from(&self) -> &Self::Id {
+    fn from(&self) -> &Self::Q {
         &self.0
     }
 
-    fn to(&self) -> &Self::Id {
+    fn to(&self) -> &Self::Q {
         &self.2
     }
 
-    fn symbol(&self) -> &Self::Sym {
+    fn symbol(&self) -> &Self::S {
         &self.1
     }
 }
@@ -60,5 +128,15 @@ impl<S: Ord, Q: Ord> Ord for DeterministicTransition<S, Q> {
             .cmp(&other.0)
             .then(self.1.cmp(&other.1))
             .then(self.2.cmp(&other.2))
+    }
+}
+
+impl<T: Transition> From<T> for Trigger<T::S, T::Q>
+where
+    T::Q: Clone,
+    T::S: Clone,
+{
+    fn from(transition: T) -> Self {
+        Trigger(transition.from().clone(), transition.symbol().clone())
     }
 }
