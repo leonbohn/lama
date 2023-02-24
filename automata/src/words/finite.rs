@@ -21,6 +21,14 @@ impl<S: Clone> From<Vec<S>> for FiniteWord<S> {
     }
 }
 
+impl From<&str> for FiniteWord<char> {
+    fn from(s: &str) -> Self {
+        FiniteWord {
+            symbols: s.chars().collect(),
+        }
+    }
+}
+
 impl<C: Clone> SymbolIterable for FiniteWord<C> {
     type Iter = std::vec::IntoIter<C>;
 

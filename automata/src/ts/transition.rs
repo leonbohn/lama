@@ -35,6 +35,12 @@ impl<Q, S> TransitionTrigger for Trigger<S, Q> {
     }
 }
 
+impl<Q, S> From<(Q, S)> for Trigger<S, Q> {
+    fn from((q, s): (Q, S)) -> Self {
+        Self(q, s)
+    }
+}
+
 impl<Q, S> TransitionTrigger for (Q, S) {
     type S = S;
     type Q = Q;

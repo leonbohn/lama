@@ -9,7 +9,7 @@ pub use subword::Subword;
 
 /// Abstracts a word over some given alphabet. The type parameter `S` is the alphabet, and `Kind` is a marker type which indicates whether the word is finite or infinite.
 pub trait Word {
-    type S;
+    type S: Clone;
     type Kind: Boundedness;
 
     /// Returns the symbol at the given index, or `None` if the index is out of bounds.

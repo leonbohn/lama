@@ -2,6 +2,9 @@ use crate::Alphabet;
 
 pub mod labels;
 
+pub mod initial;
+pub use initial::{Pointed, WithInitial};
+
 pub mod transition;
 pub use transition::{Transition, TransitionTrigger};
 
@@ -12,21 +15,23 @@ pub use state_index::StateIndex;
 #[cfg(feature = "det")]
 pub mod deterministic;
 
-/// Implemented by objects which have a designated initial state.
-pub trait Pointed<Q> {
-    /// Get the initial state of the automaton.
-    fn initial(&self) -> Q;
-}
-
 pub type SymbolFor<X> = <X as TransitionSystem>::S;
 pub type OutputOf<X> = <X as TransitionSystem>::Q;
 
 pub trait TransitionSystem {
     type Q: StateIndex;
     type S: Alphabet;
-    type Trigger: TransitionTrigger<S = SymbolFor<Self>, Q = Self::Q>;
+    type Trigger: TransitionTrigger<S = SymbolFor<Self>, Q = Self::Q>
+        + From<(Self::Q, SymbolFor<Self>)>;
 
     fn succ(&self, from: &Self::Q, on: &SymbolFor<Self>) -> Option<OutputOf<Self>>;
+
+    fn with_initial(&self, from: Self::Q) -> WithInitial<Self>
+    where
+        Self: Sized,
+    {
+        WithInitial(self, from)
+    }
 }
 
 pub trait FiniteState: TransitionSystem {
@@ -44,7 +49,7 @@ pub trait Growable: TransitionSystem {
     fn add_state(&mut self) -> Self::Q;
 
     /// Add a new transition to the transition system. If the transition did not exist before, `None` is returned. Otherwise, the old target state is returned.
-    fn add_transition<X: AsRef<SymbolFor<Self>>>(
+    fn add_transition(
         &mut self,
         from: Self::Q,
         on: SymbolFor<Self>,

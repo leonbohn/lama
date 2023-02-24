@@ -12,7 +12,7 @@ pub trait TakeTransition {
 impl<'ts, 'w, TS: TransitionSystem, W: Word<S = SymbolFor<TS>>> TakeTransition
     for Walker<'ts, 'w, W, TS>
 where
-    TS::Trigger: From<(TS::Q, SymbolFor<TS>, TS::Q)>,
+    TS::Trigger: From<(TS::Q, SymbolFor<TS>)>,
 {
     type TS = TS;
 
@@ -22,13 +22,13 @@ where
                 if let Some(successor) = self.ts.succ(&state, &symbol) {
                     self.position += 1;
                     self.state = Some(successor.clone());
-                    self.seq.push(successor.clone());
-                    RunOutput::Transition((state, symbol, successor).into())
+                    self.seq.push(successor);
+                    RunOutput::Trigger((state, symbol).into())
                 } else {
                     RunOutput::Missing(state, symbol)
                 }
             } else {
-                RunOutput::WordEnd
+                RunOutput::WordEnd(state)
             }
         } else {
             RunOutput::FailedBefore

@@ -1,6 +1,6 @@
 use crate::Alphabet;
 
-use super::transition::DeterministicTransition;
+use super::transition::{DeterministicTransition, Trigger};
 use super::{FiniteState, Growable, Shrinkable, StateIndex, SymbolFor, TransitionSystem};
 
 use itertools::Itertools;
@@ -58,7 +58,7 @@ where
 {
     type Q = Q;
     type S = S;
-    type Trigger = (Q, S);
+    type Trigger = Trigger<Self::S, Self::Q>;
 
     fn succ(&self, from: &Self::Q, on: &Self::S) -> Option<Self::Q> {
         self.edges
@@ -88,12 +88,12 @@ where
     S: Alphabet,
 {
     fn add_state(&mut self) -> Self::Q {
-        let new_state: Q = StateIndex::create(self.states.len());
+        let new_state: Q = StateIndex::create(self.states.len() as u32);
         self.states.push(new_state.clone());
         new_state
     }
 
-    fn add_transition<X: AsRef<SymbolFor<Self>>>(
+    fn add_transition(
         &mut self,
         from: Self::Q,
         on: SymbolFor<Self>,

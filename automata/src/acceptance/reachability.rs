@@ -1,4 +1,4 @@
-use crate::coloring::Coloring;
+use crate::{coloring::Coloring, FiniteKind};
 
 use super::AcceptanceCondition;
 
@@ -15,6 +15,8 @@ where
     }
 
     type Induced = Id;
+
+    type Kind = FiniteKind;
 }
 
 pub struct SafetyAcceptance<Col> {
@@ -30,6 +32,8 @@ where
     }
 
     type Induced = Id;
+
+    type Kind = FiniteKind;
 }
 
 impl<C> std::ops::Not for SafetyAcceptance<C> {

@@ -1,9 +1,9 @@
 pub trait StateIndex: Clone + Eq + std::hash::Hash + std::fmt::Debug {
-    fn create(from: usize) -> Self;
+    fn create(from: u32) -> Self;
 }
 
-impl<X: Clone + Eq + std::hash::Hash + std::fmt::Debug + From<usize>> StateIndex for X {
-    fn create(from: usize) -> Self {
+impl<X: Clone + Eq + std::hash::Hash + std::fmt::Debug + From<u32>> StateIndex for X {
+    fn create(from: u32) -> Self {
         from.into()
     }
 }
