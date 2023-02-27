@@ -6,6 +6,7 @@ use super::{FiniteState, Growable, Shrinkable, StateIndex, SymbolFor, Transition
 use itertools::Itertools;
 use std::{fmt::Debug, hash::Hash};
 
+/// An implementation of a deterministic transition system, stored as two `Vec`s containing the states and [`DeterministicTransition`]s.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Deterministic<S = char, Q = u32> {
     states: Vec<Q>,
@@ -13,6 +14,7 @@ pub struct Deterministic<S = char, Q = u32> {
 }
 
 impl Deterministic {
+    /// Create a new empty deterministic transition system.
     pub fn new() -> Self {
         Self {
             edges: Vec::new(),

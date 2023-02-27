@@ -2,7 +2,7 @@ use super::{SymbolIterable, Word};
 use crate::FiniteKind;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-// Represents a 'usual' finite word consisting of a sequence of symbols.
+/// Represents a 'usual' finite word consisting of a sequence of symbols.
 pub struct FiniteWord<S> {
     pub(crate) symbols: Vec<S>,
 }
@@ -47,14 +47,17 @@ impl<S: Clone> Word for FiniteWord<S> {
 }
 
 impl<S> FiniteWord<S> {
+    /// Returns the length of the word.
     pub fn len(&self) -> usize {
         self.symbols.len()
     }
 
+    /// Returns true iff the word is empty
     pub fn is_empty(&self) -> bool {
         self.symbols.is_empty()
     }
 
+    /// Creates an empty instance.
     pub fn empty() -> Self {
         Self { symbols: vec![] }
     }

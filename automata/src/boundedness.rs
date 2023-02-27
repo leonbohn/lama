@@ -2,6 +2,7 @@ use crate::words::FiniteWord;
 
 /// Encapsulates the kind of a sequence, differentiating between finite and infinite ones.
 pub trait Boundedness {
+    /// Returns whether the object is finite or not.
     fn is_finite() -> bool;
 }
 

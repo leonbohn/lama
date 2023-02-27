@@ -4,8 +4,10 @@ use crate::words::Word;
 
 /// Implementors of this trait can take individual transitions in a system of type `TS`.
 pub trait TakeTransition {
+    /// The transition system type.
     type TS: TransitionSystem;
 
+    /// Takes a single transition in the transition system and returns the [`RunOutput`] that it produces.
     fn take_transition(&mut self) -> RunOutput<Self::TS>;
 }
 

@@ -6,8 +6,6 @@ description = "Learning And Manipulation of Automata"
 [workspace]
 members = ["automata"]
 
-[dependencies]
-
 [[bin]]
 name = "lama"
 path = "bin/main.rs"
