@@ -13,6 +13,7 @@ use crate::words::{FiniteWord, PeriodicWord, UltimatelyPeriodicWord, Word};
 
 use crate::ts::{Pointed, SymbolFor, TransitionSystem};
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 /// Encapsulates the possible outputs of a run when a symbol is consumed.
 pub enum RunOutput<TS: TransitionSystem> {
     /// A transition is taken, gives the trigger.
@@ -30,11 +31,26 @@ impl<TS: TransitionSystem> RunOutput<TS> {
     pub fn is_trigger(&self) -> bool {
         matches!(self, RunOutput::Trigger(_))
     }
+
+    /// Creates a new `RunOutput::Trigger` from the given state symbol pair.
+    pub fn trigger(from: TS::Q, on: TS::S) -> Self {
+        Self::Trigger((from, on).into())
+    }
+
+    /// Creates a new `RunOutput::WordEnd` with the given reached state.
+    pub fn end(state: TS::Q) -> Self {
+        Self::WordEnd(state)
+    }
+
+    /// Creates a new `RunOutput::Missing` with the given state and missing symbol.
+    pub fn missing(state: TS::Q, missing: SymbolFor<TS>) -> Self {
+        Self::Missing(state, missing)
+    }
 }
 
 impl<TS: TransitionSystem> RunOutput<TS> {
     /// Returns the trigger if `self` is of type `RunOutput::Trigger` and `None` otherwise.
-    pub fn trigger(&self) -> Option<&TS::Trigger> {
+    pub fn get_trigger(&self) -> Option<&TS::Trigger> {
         match self {
             RunOutput::Trigger(t) => Some(t),
             _ => None,
@@ -133,7 +149,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_works() {
+    fn basic_run() {
         let mut ts = Deterministic::new();
         let q0 = ts.add_state();
         let q1 = ts.add_state();
@@ -147,5 +163,31 @@ mod tests {
 
         let w = FiniteWord::from("abba");
         assert_eq!(w.walk_in_from(&ts, q0).result(), Ok(q1));
+    }
+
+    #[test]
+    fn basic_run_with_missing() {
+        let mut ts = Deterministic::new();
+        let q0 = ts.add_state();
+        let q1 = ts.add_state();
+        let q2 = ts.add_state();
+        ts.add_transition(q0, 'a', q1);
+        ts.add_transition(q0, 'b', q0);
+        ts.add_transition(q1, 'a', q2);
+        ts.add_transition(q1, 'b', q0);
+        ts.add_transition(q2, 'b', q0);
+
+        let w = FiniteWord::from("abaaa");
+        {
+            let mut run = w.walk_in_from(&ts, q0);
+            assert_eq!(run.next(), Some(RunOutput::trigger(q0, 'a')));
+            assert_eq!(run.next(), Some(RunOutput::trigger(q1, 'b')));
+            assert_eq!(run.next(), Some(RunOutput::trigger(q0, 'a')));
+            assert_eq!(run.next(), Some(RunOutput::trigger(q1, 'a')));
+            assert_eq!(run.next(), Some(RunOutput::missing(q2, 'a')));
+        }
+
+        ts.add_transition(q2, 'a', q0);
+        assert_eq!(w.walk_in_from(&ts, q0).result(), Ok(q0));
     }
 }

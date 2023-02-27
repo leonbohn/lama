@@ -1,10 +1,16 @@
 use crate::{Boundedness, FiniteKind, InfiniteKind};
+mod append;
+pub use append::Append;
+
+mod prepend;
+pub use prepend::Prepend;
+
 mod finite;
 mod infinite;
 mod subword;
 
 pub use finite::FiniteWord;
-pub use infinite::{PeriodicWord, UltimatelyPeriodicWord};
+pub use infinite::{pw, upw, PeriodicWord, UltimatelyPeriodicWord};
 pub use subword::Subword;
 
 /// Abstracts a word over some given alphabet. The type parameter `S` is the alphabet, and `Kind` is a marker type which indicates whether the word is finite or infinite.

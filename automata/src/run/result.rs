@@ -27,7 +27,7 @@ impl<'t, 'w, TS: TransitionSystem + 't> RunResult<FiniteWord<TS::S>>
     fn result(&mut self) -> Result<Self::Success, Self::Failure> {
         let prefix = FiniteWord::from_iter(
             self.take_while(|output| output.is_trigger())
-                .map(|output| output.trigger().unwrap().on().clone()),
+                .map(|output| output.get_trigger().unwrap().on().clone()),
         );
         match self.next() {
             Some(RunOutput::WordEnd(q)) => Ok(q),

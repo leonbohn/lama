@@ -72,10 +72,29 @@ impl<S> From<PeriodicWord<S>> for UltimatelyPeriodicWord<S> {
     }
 }
 
+impl<S> From<(FiniteWord<S>, PeriodicWord<S>)> for UltimatelyPeriodicWord<S> {
+    fn from((prefix, periodic): (FiniteWord<S>, PeriodicWord<S>)) -> Self {
+        Self(prefix, periodic)
+    }
+}
+
 impl<S: Clone> SymbolIterable for UltimatelyPeriodicWord<S> {
     type Iter = std::iter::Chain<std::vec::IntoIter<S>, std::iter::Cycle<std::vec::IntoIter<S>>>;
 
     fn iter(&self) -> Self::Iter {
         self.0.iter().chain(self.1.iter())
     }
+}
+
+/// Creates an ultimately periodic word from a finite prefix and a periodic part.
+pub fn upw<S, B: Into<FiniteWord<S>>, R: Into<FiniteWord<S>>>(
+    base: B,
+    rep: R,
+) -> UltimatelyPeriodicWord<S> {
+    (base.into(), PeriodicWord(rep.into())).into()
+}
+
+/// Creates a periodic word from an object that can be turned into a [`FiniteWord`].
+pub fn pw<S, R: Into<FiniteWord<S>>>(rep: R) -> PeriodicWord<S> {
+    rep.into().into()
 }
