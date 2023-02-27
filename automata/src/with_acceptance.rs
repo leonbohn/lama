@@ -1,9 +1,6 @@
 use crate::{
     acceptance::AcceptanceCondition,
-    acceptor::Acceptor,
-    run::{RunResult, WalkIn},
-    ts::{deterministic::Deterministic, TransitionSystem},
-    words::Word,
+    ts::{deterministic::Deterministic, Pointed, TransitionSystem},
 };
 
 /// Allows us to add an acceptance condition to an existing transition system, is used in [`TransitionSystem::with_acceptance`].
@@ -21,18 +18,40 @@ impl<'ts, Acc: AcceptanceCondition, TS: TransitionSystem> WithAcceptance<'ts, Ac
     }
 }
 
-impl<'ts, 'w, W, Acc, TS> Acceptor<W> for WithAcceptance<'ts, Acc, TS>
-where
-    W: Word<S = TS::S> + WalkIn<'ts, 'w, TS>,
-    Acc: AcceptanceCondition,
-    <W as WalkIn<'ts, 'w, TS>>::Walker: RunResult<W, Success = Acc::Induced>,
-    // <W as WalkIn<TS>>::Walker?:,
-    TS: TransitionSystem,
+impl<'ts, Acc: AcceptanceCondition, TS: TransitionSystem> TransitionSystem
+    for WithAcceptance<'ts, Acc, TS>
 {
-    type TS = TS;
+    type Q = TS::Q;
 
-    fn accepts(&self, _word: &W) -> bool {
-        // word.run(&self.ts)
-        todo!()
+    type S = TS::S;
+
+    type Trigger = TS::Trigger;
+
+    fn succ(
+        &self,
+        from: &Self::Q,
+        on: &crate::ts::SymbolFor<Self>,
+    ) -> Option<crate::ts::OutputOf<Self>> {
+        self.ts.succ(from, on)
+    }
+}
+
+impl<'ts, Acc: AcceptanceCondition, TS: TransitionSystem> AcceptanceCondition
+    for WithAcceptance<'ts, Acc, TS>
+{
+    type Induced = Acc::Induced;
+
+    type Kind = Acc::Kind;
+
+    fn is_accepting(&self, induced: &Self::Induced) -> bool {
+        self.acceptance.is_accepting(induced)
+    }
+}
+
+impl<'ts, Acc: AcceptanceCondition, TS: TransitionSystem + Pointed> Pointed
+    for WithAcceptance<'ts, Acc, TS>
+{
+    fn initial(&self) -> Self::Q {
+        self.ts.initial()
     }
 }

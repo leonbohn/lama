@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use crate::{
-    ts::{TransitionSystem, TransitionTrigger},
+    ts::{Pointed, TransitionSystem, TransitionTrigger},
     words::{FiniteWord, PeriodicWord, UltimatelyPeriodicWord, Word},
 };
 
@@ -52,6 +52,42 @@ impl<'t, 'w, TS: TransitionSystem + 't> RunResult<UltimatelyPeriodicWord<TS::S>>
     for Walker<'t, 'w, UltimatelyPeriodicWord<TS::S>, TS>
 {
     type Success = HashSet<TS::Q>;
+    type Failure = EscapePrefix<TS>;
+
+    fn result(&mut self) -> Result<Self::Success, Self::Failure> {
+        todo!()
+    }
+}
+
+impl<'ts, 'w, TS: TransitionSystem + Pointed> RunResult<FiniteWord<TS::S>>
+    for (&'ts TS, &'w FiniteWord<TS::S>)
+{
+    type Success = TS::Q;
+
+    type Failure = EscapePrefix<TS>;
+
+    fn result(&mut self) -> Result<Self::Success, Self::Failure> {
+        todo!()
+    }
+}
+
+impl<'ts, 'w, TS: TransitionSystem + Pointed> RunResult<PeriodicWord<TS::S>>
+    for (&'ts TS, &'w PeriodicWord<TS::S>)
+{
+    type Success = HashSet<TS::Q>;
+
+    type Failure = EscapePrefix<TS>;
+
+    fn result(&mut self) -> Result<Self::Success, Self::Failure> {
+        todo!()
+    }
+}
+
+impl<'ts, 'w, TS: TransitionSystem + Pointed> RunResult<UltimatelyPeriodicWord<TS::S>>
+    for (&'ts TS, &'w UltimatelyPeriodicWord<TS::S>)
+{
+    type Success = HashSet<TS::Q>;
+
     type Failure = EscapePrefix<TS>;
 
     fn result(&mut self) -> Result<Self::Success, Self::Failure> {

@@ -1,22 +1,11 @@
-use crate::{
-    run::{Walk, Walker},
-    words::Word,
-};
+use crate::acceptance::AcceptanceCondition;
 
-use super::TransitionSystem;
+use super::{HasTransitionSystem, TransitionSystem};
 
 /// Implemented by objects which have a designated initial state.
 pub trait Pointed: TransitionSystem {
     /// Get the initial state of the automaton.
     fn initial(&self) -> Self::Q;
-
-    /// Start a new [`Walker`] from the initial state.
-    fn walk<'ts, 'w, W: Word<S = Self::S>>(&'ts self, on: &'w W) -> Walker<'ts, 'w, W, Self>
-    where
-        Self: Sized,
-    {
-        self.walk_from_on(self.initial(), on)
-    }
 }
 
 /// Allows us to add an initial state to an existing transition system, is used in [`TransitionSystem::with_initial`].
@@ -35,5 +24,25 @@ impl<'ts, TS: TransitionSystem> TransitionSystem for WithInitial<'ts, TS> {
 impl<'ts, TS: TransitionSystem> Pointed for WithInitial<'ts, TS> {
     fn initial(&self) -> Self::Q {
         self.1.clone()
+    }
+}
+
+impl<'ts, TS: TransitionSystem + AcceptanceCondition> AcceptanceCondition for WithInitial<'ts, TS> {
+    type Induced = TS::Induced;
+    type Kind = TS::Kind;
+    fn is_accepting(&self, induced: &Self::Induced) -> bool {
+        self.0.is_accepting(induced)
+    }
+}
+
+/// Helper trait that is implemented by wrappers around transition systems that add an initial state.
+pub trait HasInitialState: HasTransitionSystem {
+    /// Get the initial state.
+    fn initial(&self) -> <<Self as HasTransitionSystem>::TransitionSystem as TransitionSystem>::Q;
+}
+
+impl<HIS: HasInitialState> Pointed for HIS {
+    fn initial(&self) -> Self::Q {
+        self.initial()
     }
 }

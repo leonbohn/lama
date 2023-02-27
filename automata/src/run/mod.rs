@@ -9,9 +9,9 @@ pub use result::RunResult;
 
 pub use walker::Walker;
 
-use crate::words::{FiniteWord, PeriodicWord, UltimatelyPeriodicWord, Word};
+use crate::words::Word;
 
-use crate::ts::{Pointed, SymbolFor, TransitionSystem};
+use crate::ts::{SymbolFor, TransitionSystem};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 /// Encapsulates the possible outputs of a run when a symbol is consumed.
@@ -90,61 +90,23 @@ pub trait WalkIn<'ts, 'w, TS: TransitionSystem<S = Self::S>>: Sized + Word {
     fn walk_in_from(&'w self, ts: &'ts TS, from: TS::Q) -> Self::Walker;
 }
 
-impl<'ts, 'w, TS: TransitionSystem + 'ts> WalkIn<'ts, 'w, TS> for FiniteWord<TS::S>
+impl<'ts, 'w, TS: TransitionSystem + 'ts, W: Word + 'w> WalkIn<'ts, 'w, TS> for W
 where
-    TS::S: 'w,
+    TS: Walk<'ts, 'w, W>,
 {
-    type Walker = Walker<'ts, 'w, FiniteWord<TS::S>, TS>;
+    type Walker = TS::Walker;
 
     fn walk_in_from(&'w self, ts: &'ts TS, from: TS::Q) -> Self::Walker {
-        Walker {
-            ts,
-            state: Some(from.clone()),
-            position: 0,
-            seq: vec![from],
-            word: self,
-        }
-    }
-}
-
-impl<'ts, 'w, TS: TransitionSystem + Pointed + 'ts> WalkIn<'ts, 'w, TS> for PeriodicWord<TS::S>
-where
-    TS::S: 'w,
-{
-    type Walker = Walker<'ts, 'w, PeriodicWord<TS::S>, TS>;
-
-    fn walk_in_from(&'w self, ts: &'ts TS, from: TS::Q) -> Self::Walker {
-        Walker {
-            ts,
-            state: Some(from.clone()),
-            position: 0,
-            seq: vec![from],
-            word: self,
-        }
-    }
-}
-
-impl<'ts, 'w, TS: TransitionSystem + Pointed + 'ts> WalkIn<'ts, 'w, TS>
-    for UltimatelyPeriodicWord<TS::S>
-where
-    TS::S: 'w,
-{
-    type Walker = Walker<'ts, 'w, UltimatelyPeriodicWord<TS::S>, TS>;
-
-    fn walk_in_from(&'w self, ts: &'ts TS, from: TS::Q) -> Self::Walker {
-        Walker {
-            ts,
-            state: Some(from.clone()),
-            position: 0,
-            seq: vec![from],
-            word: self,
-        }
+        ts.walk_from_on(from, self)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::ts::{deterministic::Deterministic, Growable};
+    use crate::{
+        ts::{deterministic::Deterministic, Growable},
+        words::FiniteWord,
+    };
 
     use super::*;
 

@@ -102,3 +102,23 @@ pub trait Trimable: TransitionSystem + Pointed {
     /// Removes all unreachable states from the transition system. Additionally removes any transitions which point to or originate from unreachable states.
     fn trim(&mut self);
 }
+
+/// Helper trait for implementing [`TransitionSystem`] for a type which contains a reference to a [`TransitionSystem`]. This is useful for example when implementing a wrapper around a transition system.
+pub trait HasTransitionSystem {
+    /// The type of the transition system.
+    type TransitionSystem: TransitionSystem;
+    /// Returns a reference to the transition system.
+    fn transition_system(&self) -> &Self::TransitionSystem;
+}
+
+impl<T: HasTransitionSystem> TransitionSystem for T {
+    type Q = <T::TransitionSystem as TransitionSystem>::Q;
+
+    type S = SymbolFor<T::TransitionSystem>;
+
+    type Trigger = <T::TransitionSystem as TransitionSystem>::Trigger;
+
+    fn succ(&self, from: &Self::Q, on: &SymbolFor<Self>) -> Option<OutputOf<Self>> {
+        self.transition_system().succ(from, on)
+    }
+}

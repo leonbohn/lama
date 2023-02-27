@@ -32,6 +32,8 @@ mod acceptor;
 /// Trait that encapsulates the ability to determine whether a given word is accepted or not.
 pub use acceptor::Acceptor;
 
+/// Helper module where colorings and such are implemented.
+pub mod coloring;
 // TODO implement
 mod automaton;
 
