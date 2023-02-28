@@ -1,10 +1,16 @@
-use super::{SymbolIterable, Word};
+use super::{IsFinite, SymbolIterable, Word};
 use crate::FiniteKind;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// Represents a 'usual' finite word consisting of a sequence of symbols.
 pub struct FiniteWord<S> {
     pub(crate) symbols: Vec<S>,
+}
+
+impl<S: Clone> IsFinite for FiniteWord<S> {
+    fn length(&self) -> usize {
+        self.symbols.len()
+    }
 }
 
 impl<S: Clone> FromIterator<S> for FiniteWord<S> {

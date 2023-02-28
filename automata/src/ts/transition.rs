@@ -9,7 +9,7 @@ pub trait TransitionTarget {
 }
 
 /// A trait for the trigger of a transition. This allows for more generic implementations of [`TransitionSystem`], in preparation for a future implementation that allows for non-deterministic transition systems.
-pub trait TransitionTrigger {
+pub trait TransitionTrigger: Clone {
     /// The symbol type.
     type S;
     /// The state type.
@@ -36,7 +36,7 @@ impl<T: TransitionTrigger> TransitionTrigger for &T {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Trigger<S, Q>(pub Q, pub S);
 
-impl<Q, S> TransitionTrigger for Trigger<S, Q> {
+impl<Q: Clone, S: Clone> TransitionTrigger for Trigger<S, Q> {
     type S = S;
     type Q = Q;
     fn from(&self) -> &Self::Q {
@@ -53,7 +53,7 @@ impl<Q, S> From<(Q, S)> for Trigger<S, Q> {
     }
 }
 
-impl<Q, S> TransitionTrigger for (Q, S) {
+impl<Q: Clone, S: Clone> TransitionTrigger for (Q, S) {
     type S = S;
     type Q = Q;
     fn from(&self) -> &Self::Q {

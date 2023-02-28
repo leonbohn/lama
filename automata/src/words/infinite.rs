@@ -1,9 +1,19 @@
-use super::{FiniteWord, SymbolIterable, Word};
+use super::{FiniteWord, IsInfinite, SymbolIterable, Word};
 use crate::InfiniteKind;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// A `PeriodicWord` essentially just loops a `FiniteWord` over and over again.
 pub struct PeriodicWord<S>(pub(crate) FiniteWord<S>);
+
+impl<S: Clone> IsInfinite for PeriodicWord<S> {
+    fn base_length(&self) -> usize {
+        0
+    }
+
+    fn recur_length(&self) -> usize {
+        self.0.symbols.len()
+    }
+}
 
 impl<S: Clone> Word for PeriodicWord<S> {
     type S = S;
@@ -50,6 +60,16 @@ impl<S: Clone> SymbolIterable for PeriodicWord<S> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// In an `UltimatelyPeriodicWord`, the first part is a finite prefix, after which a periodic part follows. The prefix can be empty.
 pub struct UltimatelyPeriodicWord<S>(pub(crate) FiniteWord<S>, pub(crate) PeriodicWord<S>);
+
+impl<S: Clone> IsInfinite for UltimatelyPeriodicWord<S> {
+    fn base_length(&self) -> usize {
+        self.0.symbols.len()
+    }
+
+    fn recur_length(&self) -> usize {
+        self.1 .0.symbols.len()
+    }
+}
 
 impl<S: Clone> Word for UltimatelyPeriodicWord<S> {
     type S = S;

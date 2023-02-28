@@ -96,5 +96,6 @@ mod tests {
 
         assert!(!aut.accepts(&FiniteWord::from("ab")));
         assert!(aut.accepts(&FiniteWord::from("aa")));
+        assert!(!aut.accepts(&"abbb"))
     }
 }

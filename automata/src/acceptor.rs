@@ -1,37 +1,36 @@
 use crate::{
     acceptance::AcceptanceCondition,
-    run::{RunResult, Walk},
+    run::Run,
     ts::{Pointed, TransitionSystem},
     words::Word,
 };
 
 /// Implemented by objects which can accept a word. We use `W` as an ipnut type parameter to allow for different implementations based on the type of word.
-pub trait Acceptor<'ts, 'w, W: Word + 'w> {
+pub trait Acceptor<'ts, 'w, W: 'w> {
     /// The transition system type.
-    type TS: TransitionSystem;
+    type TS: TransitionSystem + Pointed + AcceptanceCondition;
 
     /// Returns true iff the given `word` is accepted, i.e. it satisfies the acceptance condition.
-    fn accepts<I>(&'ts self, word: I) -> bool
-    where
-        &'w W: From<I>;
+    fn accepts(&'ts self, word: &W) -> bool;
 }
 
-impl<'ts, 'w, W, TS> Acceptor<'ts, 'w, W> for TS
+impl<'ts, 'w, TS, W> Acceptor<'ts, 'w, W> for TS
 where
     W: Word + 'w,
-    TS: TransitionSystem + Pointed + AcceptanceCondition + Walk<'ts, 'w, W> + 'ts,
-    TS::Walker: RunResult<W, Success = <TS as AcceptanceCondition>::Induced>,
+    TS: TransitionSystem<S = W::S>
+        + Pointed
+        + Run<W, W::Kind>
+        + AcceptanceCondition<Kind = W::Kind, Induced = <TS as Run<W, W::Kind>>::Induces>,
 {
     type TS = TS;
 
-    fn accepts<I>(&'ts self, word: I) -> bool
-    where
-        &'w W: From<I>,
-    {
-        let mut walker = self.walk_from_on(self.initial(), word.into());
-        match walker.result() {
+    fn accepts(&'ts self, word: &W) -> bool {
+        match self.run(self.initial(), word) {
             Ok(induced) => self.is_accepting(&induced),
             Err(_) => false,
         }
     }
 }
+
+#[cfg(test)]
+mod tests {}
