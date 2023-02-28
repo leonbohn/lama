@@ -11,5 +11,6 @@ derive_more = {version = "0.99.17", default-features = false, features = ["deref
 ahash = "0.8.3"
 
 [features]
-default = ["det"]
+default = ["det", "ahash"]
 det = []
+ahash = []

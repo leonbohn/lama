@@ -1,7 +1,7 @@
 use crate::Alphabet;
 
 use super::transition::{DeterministicTransition, Trigger};
-use super::{FiniteState, Growable, Shrinkable, StateIndex, SymbolFor, TransitionSystem};
+use super::{FiniteState, Growable, Shrinkable, StateIndex, SymbolOf, TransitionSystem};
 
 use itertools::Itertools;
 use std::{fmt::Debug, hash::Hash};
@@ -98,7 +98,7 @@ where
     fn add_transition(
         &mut self,
         from: Self::Q,
-        on: SymbolFor<Self>,
+        on: SymbolOf<Self>,
         to: Self::Q,
     ) -> std::option::Option<Q> {
         let old_target = self
@@ -128,10 +128,10 @@ where
         output
     }
 
-    fn remove_transition<X: AsRef<super::SymbolFor<Self>>>(
+    fn remove_transition<X: AsRef<super::SymbolOf<Self>>>(
         &mut self,
         from: Self::Q,
-        on: super::SymbolFor<Self>,
+        on: super::SymbolOf<Self>,
     ) -> Option<Self::Q> {
         let output = self
             .edges

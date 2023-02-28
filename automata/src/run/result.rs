@@ -1,8 +1,7 @@
 use std::collections::HashSet;
 
 use crate::{
-    coloring::Finite,
-    ts::{OutputOf, SymbolFor, TransitionSystem},
+    ts::{StateOf, SymbolOf, TransitionSystem},
     words::{IsFinite, IsInfinite, Subword, Word},
     Boundedness, FiniteKind, InfiniteKind,
 };
@@ -17,7 +16,7 @@ pub trait Run<TS: TransitionSystem, K>: Word {
     type Failure;
 
     /// Evaluates the run and returns the result.
-    fn run(&self, on: &TS, from: OutputOf<TS>) -> Result<Self::Induces, Self::Failure>;
+    fn run(&self, on: &TS, from: StateOf<TS>) -> Result<Self::Induces, Self::Failure>;
 }
 
 impl<W: IsFinite, TS: TransitionSystem<S = W::S>> Run<TS, FiniteKind> for W {

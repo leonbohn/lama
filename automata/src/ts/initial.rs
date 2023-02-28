@@ -16,7 +16,7 @@ impl<'ts, TS: TransitionSystem> TransitionSystem for WithInitial<'ts, TS> {
     type Q = TS::Q;
     type S = TS::S;
     type Trigger = TS::Trigger;
-    fn succ(&self, from: &Self::Q, on: &super::SymbolFor<Self>) -> Option<super::OutputOf<Self>> {
+    fn succ(&self, from: &Self::Q, on: &super::SymbolOf<Self>) -> Option<super::StateOf<Self>> {
         self.0.succ(from, on)
     }
 }
@@ -24,14 +24,6 @@ impl<'ts, TS: TransitionSystem> TransitionSystem for WithInitial<'ts, TS> {
 impl<'ts, TS: TransitionSystem> Pointed for WithInitial<'ts, TS> {
     fn initial(&self) -> Self::Q {
         self.1.clone()
-    }
-}
-
-impl<'ts, TS: TransitionSystem + AcceptanceCondition> AcceptanceCondition for WithInitial<'ts, TS> {
-    type Induced = TS::Induced;
-    type Kind = TS::Kind;
-    fn is_accepting(&self, induced: &Self::Induced) -> bool {
-        self.0.is_accepting(induced)
     }
 }
 

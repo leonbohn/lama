@@ -1,7 +1,7 @@
 use crate::{
     acceptance::AcceptanceCondition,
     run::Run,
-    ts::{Pointed, SymbolFor, TransitionSystem},
+    ts::{Pointed, SymbolOf, TransitionSystem},
     words::Word,
     Boundedness,
 };
@@ -9,7 +9,7 @@ use crate::{
 /// Implemented by objects which can accept a word. We use `W` as an ipnut type parameter to allow for different implementations based on the type of word.
 pub trait Acceptor<K> {
     /// The transition system type.
-    type TS: TransitionSystem + Pointed + AcceptanceCondition<Kind = K>;
+    type TS: TransitionSystem + Pointed + AcceptanceCondition;
 
     /// Returns true iff the given `word` is accepted, i.e. it satisfies the acceptance condition.
     fn accepts<W: Run<Self::TS, K, Induces = <Self::TS as AcceptanceCondition>::Induced>>(
@@ -21,7 +21,7 @@ pub trait Acceptor<K> {
 impl<TS, K> Acceptor<K> for TS
 where
     K: Boundedness,
-    TS: TransitionSystem + Pointed + AcceptanceCondition<Kind = K>,
+    TS: TransitionSystem + Pointed + AcceptanceCondition,
 {
     type TS = TS;
 

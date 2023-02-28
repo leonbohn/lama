@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use crate::{acceptance::AcceptanceCondition, Alphabet, WithAcceptance};
+use crate::{acceptance::AcceptanceCondition, Alphabet};
 
 mod initial;
 pub use initial::{Pointed, WithInitial};
@@ -17,9 +17,9 @@ pub mod deterministic;
 
 // The following two type aliases might change in the future to allow for more flexibility, i.e. for example for implementing nondeterminism.
 /// Helper type for getting the symbol type of a transition system.
-pub type SymbolFor<X> = <X as TransitionSystem>::S;
+pub type SymbolOf<X> = <X as TransitionSystem>::S;
 /// Helper type for getting the output type of a transition system.
-pub type OutputOf<X> = <X as TransitionSystem>::Q;
+pub type StateOf<X> = <X as TransitionSystem>::Q;
 
 /// The base trait implemented by a deterministic transition system. A transition system is a tuple `(Q, S, δ)`, where `Q` is a finite set of states, `S` is a finite set of symbols and `δ: Q × S → Q` is a transition function. Note that the transition function is not necessarily complete and some transitions may be missing.
 /// States of a transition system are generic, and can be any type that implements the [`StateIndex`] trait.
@@ -31,21 +31,21 @@ pub trait TransitionSystem {
     /// The type of the symbols of the transition system.
     type S: Alphabet;
     /// The type of the triggers (i.e. outgoing edges without target) of the transition system.
-    type Trigger: TransitionTrigger<S = SymbolFor<Self>, Q = Self::Q>
-        + From<(Self::Q, SymbolFor<Self>)>
+    type Trigger: TransitionTrigger<S = SymbolOf<Self>, Q = Self::Q>
+        + From<(Self::Q, SymbolOf<Self>)>
         + Eq
         + Hash;
 
     /// Returns the successor state of the given state on the given symbol. The transition function is deterministic, meaning that if a transition exists, it is unique. On the other hand there may not be a transition for a given state and symbol, in which case `succ` returns `None`.
-    fn succ(&self, from: &Self::Q, on: &SymbolFor<Self>) -> Option<OutputOf<Self>>;
+    fn succ(&self, from: &Self::Q, on: &SymbolOf<Self>) -> Option<StateOf<Self>>;
 
     /// Returns the successor state for the given trigger through calling [`succ`].
-    fn apply_trigger(&self, trigger: &Self::Trigger) -> Option<OutputOf<Self>> {
+    fn apply_trigger(&self, trigger: &Self::Trigger) -> Option<StateOf<Self>> {
         self.succ(trigger.source(), trigger.sym())
     }
 
     /// Creates a new trigger from the given state and symbol.
-    fn make_trigger(from: &Self::Q, on: &SymbolFor<Self>) -> Self::Trigger {
+    fn make_trigger(from: &Self::Q, on: &SymbolOf<Self>) -> Self::Trigger {
         Self::Trigger::from((from.clone(), on.clone()))
     }
 
@@ -55,14 +55,6 @@ pub trait TransitionSystem {
         Self: Sized,
     {
         WithInitial(self, from)
-    }
-
-    /// Constructs an instance of [`WithAcceptance`] from the current transition system, which is a wrapper around the transition system that stores the given acceptance condition `acc`.
-    fn with_acceptance<Acc: AcceptanceCondition>(&self, acc: Acc) -> WithAcceptance<Acc, Self>
-    where
-        Self: Sized,
-    {
-        WithAcceptance::new(acc, self)
     }
 }
 
@@ -89,12 +81,8 @@ pub trait Growable: TransitionSystem {
     fn add_state(&mut self) -> Self::Q;
 
     /// Add a new transition to the transition system. If the transition did not exist before, `None` is returned. Otherwise, the old target state is returned.
-    fn add_transition(
-        &mut self,
-        from: Self::Q,
-        on: SymbolFor<Self>,
-        to: Self::Q,
-    ) -> Option<Self::Q>;
+    fn add_transition(&mut self, from: Self::Q, on: SymbolOf<Self>, to: Self::Q)
+        -> Option<Self::Q>;
 }
 
 /// Implmenetors of this trait can be shrunk, i.e. states and transitions can be removed from the transition system.
@@ -104,10 +92,10 @@ pub trait Shrinkable: TransitionSystem {
     fn remove_state(&mut self, state: Self::Q) -> Option<Self::Q>;
 
     /// Deletes the given transition from the transition system. If the transition did not exist before, `None` is returned. Otherwise, the old target state is returned.
-    fn remove_transition<X: AsRef<SymbolFor<Self>>>(
+    fn remove_transition<X: AsRef<SymbolOf<Self>>>(
         &mut self,
         from: Self::Q,
-        on: SymbolFor<Self>,
+        on: SymbolOf<Self>,
     ) -> Option<Self::Q>;
 }
 
@@ -128,11 +116,11 @@ pub trait HasTransitionSystem {
 impl<T: HasTransitionSystem> TransitionSystem for T {
     type Q = <T::TransitionSystem as TransitionSystem>::Q;
 
-    type S = SymbolFor<T::TransitionSystem>;
+    type S = SymbolOf<T::TransitionSystem>;
 
     type Trigger = <T::TransitionSystem as TransitionSystem>::Trigger;
 
-    fn succ(&self, from: &Self::Q, on: &SymbolFor<Self>) -> Option<OutputOf<Self>> {
+    fn succ(&self, from: &Self::Q, on: &SymbolOf<Self>) -> Option<StateOf<Self>> {
         self.transition_system().succ(from, on)
     }
 }

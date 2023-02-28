@@ -43,10 +43,9 @@ mod automaton;
 /// A run of a transition system on a given word is a sequence of states, where each state is the successor of the previous state, and the transition between the states is triggered by a symbol as given in the input word.
 pub mod run;
 
-mod with_acceptance;
+// mod with_acceptance;
 /// Allows us to add an acceptance condition to an existing transition system, is used in [`TransitionSystem::with_acceptance`].
-pub use with_acceptance::WithAcceptance;
-
+// pub use with_acceptance::WithAcceptance;
 mod boundedness;
 /// Trait for disabmiguating between finite and infinite objects, currently used for [`Word`]s and runs.
 pub use boundedness::{Boundedness, FiniteKind, InfiniteKind};
@@ -55,6 +54,16 @@ pub use boundedness::{Boundedness, FiniteKind, InfiniteKind};
 pub trait Alphabet: Clone + Eq + std::fmt::Debug + PartialEq + Hash {}
 
 impl<C: Clone + Eq + std::fmt::Debug + Hash> Alphabet for C {}
+
+#[cfg(feature = "ahash")]
+pub type Mapping<X, Y> = ahash::AHashMap<X, Y>;
+#[cfg(not(feature = "ahash"))]
+pub type Mapping<X, Y> = std::collections::HashMap<X, Y>;
+
+#[cfg(feature = "ahash")]
+pub type Set<X> = ahash::AHashSet<X>;
+#[cfg(not(feature = "ahash"))]
+pub type Set<X> = std::collections::AHashSet<X>;
 
 #[cfg(test)]
 mod tests {}

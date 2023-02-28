@@ -2,7 +2,7 @@ use std::hash::Hash;
 
 use ahash::AHashSet;
 
-use crate::{coloring::Coloring, FiniteKind};
+use crate::FiniteKind;
 
 use super::AcceptanceCondition;
 
@@ -29,12 +29,10 @@ impl<Col: Eq + Hash> FromIterator<Col> for ReachabilityAcceptance<Col> {
 
 impl<Id: Hash + Eq> AcceptanceCondition for ReachabilityAcceptance<Id> {
     fn is_accepting(&self, induced: &Self::Induced) -> bool {
-        self.accepting.color(induced).0
+        self.accepting.contains(induced)
     }
 
     type Induced = Id;
-
-    type Kind = FiniteKind;
 }
 
 /// Abstracts safety conditions, the contained coloring is used to determine whether a state is rejecting.
@@ -48,19 +46,6 @@ impl<Col: Default> Default for SafetyAcceptance<Col> {
             rejecting: Default::default(),
         }
     }
-}
-
-impl<Id, Col> AcceptanceCondition for SafetyAcceptance<Col>
-where
-    Col: Coloring<Input = Id, Output = bool>,
-{
-    fn is_accepting(&self, induced: &Self::Induced) -> bool {
-        !self.rejecting.color(induced)
-    }
-
-    type Induced = Id;
-
-    type Kind = FiniteKind;
 }
 
 impl<C> std::ops::Not for SafetyAcceptance<C> {
@@ -107,10 +92,6 @@ mod tests {
 
         let acc = ReachabilityAcceptance::from_iter(vec![q2]);
         let initialized = ts.with_initial(q0);
-        let aut = initialized.with_acceptance(acc);
-
-        assert!(!aut.accepts(&FiniteWord::from("ab")));
-        assert!(aut.accepts(&FiniteWord::from("aa")));
-        assert!(!aut.accepts(&"abbb"))
+        // TODO contiue
     }
 }

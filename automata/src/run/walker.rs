@@ -1,12 +1,12 @@
 use crate::{
-    ts::{SymbolFor, TransitionSystem, TransitionTrigger},
+    ts::{SymbolOf, TransitionSystem, TransitionTrigger},
     words::Word,
 };
 
 use super::RunOutput;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct EscapePrefix<TS: TransitionSystem>(pub Vec<TS::Trigger>, pub TS::Q, pub SymbolFor<TS>);
+pub struct EscapePrefix<TS: TransitionSystem>(pub Vec<TS::Trigger>, pub TS::Q, pub SymbolOf<TS>);
 
 impl<TS: TransitionSystem> EscapePrefix<TS> {
     pub fn new(prefix: Vec<TS::Trigger>, state: TS::Q, symbol: TS::S) -> Self {

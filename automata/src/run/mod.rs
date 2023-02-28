@@ -8,7 +8,7 @@ pub use result::Run;
 pub use walker::Walker;
 
 use crate::{
-    ts::{SymbolFor, TransitionSystem},
+    ts::{SymbolOf, TransitionSystem},
     words::Word,
 };
 
@@ -20,7 +20,7 @@ pub enum RunOutput<TS: TransitionSystem> {
     /// The word has ended, returns the reached state.
     WordEnd(TS::Q),
     /// No transition for the given symbol is found, returns the state we are in as well as the missing symbol.
-    Missing(TS::Q, SymbolFor<TS>),
+    Missing(TS::Q, SymbolOf<TS>),
     /// The run has failed previously and thus cannot be continued.
     FailedBefore,
 }
@@ -42,7 +42,7 @@ impl<TS: TransitionSystem> RunOutput<TS> {
     }
 
     /// Creates a new `RunOutput::Missing` with the given state and missing symbol.
-    pub fn missing(state: TS::Q, missing: SymbolFor<TS>) -> Self {
+    pub fn missing(state: TS::Q, missing: SymbolOf<TS>) -> Self {
         Self::Missing(state, missing)
     }
 
