@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 itertools = "0.10.5"
 derive_more = {version = "0.99.17", default-features = false, features = ["deref", "deref_mut"]}
+ahash = "0.8.3"
 
 [features]
 default = ["det"]

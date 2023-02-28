@@ -1,4 +1,6 @@
-use std::{collections::HashSet, hash::Hash};
+use std::hash::Hash;
+
+use ahash::AHashSet;
 
 /// Abstracts the finiteness of the type `X`.
 pub trait Finite<X> {
@@ -19,7 +21,7 @@ impl Finite<u32> for u32 {
 /// Holds the color (i.e. label) of either a transition or of a state.
 /// The type C is the label, which by default is a u32.
 #[derive(Debug, Clone)]
-pub struct Color<C = u32>(C);
+pub struct Color<C = u32>(pub C);
 
 /// Encodes a total coloring of `X`. Panics if no color is present.
 pub trait Coloring {
@@ -31,12 +33,12 @@ pub trait Coloring {
     fn color(&self, of: &Self::Input) -> Self::Output;
 }
 
-impl<Id: Eq + Hash> Coloring for HashSet<Id> {
+impl<Id: Eq + Hash> Coloring for AHashSet<Id> {
     type Input = Id;
 
-    type Output = bool;
+    type Output = Color<bool>;
 
     fn color(&self, of: &Self::Input) -> Self::Output {
-        self.contains(of)
+        Color(self.contains(of))
     }
 }

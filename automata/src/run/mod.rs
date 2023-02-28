@@ -95,7 +95,7 @@ mod tests {
         ts.add_transition(q2, 'b', q0);
 
         let w = FiniteWord::from("abba");
-        assert_eq!(ts.run(q0, &w), Ok(q1));
+        assert_eq!(w.run(&ts, q0), Ok(q1));
     }
 
     #[test]
@@ -121,7 +121,7 @@ mod tests {
         }
 
         ts.add_transition(q2, 'a', q0);
-        assert_eq!(ts.run(q0, &w), Ok(q0));
+        assert_eq!(w.run(&ts, q0), Ok(q0));
     }
 
     #[test]
@@ -136,7 +136,7 @@ mod tests {
         ts.add_transition(q1, 'b', q0);
         ts.add_transition(q2, 'b', q0);
 
-        assert_eq!(ts.run(q0, &"abba"), Ok(q1));
-        assert_eq!(ts.run(q0, &"abb".to_string()), Ok(q0));
+        assert_eq!("abba".run(&ts, q0), Ok(q1));
+        assert_eq!("abb".run(&ts, q0), Ok(q0));
     }
 }

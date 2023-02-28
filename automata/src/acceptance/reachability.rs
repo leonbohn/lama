@@ -1,15 +1,25 @@
-use std::{collections::HashSet, hash::Hash};
+use std::hash::Hash;
+
+use ahash::AHashSet;
 
 use crate::{coloring::Coloring, FiniteKind};
 
 use super::AcceptanceCondition;
 
 /// Abstracts reachability conditions, the contained coloring is used to determine whether a state is accepting.
-pub struct ReachabilityAcceptance<Col> {
-    pub(crate) accepting: Col,
+pub struct ReachabilityAcceptance<Id> {
+    pub(crate) accepting: AHashSet<Id>,
 }
 
-impl<Col: Eq + Hash> FromIterator<Col> for ReachabilityAcceptance<HashSet<Col>> {
+impl<C: Default> Default for ReachabilityAcceptance<C> {
+    fn default() -> Self {
+        Self {
+            accepting: Default::default(),
+        }
+    }
+}
+
+impl<Col: Eq + Hash> FromIterator<Col> for ReachabilityAcceptance<Col> {
     fn from_iter<I: IntoIterator<Item = Col>>(iter: I) -> Self {
         Self {
             accepting: iter.into_iter().collect(),
@@ -17,12 +27,9 @@ impl<Col: Eq + Hash> FromIterator<Col> for ReachabilityAcceptance<HashSet<Col>> 
     }
 }
 
-impl<Id, Col> AcceptanceCondition for ReachabilityAcceptance<Col>
-where
-    Col: Coloring<Input = Id, Output = bool>,
-{
+impl<Id: Hash + Eq> AcceptanceCondition for ReachabilityAcceptance<Id> {
     fn is_accepting(&self, induced: &Self::Induced) -> bool {
-        self.accepting.color(induced)
+        self.accepting.color(induced).0
     }
 
     type Induced = Id;
@@ -33,6 +40,14 @@ where
 /// Abstracts safety conditions, the contained coloring is used to determine whether a state is rejecting.
 pub struct SafetyAcceptance<Col> {
     pub(crate) rejecting: Col,
+}
+
+impl<Col: Default> Default for SafetyAcceptance<Col> {
+    fn default() -> Self {
+        Self {
+            rejecting: Default::default(),
+        }
+    }
 }
 
 impl<Id, Col> AcceptanceCondition for SafetyAcceptance<Col>
