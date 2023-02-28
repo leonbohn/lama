@@ -16,19 +16,24 @@ pub trait TransitionTrigger: Clone {
     type Q;
 
     /// The source state of the transition.
-    fn from(&self) -> &Self::Q;
+    fn source(&self) -> &Self::Q;
     /// The symbol on which the transition is triggered.
-    fn on(&self) -> &Self::S;
+    fn sym(&self) -> &Self::S;
+
+    /// Decomposes the trigger into its parts
+    fn decompose(&self) -> (&Self::Q, &Self::S) {
+        (self.source(), self.sym())
+    }
 }
 
 impl<T: TransitionTrigger> TransitionTrigger for &T {
     type S = T::S;
     type Q = T::Q;
-    fn from(&self) -> &Self::Q {
-        (*self).from()
+    fn source(&self) -> &Self::Q {
+        (*self).source()
     }
-    fn on(&self) -> &Self::S {
-        (*self).on()
+    fn sym(&self) -> &Self::S {
+        (*self).sym()
     }
 }
 
@@ -39,10 +44,10 @@ pub struct Trigger<S, Q>(pub Q, pub S);
 impl<Q: Clone, S: Clone> TransitionTrigger for Trigger<S, Q> {
     type S = S;
     type Q = Q;
-    fn from(&self) -> &Self::Q {
+    fn source(&self) -> &Self::Q {
         &self.0
     }
-    fn on(&self) -> &Self::S {
+    fn sym(&self) -> &Self::S {
         &self.1
     }
 }
@@ -56,10 +61,10 @@ impl<Q, S> From<(Q, S)> for Trigger<S, Q> {
 impl<Q: Clone, S: Clone> TransitionTrigger for (Q, S) {
     type S = S;
     type Q = Q;
-    fn from(&self) -> &Self::Q {
+    fn source(&self) -> &Self::Q {
         &self.0
     }
-    fn on(&self) -> &Self::S {
+    fn sym(&self) -> &Self::S {
         &self.1
     }
 }

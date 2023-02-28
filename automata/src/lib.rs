@@ -29,6 +29,8 @@ pub mod words;
 pub mod acceptance;
 
 mod acceptor;
+use std::hash::Hash;
+
 /// Trait that encapsulates the ability to determine whether a given word is accepted or not.
 pub use acceptor::Acceptor;
 
@@ -50,9 +52,9 @@ mod boundedness;
 pub use boundedness::{Boundedness, FiniteKind, InfiniteKind};
 
 /// A trait for the symbols of a [`Word`] and the trigger of a transition in a [`TransitionSystem`].
-pub trait Alphabet: Clone + Eq + std::fmt::Debug + PartialEq {}
+pub trait Alphabet: Clone + Eq + std::fmt::Debug + PartialEq + Hash {}
 
-impl<C: Clone + Eq + std::fmt::Debug> Alphabet for C {}
+impl<C: Clone + Eq + std::fmt::Debug + Hash> Alphabet for C {}
 
 #[cfg(test)]
 mod tests {}

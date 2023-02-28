@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::{
     ts::TransitionSystem,
-    words::{IsFinite, IsInfinite, Word},
+    words::{IsFinite, IsInfinite, Subword, Word},
     FiniteKind, InfiniteKind,
 };
 
@@ -39,12 +39,85 @@ impl<W: Word + IsFinite, TS: TransitionSystem<S = W::S>> Run<W, FiniteKind> for 
     }
 }
 
-impl<W: Word + IsInfinite, TS: TransitionSystem<S = W::S>> Run<W, InfiniteKind> for TS {
-    type Induces = HashSet<TS::Q>;
+impl<W: Word + IsInfinite + Subword, TS: TransitionSystem<S = W::S>> Run<W, InfiniteKind> for TS {
+    type Induces = HashSet<TS::Trigger>;
 
     type Failure = EscapePrefix<TS>;
 
-    fn run(&self, _from: Self::Q, _on: &W) -> Result<Self::Induces, Self::Failure> {
-        todo!()
+    fn run(&self, from: Self::Q, on: &W) -> Result<Self::Induces, Self::Failure> {
+        let prefix_length = on.base_length();
+        let recur_length = on.recur_length();
+        match self.run(from, &on.prefix(prefix_length)) {
+            Err(e) => Err(e),
+            Ok(reached) => {
+                let recur = on.skip(prefix_length);
+                let mut seen = HashSet::new();
+                let mut walker = self.walk(reached, &recur);
+                loop {
+                    // We now collect the individual run pieces and check if we have seen them before.
+                    match walker.try_take_n(recur_length) {
+                        Ok(recur_reached) => {
+                            if !seen.insert(recur_reached) {
+                                // We have seen this piece before, so we can stop here.
+                                return Ok(walker.seq.into_iter().collect());
+                            }
+                        }
+                        Err(RunOutput::WordEnd(_)) => unreachable!("We are in an infinite run!"),
+                        Err(RunOutput::Trigger(_)) => {
+                            unreachable!("We failed to take a full piece!")
+                        }
+                        Err(RunOutput::Missing(q, a)) => {
+                            return Err(EscapePrefix::new(walker.seq, q, a))
+                        }
+                        Err(RunOutput::FailedBefore) => unreachable!("We would have noticed!"),
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        ts::{deterministic::Deterministic, Growable},
+        words::{FiniteWord, PeriodicWord},
+    };
+
+    use super::*;
+
+    #[test]
+    fn reachability_acceptance() {
+        let mut ts = Deterministic::new();
+        let q0 = ts.add_state();
+        let q1 = ts.add_state();
+        let q2 = ts.add_state();
+        ts.add_transition(q0, 'a', q1);
+        ts.add_transition(q0, 'b', q0);
+        ts.add_transition(q1, 'a', q2);
+        ts.add_transition(q1, 'b', q0);
+        ts.add_transition(q2, 'b', q0);
+
+        let word = PeriodicWord::from(FiniteWord::from("b"));
+        let run = ts.run(q0, &word);
+        assert!(run.is_ok());
+        assert_eq!(
+            run.unwrap(),
+            vec![Deterministic::make_trigger(&q0, &'b')]
+                .into_iter()
+                .collect()
+        );
+
+        let ab_run = ts.run(q0, &PeriodicWord::from(FiniteWord::from("ab")));
+        assert!(ab_run.is_ok());
+        assert_eq!(
+            ab_run.unwrap(),
+            vec![
+                Deterministic::make_trigger(&q0, &'a'),
+                Deterministic::make_trigger(&q1, &'b')
+            ]
+            .into_iter()
+            .collect()
+        )
     }
 }

@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use crate::{acceptance::AcceptanceCondition, Alphabet, WithAcceptance};
 
 mod initial;
@@ -30,10 +32,22 @@ pub trait TransitionSystem {
     type S: Alphabet;
     /// The type of the triggers (i.e. outgoing edges without target) of the transition system.
     type Trigger: TransitionTrigger<S = SymbolFor<Self>, Q = Self::Q>
-        + From<(Self::Q, SymbolFor<Self>)>;
+        + From<(Self::Q, SymbolFor<Self>)>
+        + Eq
+        + Hash;
 
     /// Returns the successor state of the given state on the given symbol. The transition function is deterministic, meaning that if a transition exists, it is unique. On the other hand there may not be a transition for a given state and symbol, in which case `succ` returns `None`.
     fn succ(&self, from: &Self::Q, on: &SymbolFor<Self>) -> Option<OutputOf<Self>>;
+
+    /// Returns the successor state for the given trigger through calling [`succ`].
+    fn apply_trigger(&self, trigger: &Self::Trigger) -> Option<OutputOf<Self>> {
+        self.succ(trigger.source(), trigger.sym())
+    }
+
+    /// Creates a new trigger from the given state and symbol.
+    fn make_trigger(from: &Self::Q, on: &SymbolFor<Self>) -> Self::Trigger {
+        Self::Trigger::from((from.clone(), on.clone()))
+    }
 
     /// Constructs an instance of [`WithInitial`] from the current transition system, which is a wrapper around the transition system that stores the given initial state `from`.
     fn with_initial(&self, from: Self::Q) -> WithInitial<Self>

@@ -79,6 +79,12 @@ impl IsFinite for &str {
     }
 }
 
+impl<S: Clone> IsFinite for Vec<S> {
+    fn length(&self) -> usize {
+        self.len()
+    }
+}
+
 impl<S: Clone> Word for Vec<S> {
     type S = S;
 

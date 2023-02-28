@@ -1,5 +1,5 @@
 use crate::{
-    ts::{SymbolFor, TransitionSystem},
+    ts::{SymbolFor, TransitionSystem, TransitionTrigger},
     words::Word,
 };
 
@@ -22,7 +22,7 @@ pub struct Walker<'ts, 'w, W: Word, TS: TransitionSystem<S = W::S>> {
     pub(crate) ts: &'ts TS,
     pub(crate) state: Option<TS::Q>,
     pub(crate) position: usize,
-    pub(crate) seq: Vec<TS::Q>,
+    pub(crate) seq: Vec<TS::Trigger>,
 }
 
 impl<'t, 'w, W: Word, TS: TransitionSystem<S = W::S>> Iterator for Walker<'t, 'w, W, TS> {
@@ -42,9 +42,9 @@ impl<'t, 'w, W: Word, TS: TransitionSystem<S = W::S>> Walker<'t, 'w, W, TS> {
         Self {
             word: word.into(),
             ts,
-            state: Some(from.clone()),
+            state: Some(from),
             position: 0,
-            seq: vec![from],
+            seq: vec![],
         }
     }
 
@@ -54,8 +54,8 @@ impl<'t, 'w, W: Word, TS: TransitionSystem<S = W::S>> Walker<'t, 'w, W, TS> {
             if let Some(symbol) = self.word.nth(self.position) {
                 if let Some(successor) = self.ts.succ(&state, &symbol) {
                     self.position += 1;
-                    self.state = Some(successor.clone());
-                    self.seq.push(successor);
+                    self.state = Some(successor);
+                    self.seq.push((state.clone(), symbol.clone()).into());
                     RunOutput::Trigger((state, symbol).into())
                 } else {
                     RunOutput::Missing(state, symbol)
@@ -65,6 +65,17 @@ impl<'t, 'w, W: Word, TS: TransitionSystem<S = W::S>> Walker<'t, 'w, W, TS> {
             }
         } else {
             RunOutput::FailedBefore
+        }
+    }
+
+    /// Try to take `n` transitions. If successful, returns the state reached after the `n` transitions. Otherwise, returns the [`RunOutput`] that caused the failure.
+    pub fn try_take_n(&mut self, n: usize) -> Result<TS::Q, RunOutput<TS>> {
+        for _ in 1..n {
+            self.take_transition();
+        }
+        match self.take_transition() {
+            RunOutput::Trigger(t) => Ok(t.source().clone()),
+            otherwise => Err(otherwise),
         }
     }
 }
