@@ -1,4 +1,7 @@
-use std::hash::Hash;
+use std::{
+    hash::Hash,
+    ops::{AddAssign, SubAssign},
+};
 
 use crate::Set;
 
@@ -62,9 +65,38 @@ where
 /// Represents a Buchi condition which marks a set of transitions as accepting.
 pub struct BuchiCondition<X>(pub Set<X>);
 
+impl<X: Eq + Hash> BuchiCondition<X> {
+    /// Creates a new `BuchiCondition` from the given set.
+    pub fn new(buchi: Set<X>) -> Self {
+        Self(buchi)
+    }
+
+    /// Marks the given transition as accepting.
+    pub fn set_accepting(&mut self, x: X) {
+        self.0.insert(x);
+    }
+
+    /// Marks the given transition as non-accepting.
+    pub fn unset_accepting(&mut self, x: &X) {
+        self.0.remove(x);
+    }
+}
+
+impl<X: Eq + Hash, I: Into<X>> AddAssign<I> for BuchiCondition<X> {
+    fn add_assign(&mut self, rhs: I) {
+        self.set_accepting(rhs.into())
+    }
+}
+
+impl<X: Eq + Hash> SubAssign<X> for BuchiCondition<X> {
+    fn sub_assign(&mut self, rhs: X) {
+        self.unset_accepting(&rhs)
+    }
+}
+
 impl<X> PriorityMapping for BuchiCondition<X>
 where
-    X: Eq + std::hash::Hash,
+    X: Eq + Hash,
 {
     type X = X;
 

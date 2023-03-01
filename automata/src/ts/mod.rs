@@ -6,7 +6,7 @@ mod initial;
 pub use initial::{Pointed, WithInitial};
 
 mod transition;
-pub use transition::{DeterministicTransition, Transition, TransitionTrigger};
+pub use transition::{DeterministicTransition, Transition, TransitionTrigger, Trigger};
 
 mod state_index;
 pub use state_index::StateIndex;

@@ -34,10 +34,10 @@ use std::hash::Hash;
 /// Trait that encapsulates the ability to determine whether a given word is accepted or not.
 pub use acceptor::Acceptor;
 
-mod automaton;
-pub use automaton::Combined;
+mod combined;
+pub use combined::Combined;
 #[cfg(feature = "det")]
-pub use automaton::{Dba, Dfa, Dpa};
+pub use combined::{Dba, Dfa, Dpa};
 
 /// Module in which traits for working with runs of transition systems are defined.
 /// A run of a transition system on a given word is a sequence of states, where each state is the successor of the previous state, and the transition between the states is triggered by a symbol as given in the input word.
