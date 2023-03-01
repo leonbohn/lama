@@ -1,10 +1,10 @@
-use crate::Set;
+use crate::{Boundedness, Set};
 
 mod omega;
 pub use omega::{BuchiCondition, ParityCondition};
 mod reachability;
 
-pub use reachability::{ReachabilityAcceptance, SafetyAcceptance};
+pub use reachability::{ReachabilityCondition, SafetyAcceptance};
 
 /// Abstracts the finiteness of the type `X`.
 pub trait Finite {
@@ -29,7 +29,7 @@ impl Finite for u32 {
 
 /// Holds the priority (i.e. label) of either a transition or of a state.
 /// The type C is the label, which by default is a u32.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, Ord, PartialOrd, PartialEq, Hash)]
 pub struct Priority(pub u32);
 
 /// A trait for types that induce a parity, which is either true or false.
@@ -64,14 +64,9 @@ pub trait AcceptanceCondition {
     /// The type of the induced object, depends on [`Self::Kind`].
     type Induced;
 
+    /// The kind of the acceptance condition, either [`crate::FiniteKind`] or [`crate::InfiniteKind`].
+    type Kind: Boundedness;
+
     /// Returns whether the given induced object satisfies the acceptance condition.
     fn is_accepting(&self, induced: &Self::Induced) -> bool;
-}
-
-impl<PM: PriorityMapping> AcceptanceCondition for PM {
-    type Induced = PM::X;
-
-    fn is_accepting(&self, induced: &Self::Induced) -> bool {
-        self.priority(induced).parity()
-    }
 }

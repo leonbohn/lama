@@ -14,25 +14,31 @@
 //! - [`Shrinkable`]: for shrinking a transition system. This includes removing states and transitions from the transition system.
 //! - [`FiniteState`]: for querying the size of a transition system, and enumerating all states in the transition system. This trait should be implemented for all transition systems that are finite.
 //! - [`IntoStateReferences`]: for converting a transition system into an iterator over references to the states in the transition system.
-//! - [`Trim`]: for trimming a transition system. This corresponds to removing all states which cannot be reached from the initial state. Additionally, every transition that does not have a source or target state in the transition system is removed.
+// - [`Trimable`]: for trimming a transition system. This corresponds to removing all states which cannot be reached from the initial state. Additionally, every transition that does not have a source or target state in the transition system is removed.
 
 #![warn(missing_docs)]
 
-/// Module in which traits for working with transition systems are defined. See [`TransitionSystem`] and the crate level documentation for an overview of the trait hierarchy.
-/// This module also contains a concrete implementation of a transition system, [`Deterministic`], which stores the transition system as a vector of states, and a vector of transitions. Is only available when the `det` feature is enabled.
+/// Module in which traits for working with transition systems are defined. See [`ts::TransitionSystem`] and the crate level documentation for an overview of the trait hierarchy.
+/// This module also contains a concrete implementation of a transition system, [`ts::Deterministic`], which stores the transition system as a vector of states, and a vector of transitions. Is only available when the `det` feature is enabled.
 pub mod ts;
+pub use ts::{
+    Growable, IntoStateReferences, Pointed, Shrinkable, StateIndex, StateIterable,
+    TransitionSystem, Trigger,
+};
 
-/// Module in which traits for working with words are defined, see [`Word`] for more details.
+/// Module in which traits for working with words are defined, see [`crate::Word`] for more details.
 pub mod words;
+pub use words::{Append, FiniteWord, PeriodicWord, Prepend, Subword, UltimatelyPeriodicWord, Word};
 
 /// Module in which acceptance conditions of automata are defined. This includes the [`AcceptanceCondition`] trait, which is implemented by all acceptance conditions, and provides a common interface for working with acceptance conditions.
 pub mod acceptance;
+pub use acceptance::{
+    AcceptanceCondition, BuchiCondition, Parity, ParityCondition, ReachabilityCondition,
+};
 
 mod acceptor;
-use std::hash::Hash;
-
-/// Trait that encapsulates the ability to determine whether a given word is accepted or not.
 pub use acceptor::Acceptor;
+use std::hash::Hash;
 
 mod combined;
 pub use combined::Combined;
@@ -43,12 +49,17 @@ pub use combined::{Dba, Dfa, Dpa};
 /// A run of a transition system on a given word is a sequence of states, where each state is the successor of the previous state, and the transition between the states is triggered by a symbol as given in the input word.
 pub mod run;
 
-// mod with_acceptance;
-/// Allows us to add an acceptance condition to an existing transition system, is used in [`TransitionSystem::with_acceptance`].
-// pub use with_acceptance::WithAcceptance;
+/// Module in which traits for working with boundedness of inputs for transition systems are defined.
 mod boundedness;
-/// Trait for disabmiguating between finite and infinite objects, currently used for [`Word`]s and runs.
 pub use boundedness::{Boundedness, FiniteKind, InfiniteKind};
+
+/// A concrete implementation of [`TransitionTrigger`], simply stores the source state and symbol in a tuple.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Pair<S, Q>(pub Q, pub S);
+
+/// A concrete implementation of [`Transition`], simply stores the source state, symbol and target state in a tuple.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Triple<S, Q>(pub Q, pub S, pub Q);
 
 /// A trait for the symbols of a [`Word`] and the trigger of a transition in a [`TransitionSystem`].
 pub trait Alphabet: Clone + Eq + std::fmt::Debug + PartialEq + Hash {}

@@ -31,7 +31,7 @@ pub trait IsInfinite: Word {
 pub trait Word {
     /// The type of the symbols making up the word.
     type S: Clone;
-    /// The kind of the word, either [`FiniteKind`] or [`InfiniteKind`].
+    /// The kind of the word, either [`crate::FiniteKind`] or [`crate::InfiniteKind`].
     type Kind: Boundedness;
 
     /// Returns the symbol at the given index, or `None` if the index is out of bounds.

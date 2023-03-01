@@ -2,7 +2,7 @@ use crate::Alphabet;
 
 use super::{FiniteWord, PeriodicWord, UltimatelyPeriodicWord, Word};
 
-/// Encapsulates the ability to append some [`Word`] to a `Word`.
+/// Encapsulates the ability to append some [`Word`] to another.
 pub trait Append<W: Word>: Word {
     /// The type of the resulting word.
     type Output: Word<S = Self::S>;

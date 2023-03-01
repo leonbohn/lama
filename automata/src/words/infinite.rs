@@ -2,7 +2,7 @@ use super::{FiniteWord, IsInfinite, SymbolIterable, Word};
 use crate::InfiniteKind;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-/// A `PeriodicWord` essentially just loops a `FiniteWord` over and over again.
+/// A `PeriodicWord` essentially just loops a [`FiniteWord`] over and over again.
 pub struct PeriodicWord<S>(pub(crate) FiniteWord<S>);
 
 impl<S: Clone> IsInfinite for PeriodicWord<S> {
@@ -25,15 +25,9 @@ impl<S: Clone> Word for PeriodicWord<S> {
     }
 }
 
-impl<S> From<FiniteWord<S>> for PeriodicWord<S> {
-    fn from(finite: FiniteWord<S>) -> Self {
-        Self(finite)
-    }
-}
-
-impl<S: Clone> From<Vec<S>> for PeriodicWord<S> {
-    fn from(symbols: Vec<S>) -> Self {
-        Self(FiniteWord::from(symbols))
+impl<S, I: Into<FiniteWord<S>>> From<I> for PeriodicWord<S> {
+    fn from(finite: I) -> Self {
+        Self(finite.into())
     }
 }
 

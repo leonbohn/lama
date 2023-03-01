@@ -3,13 +3,27 @@ use std::{
     ops::{AddAssign, SubAssign},
 };
 
-use crate::Set;
+use crate::{InfiniteKind, Set};
 
-use super::{Finite, Priority, PriorityMapping};
+use super::{AcceptanceCondition, Finite, Parity, Priority, PriorityMapping};
 
 /// Represents a parity condition as a vector of sets which encode a Zielonka path. The sets form an inclusion chain, where the first set contains the states with the lowest priority, the second set contains the states with the second lowest priority, and so on. The last set contains the states with the highest priority.
 /// Note that we are using min-even, meaning the first set contains the most significant even priority, the second set contains the second most significant even priority, and so on.
 pub struct ParityCondition<X>(pub Vec<Set<X>>);
+
+impl<X: Eq + Hash> AcceptanceCondition for ParityCondition<X> {
+    type Induced = Set<X>;
+
+    type Kind = InfiniteKind;
+
+    fn is_accepting(&self, induced: &Self::Induced) -> bool {
+        if let Some(minimum) = induced.iter().map(|x| self.priority(x)).min() {
+            minimum.parity()
+        } else {
+            false
+        }
+    }
+}
 
 impl<X: Eq + Hash> ParityCondition<X> {
     /// Creates a new `ParityCondition` from the given vector of sets.
@@ -40,7 +54,7 @@ impl<X: Eq + Hash> Default for ParityCondition<X> {
 
 impl<X> PriorityMapping for ParityCondition<X>
 where
-    X: Eq + std::hash::Hash + Finite,
+    X: Eq + std::hash::Hash,
 {
     type X = X;
 
@@ -64,6 +78,16 @@ where
 
 /// Represents a Buchi condition which marks a set of transitions as accepting.
 pub struct BuchiCondition<X>(pub Set<X>);
+
+impl<X: Eq + Hash> AcceptanceCondition for BuchiCondition<X> {
+    type Induced = Set<X>;
+
+    type Kind = InfiniteKind;
+
+    fn is_accepting(&self, induced: &Self::Induced) -> bool {
+        induced.iter().any(|x| self.0.contains(x))
+    }
+}
 
 impl<X: Eq + Hash> BuchiCondition<X> {
     /// Creates a new `BuchiCondition` from the given set.

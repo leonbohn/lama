@@ -1,18 +1,9 @@
 use crate::{
-    ts::{SymbolOf, TransitionSystem, TransitionTrigger},
+    ts::{TransitionSystem, Trigger},
     words::Word,
 };
 
 use super::RunOutput;
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct EscapePrefix<TS: TransitionSystem>(pub Vec<TS::Trigger>, pub TS::Q, pub SymbolOf<TS>);
-
-impl<TS: TransitionSystem> EscapePrefix<TS> {
-    pub fn new(prefix: Vec<TS::Trigger>, state: TS::Q, symbol: TS::S) -> Self {
-        Self(prefix, state, symbol)
-    }
-}
 
 /// Allows to iterate over the individual events that occur along a run of a transition system on some input. Stores a reference to a transition system and a word which serves as input.
 /// A `Walker` keeps track of the current state and position in the word as well as the sequence of states produces so far.
@@ -55,8 +46,9 @@ impl<'t, 'w, W: Word, TS: TransitionSystem<S = W::S>> Walker<'t, 'w, W, TS> {
                 if let Some(successor) = self.ts.succ(&state, &symbol) {
                     self.position += 1;
                     self.state = Some(successor);
-                    self.seq.push((state.clone(), symbol.clone()).into());
-                    RunOutput::Trigger((state, symbol).into())
+                    self.seq
+                        .push(<TS::Trigger>::create(state.clone(), symbol.clone()));
+                    RunOutput::trigger(state, symbol)
                 } else {
                     RunOutput::Missing(state, symbol)
                 }

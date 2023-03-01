@@ -1,21 +1,25 @@
-use std::hash::Hash;
-
 use crate::Alphabet;
 
-mod initial;
-pub use initial::{Pointed, WithInitial};
-
 mod transition;
-pub use transition::{DeterministicTransition, Transition, TransitionTrigger, Trigger};
-
-mod state_index;
-pub use state_index::StateIndex;
+pub use transition::{Transition, Trigger};
 
 /// An implementation of a deterministic `TransitionSystem` in form of an edge list. The edge list is represented by a vector of tuples `(from, to, symbol)`. Is only available if the `det` feature is enabled.
 #[cfg(feature = "det")]
 pub mod deterministic;
 #[cfg(feature = "det")]
 pub use deterministic::Deterministic;
+
+/// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`.
+pub trait StateIndex: Clone + Eq + std::hash::Hash + std::fmt::Debug {
+    /// Create a new state index from a `u32`.
+    fn create(from: u32) -> Self;
+}
+
+impl<X: Clone + Eq + std::hash::Hash + std::fmt::Debug + From<u32>> StateIndex for X {
+    fn create(from: u32) -> Self {
+        from.into()
+    }
+}
 
 // The following two type aliases might change in the future to allow for more flexibility, i.e. for example for implementing nondeterminism.
 /// Helper type for getting the symbol type of a transition system.
@@ -35,40 +39,75 @@ pub trait TransitionSystem {
     /// The type of the symbols of the transition system.
     type S: Alphabet;
     /// The type of the triggers (i.e. outgoing edges without target) of the transition system.
-    type Trigger: TransitionTrigger<S = SymbolOf<Self>, Q = Self::Q>
-        + From<(Self::Q, SymbolOf<Self>)>
-        + Eq
-        + Hash;
+    type Trigger: Trigger<S = SymbolOf<Self>, Q = Self::Q>;
+
+    /// The type of the outgoing edges of the transition system.
+    type Transition: Transition<S = Self::S, Q = Self::Q>;
 
     /// Returns the successor state of the given state on the given symbol. The transition function is deterministic, meaning that if a transition exists, it is unique. On the other hand there may not be a transition for a given state and symbol, in which case `succ` returns `None`.
     fn succ(&self, from: &Self::Q, on: &SymbolOf<Self>) -> Option<StateOf<Self>>;
 
-    /// Returns the successor state for the given trigger through calling [`succ`].
+    /// Returns the successor state for the given trigger through calling [`Self::succ`].
     fn apply_trigger(&self, trigger: &Self::Trigger) -> Option<StateOf<Self>> {
         self.succ(trigger.source(), trigger.sym())
     }
 
     /// Creates a new trigger from the given state and symbol.
     fn make_trigger(from: &Self::Q, on: &SymbolOf<Self>) -> Self::Trigger {
-        Self::Trigger::from((from.clone(), on.clone()))
-    }
-
-    /// Constructs an instance of [`WithInitial`] from the current transition system, which is a wrapper around the transition system that stores the given initial state `from`.
-    fn with_initial(&self, from: Self::Q) -> WithInitial<Self>
-    where
-        Self: Sized,
-    {
-        WithInitial(self, from)
+        Self::Trigger::create(from.clone(), on.clone())
     }
 }
 
-/// Implemented by objects which have a finite number of states.
-pub trait FiniteState: TransitionSystem {
-    /// Returns a `Vec` of all states in the transition system.
-    fn states(&self) -> Vec<Self::Q>;
+impl<TS: TransitionSystem> TransitionSystem for &TS {
+    type Q = TS::Q;
 
-    /// Gives the size of the transition system, i.e. the number of states.
-    fn size(&self) -> usize;
+    type S = TS::S;
+
+    type Trigger = TS::Trigger;
+
+    type Transition = TS::Transition;
+
+    fn succ(&self, from: &Self::Q, on: &SymbolOf<Self>) -> Option<StateOf<Self>> {
+        TransitionSystem::succ(*self, from, on)
+    }
+}
+
+/// Implemented by objects which have a designated initial state.
+pub trait Pointed: TransitionSystem {
+    /// Get the initial state of the automaton.
+    fn initial(&self) -> Self::Q;
+}
+
+/// Implemented by objects which have a finite number of states.
+pub trait StateIterable: TransitionSystem {
+    /// The state index type.
+    type StateRef: StateIndex;
+    /// Type of the iterator over all states.
+    type StateIter: Iterator<Item = Self::StateRef>;
+
+    /// Returns a `Vec` of all states in the transition system.
+    fn states(&self) -> Self::StateIter;
+}
+
+/// Trait that allows iterating over all edges in a [`TransitionSystem`].
+pub trait TransitionIterable: TransitionSystem {
+    /// The edge type.
+    type TransitionRef;
+    /// Type of the iterator over all edges.
+    type TransitionIter: Iterator<Item = Self::TransitionRef>;
+
+    /// Returns an iterator over all edges in the transition system.
+    fn edges(&self) -> Self::TransitionIter;
+}
+
+/// Trait that allows iterating over all triggers in a [`TransitionSystem`].
+pub trait TriggerIterable: TransitionSystem {
+    type TriggerRef;
+    /// Type of the iterator over all triggers.
+    type TriggerIter: Iterator<Item = Self::TriggerRef>;
+
+    /// Returns an iterator over all triggers in the transition system.
+    fn triggers(&self) -> Self::TriggerIter;
 }
 
 /// Converts the given transition system in to an Iterator over references to its states.
@@ -103,24 +142,4 @@ pub trait Shrinkable: TransitionSystem {
 pub trait Trimable: TransitionSystem + Pointed {
     /// Removes all unreachable states from the transition system. Additionally removes any transitions which point to or originate from unreachable states.
     fn trim(&mut self);
-}
-
-/// Helper trait for implementing [`TransitionSystem`] for a type which contains a reference to a [`TransitionSystem`]. This is useful for example when implementing a wrapper around a transition system.
-pub trait HasTransitionSystem {
-    /// The type of the transition system.
-    type TransitionSystem: TransitionSystem;
-    /// Returns a reference to the transition system.
-    fn transition_system(&self) -> &Self::TransitionSystem;
-}
-
-impl<T: HasTransitionSystem> TransitionSystem for T {
-    type Q = <T::TransitionSystem as TransitionSystem>::Q;
-
-    type S = SymbolOf<T::TransitionSystem>;
-
-    type Trigger = <T::TransitionSystem as TransitionSystem>::Trigger;
-
-    fn succ(&self, from: &Self::Q, on: &SymbolOf<Self>) -> Option<StateOf<Self>> {
-        self.transition_system().succ(from, on)
-    }
 }

@@ -1,29 +1,31 @@
-use crate::Alphabet;
+use crate::{Alphabet, Set};
 
-use super::transition::{DeterministicTransition, Trigger};
-use super::{FiniteState, Growable, Shrinkable, StateIndex, SymbolOf, TransitionSystem};
+use super::{
+    Growable, Shrinkable, StateIndex, StateIterable, SymbolOf, TransitionIterable,
+    TransitionSystem, TriggerIterable,
+};
+use crate::{Pair, Triple};
 
-use itertools::Itertools;
-use std::{fmt::Debug, hash::Hash};
+use std::fmt::Debug;
 
 /// An implementation of a deterministic transition system, stored as two `Vec`s containing the states and [`DeterministicTransition`]s.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Deterministic<S = char, Q = u32> {
-    states: Vec<Q>,
-    edges: Vec<DeterministicTransition<S, Q>>,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Deterministic<S: Alphabet = char, Q: StateIndex = u32> {
+    states: Set<Q>,
+    edges: Set<Triple<S, Q>>,
 }
 
 impl Deterministic {
     /// Create a new empty deterministic transition system.
     pub fn new() -> Self {
         Self {
-            edges: Vec::new(),
-            states: Vec::new(),
+            edges: Set::new(),
+            states: Set::new(),
         }
     }
 }
 
-impl<S: Clone + PartialEq, Q: Clone + PartialEq> Deterministic<S, Q> {
+impl<S: Alphabet, Q: StateIndex> Deterministic<S, Q> {
     fn clear_targets(&mut self, from: &Q, on: &S) {
         self.edges.retain(|t| t.0 != *from || t.1 != *on);
     }
@@ -37,16 +39,13 @@ impl Default for Deterministic {
 
 impl<I: IntoIterator<Item = (u32, char, u32)>> From<I> for Deterministic {
     fn from(iter: I) -> Self {
-        let edges: Vec<DeterministicTransition<char, u32>> = iter
-            .into_iter()
-            .map(|(p, a, q)| DeterministicTransition(p, a, q))
-            .collect();
+        let edges: Set<Triple<char, u32>> =
+            iter.into_iter().map(|(p, a, q)| Triple(p, a, q)).collect();
 
         Self {
             states: edges
                 .iter()
-                .flat_map(|DeterministicTransition(from, _, to)| vec![*from, *to])
-                .unique()
+                .flat_map(|Triple(from, _, to)| vec![*from, *to])
                 .collect(),
             edges,
         }
@@ -60,27 +59,65 @@ where
 {
     type Q = Q;
     type S = S;
-    type Trigger = Trigger<Self::S, Self::Q>;
+    type Trigger = Pair<Self::S, Self::Q>;
+    type Transition = Triple<Self::S, Self::Q>;
 
     fn succ(&self, from: &Self::Q, on: &Self::S) -> Option<Self::Q> {
         self.edges
             .iter()
-            .find(|DeterministicTransition(f, s, _)| f == from && s == on)
-            .map(|DeterministicTransition(_, _, t)| t.clone())
+            .find(|Triple(f, s, _)| f == from && s == on)
+            .map(|Triple(_, _, t)| t.clone())
     }
 }
 
-impl<Q, S> FiniteState for Deterministic<S, Q>
+#[derive(Clone, Debug)]
+/// An iterator over the states of a deterministic transition system.
+pub struct StateIter<'a, Q: StateIndex> {
+    iter: std::collections::hash_set::Iter<'a, Q>,
+}
+
+impl<'a, Q: StateIndex> Iterator for StateIter<'a, Q> {
+    type Item = Q;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().cloned()
+    }
+}
+
+impl<'a, Q, S> StateIterable for &'a Deterministic<S, Q>
 where
     Q: StateIndex,
     S: Alphabet,
 {
-    fn states(&self) -> Vec<Self::Q> {
-        self.states.clone()
-    }
+    type StateRef = Q;
 
-    fn size(&self) -> usize {
-        self.states().len()
+    type StateIter = StateIter<'a, Q>;
+
+    fn states(&self) -> Self::StateIter {
+        StateIter {
+            iter: self.states.iter(),
+        }
+    }
+}
+
+impl<'a, Q: StateIndex, S: Alphabet> TransitionIterable for &'a Deterministic<S, Q> {
+    type TransitionRef = &'a Triple<S, Q>;
+    type TransitionIter = std::collections::hash_set::Iter<'a, Triple<S, Q>>;
+
+    fn edges(&self) -> Self::TransitionIter {
+        self.edges.iter()
+    }
+}
+
+impl<'a, Q: StateIndex, S: Alphabet> TriggerIterable for &'a Deterministic<S, Q> {
+    type TriggerRef = Pair<S, Q>;
+    type TriggerIter = std::iter::Map<
+        std::collections::hash_set::Iter<'a, Triple<S, Q>>,
+        fn(&Triple<S, Q>) -> Pair<S, Q>,
+    >;
+
+    fn triggers(&self) -> Self::TriggerIter {
+        self.edges.iter().map(|t| t.into())
     }
 }
 
@@ -91,7 +128,7 @@ where
 {
     fn add_state(&mut self) -> Self::Q {
         let new_state: Q = StateIndex::create(self.states.len() as u32);
-        self.states.push(new_state.clone());
+        self.states.insert(new_state.clone());
         new_state
     }
 
@@ -101,18 +138,15 @@ where
         on: SymbolOf<Self>,
         to: Self::Q,
     ) -> std::option::Option<Q> {
-        let old_target = self
-            .edges
-            .iter()
-            .find_map(|DeterministicTransition(f, s, t)| {
-                if f == &from && s == &on {
-                    Some(t.clone())
-                } else {
-                    None
-                }
-            });
+        let old_target = self.edges.iter().find_map(|Triple(f, s, t)| {
+            if f == &from && s == &on {
+                Some(t.clone())
+            } else {
+                None
+            }
+        });
         self.clear_targets(&from, &on);
-        self.edges.push(DeterministicTransition(from, on, to));
+        self.edges.insert(Triple(from, on, to));
         old_target
     }
 }
@@ -129,16 +163,13 @@ where
     }
 
     fn remove_transition(&mut self, from: Self::Q, on: super::SymbolOf<Self>) -> Option<Self::Q> {
-        let output = self
-            .edges
-            .iter()
-            .find_map(|DeterministicTransition(f, s, t)| {
-                if f == &from && s == &on {
-                    Some(t.clone())
-                } else {
-                    None
-                }
-            });
+        let output = self.edges.iter().find_map(|Triple(f, s, t)| {
+            if f == &from && s == &on {
+                Some(t.clone())
+            } else {
+                None
+            }
+        });
         self.clear_targets(&from, &on);
         output
     }

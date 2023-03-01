@@ -5,14 +5,16 @@ use std::{
 
 use ahash::AHashSet;
 
+use crate::FiniteKind;
+
 use super::AcceptanceCondition;
 
 /// Abstracts reachability conditions, the contained coloring is used to determine whether a state is accepting.
-pub struct ReachabilityAcceptance<Id> {
+pub struct ReachabilityCondition<Id> {
     pub(crate) accepting: AHashSet<Id>,
 }
 
-impl<Id: Eq + Hash> ReachabilityAcceptance<Id> {
+impl<Id: Eq + Hash> ReachabilityCondition<Id> {
     /// Creates a new `ReachabilityAcceptance` object from the given set of accepting states.
     pub fn new(accepting: AHashSet<Id>) -> Self {
         Self { accepting }
@@ -24,7 +26,7 @@ impl<Id: Eq + Hash> ReachabilityAcceptance<Id> {
     }
 }
 
-impl<C> AddAssign<C> for ReachabilityAcceptance<C>
+impl<C> AddAssign<C> for ReachabilityCondition<C>
 where
     C: Eq + Hash,
 {
@@ -33,7 +35,7 @@ where
     }
 }
 
-impl<C> SubAssign<C> for ReachabilityAcceptance<C>
+impl<C> SubAssign<C> for ReachabilityCondition<C>
 where
     C: Eq + Hash,
 {
@@ -42,7 +44,7 @@ where
     }
 }
 
-impl<C: Default> Default for ReachabilityAcceptance<C> {
+impl<C: Default> Default for ReachabilityCondition<C> {
     fn default() -> Self {
         Self {
             accepting: Default::default(),
@@ -50,7 +52,7 @@ impl<C: Default> Default for ReachabilityAcceptance<C> {
     }
 }
 
-impl<Col: Eq + Hash> FromIterator<Col> for ReachabilityAcceptance<Col> {
+impl<Col: Eq + Hash> FromIterator<Col> for ReachabilityCondition<Col> {
     fn from_iter<I: IntoIterator<Item = Col>>(iter: I) -> Self {
         Self {
             accepting: iter.into_iter().collect(),
@@ -58,12 +60,14 @@ impl<Col: Eq + Hash> FromIterator<Col> for ReachabilityAcceptance<Col> {
     }
 }
 
-impl<Id: Hash + Eq> AcceptanceCondition for ReachabilityAcceptance<Id> {
+impl<Id: Hash + Eq> AcceptanceCondition for ReachabilityCondition<Id> {
     fn is_accepting(&self, induced: &Self::Induced) -> bool {
         self.accepting.contains(induced)
     }
 
     type Induced = Id;
+
+    type Kind = FiniteKind;
 }
 
 /// Abstracts safety conditions, the contained coloring is used to determine whether a state is rejecting.
@@ -89,11 +93,11 @@ impl<C> std::ops::Not for SafetyAcceptance<C> {
     }
 }
 
-impl<C> std::ops::Not for ReachabilityAcceptance<C> {
-    type Output = ReachabilityAcceptance<C>;
+impl<C> std::ops::Not for ReachabilityCondition<C> {
+    type Output = ReachabilityCondition<C>;
 
     fn not(self) -> Self::Output {
-        ReachabilityAcceptance {
+        ReachabilityCondition {
             accepting: self.accepting,
         }
     }

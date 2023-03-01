@@ -3,13 +3,13 @@ use std::collections::HashSet;
 use crate::{
     ts::{StateOf, TransitionSystem},
     words::{IsFinite, IsInfinite, Subword, Word},
-    FiniteKind, InfiniteKind,
+    FiniteKind, InfiniteKind, Set,
 };
 
-use super::{walker::EscapePrefix, RunOutput, Walk, Walker};
+use super::{EscapePrefix, RunOutput, Walk, Walker};
 
 /// Abstracts the evaluation of a run.
-pub trait Run<TS: TransitionSystem, K>: Word {
+pub trait Run<TS: TransitionSystem + ?Sized, K>: Word {
     /// Type that is returned for successful runs. This is usually a state in the case of a finite input and a set of states (usually a [`HashSet`]) in the case of an infinite input.
     type Induces;
     /// Type that is returned for failed runs. This is usually an [`EscapePrefix`] consisting of the successfully read prefix, and a the first state-symbol pair for which a missing transition was encountered.
@@ -43,7 +43,7 @@ impl<W: IsInfinite + Subword, TS: TransitionSystem<S = W::S>> Run<TS, InfiniteKi
 where
     <W as Subword>::PrefixType: IsFinite,
 {
-    type Induces = HashSet<TS::Trigger>;
+    type Induces = Set<TS::Trigger>;
 
     type Failure = EscapePrefix<TS>;
 

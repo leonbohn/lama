@@ -1,8 +1,7 @@
-mod escaping;
 mod walker;
 
 /// Allows the evaluation of a run.
-pub mod result;
+mod result;
 pub use result::Run;
 
 pub use walker::Walker;
@@ -10,7 +9,21 @@ pub use walker::Walker;
 use crate::{
     ts::{SymbolOf, TransitionSystem},
     words::Word,
+    Trigger,
 };
+
+/// An escape prefix for a transition system is a triple `(u, q, a)`, where `u` is a finite sequence of triggers for the transition system, `q` is a state of the transition system and `a` is a symbol such that:
+/// - the last trigger in `u` brings the transition system into the state `q`
+/// - no transition is defined for the symbol `a` in the state `q`.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EscapePrefix<TS: TransitionSystem>(pub Vec<TS::Trigger>, pub TS::Q, pub SymbolOf<TS>);
+
+impl<TS: TransitionSystem> EscapePrefix<TS> {
+    /// Creates a new escape prefix from the given prefix, state and symbol.
+    pub fn new(prefix: Vec<TS::Trigger>, state: TS::Q, symbol: TS::S) -> Self {
+        Self(prefix, state, symbol)
+    }
+}
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 /// Encapsulates the possible outputs of a run when a symbol is consumed.
@@ -33,7 +46,7 @@ impl<TS: TransitionSystem> RunOutput<TS> {
 
     /// Creates a new `RunOutput::Trigger` from the given state symbol pair.
     pub fn trigger(from: TS::Q, on: TS::S) -> Self {
-        Self::Trigger((from, on).into())
+        Self::Trigger(<TS::Trigger>::create(from, on))
     }
 
     /// Creates a new `RunOutput::WordEnd` with the given reached state.
@@ -55,7 +68,7 @@ impl<TS: TransitionSystem> RunOutput<TS> {
     }
 }
 
-/// Abstracts the ability to run a word on a transition system step by step, producing a [`RunOutput`] for each consumed symbol of the input word. See also [`WalkIn`].
+/// Abstracts the ability to run a word on a transition system step by step, producing a [`RunOutput`] for each consumed symbol of the input word.
 pub trait Walk<'ts, 'w, W: 'w>: TransitionSystem + Sized {
     /// The walker type, which is used to iterate over the run, usually a [`Walker`].
     type Walker;
