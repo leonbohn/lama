@@ -128,11 +128,7 @@ where
         output
     }
 
-    fn remove_transition<X: AsRef<super::SymbolOf<Self>>>(
-        &mut self,
-        from: Self::Q,
-        on: super::SymbolOf<Self>,
-    ) -> Option<Self::Q> {
+    fn remove_transition(&mut self, from: Self::Q, on: super::SymbolOf<Self>) -> Option<Self::Q> {
         let output = self
             .edges
             .iter()

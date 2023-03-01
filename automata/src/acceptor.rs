@@ -1,8 +1,7 @@
 use crate::{
     acceptance::AcceptanceCondition,
     run::Run,
-    ts::{Pointed, SymbolOf, TransitionSystem},
-    words::Word,
+    ts::{Pointed, TransitionSystem},
     Boundedness,
 };
 
@@ -16,6 +15,14 @@ pub trait Acceptor<K> {
         &self,
         word: &W,
     ) -> bool;
+
+    /// Returns the opposite of `accepts`.
+    fn rejects<W: Run<Self::TS, K, Induces = <Self::TS as AcceptanceCondition>::Induced>>(
+        &self,
+        word: &W,
+    ) -> bool {
+        !self.accepts(word)
+    }
 }
 
 impl<TS, K> Acceptor<K> for TS

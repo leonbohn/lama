@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 
 use crate::{
-    ts::{StateOf, SymbolOf, TransitionSystem},
+    ts::{StateOf, TransitionSystem},
     words::{IsFinite, IsInfinite, Subword, Word},
-    Boundedness, FiniteKind, InfiniteKind,
+    FiniteKind, InfiniteKind,
 };
 
 use super::{walker::EscapePrefix, RunOutput, Walk};
@@ -47,7 +47,7 @@ where
 
     type Failure = EscapePrefix<TS>;
 
-    fn run(&self, on: &TS, from: TS::Q) -> Result<Self::Induces, Self::Failure> {
+    fn run(&self, _on: &TS, _from: TS::Q) -> Result<Self::Induces, Self::Failure> {
         todo!()
         // let prefix_length = self.base_length();
         // let recur_length = self.recur_length();

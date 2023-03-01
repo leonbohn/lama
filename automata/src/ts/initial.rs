@@ -1,5 +1,3 @@
-use crate::acceptance::AcceptanceCondition;
-
 use super::{HasTransitionSystem, TransitionSystem};
 
 /// Implemented by objects which have a designated initial state.

@@ -1,14 +1,45 @@
-use std::hash::Hash;
+use std::{
+    hash::Hash,
+    ops::{AddAssign, SubAssign},
+};
 
 use ahash::AHashSet;
-
-use crate::FiniteKind;
 
 use super::AcceptanceCondition;
 
 /// Abstracts reachability conditions, the contained coloring is used to determine whether a state is accepting.
 pub struct ReachabilityAcceptance<Id> {
     pub(crate) accepting: AHashSet<Id>,
+}
+
+impl<Id: Eq + Hash> ReachabilityAcceptance<Id> {
+    /// Creates a new `ReachabilityAcceptance` object from the given set of accepting states.
+    pub fn new(accepting: AHashSet<Id>) -> Self {
+        Self { accepting }
+    }
+
+    /// Sets the given `state` as accepting.
+    pub fn set_accepting(&mut self, state: Id) {
+        self.accepting.insert(state);
+    }
+}
+
+impl<C> AddAssign<C> for ReachabilityAcceptance<C>
+where
+    C: Eq + Hash,
+{
+    fn add_assign(&mut self, rhs: C) {
+        self.accepting.insert(rhs);
+    }
+}
+
+impl<C> SubAssign<C> for ReachabilityAcceptance<C>
+where
+    C: Eq + Hash,
+{
+    fn sub_assign(&mut self, rhs: C) {
+        self.accepting.remove(&rhs);
+    }
 }
 
 impl<C: Default> Default for ReachabilityAcceptance<C> {
@@ -65,33 +96,5 @@ impl<C> std::ops::Not for ReachabilityAcceptance<C> {
         ReachabilityAcceptance {
             accepting: self.accepting,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{
-        ts::{deterministic::Deterministic, Growable, TransitionSystem},
-        words::FiniteWord,
-        Acceptor,
-    };
-
-    use super::*;
-
-    #[test]
-    fn reachability_acceptance() {
-        let mut ts = Deterministic::new();
-        let q0 = ts.add_state();
-        let q1 = ts.add_state();
-        let q2 = ts.add_state();
-        ts.add_transition(q0, 'a', q1);
-        ts.add_transition(q0, 'b', q0);
-        ts.add_transition(q1, 'a', q2);
-        ts.add_transition(q1, 'b', q0);
-        ts.add_transition(q2, 'b', q0);
-
-        let acc = ReachabilityAcceptance::from_iter(vec![q2]);
-        let initialized = ts.with_initial(q0);
-        // TODO contiue
     }
 }

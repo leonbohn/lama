@@ -1,12 +1,12 @@
 use std::hash::Hash;
 
-use crate::{acceptance::AcceptanceCondition, Alphabet};
+use crate::Alphabet;
 
 mod initial;
 pub use initial::{Pointed, WithInitial};
 
 mod transition;
-pub use transition::{Transition, TransitionTrigger};
+pub use transition::{DeterministicTransition, Transition, TransitionTrigger};
 
 mod state_index;
 pub use state_index::StateIndex;
@@ -14,12 +14,16 @@ pub use state_index::StateIndex;
 /// An implementation of a deterministic `TransitionSystem` in form of an edge list. The edge list is represented by a vector of tuples `(from, to, symbol)`. Is only available if the `det` feature is enabled.
 #[cfg(feature = "det")]
 pub mod deterministic;
+#[cfg(feature = "det")]
+pub use deterministic::Deterministic;
 
 // The following two type aliases might change in the future to allow for more flexibility, i.e. for example for implementing nondeterminism.
 /// Helper type for getting the symbol type of a transition system.
 pub type SymbolOf<X> = <X as TransitionSystem>::S;
 /// Helper type for getting the output type of a transition system.
 pub type StateOf<X> = <X as TransitionSystem>::Q;
+/// Helper type for getting the trigger type of a transition system.
+pub type TriggerOf<X> = <X as TransitionSystem>::Trigger;
 
 /// The base trait implemented by a deterministic transition system. A transition system is a tuple `(Q, S, δ)`, where `Q` is a finite set of states, `S` is a finite set of symbols and `δ: Q × S → Q` is a transition function. Note that the transition function is not necessarily complete and some transitions may be missing.
 /// States of a transition system are generic, and can be any type that implements the [`StateIndex`] trait.
@@ -92,11 +96,7 @@ pub trait Shrinkable: TransitionSystem {
     fn remove_state(&mut self, state: Self::Q) -> Option<Self::Q>;
 
     /// Deletes the given transition from the transition system. If the transition did not exist before, `None` is returned. Otherwise, the old target state is returned.
-    fn remove_transition<X: AsRef<SymbolOf<Self>>>(
-        &mut self,
-        from: Self::Q,
-        on: SymbolOf<Self>,
-    ) -> Option<Self::Q>;
+    fn remove_transition(&mut self, from: Self::Q, on: SymbolOf<Self>) -> Option<Self::Q>;
 }
 
 /// A trait implemented by a [`TransitionSystem`] which can be trimmed. This means that all unreachable states are removed from the transition system. Further, all transitions which point to or originate from unreachable states are removed. Note that this operation is only applicable to a [`TransitionSystem`] which is [`Pointed`], as the concept of reachability is only defined if a designated initial state is given.
