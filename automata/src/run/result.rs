@@ -6,7 +6,7 @@ use crate::{
     FiniteKind, InfiniteKind,
 };
 
-use super::{walker::EscapePrefix, RunOutput, Walk};
+use super::{walker::EscapePrefix, RunOutput, Walk, Walker};
 
 /// Abstracts the evaluation of a run.
 pub trait Run<TS: TransitionSystem, K>: Word {
@@ -39,7 +39,7 @@ impl<W: IsFinite, TS: TransitionSystem<S = W::S>> Run<TS, FiniteKind> for W {
     }
 }
 
-impl<TS: TransitionSystem, W: IsInfinite + Subword> Run<TS, InfiniteKind> for W
+impl<W: IsInfinite + Subword, TS: TransitionSystem<S = W::S>> Run<TS, InfiniteKind> for W
 where
     <W as Subword>::PrefixType: IsFinite,
 {
@@ -47,37 +47,37 @@ where
 
     type Failure = EscapePrefix<TS>;
 
-    fn run(&self, _on: &TS, _from: TS::Q) -> Result<Self::Induces, Self::Failure> {
-        todo!()
-        // let prefix_length = self.base_length();
-        // let recur_length = self.recur_length();
-        // match on.run(&from, &self.prefix(prefix_length)) {
-        //     Err(e) => Err(e),
-        //     Ok(reached) => {
-        //         let recur = on.skip(prefix_length);
-        //         let mut seen = HashSet::new();
-        //         let mut walker = self.walk(reached, &recur);
-        //         loop {
-        //             // We now collect the individual run pieces and check if we have seen them before.
-        //             match walker.try_take_n(recur_length) {
-        //                 Ok(recur_reached) => {
-        //                     if !seen.insert(recur_reached) {
-        //                         // We have seen this piece before, so we can stop here.
-        //                         return Ok(walker.seq.into_iter().collect());
-        //                     }
-        //                 }
-        //                 Err(RunOutput::WordEnd(_)) => unreachable!("We are in an infinite run!"),
-        //                 Err(RunOutput::Trigger(_)) => {
-        //                     unreachable!("We failed to take a full piece!")
-        //                 }
-        //                 Err(RunOutput::Missing(q, a)) => {
-        //                     return Err(EscapePrefix::new(walker.seq, q, a))
-        //                 }
-        //                 Err(RunOutput::FailedBefore) => unreachable!("We would have noticed!"),
-        //             }
-        //         }
-        //     }
-        // }
+    fn run(&self, on: &TS, from: TS::Q) -> Result<Self::Induces, Self::Failure> {
+        let prefix_length = self.base_length();
+        let recur_length = self.recur_length();
+        let prefix = self.prefix(prefix_length);
+        match prefix.run(on, from) {
+            Err(e) => Err(e),
+            Ok(reached) => {
+                let recur = self.skip(prefix_length);
+                let mut seen = HashSet::new();
+                let mut walker = Walker::new(on, &recur, reached);
+                loop {
+                    // We now collect the individual run pieces and check if we have seen them before.
+                    match walker.try_take_n(recur_length) {
+                        Ok(recur_reached) => {
+                            if !seen.insert(recur_reached) {
+                                // We have seen this piece before, so we can stop here.
+                                return Ok(walker.seq.into_iter().collect());
+                            }
+                        }
+                        Err(RunOutput::WordEnd(_)) => unreachable!("We are in an infinite run!"),
+                        Err(RunOutput::Trigger(_)) => {
+                            unreachable!("We failed to take a full piece!")
+                        }
+                        Err(RunOutput::Missing(q, a)) => {
+                            return Err(EscapePrefix::new(walker.seq, q, a))
+                        }
+                        Err(RunOutput::FailedBefore) => unreachable!("We would have noticed!"),
+                    }
+                }
+            }
+        }
     }
 }
 
