@@ -1,5 +1,5 @@
 use super::{IsFinite, SymbolIterable, Word};
-use crate::FiniteKind;
+use crate::{FiniteKind, Symbol};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// Represents a 'usual' finite word consisting of a sequence of symbols.
@@ -7,7 +7,7 @@ pub struct FiniteWord<S> {
     pub(crate) symbols: Vec<S>,
 }
 
-impl<S: Clone> IsFinite for FiniteWord<S> {
+impl<S: Symbol> IsFinite for FiniteWord<S> {
     fn length(&self) -> usize {
         self.symbols.len()
     }
@@ -21,7 +21,7 @@ impl<S: Clone> FromIterator<S> for FiniteWord<S> {
     }
 }
 
-impl<S: Clone> From<Vec<S>> for FiniteWord<S> {
+impl<S: Symbol> From<Vec<S>> for FiniteWord<S> {
     fn from(symbols: Vec<S>) -> Self {
         FiniteWord { symbols }
     }
@@ -35,7 +35,7 @@ impl From<&str> for FiniteWord<char> {
     }
 }
 
-impl<C: Clone> SymbolIterable for FiniteWord<C> {
+impl<C: Symbol> SymbolIterable for FiniteWord<C> {
     type Iter = std::vec::IntoIter<C>;
 
     fn iter(&self) -> Self::Iter {
@@ -43,7 +43,7 @@ impl<C: Clone> SymbolIterable for FiniteWord<C> {
     }
 }
 
-impl<S: Clone> Word for FiniteWord<S> {
+impl<S: Symbol> Word for FiniteWord<S> {
     type S = S;
     type Kind = FiniteKind;
 

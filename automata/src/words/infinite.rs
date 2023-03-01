@@ -1,11 +1,11 @@
 use super::{FiniteWord, IsInfinite, SymbolIterable, Word};
-use crate::InfiniteKind;
+use crate::{InfiniteKind, Symbol};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// A `PeriodicWord` essentially just loops a [`FiniteWord`] over and over again.
 pub struct PeriodicWord<S>(pub(crate) FiniteWord<S>);
 
-impl<S: Clone> IsInfinite for PeriodicWord<S> {
+impl<S: Symbol> IsInfinite for PeriodicWord<S> {
     fn base_length(&self) -> usize {
         0
     }
@@ -15,7 +15,7 @@ impl<S: Clone> IsInfinite for PeriodicWord<S> {
     }
 }
 
-impl<S: Clone> Word for PeriodicWord<S> {
+impl<S: Symbol> Word for PeriodicWord<S> {
     type S = S;
 
     type Kind = InfiniteKind;
@@ -43,7 +43,7 @@ impl<S> TryFrom<UltimatelyPeriodicWord<S>> for PeriodicWord<S> {
     }
 }
 
-impl<S: Clone> SymbolIterable for PeriodicWord<S> {
+impl<S: Symbol> SymbolIterable for PeriodicWord<S> {
     type Iter = std::iter::Cycle<std::vec::IntoIter<S>>;
 
     fn iter(&self) -> Self::Iter {
@@ -55,7 +55,7 @@ impl<S: Clone> SymbolIterable for PeriodicWord<S> {
 /// In an `UltimatelyPeriodicWord`, the first part is a finite prefix, after which a periodic part follows. The prefix can be empty.
 pub struct UltimatelyPeriodicWord<S>(pub(crate) FiniteWord<S>, pub(crate) PeriodicWord<S>);
 
-impl<S: Clone> IsInfinite for UltimatelyPeriodicWord<S> {
+impl<S: Symbol> IsInfinite for UltimatelyPeriodicWord<S> {
     fn base_length(&self) -> usize {
         self.0.symbols.len()
     }
@@ -65,7 +65,7 @@ impl<S: Clone> IsInfinite for UltimatelyPeriodicWord<S> {
     }
 }
 
-impl<S: Clone> Word for UltimatelyPeriodicWord<S> {
+impl<S: Symbol> Word for UltimatelyPeriodicWord<S> {
     type S = S;
 
     type Kind = InfiniteKind;
@@ -92,23 +92,10 @@ impl<S> From<(FiniteWord<S>, PeriodicWord<S>)> for UltimatelyPeriodicWord<S> {
     }
 }
 
-impl<S: Clone> SymbolIterable for UltimatelyPeriodicWord<S> {
+impl<S: Symbol> SymbolIterable for UltimatelyPeriodicWord<S> {
     type Iter = std::iter::Chain<std::vec::IntoIter<S>, std::iter::Cycle<std::vec::IntoIter<S>>>;
 
     fn iter(&self) -> Self::Iter {
         self.0.iter().chain(self.1.iter())
     }
-}
-
-/// Creates an ultimately periodic word from a finite prefix and a periodic part.
-pub fn upw<S, B: Into<FiniteWord<S>>, R: Into<FiniteWord<S>>>(
-    base: B,
-    rep: R,
-) -> UltimatelyPeriodicWord<S> {
-    (base.into(), PeriodicWord(rep.into())).into()
-}
-
-/// Creates a periodic word from an object that can be turned into a [`FiniteWord`].
-pub fn pw<S, R: Into<FiniteWord<S>>>(rep: R) -> PeriodicWord<S> {
-    rep.into().into()
 }

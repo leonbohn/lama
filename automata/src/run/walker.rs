@@ -1,7 +1,4 @@
-use crate::{
-    ts::{TransitionSystem, Trigger},
-    words::Word,
-};
+use crate::{ts::TransitionSystem, words::Word};
 
 use super::RunOutput;
 
@@ -13,11 +10,11 @@ pub struct Walker<'ts, 'w, W: Word, TS: TransitionSystem<S = W::S>> {
     pub(crate) ts: &'ts TS,
     pub(crate) state: Option<TS::Q>,
     pub(crate) position: usize,
-    pub(crate) seq: Vec<TS::Trigger>,
+    pub(crate) seq: Vec<(TS::Q, TS::S)>,
 }
 
 impl<'t, 'w, W: Word, TS: TransitionSystem<S = W::S>> Iterator for Walker<'t, 'w, W, TS> {
-    type Item = RunOutput<TS>;
+    type Item = RunOutput<TS::Q, TS::S>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.take_transition() {
@@ -40,14 +37,13 @@ impl<'t, 'w, W: Word, TS: TransitionSystem<S = W::S>> Walker<'t, 'w, W, TS> {
     }
 
     /// Takes a single transition, returning the corresponding [`RunOutput`].
-    pub fn take_transition(&mut self) -> RunOutput<TS> {
+    pub fn take_transition(&mut self) -> RunOutput<TS::Q, TS::S> {
         if let Some(state) = self.state.clone() {
             if let Some(symbol) = self.word.nth(self.position) {
                 if let Some(successor) = self.ts.succ(&state, &symbol) {
                     self.position += 1;
                     self.state = Some(successor);
-                    self.seq
-                        .push(<TS::Trigger>::create(state.clone(), symbol.clone()));
+                    self.seq.push((state.clone(), symbol.clone()));
                     RunOutput::trigger(state, symbol)
                 } else {
                     RunOutput::Missing(state, symbol)
@@ -61,12 +57,12 @@ impl<'t, 'w, W: Word, TS: TransitionSystem<S = W::S>> Walker<'t, 'w, W, TS> {
     }
 
     /// Try to take `n` transitions. If successful, returns the state reached after the `n` transitions. Otherwise, returns the [`RunOutput`] that caused the failure.
-    pub fn try_take_n(&mut self, n: usize) -> Result<TS::Q, RunOutput<TS>> {
+    pub fn try_take_n(&mut self, n: usize) -> Result<TS::Q, RunOutput<TS::Q, TS::S>> {
         for _ in 1..n {
             self.take_transition();
         }
         match self.take_transition() {
-            RunOutput::Trigger(t) => Ok(t.source().clone()),
+            RunOutput::Trigger(q, _) => Ok(q),
             otherwise => Err(otherwise),
         }
     }

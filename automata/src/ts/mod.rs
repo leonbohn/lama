@@ -1,4 +1,4 @@
-use crate::Alphabet;
+use crate::Symbol;
 
 mod transition;
 pub use transition::{Transition, Trigger};
@@ -26,8 +26,6 @@ impl<X: Clone + Eq + std::hash::Hash + std::fmt::Debug + From<u32>> StateIndex f
 pub type SymbolOf<X> = <X as TransitionSystem>::S;
 /// Helper type for getting the output type of a transition system.
 pub type StateOf<X> = <X as TransitionSystem>::Q;
-/// Helper type for getting the trigger type of a transition system.
-pub type TriggerOf<X> = <X as TransitionSystem>::Trigger;
 
 /// The base trait implemented by a deterministic transition system. A transition system is a tuple `(Q, S, δ)`, where `Q` is a finite set of states, `S` is a finite set of symbols and `δ: Q × S → Q` is a transition function. Note that the transition function is not necessarily complete and some transitions may be missing.
 /// States of a transition system are generic, and can be any type that implements the [`StateIndex`] trait.
@@ -37,24 +35,19 @@ pub trait TransitionSystem {
     /// The type of the states of the transition system.
     type Q: StateIndex;
     /// The type of the symbols of the transition system.
-    type S: Alphabet;
-    /// The type of the triggers (i.e. outgoing edges without target) of the transition system.
-    type Trigger: Trigger<S = SymbolOf<Self>, Q = Self::Q>;
-
-    /// The type of the outgoing edges of the transition system.
-    type Transition: Transition<S = Self::S, Q = Self::Q>;
+    type S: Symbol;
 
     /// Returns the successor state of the given state on the given symbol. The transition function is deterministic, meaning that if a transition exists, it is unique. On the other hand there may not be a transition for a given state and symbol, in which case `succ` returns `None`.
-    fn succ(&self, from: &Self::Q, on: &SymbolOf<Self>) -> Option<StateOf<Self>>;
+    fn succ(&self, from: &Self::Q, on: &Self::S) -> Option<Self::Q>;
 
     /// Returns the successor state for the given trigger through calling [`Self::succ`].
-    fn apply_trigger(&self, trigger: &Self::Trigger) -> Option<StateOf<Self>> {
+    fn apply_trigger(&self, trigger: &(Self::Q, Self::S)) -> Option<Self::Q> {
         self.succ(trigger.source(), trigger.sym())
     }
 
     /// Creates a new trigger from the given state and symbol.
-    fn make_trigger(from: &Self::Q, on: &SymbolOf<Self>) -> Self::Trigger {
-        Self::Trigger::create(from.clone(), on.clone())
+    fn make_trigger(from: &Self::Q, on: &Self::S) -> (Self::Q, Self::S) {
+        (from.clone(), on.clone())
     }
 }
 
@@ -62,10 +55,6 @@ impl<TS: TransitionSystem> TransitionSystem for &TS {
     type Q = TS::Q;
 
     type S = TS::S;
-
-    type Trigger = TS::Trigger;
-
-    type Transition = TS::Transition;
 
     fn succ(&self, from: &Self::Q, on: &SymbolOf<Self>) -> Option<StateOf<Self>> {
         TransitionSystem::succ(*self, from, on)
@@ -102,6 +91,7 @@ pub trait TransitionIterable: TransitionSystem {
 
 /// Trait that allows iterating over all triggers in a [`TransitionSystem`].
 pub trait TriggerIterable: TransitionSystem {
+    /// The trigger type.
     type TriggerRef;
     /// Type of the iterator over all triggers.
     type TriggerIter: Iterator<Item = Self::TriggerRef>;

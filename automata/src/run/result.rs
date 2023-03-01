@@ -22,14 +22,14 @@ pub trait Run<TS: TransitionSystem + ?Sized, K>: Word {
 impl<W: IsFinite, TS: TransitionSystem<S = W::S>> Run<TS, FiniteKind> for W {
     type Induces = TS::Q;
 
-    type Failure = EscapePrefix<TS>;
+    type Failure = EscapePrefix<TS::Q, TS::S>;
 
     fn run(&self, on: &TS, from: TS::Q) -> Result<Self::Induces, Self::Failure> {
         let mut walker = on.walk(from, self);
         let prefix = walker
             .by_ref()
             .take_while(RunOutput::is_trigger)
-            .map(|o| o.get_trigger().expect("Must be a trigger!").clone())
+            .map(|o| o.get_trigger().expect("Must be a trigger!"))
             .collect();
         match walker.next() {
             Some(RunOutput::WordEnd(q)) => Ok(q),
@@ -43,9 +43,9 @@ impl<W: IsInfinite + Subword, TS: TransitionSystem<S = W::S>> Run<TS, InfiniteKi
 where
     <W as Subword>::PrefixType: IsFinite,
 {
-    type Induces = Set<TS::Trigger>;
+    type Induces = Set<(TS::Q, TS::S)>;
 
-    type Failure = EscapePrefix<TS>;
+    type Failure = EscapePrefix<TS::Q, TS::S>;
 
     fn run(&self, on: &TS, from: TS::Q) -> Result<Self::Induces, Self::Failure> {
         let prefix_length = self.base_length();
@@ -67,7 +67,7 @@ where
                             }
                         }
                         Err(RunOutput::WordEnd(_)) => unreachable!("We are in an infinite run!"),
-                        Err(RunOutput::Trigger(_)) => {
+                        Err(RunOutput::Trigger(_, _)) => {
                             unreachable!("We failed to take a full piece!")
                         }
                         Err(RunOutput::Missing(q, a)) => {

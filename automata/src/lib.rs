@@ -20,18 +20,18 @@
 
 /// Module in which traits for working with transition systems are defined. See [`ts::TransitionSystem`] and the crate level documentation for an overview of the trait hierarchy.
 /// This module also contains a concrete implementation of a transition system, [`ts::Deterministic`], which stores the transition system as a vector of states, and a vector of transitions. Is only available when the `det` feature is enabled.
-pub mod ts;
+mod ts;
 pub use ts::{
-    Growable, IntoStateReferences, Pointed, Shrinkable, StateIndex, StateIterable,
-    TransitionSystem, Trigger,
+    Growable, IntoStateReferences, Pointed, Shrinkable, StateIndex, StateIterable, Transition,
+    TransitionIterable, TransitionSystem, Trigger, TriggerIterable,
 };
 
 /// Module in which traits for working with words are defined, see [`crate::Word`] for more details.
-pub mod words;
+mod words;
 pub use words::{Append, FiniteWord, PeriodicWord, Prepend, Subword, UltimatelyPeriodicWord, Word};
 
 /// Module in which acceptance conditions of automata are defined. This includes the [`AcceptanceCondition`] trait, which is implemented by all acceptance conditions, and provides a common interface for working with acceptance conditions.
-pub mod acceptance;
+mod acceptance;
 pub use acceptance::{
     AcceptanceCondition, BuchiCondition, Parity, ParityCondition, ReachabilityCondition,
 };
@@ -53,18 +53,10 @@ pub mod run;
 mod boundedness;
 pub use boundedness::{Boundedness, FiniteKind, InfiniteKind};
 
-/// A concrete implementation of [`TransitionTrigger`], simply stores the source state and symbol in a tuple.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Pair<S, Q>(pub Q, pub S);
-
-/// A concrete implementation of [`Transition`], simply stores the source state, symbol and target state in a tuple.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Triple<S, Q>(pub Q, pub S, pub Q);
-
 /// A trait for the symbols of a [`Word`] and the trigger of a transition in a [`TransitionSystem`].
-pub trait Alphabet: Clone + Eq + std::fmt::Debug + PartialEq + Hash {}
+pub trait Symbol: Clone + Eq + std::fmt::Debug + PartialEq + Hash {}
 
-impl<C: Clone + Eq + std::fmt::Debug + Hash> Alphabet for C {}
+impl<C: Clone + Eq + std::fmt::Debug + Hash> Symbol for C {}
 
 #[cfg(feature = "ahash")]
 /// Abstracts a mapping, assigning to each element of the domain `X` a value from the codomain `Y`.

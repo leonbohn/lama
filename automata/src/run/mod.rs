@@ -6,63 +6,59 @@ pub use result::Run;
 
 pub use walker::Walker;
 
-use crate::{
-    ts::{SymbolOf, TransitionSystem},
-    words::Word,
-    Trigger,
-};
+use crate::{ts::TransitionSystem, words::Word};
 
 /// An escape prefix for a transition system is a triple `(u, q, a)`, where `u` is a finite sequence of triggers for the transition system, `q` is a state of the transition system and `a` is a symbol such that:
 /// - the last trigger in `u` brings the transition system into the state `q`
 /// - no transition is defined for the symbol `a` in the state `q`.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct EscapePrefix<TS: TransitionSystem>(pub Vec<TS::Trigger>, pub TS::Q, pub SymbolOf<TS>);
+pub struct EscapePrefix<Q, S>(pub Vec<(Q, S)>, pub Q, pub S);
 
-impl<TS: TransitionSystem> EscapePrefix<TS> {
+impl<Q, S> EscapePrefix<Q, S> {
     /// Creates a new escape prefix from the given prefix, state and symbol.
-    pub fn new(prefix: Vec<TS::Trigger>, state: TS::Q, symbol: TS::S) -> Self {
+    pub fn new(prefix: Vec<(Q, S)>, state: Q, symbol: S) -> Self {
         Self(prefix, state, symbol)
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 /// Encapsulates the possible outputs of a run when a symbol is consumed.
-pub enum RunOutput<TS: TransitionSystem> {
+pub enum RunOutput<Q, S> {
     /// A transition is taken, gives the trigger.
-    Trigger(TS::Trigger),
+    Trigger(Q, S),
     /// The word has ended, returns the reached state.
-    WordEnd(TS::Q),
+    WordEnd(Q),
     /// No transition for the given symbol is found, returns the state we are in as well as the missing symbol.
-    Missing(TS::Q, SymbolOf<TS>),
+    Missing(Q, S),
     /// The run has failed previously and thus cannot be continued.
     FailedBefore,
 }
 
-impl<TS: TransitionSystem> RunOutput<TS> {
+impl<Q: Clone, S: Clone> RunOutput<Q, S> {
     /// Returns true iff the run output is a trigger.
     pub fn is_trigger(&self) -> bool {
-        matches!(self, RunOutput::Trigger(_))
+        matches!(self, RunOutput::Trigger(_, _))
     }
 
     /// Creates a new `RunOutput::Trigger` from the given state symbol pair.
-    pub fn trigger(from: TS::Q, on: TS::S) -> Self {
-        Self::Trigger(<TS::Trigger>::create(from, on))
+    pub fn trigger(from: Q, on: S) -> Self {
+        Self::Trigger(from, on)
     }
 
     /// Creates a new `RunOutput::WordEnd` with the given reached state.
-    pub fn end(state: TS::Q) -> Self {
+    pub fn end(state: Q) -> Self {
         Self::WordEnd(state)
     }
 
     /// Creates a new `RunOutput::Missing` with the given state and missing symbol.
-    pub fn missing(state: TS::Q, missing: SymbolOf<TS>) -> Self {
+    pub fn missing(state: Q, missing: S) -> Self {
         Self::Missing(state, missing)
     }
 
     /// Returns the trigger if `self` is of type `RunOutput::Trigger` and `None` otherwise.
-    pub fn get_trigger(&self) -> Option<&TS::Trigger> {
+    pub fn get_trigger(&self) -> Option<(Q, S)> {
         match self {
-            RunOutput::Trigger(t) => Some(t),
+            RunOutput::Trigger(q, a) => Some((q.clone(), a.clone())),
             _ => None,
         }
     }

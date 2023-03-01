@@ -1,4 +1,4 @@
-use crate::{Boundedness, FiniteKind};
+use crate::{Boundedness, FiniteKind, Symbol};
 mod append;
 pub use append::Append;
 
@@ -10,7 +10,7 @@ mod infinite;
 mod subword;
 
 pub use finite::FiniteWord;
-pub use infinite::{pw, upw, PeriodicWord, UltimatelyPeriodicWord};
+pub use infinite::{PeriodicWord, UltimatelyPeriodicWord};
 pub use subword::Subword;
 
 /// A trait which indicates that a word is finite.
@@ -30,7 +30,7 @@ pub trait IsInfinite: Word {
 /// Abstracts a word over some given alphabet. The type parameter `S` is the alphabet, and `Kind` is a marker type which indicates whether the word is finite or infinite.
 pub trait Word {
     /// The type of the symbols making up the word.
-    type S: Clone;
+    type S: Symbol;
     /// The kind of the word, either [`crate::FiniteKind`] or [`crate::InfiniteKind`].
     type Kind: Boundedness;
 
@@ -79,13 +79,13 @@ impl IsFinite for &str {
     }
 }
 
-impl<S: Clone> IsFinite for Vec<S> {
+impl<S: Symbol> IsFinite for Vec<S> {
     fn length(&self) -> usize {
         self.len()
     }
 }
 
-impl<S: Clone> Word for Vec<S> {
+impl<S: Symbol> Word for Vec<S> {
     type S = S;
 
     type Kind = FiniteKind;

@@ -1,3 +1,5 @@
+use crate::Symbol;
+
 use super::{FiniteWord, IsFinite, PeriodicWord, SymbolIterable, UltimatelyPeriodicWord, Word};
 
 /// A trait which allows accessing a finite prefix of a given length as well as a finite suffix of a word which is obtained by skipping a number of symbols from the start.
@@ -15,7 +17,7 @@ pub trait Subword: Word {
     fn skip(&self, number: usize) -> Self::SuffixType;
 }
 
-impl<S: Clone> Subword for FiniteWord<S> {
+impl<S: Symbol> Subword for FiniteWord<S> {
     type SuffixType = Self;
 
     type PrefixType = Self;
@@ -29,7 +31,7 @@ impl<S: Clone> Subword for FiniteWord<S> {
     }
 }
 
-impl<S: Clone> Subword for PeriodicWord<S> {
+impl<S: Symbol> Subword for PeriodicWord<S> {
     type PrefixType = FiniteWord<S>;
     type SuffixType = Self;
 
@@ -44,7 +46,7 @@ impl<S: Clone> Subword for PeriodicWord<S> {
     }
 }
 
-impl<S: Clone> Subword for UltimatelyPeriodicWord<S> {
+impl<S: Symbol> Subword for UltimatelyPeriodicWord<S> {
     type PrefixType = FiniteWord<S>;
     type SuffixType = UltimatelyPeriodicWord<S>;
 
@@ -95,7 +97,7 @@ impl Subword for &str {
     }
 }
 
-impl<S: Clone> Subword for Vec<S> {
+impl<S: Symbol> Subword for Vec<S> {
     type PrefixType = Vec<S>;
     type SuffixType = Vec<S>;
 
