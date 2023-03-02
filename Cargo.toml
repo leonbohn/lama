@@ -1,16 +1,10 @@
 [package]
-name = "automata"
+name = "lama"
 version = "0.1.0"
-edition = "2021"
-description = "An implementation of finite automata and learning algorithm"
+description = "Learning And Manipulation of Automata"
 
-[dependencies]
-ahash = {version = "0.8.3", optional = true}
-
-[features]
-default = ["det", "ahash"]
-det = []
-ahash = ["dep:ahash"]
+[workspace]
+members = ["automata"]
 
 [[bin]]
 name = "lama"
