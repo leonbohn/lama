@@ -8,9 +8,7 @@ description = "An implementation of finite automata and learning algorithm"
 ahash = {version = "0.8.3", optional = true}
 
 [features]
-default = ["det", "ahash", "learning", "hoa"]
-hoa = []
-learning = []
+default = ["det", "ahash"]
 det = []
 ahash = ["dep:ahash"]
 
