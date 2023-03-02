@@ -14,43 +14,61 @@
 //! - [`Shrinkable`]: for shrinking a transition system. This includes removing states and transitions from the transition system.
 //! - [`FiniteState`]: for querying the size of a transition system, and enumerating all states in the transition system. This trait should be implemented for all transition systems that are finite.
 //! - [`IntoStateReferences`]: for converting a transition system into an iterator over references to the states in the transition system.
-//! - [`Trim`]: for trimming a transition system. This corresponds to removing all states which cannot be reached from the initial state. Additionally, every transition that does not have a source or target state in the transition system is removed.
+// - [`Trimable`]: for trimming a transition system. This corresponds to removing all states which cannot be reached from the initial state. Additionally, every transition that does not have a source or target state in the transition system is removed.
 
 #![warn(missing_docs)]
 
-/// Module in which traits for working with transition systems are defined. See [`TransitionSystem`] and the crate level documentation for an overview of the trait hierarchy.
-/// This module also contains a concrete implementation of a transition system, [`Deterministic`], which stores the transition system as a vector of states, and a vector of transitions. Is only available when the `det` feature is enabled.
-pub mod ts;
+/// Module in which traits for working with transition systems are defined. See [`ts::TransitionSystem`] and the crate level documentation for an overview of the trait hierarchy.
+/// This module also contains a concrete implementation of a transition system, [`ts::Deterministic`], which stores the transition system as a vector of states, and a vector of transitions. Is only available when the `det` feature is enabled.
+mod ts;
+pub use ts::{
+    Growable, IntoStateReferences, Pointed, Shrinkable, StateIndex, StateIterable, Transition,
+    TransitionIterable, TransitionSystem, Trigger, TriggerIterable,
+};
 
-/// Module in which traits for working with words are defined, see [`Word`] for more details.
-pub mod words;
+/// Module in which traits for working with words are defined, see [`crate::Word`] for more details.
+mod words;
+pub use words::{Append, FiniteWord, PeriodicWord, Prepend, Subword, UltimatelyPeriodicWord, Word};
 
 /// Module in which acceptance conditions of automata are defined. This includes the [`AcceptanceCondition`] trait, which is implemented by all acceptance conditions, and provides a common interface for working with acceptance conditions.
-pub mod acceptance;
+mod acceptance;
+pub use acceptance::{
+    AcceptanceCondition, BuchiCondition, Parity, ParityCondition, ReachabilityCondition,
+};
 
 mod acceptor;
-/// Trait that encapsulates the ability to determine whether a given word is accepted or not.
 pub use acceptor::Acceptor;
+use std::hash::Hash;
 
-// TODO implement
-mod automaton;
+mod combined;
+pub use combined::Combined;
+#[cfg(feature = "det")]
+pub use combined::{Dba, Dfa, Dpa};
 
 /// Module in which traits for working with runs of transition systems are defined.
 /// A run of a transition system on a given word is a sequence of states, where each state is the successor of the previous state, and the transition between the states is triggered by a symbol as given in the input word.
 pub mod run;
 
-mod with_acceptance;
-/// Allows us to add an acceptance condition to an existing transition system, is used in [`TransitionSystem::with_acceptance`].
-pub use with_acceptance::WithAcceptance;
-
+/// Module in which traits for working with boundedness of inputs for transition systems are defined.
 mod boundedness;
-/// Trait for disabmiguating between finite and infinite objects, currently used for [`Word`]s and runs.
 pub use boundedness::{Boundedness, FiniteKind, InfiniteKind};
 
 /// A trait for the symbols of a [`Word`] and the trigger of a transition in a [`TransitionSystem`].
-pub trait Alphabet: Clone + Eq + std::fmt::Debug + PartialEq {}
+pub trait Symbol: Clone + Eq + std::fmt::Debug + PartialEq + Hash {}
 
-impl<C: Clone + Eq + std::fmt::Debug> Alphabet for C {}
+impl<C: Clone + Eq + std::fmt::Debug + Hash> Symbol for C {}
+
+#[cfg(feature = "ahash")]
+/// Abstracts a mapping, assigning to each element of the domain `X` a value from the codomain `Y`.
+pub type Mapping<X, Y> = ahash::AHashMap<X, Y>;
+#[cfg(not(feature = "ahash"))]
+pub type Mapping<X, Y> = std::collections::HashMap<X, Y>;
+
+#[cfg(feature = "ahash")]
+/// Abstracts a set of elements of type `X`.
+pub type Set<X> = ahash::AHashSet<X>;
+#[cfg(not(feature = "ahash"))]
+pub type Set<X> = std::collections::AHashSet<X>;
 
 #[cfg(test)]
 mod tests {}

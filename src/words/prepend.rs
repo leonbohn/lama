@@ -1,4 +1,4 @@
-use crate::Alphabet;
+use crate::Symbol;
 
 use super::{FiniteWord, PeriodicWord, UltimatelyPeriodicWord, Word};
 
@@ -11,7 +11,7 @@ pub trait Prepend<W: Word>: Word {
     fn prepend(&self, other: &W) -> Self::Output;
 }
 
-impl<S: Alphabet> Prepend<FiniteWord<S>> for FiniteWord<S> {
+impl<S: Symbol> Prepend<FiniteWord<S>> for FiniteWord<S> {
     type Output = FiniteWord<S>;
 
     fn prepend(&self, other: &FiniteWord<S>) -> Self::Output {
@@ -24,7 +24,7 @@ impl<S: Alphabet> Prepend<FiniteWord<S>> for FiniteWord<S> {
     }
 }
 
-impl<S: Alphabet> Prepend<FiniteWord<S>> for PeriodicWord<S> {
+impl<S: Symbol> Prepend<FiniteWord<S>> for PeriodicWord<S> {
     type Output = UltimatelyPeriodicWord<S>;
 
     fn prepend(&self, other: &FiniteWord<S>) -> Self::Output {
@@ -32,7 +32,7 @@ impl<S: Alphabet> Prepend<FiniteWord<S>> for PeriodicWord<S> {
     }
 }
 
-impl<S: Alphabet> Prepend<FiniteWord<S>> for UltimatelyPeriodicWord<S> {
+impl<S: Symbol> Prepend<FiniteWord<S>> for UltimatelyPeriodicWord<S> {
     type Output = UltimatelyPeriodicWord<S>;
 
     fn prepend(&self, other: &FiniteWord<S>) -> Self::Output {

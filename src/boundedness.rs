@@ -1,5 +1,3 @@
-use crate::words::FiniteWord;
-
 /// Encapsulates the kind of a sequence, differentiating between finite and infinite ones.
 pub trait Boundedness {
     /// Returns whether the object is finite or not.
@@ -23,11 +21,5 @@ impl Boundedness for FiniteKind {
 impl Boundedness for InfiniteKind {
     fn is_finite() -> bool {
         false
-    }
-}
-
-impl<S> Boundedness for FiniteWord<S> {
-    fn is_finite() -> bool {
-        true
     }
 }

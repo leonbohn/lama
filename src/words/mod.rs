@@ -1,4 +1,4 @@
-use crate::{Boundedness, FiniteKind, InfiniteKind};
+use crate::{Boundedness, FiniteKind, Symbol};
 mod append;
 pub use append::Append;
 
@@ -10,14 +10,28 @@ mod infinite;
 mod subword;
 
 pub use finite::FiniteWord;
-pub use infinite::{pw, upw, PeriodicWord, UltimatelyPeriodicWord};
+pub use infinite::{PeriodicWord, UltimatelyPeriodicWord};
 pub use subword::Subword;
+
+/// A trait which indicates that a word is finite.
+pub trait IsFinite: Word {
+    /// Returns the length of the word.
+    fn length(&self) -> usize;
+}
+
+/// Marker trait for infinite words, assumes the implementor is finitely representable as an ultimately periodic word, i.e. a base word followed by an infinitely looping non-empty word.
+pub trait IsInfinite: Word {
+    /// Returns the length of the base word.
+    fn base_length(&self) -> usize;
+    /// Returns the length of the recurring word.
+    fn recur_length(&self) -> usize;
+}
 
 /// Abstracts a word over some given alphabet. The type parameter `S` is the alphabet, and `Kind` is a marker type which indicates whether the word is finite or infinite.
 pub trait Word {
     /// The type of the symbols making up the word.
-    type S: Clone;
-    /// The kind of the word, either [`FiniteKind`] or [`InfiniteKind`].
+    type S: Symbol;
+    /// The kind of the word, either [`crate::FiniteKind`] or [`crate::InfiniteKind`].
     type Kind: Boundedness;
 
     /// Returns the symbol at the given index, or `None` if the index is out of bounds.
@@ -33,11 +47,6 @@ pub trait SymbolIterable: Word {
     fn iter(&self) -> Self::Iter;
 }
 
-/// Helper type representing finite words over the alphabet `S`.
-pub type InSigmaStar<S> = dyn Word<S = S, Kind = FiniteKind>;
-/// Helper type representing infinite words over the alphabet `S`.
-pub type InSigmaOmega<S> = dyn Word<S = S, Kind = InfiniteKind>;
-
 impl Word for String {
     type S = char;
 
@@ -45,6 +54,12 @@ impl Word for String {
 
     fn nth(&self, index: usize) -> Option<Self::S> {
         self.chars().nth(index)
+    }
+}
+
+impl IsFinite for String {
+    fn length(&self) -> usize {
+        self.len()
     }
 }
 
@@ -58,7 +73,19 @@ impl Word for &str {
     }
 }
 
-impl<S: Clone> Word for Vec<S> {
+impl IsFinite for &str {
+    fn length(&self) -> usize {
+        self.len()
+    }
+}
+
+impl<S: Symbol> IsFinite for Vec<S> {
+    fn length(&self) -> usize {
+        self.len()
+    }
+}
+
+impl<S: Symbol> Word for Vec<S> {
     type S = S;
 
     type Kind = FiniteKind;
