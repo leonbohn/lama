@@ -2,9 +2,14 @@
 name = "lama"
 version = "0.1.0"
 description = "Learning And Manipulation of Automata"
+edition = "2021"
 
 [workspace]
-members = ["automata"]
+members = ["automata", "automata-learning"]
+
+[dependencies]
+automata = {version = "0.1", path = "automata"}
+automata-learning = {version = "0.1", optional = true, path = "automata-learning"}
 
 [[bin]]
 name = "lama"
