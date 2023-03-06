@@ -1,7 +1,7 @@
 use super::{IsFinite, SymbolIterable, Word};
 use crate::{FiniteKind, Symbol};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// Represents a 'usual' finite word consisting of a sequence of symbols.
 pub struct FiniteWord<S> {
     pub(crate) symbols: Vec<S>,

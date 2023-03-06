@@ -6,18 +6,37 @@ pub use result::Run;
 
 pub use walker::Walker;
 
-use crate::{ts::TransitionSystem, words::Word};
+use crate::{
+    ts::TransitionSystem,
+    words::{IsFinite, Word},
+    Subword,
+};
 
 /// An escape prefix for a transition system is a triple `(u, q, a)`, where `u` is a finite sequence of triggers for the transition system, `q` is a state of the transition system and `a` is a symbol such that:
 /// - the last trigger in `u` brings the transition system into the state `q`
 /// - no transition is defined for the symbol `a` in the state `q`.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct EscapePrefix<Q, S>(pub Vec<(Q, S)>, pub Q, pub S);
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct EscapePrefix<Q, W: Subword>(pub Vec<(Q, W::S)>, pub Q, pub W::S, pub W::SuffixType);
 
-impl<Q, S> EscapePrefix<Q, S> {
+impl<Q, W: Word + Subword> EscapePrefix<Q, W> {
     /// Creates a new escape prefix from the given prefix, state and symbol.
-    pub fn new(prefix: Vec<(Q, S)>, state: Q, symbol: S) -> Self {
-        Self(prefix, state, symbol)
+    pub fn new(word: &W, prefix: Vec<(Q, W::S)>, state: Q, symbol: W::S) -> Self {
+        let length = prefix.len();
+        Self(prefix, state, symbol, word.skip(length))
+    }
+
+    /// Helper function for converting a finite escape prefix into an infinite one.
+    pub fn from_finite<F: Subword + IsFinite<S = W::S>>(
+        word: &W,
+        escape_prefix: EscapePrefix<Q, F>,
+    ) -> Self {
+        let length = escape_prefix.0.len();
+        Self(
+            escape_prefix.0,
+            escape_prefix.1,
+            escape_prefix.2,
+            word.skip(length),
+        )
     }
 }
 

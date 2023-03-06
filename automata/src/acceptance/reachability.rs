@@ -10,6 +10,7 @@ use crate::FiniteKind;
 use super::AcceptanceCondition;
 
 /// Abstracts reachability conditions, the contained coloring is used to determine whether a state is accepting.
+#[derive(Debug, Clone)]
 pub struct ReachabilityCondition<Id> {
     pub(crate) accepting: AHashSet<Id>,
 }
@@ -25,6 +26,14 @@ impl<Id: Eq + Hash> ReachabilityCondition<Id> {
         self.accepting.insert(state);
     }
 }
+
+impl<Q: Eq + Hash> PartialEq for ReachabilityCondition<Q> {
+    fn eq(&self, other: &Self) -> bool {
+        self.accepting == other.accepting
+    }
+}
+
+impl<Q: Eq + Hash> Eq for ReachabilityCondition<Q> {}
 
 impl<C> AddAssign<C> for ReachabilityCondition<C>
 where

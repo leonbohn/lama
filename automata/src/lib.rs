@@ -22,12 +22,12 @@
 /// This module also contains a concrete implementation of a transition system, [`ts::Deterministic`], which stores the transition system as a vector of states, and a vector of transitions. Is only available when the `det` feature is enabled.
 mod ts;
 pub use ts::{
-    Growable, IntoStateReferences, Pointed, Shrinkable, StateIndex, StateIterable, Transition,
-    TransitionIterable, TransitionSystem, Trigger, TriggerIterable,
+    Deterministic, Growable, IntoStateReferences, Pointed, Shrinkable, StateIndex, StateIterable,
+    Transition, TransitionIterable, TransitionSystem, Trigger, TriggerIterable,
 };
 
 /// Module in which traits for working with words are defined, see [`crate::Word`] for more details.
-mod words;
+pub mod words;
 pub use words::{Append, FiniteWord, PeriodicWord, Prepend, Subword, UltimatelyPeriodicWord, Word};
 
 /// Module in which acceptance conditions of automata are defined. This includes the [`AcceptanceCondition`] trait, which is implemented by all acceptance conditions, and provides a common interface for working with acceptance conditions.

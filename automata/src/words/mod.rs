@@ -28,7 +28,7 @@ pub trait IsInfinite: Word {
 }
 
 /// Abstracts a word over some given alphabet. The type parameter `S` is the alphabet, and `Kind` is a marker type which indicates whether the word is finite or infinite.
-pub trait Word {
+pub trait Word: Eq + std::hash::Hash {
     /// The type of the symbols making up the word.
     type S: Symbol;
     /// The kind of the word, either [`crate::FiniteKind`] or [`crate::InfiniteKind`].
