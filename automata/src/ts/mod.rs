@@ -10,16 +10,9 @@ pub mod deterministic;
 pub use deterministic::{Deterministic, InitializedDeterministic};
 
 /// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`.
-pub trait StateIndex: Clone + Eq + std::hash::Hash + std::fmt::Debug {
-    /// Create a new state index from a `u32`.
-    fn create(from: u32) -> Self;
-}
+pub trait StateIndex: Clone + Eq + std::hash::Hash + std::fmt::Debug {}
 
-impl<X: Clone + Eq + std::hash::Hash + std::fmt::Debug + From<u32>> StateIndex for X {
-    fn create(from: u32) -> Self {
-        from.into()
-    }
-}
+impl<X: Clone + Eq + std::hash::Hash + std::fmt::Debug> StateIndex for X {}
 
 // The following two type aliases might change in the future to allow for more flexibility, i.e. for example for implementing nondeterminism.
 /// Helper type for getting the symbol type of a transition system.
@@ -49,6 +42,12 @@ pub trait TransitionSystem {
     fn make_trigger(from: &Self::Q, on: &Self::S) -> (Self::Q, Self::S) {
         (from.clone(), on.clone())
     }
+}
+
+/// Creates a new trivial transition system, which could either be empty (for [`TransitionSystem`]) or contain a single initial state (for [`InitializedDeterministic`]).
+pub trait Trivial: TransitionSystem {
+    /// Creates the trivial object
+    fn trivial() -> Self;
 }
 
 impl<TS: TransitionSystem> TransitionSystem for &TS {
@@ -111,11 +110,15 @@ pub trait IntoStateReferences<'a>: TransitionSystem + 'a {
 /// Ecapsulates the ability to add states and transitions to a transition system.
 pub trait Growable: TransitionSystem {
     /// Add a new state to the transition system..
-    fn add_state(&mut self, state: Self::Q) -> bool;
+    fn add_state(&mut self, state: &Self::Q) -> bool;
 
     /// Add a new transition to the transition system. If the transition did not exist before, `None` is returned. Otherwise, the old target state is returned.
-    fn add_transition(&mut self, from: Self::Q, on: SymbolOf<Self>, to: Self::Q)
-        -> Option<Self::Q>;
+    fn add_transition(
+        &mut self,
+        from: &Self::Q,
+        on: SymbolOf<Self>,
+        to: &Self::Q,
+    ) -> Option<Self::Q>;
 }
 
 /// Ecapsulates the ability to add anonymous states and transitions to a transition system.

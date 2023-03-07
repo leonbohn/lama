@@ -2,30 +2,50 @@ mod walker;
 
 /// Allows the evaluation of a run.
 mod result;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
-pub use result::Run;
+pub use result::{InitialRun, Run};
 
 pub use walker::Walker;
 
 use crate::{
     ts::TransitionSystem,
     words::{IsFinite, Word},
-    Subword,
+    Equivalent, Subword,
 };
 use itertools::Itertools;
 
 /// An escape prefix for a transition system is a triple `(u, q, a)`, where `u` is a finite sequence of triggers for the transition system, `q` is a state of the transition system and `a` is a symbol such that:
 /// - the last trigger in `u` brings the transition system into the state `q`
 /// - no transition is defined for the symbol `a` in the state `q`.
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct EscapePrefix<Q, W: Subword>(pub Vec<(Q, W::S)>, pub Q, pub W::S, pub W::SuffixType);
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub struct EscapePrefix<Q, W: Subword> {
+    /// The prefix on which a run was possible, consists of state symbol pairs.
+    pub prefix: Vec<(Q, W::S)>,
+    /// The state at which the transition system is left.
+    pub state: Q,
+    /// The symbol on which the transition system is left.
+    pub symbol: W::S,
+    /// The remaining suffix of the word.
+    pub suffix: W::SuffixType,
+}
+
+impl<Q: Eq, W: Subword> Equivalent for EscapePrefix<Q, W> {
+    fn equivalent(&self, other: &Self) -> bool {
+        self.state == other.state && self.symbol == other.symbol && self.suffix == other.suffix
+    }
+}
 
 impl<Q, W: Word + Subword> EscapePrefix<Q, W> {
     /// Creates a new escape prefix from the given prefix, state and symbol.
     pub fn new(word: &W, prefix: Vec<(Q, W::S)>, state: Q, symbol: W::S) -> Self {
         let length = prefix.len();
-        Self(prefix, state, symbol, word.skip(length))
+        Self {
+            prefix,
+            state,
+            symbol,
+            suffix: word.skip(length),
+        }
     }
 
     /// Helper function for converting a finite escape prefix into an infinite one.
@@ -33,12 +53,28 @@ impl<Q, W: Word + Subword> EscapePrefix<Q, W> {
         word: &W,
         escape_prefix: EscapePrefix<Q, F>,
     ) -> Self {
-        let length = escape_prefix.0.len();
-        Self(
-            escape_prefix.0,
-            escape_prefix.1,
-            escape_prefix.2,
-            word.skip(length),
+        let length = escape_prefix.prefix.len();
+        Self {
+            prefix: escape_prefix.prefix,
+            state: escape_prefix.state,
+            symbol: escape_prefix.symbol,
+            suffix: word.skip(length),
+        }
+    }
+}
+
+impl<Q: Debug, W: Subword> Debug for EscapePrefix<Q, W> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{:?} then {:?} misses {} with rest {:?}",
+            self.prefix
+                .iter()
+                .map(|(q, s)| format!("({:?},{:?})", q, s))
+                .join(""),
+            self.state,
+            self.symbol,
+            self.suffix
         )
     }
 }
@@ -51,13 +87,13 @@ where
         write!(
             f,
             "{} then {} misses {} with rest {}",
-            self.0
+            self.prefix
                 .iter()
                 .map(|(q, s)| format!("({},{})", q, s))
                 .join(""),
-            self.1,
-            self.2,
-            self.3
+            self.state,
+            self.symbol,
+            self.suffix
         )
     }
 }
@@ -148,16 +184,16 @@ mod tests {
 
     #[test]
     fn basic_run() {
-        let mut ts = Deterministic::new();
+        let mut ts: Deterministic<u32> = Deterministic::new();
         let q0 = ts.add_new_state();
         let q1 = ts.add_new_state();
         let q2 = ts.add_new_state();
-        ts.add_transition(q0, 'a', q1);
-        ts.add_transition(q0, 'b', q0);
-        ts.add_transition(q1, 'a', q2);
-        ts.add_transition(q1, 'b', q0);
-        ts.add_transition(q2, 'a', q2);
-        ts.add_transition(q2, 'b', q0);
+        ts.add_transition(&q0, 'a', &q1);
+        ts.add_transition(&q0, 'b', &q0);
+        ts.add_transition(&q1, 'a', &q2);
+        ts.add_transition(&q1, 'b', &q0);
+        ts.add_transition(&q2, 'a', &q2);
+        ts.add_transition(&q2, 'b', &q0);
 
         let w = FiniteWord::from("abba");
         assert_eq!(w.run(&ts, q0), Ok(q1));
@@ -165,15 +201,15 @@ mod tests {
 
     #[test]
     fn basic_run_with_missing() {
-        let mut ts = Deterministic::new();
+        let mut ts: Deterministic<u32> = Deterministic::new();
         let q0 = ts.add_new_state();
         let q1 = ts.add_new_state();
         let q2 = ts.add_new_state();
-        ts.add_transition(q0, 'a', q1);
-        ts.add_transition(q0, 'b', q0);
-        ts.add_transition(q1, 'a', q2);
-        ts.add_transition(q1, 'b', q0);
-        ts.add_transition(q2, 'b', q0);
+        ts.add_transition(&q0, 'a', &q1);
+        ts.add_transition(&q0, 'b', &q0);
+        ts.add_transition(&q1, 'a', &q2);
+        ts.add_transition(&q1, 'b', &q0);
+        ts.add_transition(&q2, 'b', &q0);
 
         let w = FiniteWord::from("abaaa");
         {
@@ -185,21 +221,21 @@ mod tests {
             assert_eq!(run.next(), Some(RunOutput::missing(q2, 'a')));
         }
 
-        ts.add_transition(q2, 'a', q0);
+        ts.add_transition(&q2, 'a', &q0);
         assert_eq!(w.run(&ts, q0), Ok(q0));
     }
 
     #[test]
     fn input_to_run() {
-        let mut ts = Deterministic::new();
+        let mut ts: Deterministic<u32> = Deterministic::new();
         let q0 = ts.add_new_state();
         let q1 = ts.add_new_state();
         let q2 = ts.add_new_state();
-        ts.add_transition(q0, 'a', q1);
-        ts.add_transition(q0, 'b', q0);
-        ts.add_transition(q1, 'a', q2);
-        ts.add_transition(q1, 'b', q0);
-        ts.add_transition(q2, 'b', q0);
+        ts.add_transition(&q0, 'a', &q1);
+        ts.add_transition(&q0, 'b', &q0);
+        ts.add_transition(&q1, 'a', &q2);
+        ts.add_transition(&q1, 'b', &q0);
+        ts.add_transition(&q2, 'b', &q0);
 
         assert_eq!("abba".run(&ts, q0), Ok(q1));
         assert_eq!("abb".run(&ts, q0), Ok(q0));

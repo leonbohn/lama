@@ -33,6 +33,11 @@ impl<TS: TransitionSystem + Default + AnonymousGrowable, Acc: AcceptanceConditio
     pub fn acceptance(&self) -> &Acc {
         &self.acc
     }
+
+    /// Constructs a new instance from the given transition system, initial state and acceptance condition.
+    pub fn from_parts(ts: TS, initial: TS::Q, acc: Acc) -> Self {
+        Self { ts, initial, acc }
+    }
 }
 
 impl<TS: TransitionSystem, Acc: AcceptanceCondition> TransitionSystem for Combined<TS, Acc> {
@@ -60,11 +65,11 @@ impl<TS: TransitionSystem, Acc: AcceptanceCondition> AcceptanceCondition for Com
 }
 
 impl<TS: Growable, Acc: AcceptanceCondition> Growable for Combined<TS, Acc> {
-    fn add_state(&mut self, state: Self::Q) -> bool {
+    fn add_state(&mut self, state: &Self::Q) -> bool {
         self.ts.add_state(state)
     }
 
-    fn add_transition(&mut self, from: Self::Q, on: Self::S, to: Self::Q) -> Option<Self::Q> {
+    fn add_transition(&mut self, from: &Self::Q, on: Self::S, to: &Self::Q) -> Option<Self::Q> {
         self.ts.add_transition(from, on, to)
     }
 }
@@ -114,11 +119,11 @@ mod tests {
         let mut dfa = super::Dfa::trivial();
         let q0 = dfa.initial();
         let q1 = 1;
-        assert!(dfa.add_state(1));
-        dfa.add_transition(q0, 'a', q1);
-        dfa.add_transition(q1, 'a', q0);
-        dfa.add_transition(q0, 'b', q0);
-        dfa.add_transition(q1, 'b', q1);
+        assert!(dfa.add_state(&q1));
+        dfa.add_transition(&q0, 'a', &q1);
+        dfa.add_transition(&q1, 'a', &q0);
+        dfa.add_transition(&q0, 'b', &q0);
+        dfa.add_transition(&q1, 'b', &q1);
         *dfa.acceptance_mut() += q1;
         assert!(dfa.accepts(&"a"));
         *dfa.acceptance_mut() -= q1;
@@ -131,11 +136,11 @@ mod tests {
         let mut dba = super::Dba::trivial();
         let q0 = dba.initial();
         let q1 = 1;
-        assert!(dba.add_state(1));
-        dba.add_transition(q0, 'a', q1);
-        dba.add_transition(q1, 'a', q0);
-        dba.add_transition(q0, 'b', q0);
-        dba.add_transition(q1, 'b', q1);
+        assert!(dba.add_state(&q1));
+        dba.add_transition(&q0, 'a', &q1);
+        dba.add_transition(&q1, 'a', &q0);
+        dba.add_transition(&q0, 'b', &q0);
+        dba.add_transition(&q1, 'b', &q1);
         *dba.acceptance_mut() += (q1, 'a');
         assert!(dba.accepts(&PeriodicWord::from("a")));
     }

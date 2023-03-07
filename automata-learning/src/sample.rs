@@ -1,13 +1,29 @@
 use std::hash::Hash;
 
-use automata::{Set, Word};
+use automata::{
+    run::{EscapePrefix, InitialRun, Run},
+    Pointed, Set, TransitionSystem, Word,
+};
+use itertools::{Either, Itertools};
 
-type SampleComponentIter<'s, S> = std::iter::Filter<
+type SampleComponentIter<'s, S> = std::iter::FilterMap<
     <S as Sample>::SampleIter<'s>,
-    fn(&(&<S as Sample>::SampleWord, bool)) -> bool,
+    fn((&<S as Sample>::SampleWord, bool)) -> Option<&<S as Sample>::SampleWord>,
 >;
 
 pub type SampleKind<S> = <<S as Sample>::SampleWord as Word>::Kind;
+
+pub type OneRunPartition<'w, TS, S> = (
+    Vec<(
+        &'w <S as Sample>::SampleWord,
+        <<S as Sample>::SampleWord as Run<TS, SampleKind<S>>>::Induces,
+    )>,
+    Vec<(
+        &'w <S as Sample>::SampleWord,
+        EscapePrefix<<TS as TransitionSystem>::Q, <S as Sample>::SampleWord>,
+    )>,
+);
+
 pub trait Sample {
     type SampleWord: Eq + Word;
     type SampleIter<'w>: Iterator<Item = (&'w Self::SampleWord, bool)>
@@ -18,17 +34,59 @@ pub trait Sample {
     fn iter(&self) -> Self::SampleIter<'_>;
 
     fn positive(&self) -> SampleComponentIter<'_, Self> {
-        self.iter().filter(|(_, b)| *b)
+        self.iter()
+            .filter_map(|(w, b)| if b { Some(w) } else { None })
     }
 
     fn negative(&self) -> SampleComponentIter<'_, Self> {
-        self.iter().filter(|(_, b)| !*b)
+        self.iter()
+            .filter_map(|(w, b)| if !b { Some(w) } else { None })
     }
 
     fn is_positive(&self, word: &Self::SampleWord) -> Option<bool>;
 
     fn is_negative(&self, word: &Self::SampleWord) -> Option<bool> {
         self.is_positive(word).map(|b| !b)
+    }
+    fn partition<'w, TS: TransitionSystem + Pointed>(
+        &'w self,
+        ts: &TS,
+    ) -> (OneRunPartition<'w, TS, Self>, OneRunPartition<'w, TS, Self>)
+    where
+        Self::SampleWord: InitialRun<TS, SampleKind<Self>>,
+        <Self::SampleWord as Run<TS, SampleKind<Self>>>::Induces: Eq + Hash,
+    {
+        (self.positive_partition(ts), self.negative_partition(ts))
+    }
+
+    fn positive_partition<'w, TS: TransitionSystem + Pointed>(
+        &'w self,
+        ts: &TS,
+    ) -> OneRunPartition<'w, TS, Self>
+    where
+        Self::SampleWord: InitialRun<TS, SampleKind<Self>>,
+        <Self::SampleWord as Run<TS, SampleKind<Self>>>::Induces: Eq + Hash,
+    {
+        self.positive()
+            .partition_map(|word| match word.initial_run(ts) {
+                Ok(induced) => Either::Left((word, induced)),
+                Err(escaping) => Either::Right((word, escaping)),
+            })
+    }
+
+    fn negative_partition<'w, TS: TransitionSystem + Pointed>(
+        &'w self,
+        ts: &TS,
+    ) -> OneRunPartition<'w, TS, Self>
+    where
+        Self::SampleWord: InitialRun<TS, SampleKind<Self>>,
+        <Self::SampleWord as Run<TS, SampleKind<Self>>>::Induces: Eq + Hash,
+    {
+        self.positive()
+            .partition_map(|word| match word.initial_run(ts) {
+                Ok(induced) => Either::Left((word, induced)),
+                Err(escaping) => Either::Right((word, escaping)),
+            })
     }
 }
 
@@ -79,7 +137,10 @@ impl<'s, W: Word + Eq + Hash, S: Sample<SampleWord = W>> Sample for SampleWithou
     }
 }
 
-impl<W: Eq + Word> Sample for (Vec<W>, Vec<W>) {
+#[derive(Eq, Clone, PartialEq, Debug)]
+pub struct VecSample<W>(pub Vec<W>, pub Vec<W>);
+
+impl<W: Eq + Word> Sample for VecSample<W> {
     type SampleWord = W;
     type SampleIter<'w> = std::iter::Chain<
     std::iter::Zip<std::slice::Iter<'w, W>, std::iter::Repeat<bool>>, std::iter::Zip<std::slice::Iter<'w, W>, std::iter::Repeat<bool>>> where W: 'w;
@@ -102,7 +163,10 @@ impl<W: Eq + Word> Sample for (Vec<W>, Vec<W>) {
     }
 }
 
-impl<W: Eq + std::hash::Hash + Word> Sample for (Set<W>, Set<W>) {
+#[derive(Eq, Clone, PartialEq, Debug)]
+pub struct SetSample<W: Hash + Eq>(pub Set<W>, pub Set<W>);
+
+impl<W: Eq + std::hash::Hash + Word> Sample for SetSample<W> {
     type SampleWord = W;
     type SampleIter<'w> = std::iter::Chain<
     std::iter::Zip<std::collections::hash_set::Iter<'w, W>, std::iter::Repeat<bool>>, std::iter::Zip<std::collections::hash_set::Iter<'w, W>, std::iter::Repeat<bool>>> where W: 'w;

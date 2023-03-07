@@ -2,25 +2,35 @@ use crate::{AnonymousGrowable, Mapping, Pointed, Set, Symbol};
 
 use super::{
     Growable, Shrinkable, StateIndex, StateIterable, SymbolOf, TransitionIterable,
-    TransitionSystem, TriggerIterable,
+    TransitionSystem, TriggerIterable, Trivial,
 };
 
 use std::fmt::Debug;
 
 /// An implementation of a deterministic transition system, stored as two `Vec`s containing the states and [`DeterministicTransition`]s.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Deterministic<Q: StateIndex = u32, S: Symbol = char> {
     states: Set<Q>,
     edges: Mapping<(Q, S), Q>,
 }
 
 /// Stores a [`Deterministic`] transition system with an initial state.
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct InitializedDeterministic<Q: StateIndex = u32, S: Symbol = char> {
     det: Deterministic<Q, S>,
     initial: Q,
 }
 
-impl Deterministic {
+impl<Q: StateIndex, S: Symbol> From<(Deterministic<Q, S>, Q)> for InitializedDeterministic<Q, S> {
+    fn from(value: (Deterministic<Q, S>, Q)) -> Self {
+        Self {
+            det: value.0,
+            initial: value.1,
+        }
+    }
+}
+
+impl<Q: StateIndex, S: Symbol> Deterministic<Q, S> {
     /// Create a new empty deterministic transition system.
     pub fn new() -> Self {
         Self {
@@ -33,6 +43,15 @@ impl Deterministic {
 impl Default for Deterministic {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<Q: StateIndex> Trivial for Deterministic<Q> {
+    fn trivial() -> Self {
+        Self {
+            states: Set::new(),
+            edges: Mapping::new(),
+        }
     }
 }
 
@@ -77,6 +96,15 @@ where
 
     fn succ(&self, from: &Self::Q, on: &Self::S) -> Option<Self::Q> {
         self.det.succ(from, on)
+    }
+}
+
+impl<Q: StateIndex + From<u32>> Trivial for InitializedDeterministic<Q> {
+    fn trivial() -> Self {
+        Self {
+            det: Deterministic::trivial(),
+            initial: 0.into(),
+        }
     }
 }
 
@@ -188,18 +216,17 @@ where
     Q: StateIndex,
     S: Symbol,
 {
-    fn add_state(&mut self, state: Self::Q) -> bool {
-        let new_state: Q = StateIndex::create(self.states.len() as u32);
-        self.states.insert(new_state.clone())
+    fn add_state(&mut self, state: &Self::Q) -> bool {
+        self.states.insert(state.clone())
     }
 
     fn add_transition(
         &mut self,
-        from: Self::Q,
+        from: &Self::Q,
         on: SymbolOf<Self>,
-        to: Self::Q,
+        to: &Self::Q,
     ) -> std::option::Option<Q> {
-        self.edges.insert((from, on), to)
+        self.edges.insert((from.clone(), on), to.clone())
     }
 }
 
@@ -208,15 +235,15 @@ where
     Q: StateIndex,
     S: Symbol,
 {
-    fn add_state(&mut self, state: Self::Q) -> bool {
+    fn add_state(&mut self, state: &Self::Q) -> bool {
         self.det.add_state(state)
     }
 
     fn add_transition(
         &mut self,
-        from: Self::Q,
+        from: &Self::Q,
         on: SymbolOf<Self>,
-        to: Self::Q,
+        to: &Self::Q,
     ) -> std::option::Option<Q> {
         self.det.add_transition(from, on, to)
     }
@@ -261,7 +288,7 @@ where
 {
     fn add_new_state(&mut self) -> Self::Q {
         let new_id: Q = (self.states.len() as u32).into();
-        if self.add_state(new_id.clone()) {
+        if self.add_state(&new_id) {
             new_id
         } else {
             panic!("Failed to add new state")
@@ -276,7 +303,7 @@ where
 {
     fn add_new_state(&mut self) -> Self::Q {
         let new_id: Q = (self.det.states.len() as u32).into();
-        if self.add_state(new_id.clone()) {
+        if self.add_state(&new_id) {
             new_id
         } else {
             panic!("Failed to add new state")

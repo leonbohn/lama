@@ -20,7 +20,7 @@
 
 /// Module in which traits for working with transition systems are defined. See [`ts::TransitionSystem`] and the crate level documentation for an overview of the trait hierarchy.
 /// This module also contains a concrete implementation of a transition system, [`ts::Deterministic`], which stores the transition system as a vector of states, and a vector of transitions. Is only available when the `det` feature is enabled.
-mod ts;
+pub mod ts;
 pub use ts::{
     AnonymousGrowable, Deterministic, Growable, InitializedDeterministic, IntoStateReferences,
     Pointed, Shrinkable, StateIndex, StateIterable, Transition, TransitionIterable,
@@ -70,6 +70,12 @@ pub type Mapping<X, Y> = std::collections::HashMap<X, Y>;
 pub type Set<X> = ahash::AHashSet<X>;
 #[cfg(not(feature = "ahash"))]
 pub type Set<X> = std::collections::AHashSet<X>;
+
+/// Abstracts things that are equivalent, meaning they represent the same thing. Useful for comparing represtantions of words.
+pub trait Equivalent<T = Self> {
+    /// Returns true if `self` and `other` are equivalent.
+    fn equivalent(&self, other: &T) -> bool;
+}
 
 #[cfg(test)]
 mod tests {}

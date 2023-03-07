@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use crate::{
     ts::{StateOf, TransitionSystem},
     words::{IsFinite, IsInfinite, Subword},
-    FiniteKind, InfiniteKind, Set,
+    Boundedness, FiniteKind, InfiniteKind, Pointed, Set,
 };
 
 use super::{EscapePrefix, RunOutput, Walk, Walker};
@@ -17,6 +17,28 @@ pub trait Run<TS: TransitionSystem + ?Sized, K>: Subword {
     fn run(&self, on: &TS, from: StateOf<TS>) -> Result<Self::Induces, EscapePrefix<TS::Q, Self>>
     where
         Self: Sized;
+}
+
+/// Abstracts the evaluation of an initial run, i.e. a [`Run`] that starts at the initial state of the transition system.
+pub trait InitialRun<TS: TransitionSystem + ?Sized, K>: Run<TS, K> {
+    /// Evaluates the run and returns the result.
+    fn initial_run(&self, on: &TS) -> Result<Self::Induces, EscapePrefix<TS::Q, Self>>
+    where
+        Self: Sized;
+}
+
+impl<TS: TransitionSystem + Pointed + ?Sized, K: Boundedness, R: Run<TS, K>> InitialRun<TS, K>
+    for R
+{
+    fn initial_run(
+        &self,
+        on: &TS,
+    ) -> Result<Self::Induces, EscapePrefix<<TS as TransitionSystem>::Q, Self>>
+    where
+        Self: Sized,
+    {
+        self.run(on, on.initial())
+    }
 }
 
 impl<W: IsFinite + Subword, TS: TransitionSystem<S = W::S>> Run<TS, FiniteKind> for W {
@@ -89,15 +111,15 @@ mod tests {
 
     #[test]
     fn omega_acceptance() {
-        let mut ts = Deterministic::new();
+        let mut ts: Deterministic<u32> = Deterministic::new();
         let q0 = ts.add_new_state();
         let q1 = ts.add_new_state();
         let q2 = ts.add_new_state();
-        ts.add_transition(q0, 'a', q1);
-        ts.add_transition(q0, 'b', q0);
-        ts.add_transition(q1, 'a', q2);
-        ts.add_transition(q1, 'b', q0);
-        ts.add_transition(q2, 'b', q0);
+        ts.add_transition(&q0, 'a', &q1);
+        ts.add_transition(&q0, 'b', &q0);
+        ts.add_transition(&q1, 'a', &q2);
+        ts.add_transition(&q1, 'b', &q0);
+        ts.add_transition(&q2, 'b', &q0);
 
         let word = PeriodicWord::from(FiniteWord::from("b"));
         let run = word.run(&ts, q0);

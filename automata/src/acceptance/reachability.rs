@@ -11,18 +11,18 @@ use super::AcceptanceCondition;
 
 /// Abstracts reachability conditions, the contained coloring is used to determine whether a state is accepting.
 #[derive(Debug, Clone)]
-pub struct ReachabilityCondition<Id> {
-    pub(crate) accepting: AHashSet<Id>,
+pub struct ReachabilityCondition<Q> {
+    pub(crate) accepting: AHashSet<Q>,
 }
 
-impl<Id: Eq + Hash> ReachabilityCondition<Id> {
+impl<Q: Eq + Hash> ReachabilityCondition<Q> {
     /// Creates a new `ReachabilityAcceptance` object from the given set of accepting states.
-    pub fn new(accepting: AHashSet<Id>) -> Self {
+    pub fn new(accepting: AHashSet<Q>) -> Self {
         Self { accepting }
     }
 
     /// Sets the given `state` as accepting.
-    pub fn set_accepting(&mut self, state: Id) {
+    pub fn set_accepting(&mut self, state: Q) {
         self.accepting.insert(state);
     }
 }
@@ -69,12 +69,12 @@ impl<Col: Eq + Hash> FromIterator<Col> for ReachabilityCondition<Col> {
     }
 }
 
-impl<Id: Hash + Eq> AcceptanceCondition for ReachabilityCondition<Id> {
+impl<Q: Hash + Eq> AcceptanceCondition for ReachabilityCondition<Q> {
     fn is_accepting(&self, induced: &Self::Induced) -> bool {
         self.accepting.contains(induced)
     }
 
-    type Induced = Id;
+    type Induced = Q;
 
     type Kind = FiniteKind;
 }
@@ -84,7 +84,7 @@ pub struct SafetyAcceptance<Col> {
     pub(crate) rejecting: Col,
 }
 
-impl<Col: Default> Default for SafetyAcceptance<Col> {
+impl<C: Default> Default for SafetyAcceptance<C> {
     fn default() -> Self {
         Self {
             rejecting: Default::default(),
