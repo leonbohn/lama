@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::{Boundedness, FiniteKind, Symbol};
 mod append;
 pub use append::Append;

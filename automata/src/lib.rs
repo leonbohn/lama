@@ -22,8 +22,9 @@
 /// This module also contains a concrete implementation of a transition system, [`ts::Deterministic`], which stores the transition system as a vector of states, and a vector of transitions. Is only available when the `det` feature is enabled.
 mod ts;
 pub use ts::{
-    Deterministic, Growable, IntoStateReferences, Pointed, Shrinkable, StateIndex, StateIterable,
-    Transition, TransitionIterable, TransitionSystem, Trigger, TriggerIterable,
+    AnonymousGrowable, Deterministic, Growable, InitializedDeterministic, IntoStateReferences,
+    Pointed, Shrinkable, StateIndex, StateIterable, Transition, TransitionIterable,
+    TransitionSystem, Trigger, TriggerIterable,
 };
 
 /// Module in which traits for working with words are defined, see [`crate::Word`] for more details.
@@ -38,7 +39,7 @@ pub use acceptance::{
 
 mod acceptor;
 pub use acceptor::Acceptor;
-use std::hash::Hash;
+use std::{fmt::Display, hash::Hash};
 
 mod combined;
 pub use combined::Combined;
@@ -54,9 +55,9 @@ mod boundedness;
 pub use boundedness::{Boundedness, FiniteKind, InfiniteKind};
 
 /// A trait for the symbols of a [`Word`] and the trigger of a transition in a [`TransitionSystem`].
-pub trait Symbol: Clone + Eq + std::fmt::Debug + PartialEq + Hash {}
+pub trait Symbol: Clone + Eq + std::fmt::Debug + PartialEq + Hash + Display {}
 
-impl<C: Clone + Eq + std::fmt::Debug + Hash> Symbol for C {}
+impl<C: Clone + Eq + std::fmt::Debug + Hash + Display> Symbol for C {}
 
 #[cfg(feature = "ahash")]
 /// Abstracts a mapping, assigning to each element of the domain `X` a value from the codomain `Y`.

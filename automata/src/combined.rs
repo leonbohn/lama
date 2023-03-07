@@ -1,6 +1,7 @@
 use crate::{
     acceptance::{AcceptanceCondition, BuchiCondition, ParityCondition, ReachabilityCondition},
     ts::{Deterministic, Growable, Pointed, Shrinkable, TransitionSystem},
+    AnonymousGrowable,
 };
 
 /// Struct that represents the 'usual' automata, which is a combination of a transition system, a designated initial state and an acceptance condition.
@@ -11,14 +12,14 @@ pub struct Combined<TS: TransitionSystem, Acc> {
 }
 
 #[allow(unused)]
-impl<TS: TransitionSystem + Default + Growable, Acc: AcceptanceCondition + Default>
+impl<TS: TransitionSystem + Default + AnonymousGrowable, Acc: AcceptanceCondition + Default>
     Combined<TS, Acc>
 {
     /// Creates a new instance with a single state that serves as the initial state.
     /// Note that the resulting automaton is not empty per se, it has a single initial state, which can be accessed via [`Combined::initial`].
     pub fn trivial() -> Self {
         let mut ts = TS::default();
-        let initial = ts.add_state();
+        let initial = ts.add_new_state();
         let acc = Acc::default();
         Self { ts, initial, acc }
     }
@@ -59,12 +60,18 @@ impl<TS: TransitionSystem, Acc: AcceptanceCondition> AcceptanceCondition for Com
 }
 
 impl<TS: Growable, Acc: AcceptanceCondition> Growable for Combined<TS, Acc> {
-    fn add_state(&mut self) -> Self::Q {
-        self.ts.add_state()
+    fn add_state(&mut self, state: Self::Q) -> bool {
+        self.ts.add_state(state)
     }
 
     fn add_transition(&mut self, from: Self::Q, on: Self::S, to: Self::Q) -> Option<Self::Q> {
         self.ts.add_transition(from, on, to)
+    }
+}
+
+impl<TS: AnonymousGrowable, Acc: AcceptanceCondition> AnonymousGrowable for Combined<TS, Acc> {
+    fn add_new_state(&mut self) -> Self::Q {
+        self.ts.add_new_state()
     }
 }
 
@@ -106,7 +113,8 @@ mod tests {
     fn dfa_acceptor() {
         let mut dfa = super::Dfa::trivial();
         let q0 = dfa.initial();
-        let q1 = dfa.add_state();
+        let q1 = 1;
+        assert!(dfa.add_state(1));
         dfa.add_transition(q0, 'a', q1);
         dfa.add_transition(q1, 'a', q0);
         dfa.add_transition(q0, 'b', q0);
@@ -122,7 +130,8 @@ mod tests {
     fn dba_accetor() {
         let mut dba = super::Dba::trivial();
         let q0 = dba.initial();
-        let q1 = dba.add_state();
+        let q1 = 1;
+        assert!(dba.add_state(1));
         dba.add_transition(q0, 'a', q1);
         dba.add_transition(q1, 'a', q0);
         dba.add_transition(q0, 'b', q0);

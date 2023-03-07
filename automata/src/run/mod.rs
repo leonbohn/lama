@@ -2,6 +2,8 @@ mod walker;
 
 /// Allows the evaluation of a run.
 mod result;
+use std::fmt::Display;
+
 pub use result::Run;
 
 pub use walker::Walker;
@@ -11,6 +13,7 @@ use crate::{
     words::{IsFinite, Word},
     Subword,
 };
+use itertools::Itertools;
 
 /// An escape prefix for a transition system is a triple `(u, q, a)`, where `u` is a finite sequence of triggers for the transition system, `q` is a state of the transition system and `a` is a symbol such that:
 /// - the last trigger in `u` brings the transition system into the state `q`
@@ -40,6 +43,25 @@ impl<Q, W: Word + Subword> EscapePrefix<Q, W> {
     }
 }
 
+impl<Q: Display, W: Subword + Display> Display for EscapePrefix<Q, W>
+where
+    <W as Subword>::SuffixType: Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} then {} misses {} with rest {}",
+            self.0
+                .iter()
+                .map(|(q, s)| format!("({},{})", q, s))
+                .join(""),
+            self.1,
+            self.2,
+            self.3
+        )
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 /// Encapsulates the possible outputs of a run when a symbol is consumed.
 pub enum RunOutput<Q, S> {
@@ -51,6 +73,21 @@ pub enum RunOutput<Q, S> {
     Missing(Q, S),
     /// The run has failed previously and thus cannot be continued.
     FailedBefore,
+}
+
+impl<Q: Display, S: Display> Display for RunOutput<Q, S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                RunOutput::Trigger(q, s) => format!("trigger({},{})", q, s),
+                RunOutput::WordEnd(q) => format!("end({})", q),
+                RunOutput::Missing(q, s) => format!("missing({},{})", q, s),
+                RunOutput::FailedBefore => "failed before".to_string(),
+            }
+        )
+    }
 }
 
 impl<Q: Clone, S: Clone> RunOutput<Q, S> {
@@ -103,7 +140,7 @@ impl<'ts, 'w, TS: TransitionSystem + 'ts, W: Word<S = TS::S> + 'w> Walk<'ts, 'w,
 #[cfg(test)]
 mod tests {
     use crate::{
-        ts::{deterministic::Deterministic, Growable},
+        ts::{deterministic::Deterministic, AnonymousGrowable, Growable},
         words::FiniteWord,
     };
 
@@ -112,9 +149,9 @@ mod tests {
     #[test]
     fn basic_run() {
         let mut ts = Deterministic::new();
-        let q0 = ts.add_state();
-        let q1 = ts.add_state();
-        let q2 = ts.add_state();
+        let q0 = ts.add_new_state();
+        let q1 = ts.add_new_state();
+        let q2 = ts.add_new_state();
         ts.add_transition(q0, 'a', q1);
         ts.add_transition(q0, 'b', q0);
         ts.add_transition(q1, 'a', q2);
@@ -129,9 +166,9 @@ mod tests {
     #[test]
     fn basic_run_with_missing() {
         let mut ts = Deterministic::new();
-        let q0 = ts.add_state();
-        let q1 = ts.add_state();
-        let q2 = ts.add_state();
+        let q0 = ts.add_new_state();
+        let q1 = ts.add_new_state();
+        let q2 = ts.add_new_state();
         ts.add_transition(q0, 'a', q1);
         ts.add_transition(q0, 'b', q0);
         ts.add_transition(q1, 'a', q2);
@@ -155,9 +192,9 @@ mod tests {
     #[test]
     fn input_to_run() {
         let mut ts = Deterministic::new();
-        let q0 = ts.add_state();
-        let q1 = ts.add_state();
-        let q2 = ts.add_state();
+        let q0 = ts.add_new_state();
+        let q1 = ts.add_new_state();
+        let q2 = ts.add_new_state();
         ts.add_transition(q0, 'a', q1);
         ts.add_transition(q0, 'b', q0);
         ts.add_transition(q1, 'a', q2);

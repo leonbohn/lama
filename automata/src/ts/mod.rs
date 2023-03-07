@@ -7,7 +7,7 @@ pub use transition::{Transition, Trigger};
 #[cfg(feature = "det")]
 pub mod deterministic;
 #[cfg(feature = "det")]
-pub use deterministic::Deterministic;
+pub use deterministic::{Deterministic, InitializedDeterministic};
 
 /// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`.
 pub trait StateIndex: Clone + Eq + std::hash::Hash + std::fmt::Debug {
@@ -111,11 +111,17 @@ pub trait IntoStateReferences<'a>: TransitionSystem + 'a {
 /// Ecapsulates the ability to add states and transitions to a transition system.
 pub trait Growable: TransitionSystem {
     /// Add a new state to the transition system..
-    fn add_state(&mut self) -> Self::Q;
+    fn add_state(&mut self, state: Self::Q) -> bool;
 
     /// Add a new transition to the transition system. If the transition did not exist before, `None` is returned. Otherwise, the old target state is returned.
     fn add_transition(&mut self, from: Self::Q, on: SymbolOf<Self>, to: Self::Q)
         -> Option<Self::Q>;
+}
+
+/// Ecapsulates the ability to add anonymous states and transitions to a transition system.
+pub trait AnonymousGrowable: Growable {
+    /// Add a new state to the transition system..
+    fn add_new_state(&mut self) -> Self::Q;
 }
 
 /// Implmenetors of this trait can be shrunk, i.e. states and transitions can be removed from the transition system.

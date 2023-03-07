@@ -82,6 +82,7 @@ mod tests {
     use crate::{
         ts::{deterministic::Deterministic, Growable},
         words::{FiniteWord, PeriodicWord},
+        AnonymousGrowable,
     };
 
     use super::*;
@@ -89,9 +90,9 @@ mod tests {
     #[test]
     fn omega_acceptance() {
         let mut ts = Deterministic::new();
-        let q0 = ts.add_state();
-        let q1 = ts.add_state();
-        let q2 = ts.add_state();
+        let q0 = ts.add_new_state();
+        let q1 = ts.add_new_state();
+        let q2 = ts.add_new_state();
         ts.add_transition(q0, 'a', q1);
         ts.add_transition(q0, 'b', q0);
         ts.add_transition(q1, 'a', q2);
