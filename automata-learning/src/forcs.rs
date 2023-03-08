@@ -2,44 +2,54 @@ use std::fmt::Display;
 
 use automata::{
     ts::{SymbolOf, Trivial},
-    Deterministic, Growable, InitializedDeterministic, Mapping, Pointed, TransitionSystem,
+    Deterministic, FiniteWord, Growable, InitializedDeterministic, Mapping, Pointed, Symbol,
+    TransitionSystem,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct CongruenceClass(pub String);
+pub struct CongruenceClass<S>(pub FiniteWord<S>);
 
-impl<D: Display> From<D> for CongruenceClass {
-    fn from(d: D) -> Self {
-        Self(d.to_string())
+impl<S: Symbol> CongruenceClass<S> {
+    pub fn epsilon() -> Self {
+        Self(FiniteWord::empty())
     }
 }
 
+impl<D: Display> From<D> for CongruenceClass<char> {
+    fn from(d: D) -> Self {
+        Self(FiniteWord::from_display(d))
+    }
+}
+
+pub type CongruenceTransition<S> = (CongruenceClass<S>, S, CongruenceClass<S>);
+pub type CongruenceTrigger<S> = (CongruenceClass<S>, S);
+
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct RightCongruence(InitializedDeterministic<CongruenceClass, char>);
+pub struct RightCongruence<S: Symbol>(InitializedDeterministic<CongruenceClass<S>, S>);
 
-impl TransitionSystem for RightCongruence {
-    type Q = CongruenceClass;
+impl<S: Symbol> TransitionSystem for RightCongruence<S> {
+    type Q = CongruenceClass<S>;
 
-    type S = char;
+    type S = S;
 
     fn succ(&self, from: &Self::Q, on: &Self::S) -> Option<Self::Q> {
         self.0.succ(from, on)
     }
 }
 
-impl Pointed for RightCongruence {
+impl<S: Symbol> Pointed for RightCongruence<S> {
     fn initial(&self) -> Self::Q {
-        "".into()
+        CongruenceClass::epsilon()
     }
 }
 
-impl Trivial for RightCongruence {
+impl<S: Symbol> Trivial for RightCongruence<S> {
     fn trivial() -> Self {
-        Self((Deterministic::new(), "".into()).into())
+        Self((Deterministic::new(), CongruenceClass::epsilon()).into())
     }
 }
 
-impl Growable for RightCongruence {
+impl<S: Symbol> Growable for RightCongruence<S> {
     fn add_state(&mut self, state: &Self::Q) -> bool {
         self.0.add_state(state)
     }
@@ -55,19 +65,19 @@ impl Growable for RightCongruence {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct ProgressRightCongruence(CongruenceClass, RightCongruence);
+pub struct ProgressRightCongruence<S: Symbol>(CongruenceClass<S>, RightCongruence<S>);
 
-impl TransitionSystem for ProgressRightCongruence {
-    type Q = CongruenceClass;
+impl<S: Symbol> TransitionSystem for ProgressRightCongruence<S> {
+    type Q = CongruenceClass<S>;
 
-    type S = char;
+    type S = S;
 
     fn succ(&self, from: &Self::Q, on: &Self::S) -> Option<Self::Q> {
         self.1.succ(from, on)
     }
 }
 
-impl Growable for ProgressRightCongruence {
+impl<S: Symbol> Growable for ProgressRightCongruence<S> {
     fn add_state(&mut self, state: &Self::Q) -> bool {
         self.1.add_state(state)
     }
@@ -83,4 +93,7 @@ impl Growable for ProgressRightCongruence {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct FORC(RightCongruence, Mapping<CongruenceClass, RightCongruence>);
+pub struct FORC<S: Symbol>(
+    RightCongruence<S>,
+    Mapping<CongruenceClass<S>, RightCongruence<S>>,
+);

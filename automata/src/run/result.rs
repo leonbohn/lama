@@ -8,6 +8,7 @@ use crate::{
 
 use super::{EscapePrefix, RunOutput, Walk, Walker};
 
+
 /// Abstracts the evaluation of a run.
 pub trait Run<TS: TransitionSystem + ?Sized, K>: Subword {
     /// Type that is returned for successful runs. This is usually a state in the case of a finite input and a set of states (usually a [`HashSet`]) in the case of an infinite input.

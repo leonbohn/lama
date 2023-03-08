@@ -55,9 +55,9 @@ mod boundedness;
 pub use boundedness::{Boundedness, FiniteKind, InfiniteKind};
 
 /// A trait for the symbols of a [`Word`] and the trigger of a transition in a [`TransitionSystem`].
-pub trait Symbol: Clone + Eq + std::fmt::Debug + PartialEq + Hash + Display {}
+pub trait Symbol: Clone + Eq + std::fmt::Debug + PartialEq + Hash + Display + Ord {}
 
-impl<C: Clone + Eq + std::fmt::Debug + Hash + Display> Symbol for C {}
+impl<C: Clone + Eq + std::fmt::Debug + Hash + Display + Ord> Symbol for C {}
 
 #[cfg(feature = "ahash")]
 /// Abstracts a mapping, assigning to each element of the domain `X` a value from the codomain `Y`.

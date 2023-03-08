@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use super::{IsFinite, SymbolIterable, Word};
 use crate::{FiniteKind, Symbol};
 
@@ -5,6 +7,14 @@ use crate::{FiniteKind, Symbol};
 /// Represents a 'usual' finite word consisting of a sequence of symbols.
 pub struct FiniteWord<S> {
     pub(crate) symbols: Vec<S>,
+}
+
+impl FiniteWord<char> {
+    pub fn from_display<D: Display>(d: D) -> Self {
+        Self {
+            symbols: d.to_string().chars().collect(),
+        }
+    }
 }
 
 impl<S: Symbol> IsFinite for FiniteWord<S> {

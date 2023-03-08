@@ -2,7 +2,10 @@ mod walker;
 
 /// Allows the evaluation of a run.
 mod result;
-use std::fmt::{Debug, Display};
+use std::{
+    cmp::Ordering,
+    fmt::{Debug, Display},
+};
 
 pub use result::{InitialRun, Run};
 
@@ -11,7 +14,7 @@ pub use walker::Walker;
 use crate::{
     ts::TransitionSystem,
     words::{IsFinite, Word},
-    Equivalent, Subword,
+    Equivalent, StateIndex, Subword,
 };
 use itertools::Itertools;
 
@@ -30,13 +33,53 @@ pub struct EscapePrefix<Q, W: Subword> {
     pub suffix: W::SuffixType,
 }
 
+impl<Q, W> PartialOrd for EscapePrefix<Q, W>
+where
+    Q: StateIndex,
+    W: Subword,
+    W::S: PartialOrd,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match self.prefix.len().partial_cmp(&other.prefix.len()) {
+            Some(Ordering::Less) => Some(Ordering::Less),
+            Some(Ordering::Greater) => Some(Ordering::Greater),
+            _ => self
+                .prefix
+                .iter()
+                .zip(other.prefix.iter())
+                .find_map(|((_, a), (_, b))| {
+                    let compared = a.partial_cmp(b);
+                    if compared.is_none() || compared.unwrap() == Ordering::Equal {
+                        None
+                    } else {
+                        compared
+                    }
+                }),
+        }
+    }
+}
+
+impl<Q, W> Ord for EscapePrefix<Q, W>
+where
+    Q: StateIndex,
+    W: Subword,
+    W::S: Ord,
+{
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.partial_cmp(other) {
+            Some(o) => o,
+            None => unreachable!("This must be a total order"),
+        }
+    }
+}
+
 impl<Q: Eq, W: Subword> Equivalent for EscapePrefix<Q, W> {
     fn equivalent(&self, other: &Self) -> bool {
         self.state == other.state && self.symbol == other.symbol && self.suffix == other.suffix
     }
 }
 
-impl<Q, W: Word + Subword> EscapePrefix<Q, W> {
+impl<Q: StateIndex, W: Word + Subword> EscapePrefix<Q, W> {
     /// Creates a new escape prefix from the given prefix, state and symbol.
     pub fn new(word: &W, prefix: Vec<(Q, W::S)>, state: Q, symbol: W::S) -> Self {
         let length = prefix.len();
@@ -60,6 +103,11 @@ impl<Q, W: Word + Subword> EscapePrefix<Q, W> {
             symbol: escape_prefix.symbol,
             suffix: word.skip(length),
         }
+    }
+
+    /// Creates an owned trigger.
+    pub fn trigger(&self) -> (Q, W::S) {
+        (self.state.clone(), self.symbol.clone())
     }
 }
 

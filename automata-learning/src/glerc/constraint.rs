@@ -1,45 +1,67 @@
 use std::{fmt::Debug, hash::Hash};
 
 use automata::{
-    run::{EscapePrefix, InitialRun, Run},
+    run::{EscapePrefix, Run},
     AcceptanceCondition, Equivalent, FiniteKind, Pointed, ReachabilityCondition, Set, StateIndex,
-    Subword, Word,
+    Subword, Symbol, Word,
 };
-use itertools::{Either, Itertools};
+use itertools::Itertools;
 
 use crate::{
-    forcs::RightCongruence,
-    sample::{Sample, SampleKind},
+    acceptance::AcceptanceError,
+    forcs::{CongruenceClass, RightCongruence},
 };
 
-pub trait Constraint<Obj> {
-    fn compute(&self, ts: &RightCongruence) -> Result<Obj, ConstraintError>;
+use super::state::GlercState;
 
-    fn satisfied(&self, ts: &RightCongruence) -> bool {
-        self.compute(ts).is_ok()
+pub trait Constraint {
+    fn satisfied<'s, S: Symbol, W: Run<RightCongruence<S>, <W as Word>::Kind>>(
+        &self,
+        ts: &GlercState<'s, S, W>,
+    ) -> Result<(), ConstraintError<'s, S, W>>;
+}
+
+pub struct ReachabilityConstraint<'s, S>(&'s S);
+pub struct BuchiConstraint<'s, S>(&'s S);
+pub struct CoBuchiConstraint<'s, S>(&'s S);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EscapeSeparabilityConstraint;
+pub struct InducedSeparabilityConstraint<'s, S>(&'s S);
+
+/// Encapsulates what can go wrong during an execution of GLERC.
+/// The lifetime parameter `'s` is the lifetime of the sample.
+/// The symbol type parameter `S` is the symbol type and `W` is the word type.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConstraintError<'s, S, W: Subword> {
+    /// A positive and a negative word escape from the same state with the same suffix.
+    /// Contains a reference to the positive word and its escape prefix, followed by a
+    /// reference to the negative word and its escape prefix.
+    SameEscape(
+        &'s W,
+        &'s EscapePrefix<CongruenceClass<S>, W>,
+        &'s W,
+        &'s EscapePrefix<CongruenceClass<S>, W>,
+    ),
+    /// The contained positive and negative word induce the same object.
+    SameInduced(&'s W, &'s W),
+    /// The Computation of acceptance was unsuccessful, refer to [`AcceptanceError`] for details.
+    Acceptance(AcceptanceError<'s, S, W>),
+}
+
+impl Constraint for EscapeSeparabilityConstraint {
+    fn satisfied<'s, S: Symbol, W: Run<RightCongruence<S>, <W as Word>::Kind>>(
+        &self,
+        ts: &GlercState<'s, S, W>,
+    ) -> Result<(), ConstraintError<'s, S, W>> {
+        todo!()
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ConstraintError {
-    SameEscape(String),
-    SameInduced(String),
-    AcceptanceCondition,
-}
-
-pub trait FromInduced<W>: AcceptanceCondition {
-    fn from_induced<'w>(
-        positive: &[(&'w W, Self::Induced)],
-        negative: &[(&'w W, Self::Induced)],
-    ) -> Result<Self, ConstraintError>
-    where
-        Self: std::marker::Sized;
-}
-
-fn escape_consistent<'w, Q: StateIndex, W: Subword + Eq>(
-    set_x: &[(&'w W, EscapePrefix<Q, W>)],
-    set_y: &[(&'w W, EscapePrefix<Q, W>)],
-) -> Result<(), ConstraintError>
+fn escape_consistent<'s, S: Symbol, W: Subword<S = S> + Eq>(
+    set_x: &'s [(&'s W, EscapePrefix<CongruenceClass<S>, W>)],
+    set_y: &'s [(&'s W, EscapePrefix<CongruenceClass<S>, W>)],
+) -> Result<(), ConstraintError<'s, S, W>>
 where
     W::SuffixType: PartialEq,
 {
@@ -48,90 +70,29 @@ where
         .cartesian_product(set_y.iter())
         .find(|(x, y)| x.1.equivalent(&y.1))
     {
-        Err(ConstraintError::SameEscape(format!(
-            "{:?} and {:?} are not separable: {:?} ~ {:?}",
-            positive_word, negative_word, positive_prefix, negative_prefix
-        )))
+        Err(ConstraintError::SameEscape(
+            &positive_word,
+            positive_prefix,
+            &negative_word,
+            negative_prefix,
+        ))
     } else {
         Ok(())
     }
 }
 
-fn induced_consistent<'w, Ind: Eq + Debug, W: Word>(
-    set_x: &[(&'w W, Ind)],
-    set_y: &[(&'w W, Ind)],
-) -> Result<(), ConstraintError> {
+fn induced_consistent<'s, S: Symbol, W: Subword<S = S> + Eq>(
+    set_x: &[(&'s W, EscapePrefix<CongruenceClass<S>, W>)],
+    set_y: &[(&'s W, EscapePrefix<CongruenceClass<S>, W>)],
+) -> Result<(), ConstraintError<'s, S, W>> {
     if let Some(((positive_word, positive_induced), (negative_word, negative_induced))) = set_x
         .iter()
         .cartesian_product(set_y.iter())
         .find(|(x, y)| x.1 == y.1)
     {
-        Err(ConstraintError::SameInduced(format!(
-            "{:?} and {:?} are not separable: both induce {:?}",
-            positive_word, negative_word, positive_induced
-        )))
+        Err(ConstraintError::SameInduced(&positive_word, &negative_word))
     } else {
         Ok(())
-    }
-}
-
-impl<I, S> Constraint<I> for S
-where
-    I: FromInduced<S::SampleWord>,
-    I::Induced: Eq + Hash,
-    S: Sample,
-    S::SampleWord: Run<RightCongruence, SampleKind<S>, Induces = I::Induced> + Eq + Hash,
-    <S::SampleWord as Subword>::SuffixType: PartialEq,
-{
-    fn compute(&self, ts: &RightCongruence) -> Result<I, ConstraintError> {
-        let ((positive_induced, positive_escaping), (negative_induced, negative_escaping)) =
-            self.partition(ts);
-
-        // check for esacpe consistency, the question mark bubbles up the error, if one occurs
-        escape_consistent(&positive_escaping, &negative_escaping)?;
-
-        I::from_induced(&positive_induced, &negative_induced)
-    }
-}
-
-impl<S: Sample> Constraint<RightCongruence> for S
-where
-    S::SampleWord: Run<RightCongruence, SampleKind<S>>,
-    <S::SampleWord as Run<RightCongruence, SampleKind<S>>>::Induces: Eq + Debug + Hash,
-    <S::SampleWord as Subword>::SuffixType: PartialEq,
-{
-    fn compute(&self, ts: &RightCongruence) -> Result<RightCongruence, ConstraintError> {
-        let ((positive_induced, positive_escaping), (negative_induced, negative_escaping)) =
-            self.partition(ts);
-
-        escape_consistent(&positive_escaping, &negative_escaping)?;
-        induced_consistent(&positive_induced, &negative_induced)?;
-        Ok(ts.to_owned())
-    }
-}
-
-pub type MaybeReachabilityCondition<Q> = Result<ReachabilityCondition<Q>, ConstraintError>;
-
-impl<Q, W> FromInduced<W> for ReachabilityCondition<Q>
-where
-    Q: StateIndex,
-    W: Word<Kind = FiniteKind> + Hash + Eq,
-{
-    fn from_induced<'w>(
-        positive: &[(&'w W, Self::Induced)],
-        negative: &[(&'w W, Self::Induced)],
-    ) -> Result<Self, ConstraintError>
-    where
-        Self: std::marker::Sized,
-    {
-        let pos = positive.iter().collect::<Set<_>>();
-        if negative.iter().any(|q| pos.contains(q)) {
-            Err(ConstraintError::AcceptanceCondition)
-        } else {
-            Ok(ReachabilityCondition::new(
-                pos.into_iter().map(|(_, q)| q).cloned().collect(),
-            ))
-        }
     }
 }
 
@@ -139,9 +100,9 @@ where
 mod tests {
     use automata::{ts::Trivial, Growable, Pointed};
 
-    use crate::{forcs::RightCongruence, sample::VecSample};
+    use crate::{forcs::RightCongruence, sample::Sample};
 
-    use super::{Constraint, MaybeReachabilityCondition};
+    use super::Constraint;
 
     #[test]
     fn reachability_from_induced() {
@@ -153,9 +114,18 @@ mod tests {
         ts.add_transition(&q1, 'a', &q1);
         ts.add_transition(&q0, 'b', &q1);
         ts.add_transition(&q1, 'b', &q0);
+    }
 
-        let sample = VecSample(vec!["a", "b"], vec!["b"]);
-        let condition: MaybeReachabilityCondition<_> = sample.compute(&ts);
-        assert_eq!(condition, Err(super::ConstraintError::AcceptanceCondition));
+    #[test]
+    fn congruence_learning() {
+        let sample = Sample::from_parts(["a", "aa"], ["", "ab", "b"]);
+        let mut ts = RightCongruence::trivial();
+        let q0 = ts.initial();
+        let q1 = "a".into();
+        assert!(ts.add_state(&q1));
+        ts.add_transition(&q0, 'a', &q1);
+        ts.add_transition(&q1, 'a', &q1);
+        ts.add_transition(&q1, 'b', &q0);
+        ts.add_transition(&q0, 'b', &q0);
     }
 }
