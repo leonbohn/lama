@@ -1,49 +1,78 @@
 use crate::{
     acceptance::AcceptanceCondition,
-    run::Run,
+    run::{Configuration, Evaluate},
     ts::{Pointed, TransitionSystem},
-    Boundedness,
+    Word,
 };
 
 /// Implemented by objects which can accept a word. We use `W` as an ipnut type parameter to allow for different implementations based on the type of word.
-pub trait Acceptor<K> {
+pub trait Acceptor {
     /// The transition system type.
     type TS: TransitionSystem + Pointed;
 
     /// The acceptance condition type.
-    type Acc: AcceptanceCondition<Kind = K>;
+    type Acc: AcceptanceCondition;
 
     /// Returns true iff the given `word` is accepted, i.e. it satisfies the acceptance condition.
-    fn accepts<W: Run<Self::TS, K, Induces = <Self::Acc as AcceptanceCondition>::Induced>>(
-        &self,
-        word: &W,
-    ) -> bool;
+    fn accepts<'t, W>(&'t self, on: W) -> bool
+    where
+        Self::TS: 't,
+        Configuration<'t, Self::TS, W>:
+            Evaluate<Output = <Self::Acc as AcceptanceCondition>::Induced>,
+        W: Word<S = <Self::TS as TransitionSystem>::S>;
 
     /// Returns the opposite of `accepts`.
-    fn rejects<W: Run<Self::TS, K, Induces = <Self::Acc as AcceptanceCondition>::Induced>>(
-        &self,
-        word: &W,
-    ) -> bool {
-        !self.accepts(word)
+    fn rejects<'t, W>(&'t self, on: W) -> bool
+    where
+        Self::TS: 't,
+        Configuration<'t, Self::TS, W>:
+            Evaluate<Output = <Self::Acc as AcceptanceCondition>::Induced>,
+        W: Word<S = <Self::TS as TransitionSystem>::S>,
+    {
+        !self.accepts(on)
     }
 }
 
-impl<TS, K> Acceptor<K> for TS
+impl<TS, Acc> Acceptor for (TS, Acc)
 where
-    K: Boundedness,
-    TS: TransitionSystem + Pointed + AcceptanceCondition<Kind = K>,
+    TS: TransitionSystem + Pointed,
+    Acc: AcceptanceCondition,
 {
     type TS = TS;
 
-    type Acc = TS;
+    type Acc = Acc;
 
-    fn accepts<W: Run<Self::TS, K, Induces = <Self::Acc as AcceptanceCondition>::Induced>>(
-        &self,
-        word: &W,
-    ) -> bool {
-        match word.run(self, self.initial()) {
-            Ok(induced) => self.is_accepting(&induced),
-            Err(_) => false,
+    fn accepts<'t, W>(&'t self, on: W) -> bool
+    where
+        Self::TS: 't,
+        Configuration<'t, Self::TS, W>:
+            Evaluate<Output = <Self::Acc as AcceptanceCondition>::Induced>,
+        W: Word<S = <Self::TS as TransitionSystem>::S>,
+    {
+        match self.0.configuration(on, self.0.initial()).evaluate() {
+            Ok(_) => true,
+            _ => false,
+        }
+    }
+}
+
+impl<A> Acceptor for A
+where
+    A: TransitionSystem + Pointed + AcceptanceCondition,
+{
+    type TS = A;
+    type Acc = A;
+
+    fn accepts<'t, W>(&'t self, on: W) -> bool
+    where
+        Self::TS: 't,
+        Configuration<'t, Self::TS, W>:
+            Evaluate<Output = <Self::Acc as AcceptanceCondition>::Induced>,
+        W: Word<S = <Self::TS as TransitionSystem>::S>,
+    {
+        match self.configuration(on, self.initial()).evaluate() {
+            Ok(_) => todo!(),
+            _ => false,
         }
     }
 }

@@ -2,6 +2,7 @@ mod walker;
 
 /// Allows the evaluation of a run.
 mod result;
+mod runner;
 use std::{
     cmp::Ordering,
     fmt::{Debug, Display},
@@ -10,6 +11,8 @@ use std::{
 pub use result::{InitialRun, Run};
 
 pub use walker::Walker;
+
+pub use runner::{Configuration, Evaluate};
 
 use crate::{
     ts::TransitionSystem,
@@ -225,7 +228,7 @@ impl<'ts, 'w, TS: TransitionSystem + 'ts, W: Word<S = TS::S> + 'w> Walk<'ts, 'w,
 mod tests {
     use crate::{
         ts::{deterministic::Deterministic, AnonymousGrowable, Growable},
-        words::FiniteWord,
+        words::Str,
     };
 
     use super::*;
@@ -243,7 +246,7 @@ mod tests {
         ts.add_transition(&q2, 'a', &q2);
         ts.add_transition(&q2, 'b', &q0);
 
-        let w = FiniteWord::from("abba");
+        let w = Str::from("abba");
         assert_eq!(w.run(&ts, q0), Ok(q1));
     }
 
@@ -259,7 +262,7 @@ mod tests {
         ts.add_transition(&q1, 'b', &q0);
         ts.add_transition(&q2, 'b', &q0);
 
-        let w = FiniteWord::from("abaaa");
+        let w = Str::from("abaaa");
         {
             let mut run = ts.walk(q0, &w);
             assert_eq!(run.next(), Some(RunOutput::trigger(q0, 'a')));

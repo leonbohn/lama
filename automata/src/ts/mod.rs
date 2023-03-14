@@ -1,4 +1,4 @@
-use crate::Symbol;
+use crate::{run::Configuration, Symbol, Word};
 
 mod transition;
 pub use transition::{Transition, Trigger};
@@ -41,6 +41,22 @@ pub trait TransitionSystem {
     /// Creates a new trigger from the given state and symbol.
     fn make_trigger(from: &Self::Q, on: &Self::S) -> (Self::Q, Self::S) {
         (from.clone(), on.clone())
+    }
+
+    fn configuration<'w, W: Word<S = Self::S>>(
+        &self,
+        on: W,
+        from: Self::Q,
+    ) -> Configuration<'_, Self, W>
+    where
+        Self: Sized,
+    {
+        Configuration {
+            ts: self,
+            word: on,
+            source: from.clone(),
+            q: from,
+        }
     }
 }
 

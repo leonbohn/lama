@@ -8,7 +8,6 @@ use crate::{
 
 use super::{EscapePrefix, RunOutput, Walk, Walker};
 
-
 /// Abstracts the evaluation of a run.
 pub trait Run<TS: TransitionSystem + ?Sized, K>: Subword {
     /// Type that is returned for successful runs. This is usually a state in the case of a finite input and a set of states (usually a [`HashSet`]) in the case of an infinite input.
@@ -104,7 +103,7 @@ where
 mod tests {
     use crate::{
         ts::{deterministic::Deterministic, Growable},
-        words::{FiniteWord, PeriodicWord},
+        words::{PeriodicWord, Str},
         AnonymousGrowable,
     };
 
@@ -122,7 +121,7 @@ mod tests {
         ts.add_transition(&q1, 'b', &q0);
         ts.add_transition(&q2, 'b', &q0);
 
-        let word = PeriodicWord::from(FiniteWord::from("b"));
+        let word = PeriodicWord::from(Str::from("b"));
         let run = word.run(&ts, q0);
         assert!(run.is_ok());
         assert_eq!(
@@ -132,7 +131,7 @@ mod tests {
                 .collect()
         );
 
-        let ab_run = PeriodicWord::from(FiniteWord::from("ab")).run(&ts, q0);
+        let ab_run = PeriodicWord::from(Str::from("ab")).run(&ts, q0);
         assert!(ab_run.is_ok());
         assert_eq!(
             ab_run.unwrap(),

@@ -64,9 +64,6 @@ pub trait AcceptanceCondition {
     /// The type of the induced object, depends on [`Self::Kind`].
     type Induced;
 
-    /// The kind of the acceptance condition, either [`crate::FiniteKind`] or [`crate::InfiniteKind`].
-    type Kind: Boundedness;
-
     /// Returns whether the given induced object satisfies the acceptance condition.
     fn is_accepting(&self, induced: &Self::Induced) -> bool;
 }

@@ -2,22 +2,22 @@ use std::fmt::Display;
 
 use automata::{
     ts::{SymbolOf, Trivial},
-    Deterministic, FiniteWord, Growable, InitializedDeterministic, Mapping, Pointed, Symbol,
+    Deterministic, Growable, InitializedDeterministic, Mapping, Pointed, Str, Symbol,
     TransitionSystem,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct CongruenceClass<S>(pub FiniteWord<S>);
+pub struct CongruenceClass<S>(pub Str<S>);
 
 impl<S: Symbol> CongruenceClass<S> {
     pub fn epsilon() -> Self {
-        Self(FiniteWord::empty())
+        Self(Str::empty())
     }
 }
 
 impl<D: Display> From<D> for CongruenceClass<char> {
     fn from(d: D) -> Self {
-        Self(FiniteWord::from_display(d))
+        Self(Str::from_display(d))
     }
 }
 

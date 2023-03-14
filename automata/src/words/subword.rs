@@ -1,6 +1,6 @@
 use crate::Symbol;
 
-use super::{FiniteWord, IsFinite, PeriodicWord, SymbolIterable, UltimatelyPeriodicWord, Word};
+use super::{IsFinite, PeriodicWord, Str, SymbolIterable, UltimatelyPeriodicWord, Word};
 
 /// A trait which allows accessing a finite prefix of a given length as well as a finite suffix of a word which is obtained by skipping a number of symbols from the start.
 pub trait Subword: Word {
@@ -17,7 +17,7 @@ pub trait Subword: Word {
     fn skip(&self, number: usize) -> Self::SuffixType;
 }
 
-impl<S: Symbol> Subword for FiniteWord<S> {
+impl<S: Symbol> Subword for Str<S> {
     type SuffixType = Self;
 
     type PrefixType = Self;
@@ -32,10 +32,10 @@ impl<S: Symbol> Subword for FiniteWord<S> {
 }
 
 impl<S: Symbol> Subword for PeriodicWord<S> {
-    type PrefixType = FiniteWord<S>;
+    type PrefixType = Str<S>;
     type SuffixType = Self;
 
-    fn prefix(&self, length: usize) -> FiniteWord<Self::S> {
+    fn prefix(&self, length: usize) -> Str<Self::S> {
         self.0.iter().cycle().take(length).collect()
     }
 
@@ -47,10 +47,10 @@ impl<S: Symbol> Subword for PeriodicWord<S> {
 }
 
 impl<S: Symbol> Subword for UltimatelyPeriodicWord<S> {
-    type PrefixType = FiniteWord<S>;
+    type PrefixType = Str<S>;
     type SuffixType = UltimatelyPeriodicWord<S>;
 
-    fn prefix(&self, length: usize) -> FiniteWord<Self::S> {
+    fn prefix(&self, length: usize) -> Str<Self::S> {
         let prefix_length = self.0.symbols.len();
         if length <= prefix_length {
             self.0.prefix(length)
@@ -66,8 +66,22 @@ impl<S: Symbol> Subword for UltimatelyPeriodicWord<S> {
         if number <= prefix_length {
             Self(self.0.skip(number), self.1.clone())
         } else {
-            Self(FiniteWord::empty(), self.1.skip(number - prefix_length))
+            Self(Str::empty(), self.1.skip(number - prefix_length))
         }
+    }
+}
+
+impl<Sub: Subword> Subword for &Sub {
+    type SuffixType = Sub::SuffixType;
+
+    type PrefixType = Sub::PrefixType;
+
+    fn prefix(&self, length: usize) -> Self::PrefixType {
+        Subword::prefix(*self, length)
+    }
+
+    fn skip(&self, number: usize) -> Self::SuffixType {
+        Subword::skip(*self, number)
     }
 }
 
@@ -122,10 +136,10 @@ mod tests {
     use super::*;
     #[test]
     fn subword_impls() {
-        let word = FiniteWord::from(vec![1, 3, 3, 7]);
+        let word = Str::from(vec![1, 3, 3, 7]);
         assert_eq!(vec![1, 3, 3, 7].prefix(2), vec![1, 3]);
         assert_eq!("1337".skip(2), "37".to_string());
-        assert_eq!(word.prefix(10), FiniteWord::from(vec![1, 3, 3, 7]));
-        assert_eq!(word.skip(10), FiniteWord::from(vec![]));
+        assert_eq!(word.prefix(10), Str::from(vec![1, 3, 3, 7]));
+        assert_eq!(word.skip(10), Str::from(vec![]));
     }
 }

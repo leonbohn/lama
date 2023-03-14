@@ -14,8 +14,6 @@ pub struct ParityCondition<X>(pub Vec<Set<X>>);
 impl<X: Eq + Hash> AcceptanceCondition for ParityCondition<X> {
     type Induced = Set<X>;
 
-    type Kind = InfiniteKind;
-
     fn is_accepting(&self, induced: &Self::Induced) -> bool {
         if let Some(minimum) = induced.iter().map(|x| self.priority(x)).min() {
             minimum.parity()
@@ -81,8 +79,6 @@ pub struct BuchiCondition<X>(pub Set<X>);
 
 impl<X: Eq + Hash> AcceptanceCondition for BuchiCondition<X> {
     type Induced = Set<X>;
-
-    type Kind = InfiniteKind;
 
     fn is_accepting(&self, induced: &Self::Induced) -> bool {
         induced.iter().any(|x| self.0.contains(x))

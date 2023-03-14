@@ -1,9 +1,13 @@
-use super::{FiniteWord, IsInfinite, SymbolIterable, Word};
-use crate::{InfiniteKind, Symbol};
+use super::{IsInfinite, Str, SymbolIterable, Word};
+use crate::{Boundedness, InfiniteKind, Symbol};
+
+pub trait InfiniteWord {
+    type Symbol: Symbol;
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// A `PeriodicWord` essentially just loops a [`FiniteWord`] over and over again.
-pub struct PeriodicWord<S>(pub(crate) FiniteWord<S>);
+pub struct PeriodicWord<S>(pub(crate) Str<S>);
 
 impl<S: Symbol> IsInfinite for PeriodicWord<S> {
     fn base_length(&self) -> usize {
@@ -16,16 +20,15 @@ impl<S: Symbol> IsInfinite for PeriodicWord<S> {
 }
 
 impl<S: Symbol> Word for PeriodicWord<S> {
-    type S = S;
-
     type Kind = InfiniteKind;
+    type S = S;
 
     fn nth(&self, index: usize) -> Option<Self::S> {
         self.0.nth(index % self.0.symbols.len())
     }
 }
 
-impl<S, I: Into<FiniteWord<S>>> From<I> for PeriodicWord<S> {
+impl<S, I: Into<Str<S>>> From<I> for PeriodicWord<S> {
     fn from(finite: I) -> Self {
         Self(finite.into())
     }
@@ -53,7 +56,7 @@ impl<S: Symbol> SymbolIterable for PeriodicWord<S> {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// In an `UltimatelyPeriodicWord`, the first part is a finite prefix, after which a periodic part follows. The prefix can be empty.
-pub struct UltimatelyPeriodicWord<S>(pub(crate) FiniteWord<S>, pub(crate) PeriodicWord<S>);
+pub struct UltimatelyPeriodicWord<S>(pub(crate) Str<S>, pub(crate) PeriodicWord<S>);
 
 impl<S: Symbol> IsInfinite for UltimatelyPeriodicWord<S> {
     fn base_length(&self) -> usize {
@@ -66,9 +69,8 @@ impl<S: Symbol> IsInfinite for UltimatelyPeriodicWord<S> {
 }
 
 impl<S: Symbol> Word for UltimatelyPeriodicWord<S> {
-    type S = S;
-
     type Kind = InfiniteKind;
+    type S = S;
 
     fn nth(&self, index: usize) -> Option<Self::S> {
         let prefix_length = self.0.symbols.len();
@@ -82,12 +84,12 @@ impl<S: Symbol> Word for UltimatelyPeriodicWord<S> {
 
 impl<S> From<PeriodicWord<S>> for UltimatelyPeriodicWord<S> {
     fn from(periodic: PeriodicWord<S>) -> Self {
-        Self(FiniteWord::empty(), periodic)
+        Self(Str::empty(), periodic)
     }
 }
 
-impl<S> From<(FiniteWord<S>, PeriodicWord<S>)> for UltimatelyPeriodicWord<S> {
-    fn from((prefix, periodic): (FiniteWord<S>, PeriodicWord<S>)) -> Self {
+impl<S> From<(Str<S>, PeriodicWord<S>)> for UltimatelyPeriodicWord<S> {
+    fn from((prefix, periodic): (Str<S>, PeriodicWord<S>)) -> Self {
         Self(prefix, periodic)
     }
 }

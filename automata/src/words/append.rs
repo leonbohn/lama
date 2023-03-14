@@ -1,6 +1,6 @@
 use crate::Symbol;
 
-use super::{FiniteWord, PeriodicWord, UltimatelyPeriodicWord, Word};
+use super::{PeriodicWord, Str, UltimatelyPeriodicWord, Word};
 
 /// Encapsulates the ability to append some [`Word`] to another.
 pub trait Append<W: Word>: Word {
@@ -11,10 +11,10 @@ pub trait Append<W: Word>: Word {
     fn append(&self, other: &W) -> Self::Output;
 }
 
-impl<S: Symbol> Append<FiniteWord<S>> for FiniteWord<S> {
-    type Output = FiniteWord<S>;
+impl<S: Symbol> Append<Str<S>> for Str<S> {
+    type Output = Str<S>;
 
-    fn append(&self, other: &FiniteWord<S>) -> Self::Output {
+    fn append(&self, other: &Str<S>) -> Self::Output {
         self.symbols
             .iter()
             .chain(other.symbols.iter())
@@ -23,7 +23,7 @@ impl<S: Symbol> Append<FiniteWord<S>> for FiniteWord<S> {
     }
 }
 
-impl<S: Symbol> Append<PeriodicWord<S>> for FiniteWord<S> {
+impl<S: Symbol> Append<PeriodicWord<S>> for Str<S> {
     type Output = UltimatelyPeriodicWord<S>;
 
     fn append(&self, other: &PeriodicWord<S>) -> Self::Output {
@@ -31,7 +31,7 @@ impl<S: Symbol> Append<PeriodicWord<S>> for FiniteWord<S> {
     }
 }
 
-impl<S: Symbol> Append<UltimatelyPeriodicWord<S>> for FiniteWord<S> {
+impl<S: Symbol> Append<UltimatelyPeriodicWord<S>> for Str<S> {
     type Output = UltimatelyPeriodicWord<S>;
 
     fn append(&self, other: &UltimatelyPeriodicWord<S>) -> Self::Output {

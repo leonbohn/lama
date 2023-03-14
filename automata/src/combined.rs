@@ -60,8 +60,6 @@ impl<TS: TransitionSystem, Acc: AcceptanceCondition> AcceptanceCondition for Com
     fn is_accepting(&self, induced: &Self::Induced) -> bool {
         self.acc.is_accepting(induced)
     }
-
-    type Kind = Acc::Kind;
 }
 
 impl<TS: Growable, Acc: AcceptanceCondition> Growable for Combined<TS, Acc> {
@@ -125,10 +123,10 @@ mod tests {
         dfa.add_transition(&q0, 'b', &q0);
         dfa.add_transition(&q1, 'b', &q1);
         *dfa.acceptance_mut() += q1;
-        assert!(dfa.accepts(&"a"));
+        assert!(dfa.accepts("a"));
         *dfa.acceptance_mut() -= q1;
-        assert!(!dfa.accepts(&"a"));
-        assert!(dfa.rejects(&"b"))
+        assert!(!dfa.accepts("a"));
+        assert!(dfa.rejects("b"))
     }
 
     #[test]
@@ -142,6 +140,6 @@ mod tests {
         dba.add_transition(&q0, 'b', &q0);
         dba.add_transition(&q1, 'b', &q1);
         *dba.acceptance_mut() += (q1, 'a');
-        assert!(dba.accepts(&PeriodicWord::from("a")));
+        assert!(dba.accepts(PeriodicWord::from("a")));
     }
 }

@@ -29,7 +29,7 @@ pub use ts::{
 
 /// Module in which traits for working with words are defined, see [`crate::Word`] for more details.
 pub mod words;
-pub use words::{Append, FiniteWord, PeriodicWord, Prepend, Subword, UltimatelyPeriodicWord, Word};
+pub use words::{Append, PeriodicWord, Prepend, Str, Subword, UltimatelyPeriodicWord, Word};
 
 /// Module in which acceptance conditions of automata are defined. This includes the [`AcceptanceCondition`] trait, which is implemented by all acceptance conditions, and provides a common interface for working with acceptance conditions.
 mod acceptance;

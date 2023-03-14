@@ -75,8 +75,6 @@ impl<Q: Hash + Eq> AcceptanceCondition for ReachabilityCondition<Q> {
     }
 
     type Induced = Q;
-
-    type Kind = FiniteKind;
 }
 
 /// Abstracts safety conditions, the contained coloring is used to determine whether a state is rejecting.

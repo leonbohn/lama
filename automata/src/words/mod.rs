@@ -11,7 +11,7 @@ mod finite;
 mod infinite;
 mod subword;
 
-pub use finite::FiniteWord;
+pub use finite::Str;
 pub use infinite::{PeriodicWord, UltimatelyPeriodicWord};
 pub use subword::Subword;
 
@@ -29,15 +29,41 @@ pub trait IsInfinite: Word {
     fn recur_length(&self) -> usize;
 }
 
+impl<F: IsFinite> IsFinite for &F {
+    fn length(&self) -> usize {
+        IsFinite::length(*self)
+    }
+}
+
+impl<F: IsInfinite> IsInfinite for &F {
+    fn base_length(&self) -> usize {
+        IsInfinite::base_length(*self)
+    }
+
+    fn recur_length(&self) -> usize {
+        IsInfinite::recur_length(*self)
+    }
+}
+
 /// Abstracts a word over some given alphabet. The type parameter `S` is the alphabet, and `Kind` is a marker type which indicates whether the word is finite or infinite.
 pub trait Word: Debug + Eq {
     /// The type of the symbols making up the word.
     type S: Symbol;
-    /// The kind of the word, either [`crate::FiniteKind`] or [`crate::InfiniteKind`].
+
     type Kind: Boundedness;
 
     /// Returns the symbol at the given index, or `None` if the index is out of bounds.
     fn nth(&self, index: usize) -> Option<Self::S>;
+}
+
+impl<W: Word> Word for &W {
+    type S = W::S;
+
+    type Kind = W::Kind;
+
+    fn nth(&self, index: usize) -> Option<Self::S> {
+        Word::nth(*self, index)
+    }
 }
 
 /// A trait which allows iterating over the symbols of a word. For an infinite word, this is an infinite iterator.
@@ -50,9 +76,8 @@ pub trait SymbolIterable: Word {
 }
 
 impl Word for String {
-    type S = char;
-
     type Kind = FiniteKind;
+    type S = char;
 
     fn nth(&self, index: usize) -> Option<Self::S> {
         self.chars().nth(index)
@@ -66,9 +91,8 @@ impl IsFinite for String {
 }
 
 impl Word for &str {
-    type S = char;
-
     type Kind = FiniteKind;
+    type S = char;
 
     fn nth(&self, index: usize) -> Option<Self::S> {
         self.chars().nth(index)
@@ -88,9 +112,8 @@ impl<S: Symbol> IsFinite for Vec<S> {
 }
 
 impl<S: Symbol> Word for Vec<S> {
-    type S = S;
-
     type Kind = FiniteKind;
+    type S = S;
 
     fn nth(&self, index: usize) -> Option<Self::S> {
         self.get(index).cloned()
@@ -102,7 +125,7 @@ mod tests {
     use super::*;
     #[test]
     fn symbol_iterability() {
-        let word = FiniteWord::<usize>::from(vec![1, 3, 3, 7]);
+        let word = Str::<usize>::from(vec![1, 3, 3, 7]);
         let mut iter = word.iter();
         assert_eq!(iter.next(), Some(1));
         assert_eq!(iter.next(), Some(3));
@@ -110,8 +133,7 @@ mod tests {
         assert_eq!(iter.next(), Some(7));
         assert_eq!(iter.next(), None);
 
-        let word =
-            UltimatelyPeriodicWord(FiniteWord::empty(), PeriodicWord::from(vec![1, 3, 3, 7]));
+        let word = UltimatelyPeriodicWord(Str::empty(), PeriodicWord::from(vec![1, 3, 3, 7]));
         let mut iter = word.iter();
         assert_eq!(iter.next(), Some(1usize));
     }
