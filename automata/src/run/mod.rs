@@ -21,22 +21,6 @@ use crate::{
 };
 use itertools::Itertools;
 
-pub trait InducesIn<TS> {
-    type Output;
-    fn test(&self) -> bool {
-        true
-    }
-}
-
-impl<W, TS> InducesIn<TS> for W
-where
-    W: Subword,
-    TS: TransitionSystem<S = W::S>,
-    Configuration<TS, W>: Evaluate,
-{
-    type Output = <Configuration<TS, W> as Evaluate>::Output;
-}
-
 /// An escape prefix for a transition system is a triple `(u, q, a)`, where `u` is a finite sequence of triggers for the transition system, `q` is a state of the transition system and `a` is a symbol such that:
 /// - the last trigger in `u` brings the transition system into the state `q`
 /// - no transition is defined for the symbol `a` in the state `q`.

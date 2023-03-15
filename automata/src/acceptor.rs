@@ -46,10 +46,7 @@ where
             Evaluate<Output = <Self::Acc as AcceptanceCondition>::Induced>,
         W: Word<S = <Self::TS as TransitionSystem>::S>,
     {
-        match self.0.run_word_from(on, self.0.initial()).evaluate() {
-            Ok(_) => true,
-            _ => false,
-        }
+        matches!(self.0.run_word_from(on, self.0.initial()).evaluate(), Ok(_))
     }
 }
 

@@ -1,9 +1,6 @@
 use std::borrow::Borrow;
 
-use crate::{
-    run::{Configuration, InducesIn},
-    Symbol, Word,
-};
+use crate::{run::Configuration, Symbol, Word};
 
 mod initialized;
 mod transition;
@@ -55,11 +52,7 @@ pub trait TransitionSystem {
 
     /// Starts a run from the given state. A run is given by a [`Configuration`] object, which keeps track
     /// of the current state.
-    fn run_word_from<'t, W: Word<S = Self::S>>(
-        &'t self,
-        on: W,
-        from: Self::Q,
-    ) -> Configuration<&'t Self, W>
+    fn run_word_from<W: Word<S = Self::S>>(&self, on: W, from: Self::Q) -> Configuration<&Self, W>
     where
         Self: Sized,
     {
@@ -91,12 +84,10 @@ pub trait Pointed: TransitionSystem {
     fn initial(&self) -> Self::Q;
 
     /// Runs the word from the given initial state.
-    fn run<'t, W: Word<S = Self::S> + InducesIn<Self>>(
-        &'t self,
-        on: W,
-    ) -> Configuration<&'t Self, W>
+    fn run<'t, W>(&'t self, on: &'t W) -> Configuration<&'t Self, &'t W>
     where
         Self: Sized,
+        W: Word<S = Self::S>,
     {
         Configuration::for_pointed(self, on)
     }

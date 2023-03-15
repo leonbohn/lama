@@ -24,6 +24,6 @@ mod tests {
     #[test]
     fn initialize_it() {
         let ts = simple_ts().start(0);
-        assert_eq!(ts.run("abba").evaluate(), Ok(0));
+        assert_eq!(ts.run(&"abba".to_string()).evaluate(), Ok(0));
     }
 }

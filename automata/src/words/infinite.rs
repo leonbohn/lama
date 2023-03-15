@@ -1,5 +1,5 @@
 use super::{IsInfinite, Str, SymbolIterable, Word};
-use crate::{Boundedness, InfiniteKind, Symbol};
+use crate::{InfiniteKind, Symbol};
 
 pub trait InfiniteWord {
     type Symbol: Symbol;

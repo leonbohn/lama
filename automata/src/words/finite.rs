@@ -14,6 +14,7 @@ pub struct Str<S> {
 }
 
 impl Str<char> {
+    /// Creates an `Str` object from something that can be displayed.
     pub fn from_display<D: Display>(d: D) -> Self {
         Self {
             symbols: d.to_string().chars().collect(),

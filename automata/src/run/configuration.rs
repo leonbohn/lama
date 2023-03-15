@@ -1,19 +1,25 @@
 use crate::{
     words::{IsFinite, IsInfinite},
-    Boundedness, FiniteKind, InfiniteKind, PeriodicWord, Pointed, Set, StateIndex, Str, Subword,
-    TransitionSystem, Word,
+    FiniteKind, InfiniteKind, Pointed, Set, Subword, TransitionSystem, Word,
 };
 
 use super::{EscapePrefix, RunOutput, Walk};
 
+/// Encapsulates the configuration of a run of some `word` in the `ts`, where `start` is the origin
+/// where the run started and `q` is the current state of the run.
 pub struct Configuration<TS: TransitionSystem, W> {
+    /// Where the run originates from.
     pub start: TS::Q,
+    /// The state the run is currently in.
     pub q: TS::Q,
+    /// The word we are running on.
     pub word: W,
+    /// The [`TransitionSystem`] we are running in.
     pub ts: TS,
 }
 
 impl<TS: TransitionSystem, W> Configuration<TS, W> {
+    /// Creates a cnonfiguration for the given [`Pointed`] [`TransitionSystem`] and [`Word`].
     pub fn for_pointed(ts: TS, word: W) -> Self
     where
         TS: Pointed,
@@ -26,6 +32,7 @@ impl<TS: TransitionSystem, W> Configuration<TS, W> {
         }
     }
 
+    /// Builds a configuration for the given [`TransitionSystem`], state and [`Word`].
     pub fn build(ts: TS, q: TS::Q, word: W) -> Self {
         Configuration {
             ts,
@@ -36,10 +43,15 @@ impl<TS: TransitionSystem, W> Configuration<TS, W> {
     }
 }
 
+/// Encapsulates things that can be evaluated to either a positive or negative result. Commonly implemented
+/// by a [`Configuration`] and similar things that abstract a run of a [`TransitionSystem`].
 pub trait Evaluate {
+    /// The type that is returned if the corresponding run is successful.
     type Output;
+    /// What is returned if the run is unsuccessful. Usually an [`EscapePrefix`].
     type Failure;
 
+    /// Do the evaluation and return an object of the correct type.
     fn evaluate(&self) -> Result<Self::Output, Self::Failure>;
 }
 
@@ -85,8 +97,8 @@ where
         let recur_length = self.word.recur_length();
         let prefix = self.word.prefix(prefix_length);
         let cfg = Configuration::build(&self.ts, self.start.clone(), prefix);
-        let res = match cfg.eval() {
-            Err(e) => todo!(),
+        match cfg.eval() {
+            Err(_e) => todo!(),
             Ok(reached) => {
                 let recur = self.word.skip(prefix_length);
                 let mut seen = Set::new();
@@ -111,8 +123,7 @@ where
                     }
                 }
             }
-        };
-        res
+        }
     }
 }
 
