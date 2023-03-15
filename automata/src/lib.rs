@@ -78,4 +78,19 @@ pub trait Equivalent<T = Self> {
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use crate::{AnonymousGrowable, Deterministic, Growable};
+
+    pub fn simple_ts() -> Deterministic {
+        let mut ts = Deterministic::new();
+        let q0 = ts.add_new_state();
+        let q1 = ts.add_new_state();
+
+        ts.add_transition(q0, 'a', &q1);
+        ts.add_transition(&q0, 'b', &q0);
+        ts.add_transition(&q1, 'a', &q0);
+        ts.add_transition(&q1, 'b', &q1);
+
+        ts
+    }
+}

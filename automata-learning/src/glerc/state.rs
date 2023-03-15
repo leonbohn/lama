@@ -1,21 +1,48 @@
 use automata::{
-    run::{EscapePrefix, Run},
+    run::{Configuration, EscapePrefix, Evaluate},
     ts::Trivial,
-    Mapping, Subword, Symbol, Word,
+    Mapping, Subword, Symbol, TransitionSystem, Word,
 };
 
 use crate::{
-    forcs::{CongruenceClass, CongruenceTrigger, RightCongruence},
+    forcs::{Class, CongruenceTrigger, RightCongruence},
     sample::Sample,
 };
 
-pub type CongrunenceRunResult<S, W> = Result<
-    <W as Run<RightCongruence<S>, <W as Word>::Kind>>::Induces,
-    EscapePrefix<CongruenceClass<S>, W>,
->;
+pub struct FreeConfiguration<Q, W> {
+    pub(crate) start: Q,
+    pub(crate) q: Q,
+    pub(crate) word: W,
+}
+
+impl<Q: Clone, W: Word + Clone> FreeConfiguration<Q, W> {
+    pub fn attach_ts<'c, 't, TS: TransitionSystem<Q = Q, S = W::S>>(
+        &'c self,
+        ts: &'t TS,
+    ) -> Configuration<&'t TS, &'c W> {
+        Configuration {
+            start: self.start.clone(),
+            q: self.q.clone(),
+            word: &self.word,
+            ts,
+        }
+    }
+}
+
+impl<'t, TS: TransitionSystem, W: Word<S = TS::S>> From<Configuration<&'t TS, W>>
+    for FreeConfiguration<TS::Q, W>
+{
+    fn from(value: Configuration<&'t TS, W>) -> Self {
+        Self {
+            start: value.start,
+            q: value.q,
+            word: value.word,
+        }
+    }
+}
 
 /// Holds the current state of the GLERC algorithm
-pub struct GlercState<'s, S: Symbol, W: Run<RightCongruence<S>, <W as Word>::Kind>> {
+pub struct GlercState<'s, S: Symbol, W: Subword<S = S>> {
     /// The congruence constructed thus far
     pub(crate) cong: RightCongruence<S>,
     /// The default congruence
@@ -24,10 +51,15 @@ pub struct GlercState<'s, S: Symbol, W: Run<RightCongruence<S>, <W as Word>::Kin
     pub(crate) sample: &'s Sample<W>,
     /// The current iteration
     pub(crate) iteration: usize,
-    pub(crate) runs: Mapping<&'s W, CongrunenceRunResult<S, W>>,
+    pub(crate) runs: Mapping<&'s W, FreeConfiguration<Class<S>, W>>,
 }
 
-impl<'s, S: Symbol, W: Run<RightCongruence<S>, <W as Word>::Kind, S = S>> GlercState<'s, S, W> {
+impl<'s, S, W> GlercState<'s, S, W>
+where
+    S: Symbol + 's,
+    W: Subword<S = S> + Clone + 's,
+    Configuration<&'s RightCongruence<S>, &'s W>: Evaluate<Failure = EscapePrefix<Class<S>, W>>,
+{
     pub fn new(sample: &'s Sample<W>, default: RightCongruence<S>) -> Self {
         Self {
             cong: RightCongruence::trivial(),
@@ -38,13 +70,11 @@ impl<'s, S: Symbol, W: Run<RightCongruence<S>, <W as Word>::Kind, S = S>> GlercS
         }
     }
 
-    pub fn next_missing(&self) -> Option<CongruenceTrigger<S>> {
+    pub fn next_missing(&'s self) -> Option<(Class<S>, S)> {
         self.runs
             .iter()
-            .filter_map(|(_, result)| result.as_ref().err())
+            .filter_map(|(_, result)| result.attach_ts(&self.cong).evaluate().err())
             .min_by(|u_result, v_result| u_result.cmp(v_result))
             .map(|escape_prefix| escape_prefix.trigger())
     }
 }
-
-

@@ -67,7 +67,12 @@ impl<TS: Growable, Acc: AcceptanceCondition> Growable for Combined<TS, Acc> {
         self.ts.add_state(state)
     }
 
-    fn add_transition(&mut self, from: &Self::Q, on: Self::S, to: &Self::Q) -> Option<Self::Q> {
+    fn add_transition<X: std::borrow::Borrow<Self::Q>, Y: std::borrow::Borrow<Self::Q>>(
+        &mut self,
+        from: X,
+        on: crate::ts::SymbolOf<Self>,
+        to: Y,
+    ) -> Option<Self::Q> {
         self.ts.add_transition(from, on, to)
     }
 }

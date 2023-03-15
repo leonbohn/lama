@@ -5,8 +5,6 @@ use std::{
 
 use ahash::AHashSet;
 
-use crate::FiniteKind;
-
 use super::AcceptanceCondition;
 
 /// Abstracts reachability conditions, the contained coloring is used to determine whether a state is accepting.

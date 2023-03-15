@@ -16,16 +16,14 @@ pub trait Acceptor {
     /// Returns true iff the given `word` is accepted, i.e. it satisfies the acceptance condition.
     fn accepts<'t, W>(&'t self, on: W) -> bool
     where
-        Self::TS: 't,
-        Configuration<'t, Self::TS, W>:
+        Configuration<&'t Self::TS, W>:
             Evaluate<Output = <Self::Acc as AcceptanceCondition>::Induced>,
         W: Word<S = <Self::TS as TransitionSystem>::S>;
 
     /// Returns the opposite of `accepts`.
     fn rejects<'t, W>(&'t self, on: W) -> bool
     where
-        Self::TS: 't,
-        Configuration<'t, Self::TS, W>:
+        Configuration<&'t Self::TS, W>:
             Evaluate<Output = <Self::Acc as AcceptanceCondition>::Induced>,
         W: Word<S = <Self::TS as TransitionSystem>::S>,
     {
@@ -44,12 +42,11 @@ where
 
     fn accepts<'t, W>(&'t self, on: W) -> bool
     where
-        Self::TS: 't,
-        Configuration<'t, Self::TS, W>:
+        Configuration<&'t Self::TS, W>:
             Evaluate<Output = <Self::Acc as AcceptanceCondition>::Induced>,
         W: Word<S = <Self::TS as TransitionSystem>::S>,
     {
-        match self.0.configuration(on, self.0.initial()).evaluate() {
+        match self.0.run_word_from(on, self.0.initial()).evaluate() {
             Ok(_) => true,
             _ => false,
         }
@@ -65,12 +62,11 @@ where
 
     fn accepts<'t, W>(&'t self, on: W) -> bool
     where
-        Self::TS: 't,
-        Configuration<'t, Self::TS, W>:
+        Configuration<&'t Self::TS, W>:
             Evaluate<Output = <Self::Acc as AcceptanceCondition>::Induced>,
         W: Word<S = <Self::TS as TransitionSystem>::S>,
     {
-        match self.configuration(on, self.initial()).evaluate() {
+        match self.run_word_from(on, self.initial()).evaluate() {
             Ok(_) => todo!(),
             _ => false,
         }

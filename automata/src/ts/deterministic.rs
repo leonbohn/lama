@@ -5,7 +5,7 @@ use super::{
     TransitionSystem, TriggerIterable, Trivial,
 };
 
-use std::fmt::Debug;
+use std::{borrow::Borrow, fmt::Debug};
 
 /// An implementation of a deterministic transition system, stored as two `Vec`s containing the states and [`DeterministicTransition`]s.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -220,13 +220,14 @@ where
         self.states.insert(state.clone())
     }
 
-    fn add_transition(
+    fn add_transition<X: Borrow<Q>, Y: Borrow<Q>>(
         &mut self,
-        from: &Self::Q,
+        from: X,
         on: SymbolOf<Self>,
-        to: &Self::Q,
+        to: Y,
     ) -> std::option::Option<Q> {
-        self.edges.insert((from.clone(), on), to.clone())
+        self.edges
+            .insert((from.borrow().clone(), on), to.borrow().clone())
     }
 }
 
@@ -239,12 +240,12 @@ where
         self.det.add_state(state)
     }
 
-    fn add_transition(
+    fn add_transition<X: Borrow<Self::Q>, Y: Borrow<Self::Q>>(
         &mut self,
-        from: &Self::Q,
+        from: X,
         on: SymbolOf<Self>,
-        to: &Self::Q,
-    ) -> std::option::Option<Q> {
+        to: Y,
+    ) -> Option<Self::Q> {
         self.det.add_transition(from, on, to)
     }
 }

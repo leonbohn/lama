@@ -1,4 +1,4 @@
-use crate::{Boundedness, Set};
+use crate::Set;
 
 mod omega;
 pub use omega::{BuchiCondition, ParityCondition};

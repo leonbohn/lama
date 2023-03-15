@@ -1,25 +1,37 @@
 use crate::{
     words::{IsFinite, IsInfinite},
-    Boundedness, FiniteKind, InfiniteKind, PeriodicWord, Set, StateIndex, Str, Subword,
+    Boundedness, FiniteKind, InfiniteKind, PeriodicWord, Pointed, Set, StateIndex, Str, Subword,
     TransitionSystem, Word,
 };
 
 use super::{EscapePrefix, RunOutput, Walk};
 
-pub struct Configuration<'t, TS: TransitionSystem, W> {
-    pub(crate) ts: &'t TS,
-    pub(crate) source: TS::Q,
-    pub(crate) q: TS::Q,
-    pub(crate) word: W,
+pub struct Configuration<TS: TransitionSystem, W> {
+    pub start: TS::Q,
+    pub q: TS::Q,
+    pub word: W,
+    pub ts: TS,
 }
 
-impl<'t, TS: TransitionSystem, W> Configuration<'t, TS, W> {
-    pub fn build(ts: &'t TS, source: TS::Q, word: W) -> Self {
+impl<TS: TransitionSystem, W> Configuration<TS, W> {
+    pub fn for_pointed(ts: TS, word: W) -> Self
+    where
+        TS: Pointed,
+    {
+        Configuration {
+            q: ts.initial(),
+            start: ts.initial(),
+            ts,
+            word,
+        }
+    }
+
+    pub fn build(ts: TS, q: TS::Q, word: W) -> Self {
         Configuration {
             ts,
-            source: source.clone(),
             word,
-            q: source,
+            start: q.clone(),
+            q,
         }
     }
 }
@@ -38,14 +50,14 @@ pub trait Eval<K> {
     fn eval(&self) -> Result<Self::Output, Self::Failure>;
 }
 
-impl<'t, TS: TransitionSystem, W: IsFinite + Subword<S = TS::S>> Eval<FiniteKind>
-    for Configuration<'t, TS, W>
+impl<TS: TransitionSystem, W: IsFinite + Subword<S = TS::S>> Eval<FiniteKind>
+    for Configuration<TS, W>
 {
     type Output = TS::Q;
     type Failure = EscapePrefix<TS::Q, W>;
 
     fn eval(&self) -> Result<Self::Output, Self::Failure> {
-        let mut walker = self.ts.walk(self.source.clone(), &self.word);
+        let mut walker = self.ts.walk(self.start.clone(), &self.word);
         let prefix = walker
             .by_ref()
             .take_while(RunOutput::is_trigger)
@@ -59,11 +71,11 @@ impl<'t, TS: TransitionSystem, W: IsFinite + Subword<S = TS::S>> Eval<FiniteKind
     }
 }
 
-impl<'t, TS: TransitionSystem, W: IsInfinite + Subword<S = TS::S>> Eval<InfiniteKind>
-    for Configuration<'t, TS, W>
+impl<TS: TransitionSystem, W: IsInfinite + Subword<S = TS::S>> Eval<InfiniteKind>
+    for Configuration<TS, W>
 where
     <W as Subword>::PrefixType: IsFinite,
-    Configuration<'t, TS, <W as Subword>::PrefixType>: Eval<FiniteKind, Output = TS::Q>,
+    Configuration<TS, <W as Subword>::PrefixType>: Eval<FiniteKind, Output = TS::Q>,
 {
     type Output = Set<(TS::Q, TS::S)>;
     type Failure = EscapePrefix<TS::Q, W>;
@@ -72,7 +84,7 @@ where
         let prefix_length = self.word.base_length();
         let recur_length = self.word.recur_length();
         let prefix = self.word.prefix(prefix_length);
-        let cfg = Configuration::build(self.ts, self.source.clone(), prefix);
+        let cfg = Configuration::build(&self.ts, self.start.clone(), prefix);
         let res = match cfg.eval() {
             Err(e) => todo!(),
             Ok(reached) => {
@@ -104,9 +116,9 @@ where
     }
 }
 
-impl<'t, TS: TransitionSystem, W: Word> Evaluate for Configuration<'t, TS, W>
+impl<TS: TransitionSystem, W: Word> Evaluate for Configuration<TS, W>
 where
-    Configuration<'t, TS, W>: Eval<W::Kind>,
+    Configuration<TS, W>: Eval<W::Kind>,
 {
     type Output = <Self as Eval<W::Kind>>::Output;
     type Failure = <Self as Eval<W::Kind>>::Failure;

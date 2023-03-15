@@ -5,6 +5,7 @@ mod append;
 pub use append::Append;
 
 mod prepend;
+use impl_tools::autoimpl;
 pub use prepend::Prepend;
 
 mod finite;
@@ -15,7 +16,21 @@ pub use finite::Str;
 pub use infinite::{PeriodicWord, UltimatelyPeriodicWord};
 pub use subword::Subword;
 
+/// Abstracts a word over some given alphabet. The type parameter `S` is the alphabet, and `Kind` is a marker type which indicates whether the word is finite or infinite.
+#[autoimpl(for<T: trait> &T, &mut T)]
+pub trait Word: Debug + Eq {
+    /// The type of the symbols making up the word.
+    type S: Symbol;
+
+    /// Indicates whether the word is finite or infinite.
+    type Kind: Boundedness;
+
+    /// Returns the symbol at the given index, or `None` if the index is out of bounds.
+    fn nth(&self, index: usize) -> Option<Self::S>;
+}
+
 /// A trait which indicates that a word is finite.
+#[autoimpl(for<T: trait> &T, &mut T)]
 pub trait IsFinite: Word {
     /// Returns the length of the word.
     fn length(&self) -> usize;
@@ -29,12 +44,6 @@ pub trait IsInfinite: Word {
     fn recur_length(&self) -> usize;
 }
 
-impl<F: IsFinite> IsFinite for &F {
-    fn length(&self) -> usize {
-        IsFinite::length(*self)
-    }
-}
-
 impl<F: IsInfinite> IsInfinite for &F {
     fn base_length(&self) -> usize {
         IsInfinite::base_length(*self)
@@ -42,27 +51,6 @@ impl<F: IsInfinite> IsInfinite for &F {
 
     fn recur_length(&self) -> usize {
         IsInfinite::recur_length(*self)
-    }
-}
-
-/// Abstracts a word over some given alphabet. The type parameter `S` is the alphabet, and `Kind` is a marker type which indicates whether the word is finite or infinite.
-pub trait Word: Debug + Eq {
-    /// The type of the symbols making up the word.
-    type S: Symbol;
-
-    type Kind: Boundedness;
-
-    /// Returns the symbol at the given index, or `None` if the index is out of bounds.
-    fn nth(&self, index: usize) -> Option<Self::S>;
-}
-
-impl<W: Word> Word for &W {
-    type S = W::S;
-
-    type Kind = W::Kind;
-
-    fn nth(&self, index: usize) -> Option<Self::S> {
-        Word::nth(*self, index)
     }
 }
 

@@ -1,6 +1,13 @@
-use crate::{run::Configuration, Symbol, Word};
+use std::borrow::Borrow;
 
+use crate::{
+    run::{Configuration, InducesIn},
+    Symbol, Word,
+};
+
+mod initialized;
 mod transition;
+use impl_tools::autoimpl;
 pub use transition::{Transition, Trigger};
 
 /// An implementation of a deterministic `TransitionSystem` in form of an edge list. The edge list is represented by a vector of tuples `(from, to, symbol)`. Is only available if the `det` feature is enabled.
@@ -8,6 +15,8 @@ pub use transition::{Transition, Trigger};
 pub mod deterministic;
 #[cfg(feature = "det")]
 pub use deterministic::{Deterministic, InitializedDeterministic};
+
+use self::initialized::Initialized;
 
 /// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`.
 pub trait StateIndex: Clone + Eq + std::hash::Hash + std::fmt::Debug {}
@@ -24,6 +33,7 @@ pub type StateOf<X> = <X as TransitionSystem>::Q;
 /// States of a transition system are generic, and can be any type that implements the [`StateIndex`] trait.
 /// Also the symbols of a transition system are generic, and can be any type that implements the [`Alphabet`] trait.
 /// The [`TransitionTrigger`] trait is used to represent an outgoing transition. Note, that such a trigger is a pair consisting of a state and a symbol, meaning the target state is not included in a trigger.
+#[autoimpl(for<T: trait> &T, &mut T, Initialized<T>)]
 pub trait TransitionSystem {
     /// The type of the states of the transition system.
     type Q: StateIndex;
@@ -43,19 +53,27 @@ pub trait TransitionSystem {
         (from.clone(), on.clone())
     }
 
-    fn configuration<'w, W: Word<S = Self::S>>(
-        &self,
+    /// Starts a run from the given state. A run is given by a [`Configuration`] object, which keeps track
+    /// of the current state.
+    fn run_word_from<'t, W: Word<S = Self::S>>(
+        &'t self,
         on: W,
         from: Self::Q,
-    ) -> Configuration<'_, Self, W>
+    ) -> Configuration<&'t Self, W>
     where
         Self: Sized,
     {
-        Configuration {
-            ts: self,
-            word: on,
-            source: from.clone(),
-            q: from,
+        Configuration::build(self, from, on)
+    }
+
+    /// Creates a copy of the current TS which has its initial state set.
+    fn start(&self, start: Self::Q) -> Initialized<Self>
+    where
+        Self: Sized + Clone,
+    {
+        Initialized {
+            ts: self.clone(),
+            start,
         }
     }
 }
@@ -66,20 +84,22 @@ pub trait Trivial: TransitionSystem {
     fn trivial() -> Self;
 }
 
-impl<TS: TransitionSystem> TransitionSystem for &TS {
-    type Q = TS::Q;
-
-    type S = TS::S;
-
-    fn succ(&self, from: &Self::Q, on: &SymbolOf<Self>) -> Option<StateOf<Self>> {
-        TransitionSystem::succ(*self, from, on)
-    }
-}
-
 /// Implemented by objects which have a designated initial state.
+#[autoimpl(for<T: trait> &T, &mut T)]
 pub trait Pointed: TransitionSystem {
     /// Get the initial state of the automaton.
     fn initial(&self) -> Self::Q;
+
+    /// Runs the word from the given initial state.
+    fn run<'t, W: Word<S = Self::S> + InducesIn<Self>>(
+        &'t self,
+        on: W,
+    ) -> Configuration<&'t Self, W>
+    where
+        Self: Sized,
+    {
+        Configuration::for_pointed(self, on)
+    }
 }
 
 /// Implemented by objects which have a finite number of states.
@@ -129,11 +149,11 @@ pub trait Growable: TransitionSystem {
     fn add_state(&mut self, state: &Self::Q) -> bool;
 
     /// Add a new transition to the transition system. If the transition did not exist before, `None` is returned. Otherwise, the old target state is returned.
-    fn add_transition(
+    fn add_transition<X: Borrow<Self::Q>, Y: Borrow<Self::Q>>(
         &mut self,
-        from: &Self::Q,
+        from: X,
         on: SymbolOf<Self>,
-        to: &Self::Q,
+        to: Y,
     ) -> Option<Self::Q>;
 }
 

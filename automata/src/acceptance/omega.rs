@@ -3,7 +3,7 @@ use std::{
     ops::{AddAssign, SubAssign},
 };
 
-use crate::{InfiniteKind, Set};
+use crate::Set;
 
 use super::{AcceptanceCondition, Finite, Parity, Priority, PriorityMapping};
 

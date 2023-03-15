@@ -7,28 +7,28 @@ use automata::{
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct CongruenceClass<S>(pub Str<S>);
+pub struct Class<S>(pub Str<S>);
 
-impl<S: Symbol> CongruenceClass<S> {
+impl<S: Symbol> Class<S> {
     pub fn epsilon() -> Self {
         Self(Str::empty())
     }
 }
 
-impl<D: Display> From<D> for CongruenceClass<char> {
+impl<D: Display> From<D> for Class<char> {
     fn from(d: D) -> Self {
         Self(Str::from_display(d))
     }
 }
 
-pub type CongruenceTransition<S> = (CongruenceClass<S>, S, CongruenceClass<S>);
-pub type CongruenceTrigger<S> = (CongruenceClass<S>, S);
+pub type CongruenceTransition<S> = (Class<S>, S, Class<S>);
+pub type CongruenceTrigger<S> = (Class<S>, S);
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct RightCongruence<S: Symbol>(InitializedDeterministic<CongruenceClass<S>, S>);
+pub struct RightCongruence<S: Symbol>(InitializedDeterministic<Class<S>, S>);
 
 impl<S: Symbol> TransitionSystem for RightCongruence<S> {
-    type Q = CongruenceClass<S>;
+    type Q = Class<S>;
 
     type S = S;
 
@@ -39,13 +39,13 @@ impl<S: Symbol> TransitionSystem for RightCongruence<S> {
 
 impl<S: Symbol> Pointed for RightCongruence<S> {
     fn initial(&self) -> Self::Q {
-        CongruenceClass::epsilon()
+        Class::epsilon()
     }
 }
 
 impl<S: Symbol> Trivial for RightCongruence<S> {
     fn trivial() -> Self {
-        Self((Deterministic::new(), CongruenceClass::epsilon()).into())
+        Self((Deterministic::new(), Class::epsilon()).into())
     }
 }
 
@@ -54,21 +54,21 @@ impl<S: Symbol> Growable for RightCongruence<S> {
         self.0.add_state(state)
     }
 
-    fn add_transition(
+    fn add_transition<X: std::borrow::Borrow<Self::Q>, Y: std::borrow::Borrow<Self::Q>>(
         &mut self,
-        from: &Self::Q,
+        from: X,
         on: SymbolOf<Self>,
-        to: &Self::Q,
+        to: Y,
     ) -> Option<Self::Q> {
         self.0.add_transition(from, on, to)
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct ProgressRightCongruence<S: Symbol>(CongruenceClass<S>, RightCongruence<S>);
+pub struct ProgressRightCongruence<S: Symbol>(Class<S>, RightCongruence<S>);
 
 impl<S: Symbol> TransitionSystem for ProgressRightCongruence<S> {
-    type Q = CongruenceClass<S>;
+    type Q = Class<S>;
 
     type S = S;
 
@@ -82,18 +82,15 @@ impl<S: Symbol> Growable for ProgressRightCongruence<S> {
         self.1.add_state(state)
     }
 
-    fn add_transition(
+    fn add_transition<X: std::borrow::Borrow<Self::Q>, Y: std::borrow::Borrow<Self::Q>>(
         &mut self,
-        from: &Self::Q,
+        from: X,
         on: SymbolOf<Self>,
-        to: &Self::Q,
+        to: Y,
     ) -> Option<Self::Q> {
         self.1.add_transition(from, on, to)
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct FORC<S: Symbol>(
-    RightCongruence<S>,
-    Mapping<CongruenceClass<S>, RightCongruence<S>>,
-);
+pub struct FORC<S: Symbol>(RightCongruence<S>, Mapping<Class<S>, RightCongruence<S>>);

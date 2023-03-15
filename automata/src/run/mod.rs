@@ -1,18 +1,18 @@
 mod walker;
 
 /// Allows the evaluation of a run.
-mod result;
-mod runner;
+// mod result;
+mod configuration;
 use std::{
     cmp::Ordering,
     fmt::{Debug, Display},
 };
 
-pub use result::{InitialRun, Run};
+// pub use result::{InitialRun, Run};
 
 pub use walker::Walker;
 
-pub use runner::{Configuration, Evaluate};
+pub use configuration::{Configuration, Evaluate};
 
 use crate::{
     ts::TransitionSystem,
@@ -20,6 +20,22 @@ use crate::{
     Equivalent, StateIndex, Subword,
 };
 use itertools::Itertools;
+
+pub trait InducesIn<TS> {
+    type Output;
+    fn test(&self) -> bool {
+        true
+    }
+}
+
+impl<W, TS> InducesIn<TS> for W
+where
+    W: Subword,
+    TS: TransitionSystem<S = W::S>,
+    Configuration<TS, W>: Evaluate,
+{
+    type Output = <Configuration<TS, W> as Evaluate>::Output;
+}
 
 /// An escape prefix for a transition system is a triple `(u, q, a)`, where `u` is a finite sequence of triggers for the transition system, `q` is a state of the transition system and `a` is a symbol such that:
 /// - the last trigger in `u` brings the transition system into the state `q`
@@ -247,7 +263,7 @@ mod tests {
         ts.add_transition(&q2, 'b', &q0);
 
         let w = Str::from("abba");
-        assert_eq!(w.run(&ts, q0), Ok(q1));
+        assert_eq!(ts.run_word_from(&w, q0).evaluate(), Ok(q1));
     }
 
     #[test]
@@ -273,7 +289,7 @@ mod tests {
         }
 
         ts.add_transition(&q2, 'a', &q0);
-        assert_eq!(w.run(&ts, q0), Ok(q0));
+        assert_eq!(ts.run_word_from(&w, q0).evaluate(), Ok(q0));
     }
 
     #[test]
@@ -288,7 +304,7 @@ mod tests {
         ts.add_transition(&q1, 'b', &q0);
         ts.add_transition(&q2, 'b', &q0);
 
-        assert_eq!("abba".run(&ts, q0), Ok(q1));
-        assert_eq!("abb".run(&ts, q0), Ok(q0));
+        assert_eq!(ts.run_word_from("abba", q0).evaluate(), Ok(q1));
+        assert_eq!(ts.run_word_from("abba", q0).evaluate(), Ok(q0));
     }
 }

@@ -1,21 +1,20 @@
 use std::{fmt::Debug, hash::Hash};
 
 use automata::{
-    run::{EscapePrefix, Run},
-    AcceptanceCondition, Equivalent, FiniteKind, Pointed, ReachabilityCondition, Set, StateIndex,
-    Subword, Symbol, Word,
+    run::EscapePrefix, AcceptanceCondition, Equivalent, FiniteKind, Pointed, ReachabilityCondition,
+    Set, StateIndex, Subword, Symbol, Word,
 };
 use itertools::Itertools;
 
 use crate::{
     acceptance::AcceptanceError,
-    forcs::{CongruenceClass, RightCongruence},
+    forcs::{Class, RightCongruence},
 };
 
 use super::state::GlercState;
 
 pub trait Constraint {
-    fn satisfied<'s, S: Symbol, W: Run<RightCongruence<S>, <W as Word>::Kind>>(
+    fn satisfied<'s, S: Symbol, W: Subword<S = S>>(
         &self,
         ts: &GlercState<'s, S, W>,
     ) -> Result<(), ConstraintError<'s, S, W>>;
@@ -39,9 +38,9 @@ pub enum ConstraintError<'s, S, W: Subword> {
     /// reference to the negative word and its escape prefix.
     SameEscape(
         &'s W,
-        &'s EscapePrefix<CongruenceClass<S>, W>,
+        &'s EscapePrefix<Class<S>, W>,
         &'s W,
-        &'s EscapePrefix<CongruenceClass<S>, W>,
+        &'s EscapePrefix<Class<S>, W>,
     ),
     /// The contained positive and negative word induce the same object.
     SameInduced(&'s W, &'s W),
@@ -50,7 +49,7 @@ pub enum ConstraintError<'s, S, W: Subword> {
 }
 
 impl Constraint for EscapeSeparabilityConstraint {
-    fn satisfied<'s, S: Symbol, W: Run<RightCongruence<S>, <W as Word>::Kind>>(
+    fn satisfied<'s, S: Symbol, W: Subword<S = S>>(
         &self,
         ts: &GlercState<'s, S, W>,
     ) -> Result<(), ConstraintError<'s, S, W>> {
@@ -59,8 +58,8 @@ impl Constraint for EscapeSeparabilityConstraint {
 }
 
 fn escape_consistent<'s, S: Symbol, W: Subword<S = S> + Eq>(
-    set_x: &'s [(&'s W, EscapePrefix<CongruenceClass<S>, W>)],
-    set_y: &'s [(&'s W, EscapePrefix<CongruenceClass<S>, W>)],
+    set_x: &'s [(&'s W, EscapePrefix<Class<S>, W>)],
+    set_y: &'s [(&'s W, EscapePrefix<Class<S>, W>)],
 ) -> Result<(), ConstraintError<'s, S, W>>
 where
     W::SuffixType: PartialEq,
@@ -82,8 +81,8 @@ where
 }
 
 fn induced_consistent<'s, S: Symbol, W: Subword<S = S> + Eq>(
-    set_x: &[(&'s W, EscapePrefix<CongruenceClass<S>, W>)],
-    set_y: &[(&'s W, EscapePrefix<CongruenceClass<S>, W>)],
+    set_x: &[(&'s W, EscapePrefix<Class<S>, W>)],
+    set_y: &[(&'s W, EscapePrefix<Class<S>, W>)],
 ) -> Result<(), ConstraintError<'s, S, W>> {
     if let Some(((positive_word, positive_induced), (negative_word, negative_induced))) = set_x
         .iter()
