@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, fmt::Debug};
 
 use crate::{
     ts::{StateOf, TransitionSystem},
@@ -11,7 +11,7 @@ use super::{EscapePrefix, RunOutput, Walk, Walker};
 /// Abstracts the evaluation of a run.
 pub trait Run<TS: TransitionSystem + ?Sized, K>: Subword {
     /// Type that is returned for successful runs. This is usually a state in the case of a finite input and a set of states (usually a [`HashSet`]) in the case of an infinite input.
-    type Induces;
+    type Induces: Clone + Debug;
 
     /// Evaluates the run and returns the result.
     fn run(&self, on: &TS, from: StateOf<TS>) -> Result<Self::Induces, EscapePrefix<TS::Q, Self>>

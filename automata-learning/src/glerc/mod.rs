@@ -3,12 +3,21 @@ mod constraint;
 #[allow(dead_code)]
 mod state;
 
-use automata::{Deterministic, TransitionSystem};
+use automata::Symbol;
 
-pub enum GlercOutput<TS: TransitionSystem = Deterministic, Inc = String> {
-    Transition(TS::Q, TS::S, TS::Q),
-    NewStateTransition(TS::Q, TS::S, TS::Q),
-    Inconsistent(TS::Q, TS::S, TS::Q, Inc),
+use crate::forcs::Class;
+
+pub enum GlercOutput<S: Symbol> {
+    /// Indicates that the transition (q,a) is missing
+    MissingTransition(Class<S>, S),
+    /// Failed to insert a transition
+    FailedInsertion(Class<S>, S, Class<S>),
+    /// Successfully inserted a transition
+    SuccessfulInsertion(Class<S>, S, Class<S>),
+    /// Indicates that a new state was created
+    NewState(Class<S>, S, Class<S>),
+    /// Indicates that the algorithm has finished
+    Finished,
 }
 
 #[cfg(test)]

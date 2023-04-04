@@ -3,14 +3,15 @@ use std::fmt::Debug;
 use automata::{run::EscapePrefix, Equivalent, Subword, Symbol};
 use itertools::Itertools;
 
-use crate::{acceptance::AcceptanceError, forcs::Class};
-
-use super::state::GlercState;
+use crate::{
+    acceptance::AcceptanceError,
+    forcs::{Class, RightCongruence},
+};
 
 pub trait Constraint {
     fn satisfied<'s, S: Symbol, W: Subword<S = S>>(
         &self,
-        ts: &GlercState<'s, S, W>,
+        ts: &RightCongruence<S>,
     ) -> Result<(), ConstraintError<'s, S, W>>;
 }
 
@@ -45,7 +46,7 @@ pub enum ConstraintError<'s, S: Symbol, W: Subword> {
 impl Constraint for EscapeSeparabilityConstraint {
     fn satisfied<'s, S: Symbol, W: Subword<S = S>>(
         &self,
-        _state: &GlercState<'s, S, W>,
+        _state: &RightCongruence<S>,
     ) -> Result<(), ConstraintError<'s, S, W>> {
         todo!()
     }

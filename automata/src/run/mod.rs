@@ -1,14 +1,14 @@
 mod walker;
 
-/// Allows the evaluation of a run.
-// mod result;
 mod configuration;
+/// Allows the evaluation of a run.
+mod result;
 use std::{
     cmp::Ordering,
     fmt::{Debug, Display},
 };
 
-// pub use result::{InitialRun, Run};
+pub use result::{InitialRun, Run};
 
 pub use walker::Walker;
 

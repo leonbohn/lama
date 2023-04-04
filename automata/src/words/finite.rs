@@ -10,7 +10,8 @@ pub trait FiniteWord {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// Represents a 'usual' finite word consisting of a sequence of symbols.
 pub struct Str<S> {
-    pub(crate) symbols: Vec<S>,
+    /// The symbols making up the object.
+    pub symbols: Vec<S>,
 }
 
 impl<S: Symbol> PartialOrd for Str<S> {

@@ -3,6 +3,7 @@ use std::borrow::Borrow;
 use crate::{run::Configuration, Symbol, Word};
 
 mod initialized;
+mod temporary;
 mod transition;
 use impl_tools::autoimpl;
 pub use transition::{Transition, Trigger};
@@ -13,7 +14,7 @@ pub mod deterministic;
 #[cfg(feature = "det")]
 pub use deterministic::{Deterministic, InitializedDeterministic};
 
-use self::initialized::Initialized;
+use self::{initialized::Initialized, temporary::Temporary};
 
 /// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`.
 pub trait StateIndex: Clone + Eq + std::hash::Hash + std::fmt::Debug + Ord {}
@@ -68,6 +69,15 @@ pub trait TransitionSystem {
             ts: self.clone(),
             start,
         }
+    }
+
+    /// Creates a new [`Temporary`] object from the current TS, this allows insertion
+    /// of new states and transitions without modifying the original TS.
+    fn temporary(&self) -> Temporary<Self>
+    where
+        Self: Sized,
+    {
+        Temporary::new(self)
     }
 }
 

@@ -4,6 +4,7 @@ use automata::{FiniteKind, Set, Word};
 
 use crate::forcs::RightCongruence;
 
+#[derive(Debug, Clone)]
 pub struct Sample<W> {
     pub positive: Set<W>,
     pub negative: Set<W>,

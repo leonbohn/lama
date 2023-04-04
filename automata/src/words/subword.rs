@@ -5,7 +5,7 @@ use super::{IsFinite, PeriodicWord, Str, SymbolIterable, UltimatelyPeriodicWord,
 /// A trait which allows accessing a finite prefix of a given length as well as a finite suffix of a word which is obtained by skipping a number of symbols from the start.
 pub trait Subword: Word {
     /// The type of the suffix of the word.
-    type SuffixType: Word<S = Self::S> + Subword;
+    type SuffixType: Word<S = Self::S> + Subword + Clone;
 
     /// The type of the prefix of the word.
     type PrefixType: Word<S = Self::S> + Subword + IsFinite;

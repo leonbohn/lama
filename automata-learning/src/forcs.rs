@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, ops::Add};
 
 use automata::{
     ts::{SymbolOf, Trivial},
@@ -19,6 +19,46 @@ impl<S: Symbol> Class<S> {
 impl<D: Display> From<D> for Class<char> {
     fn from(d: D) -> Self {
         Self(Str::from_display(d))
+    }
+}
+
+impl<S: Symbol> Add<S> for Class<S> {
+    type Output = Self;
+
+    fn add(self, rhs: S) -> Self::Output {
+        let mut extend = self.0;
+        extend.symbols.push(rhs);
+        Self(extend)
+    }
+}
+
+impl<S: Symbol> Add<&S> for &Class<S> {
+    type Output = Class<S>;
+
+    fn add(self, rhs: &S) -> Self::Output {
+        let mut extend = self.0.clone();
+        extend.symbols.push(rhs.clone());
+        Class(extend)
+    }
+}
+
+impl<S: Symbol> Add<S> for &Class<S> {
+    type Output = Class<S>;
+
+    fn add(self, rhs: S) -> Self::Output {
+        let mut extend = self.0.clone();
+        extend.symbols.push(rhs);
+        Class(extend)
+    }
+}
+
+impl<S: Symbol> Add<&S> for Class<S> {
+    type Output = Self;
+
+    fn add(self, rhs: &S) -> Self::Output {
+        let mut extend = self.0;
+        extend.symbols.push(rhs.clone());
+        Self(extend)
     }
 }
 
