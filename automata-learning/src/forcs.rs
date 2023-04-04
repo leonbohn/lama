@@ -27,6 +27,17 @@ pub type CongruenceTrigger<S> = (Class<S>, S);
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RightCongruence<S: Symbol>(InitializedDeterministic<Class<S>, S>);
 
+impl<S: Symbol> RightCongruence<S> {
+    /// Builds a new empty right congruence relation consisting of a single initial
+    /// congruence class, the epsilon class.
+    pub fn empty_trivial() -> Self {
+        let mut ts = Deterministic::new();
+        let eps = Class::epsilon();
+        ts.add_state(&eps);
+        Self((ts, eps).into())
+    }
+}
+
 impl<S: Symbol> TransitionSystem for RightCongruence<S> {
     type Q = Class<S>;
 

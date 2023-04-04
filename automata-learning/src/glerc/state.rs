@@ -1,7 +1,9 @@
+use std::hash::Hash;
+
 use automata::{
     run::{Configuration, EscapePrefix, Evaluate},
     ts::Trivial,
-    Mapping, Subword, Symbol, TransitionSystem, Word,
+    Mapping, Pointed, Subword, Symbol, TransitionSystem, Word,
 };
 
 use crate::{
@@ -57,16 +59,27 @@ pub struct GlercState<'s, S: Symbol, W: Subword<S = S>> {
 impl<'s, S, W> GlercState<'s, S, W>
 where
     S: Symbol + 's,
-    W: Subword<S = S> + Clone + 's,
-    Configuration<&'s RightCongruence<S>, &'s W>: Evaluate<Failure = EscapePrefix<Class<S>, W>>,
+    W: Subword<S = S> + Clone + 's + Hash,
+    Configuration<&'s RightCongruence<S>, &'s W>: Evaluate<Failure = EscapePrefix<Class<S>, &'s W>>,
 {
     pub fn new(sample: &'s Sample<W>, default: RightCongruence<S>) -> Self {
+        let cong = RightCongruence::empty_trivial();
+        let configs = sample.iter().map(|w| {
+            (
+                w,
+                FreeConfiguration {
+                    start: cong.initial(),
+                    q: cong.initial(),
+                    word: w.clone(),
+                },
+            )
+        });
         Self {
-            cong: RightCongruence::trivial(),
+            cong: cong.clone(),
             default,
             sample,
             iteration: 0,
-            runs: Mapping::new(),
+            runs: configs.collect(),
         }
     }
 
@@ -76,5 +89,18 @@ where
             .filter_map(|(_, result)| result.attach_ts(&self.cong).evaluate().err())
             .min_by(|u_result, v_result| u_result.cmp(v_result))
             .map(|escape_prefix| escape_prefix.trigger())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{forcs::RightCongruence, glerc::tests::sample_two};
+
+    #[test]
+    fn missings() {
+        let sample = sample_two();
+        let mut glercstate = GlercState::new(&sample, RightCongruence::empty_trivial());
+        assert_eq!(glercstate.next_missing(), Some((Class::epsilon(), 'a')))
     }
 }

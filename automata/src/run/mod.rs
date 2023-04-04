@@ -46,18 +46,20 @@ where
         match self.prefix.len().partial_cmp(&other.prefix.len()) {
             Some(Ordering::Less) => Some(Ordering::Less),
             Some(Ordering::Greater) => Some(Ordering::Greater),
-            _ => self
-                .prefix
-                .iter()
-                .zip(other.prefix.iter())
-                .find_map(|((_, a), (_, b))| {
-                    let compared = a.partial_cmp(b);
-                    if compared.is_none() || compared.unwrap() == Ordering::Equal {
-                        None
-                    } else {
-                        compared
-                    }
-                }),
+            _ => Some(
+                self.prefix
+                    .iter()
+                    .zip(other.prefix.iter())
+                    .find_map(|((_, a), (_, b))| {
+                        let compared = a.partial_cmp(b);
+                        if compared.is_none() || compared.unwrap() == Ordering::Equal {
+                            Some(Ordering::Equal)
+                        } else {
+                            compared
+                        }
+                    })
+                    .unwrap_or_else(|| self.symbol.cmp(&other.symbol)),
+            ),
         }
     }
 }
@@ -69,6 +71,10 @@ where
     W::S: Ord,
 {
     fn cmp(&self, other: &Self) -> Ordering {
+        let x = self.partial_cmp(other);
+        if x.is_none() {
+            println!("asdf");
+        }
         match self.partial_cmp(other) {
             Some(o) => o,
             None => unreachable!("This must be a total order"),

@@ -1,6 +1,8 @@
 use std::hash::Hash;
 
-use automata::Set;
+use automata::{FiniteKind, Set, Word};
+
+use crate::forcs::RightCongruence;
 
 pub struct Sample<W> {
     pub positive: Set<W>,
@@ -21,5 +23,15 @@ impl<W: Eq + Hash> Sample<W> {
             positive: positive.into_iter().collect(),
             negative: negative.into_iter().collect(),
         }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &W> {
+        self.positive.iter().chain(self.negative.iter())
+    }
+}
+
+impl<W: Word<Kind = FiniteKind>> Sample<W> {
+    pub fn prefix_tree(&self) -> RightCongruence<W::S> {
+        todo!()
     }
 }
