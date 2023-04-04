@@ -38,6 +38,18 @@ impl<Q: StateIndex, S: Symbol> Deterministic<Q, S> {
             states: Set::new(),
         }
     }
+
+    /// Returns an iterator over the states of the transition system.
+    pub fn states(&self) -> impl Iterator<Item = &Q> {
+        self.states.iter()
+    }
+}
+
+impl<Q: StateIndex, S: Symbol> InitializedDeterministic<Q, S> {
+    /// Returns an iterator over the states of the transition system.
+    pub fn states(&self) -> impl Iterator<Item = &Q> {
+        self.det.states()
+    }
 }
 
 impl Default for Deterministic {

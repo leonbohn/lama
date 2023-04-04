@@ -26,7 +26,7 @@ pub struct InducedSeparabilityConstraint<'s, S>(&'s S);
 /// The lifetime parameter `'s` is the lifetime of the sample.
 /// The symbol type parameter `S` is the symbol type and `W` is the word type.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ConstraintError<'s, S, W: Subword> {
+pub enum ConstraintError<'s, S: Symbol, W: Subword> {
     /// A positive and a negative word escape from the same state with the same suffix.
     /// Contains a reference to the positive word and its escape prefix, followed by a
     /// reference to the negative word and its escape prefix.

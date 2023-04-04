@@ -16,9 +16,9 @@ pub use deterministic::{Deterministic, InitializedDeterministic};
 use self::initialized::Initialized;
 
 /// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`.
-pub trait StateIndex: Clone + Eq + std::hash::Hash + std::fmt::Debug {}
+pub trait StateIndex: Clone + Eq + std::hash::Hash + std::fmt::Debug + Ord {}
 
-impl<X: Clone + Eq + std::hash::Hash + std::fmt::Debug> StateIndex for X {}
+impl<X: Clone + Eq + std::hash::Hash + std::fmt::Debug + Ord> StateIndex for X {}
 
 // The following two type aliases might change in the future to allow for more flexibility, i.e. for example for implementing nondeterminism.
 /// Helper type for getting the symbol type of a transition system.

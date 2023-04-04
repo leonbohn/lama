@@ -13,6 +13,21 @@ pub struct Str<S> {
     pub(crate) symbols: Vec<S>,
 }
 
+impl<S: Symbol> PartialOrd for Str<S> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<S: Symbol> Ord for Str<S> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self.symbols.len().cmp(&other.symbols.len()) {
+            std::cmp::Ordering::Equal => self.symbols.iter().cmp(&other.symbols),
+            ord => ord,
+        }
+    }
+}
+
 impl Str<char> {
     /// Creates an `Str` object from something that can be displayed.
     pub fn from_display<D: Display>(d: D) -> Self {
@@ -80,5 +95,19 @@ impl<S> Str<S> {
     /// Creates an empty instance.
     pub fn empty() -> Self {
         Self { symbols: vec![] }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_llex_order() {
+        let left = super::Str::from(vec!['a', 'b', 'c']);
+        let right_same_length = super::Str::from(vec!['a', 'b', 'd']);
+        let right_shorter = super::Str::from(vec!['a', 'b']);
+        let right_longer = super::Str::from(vec!['a', 'b', 'c', 'd']);
+        assert!(left < right_same_length);
+        assert!(left > right_shorter);
+        assert!(left < right_longer);
     }
 }

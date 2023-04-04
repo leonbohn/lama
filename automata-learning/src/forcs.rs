@@ -5,9 +5,10 @@ use automata::{
     Deterministic, Growable, InitializedDeterministic, Mapping, Pointed, Str, Symbol,
     TransitionSystem,
 };
+use itertools::Itertools;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Class<S>(pub Str<S>);
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub struct Class<S: Symbol>(pub Str<S>);
 
 impl<S: Symbol> Class<S> {
     pub fn epsilon() -> Self {
@@ -25,7 +26,7 @@ pub type CongruenceTransition<S> = (Class<S>, S, Class<S>);
 pub type CongruenceTrigger<S> = (Class<S>, S);
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct RightCongruence<S: Symbol>(InitializedDeterministic<Class<S>, S>);
+pub struct RightCongruence<S: Symbol = char>(InitializedDeterministic<Class<S>, S>);
 
 impl<S: Symbol> RightCongruence<S> {
     /// Builds a new empty right congruence relation consisting of a single initial
@@ -35,6 +36,10 @@ impl<S: Symbol> RightCongruence<S> {
         let eps = Class::epsilon();
         ts.add_state(&eps);
         Self((ts, eps).into())
+    }
+
+    pub fn states_canonical(&self) -> impl Iterator<Item = &Class<S>> + '_ {
+        self.0.states().sorted()
     }
 }
 
@@ -56,7 +61,9 @@ impl<S: Symbol> Pointed for RightCongruence<S> {
 
 impl<S: Symbol> Trivial for RightCongruence<S> {
     fn trivial() -> Self {
-        Self((Deterministic::new(), Class::epsilon()).into())
+        let mut det = Deterministic::new();
+        det.add_state(&Class::epsilon());
+        Self((det, Class::epsilon()).into())
     }
 }
 
@@ -105,3 +112,29 @@ impl<S: Symbol> Growable for ProgressRightCongruence<S> {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FORC<S: Symbol>(RightCongruence<S>, Mapping<Class<S>, RightCongruence<S>>);
+
+#[cfg(test)]
+mod tests {
+    use automata::{ts::Trivial, Growable, Pointed};
+
+    use crate::forcs::{Class, RightCongruence};
+
+    pub fn easy_cong() -> RightCongruence {
+        let mut ts = RightCongruence::trivial();
+        let q0 = ts.initial();
+        let q1 = "b".into();
+        assert!(ts.add_state(&q1));
+        ts.add_transition(&q0, 'a', &q0);
+        ts.add_transition(&q1, 'a', &q1);
+        ts.add_transition(&q0, 'b', &q1);
+        ts.add_transition(&q1, 'b', &q0);
+        ts
+    }
+
+    #[test]
+    fn state_ordering_test() {
+        let cong = easy_cong();
+        let states: Vec<_> = cong.states_canonical().collect();
+        assert_eq!(states, vec![&Class::epsilon(), &"b".into()])
+    }
+}
