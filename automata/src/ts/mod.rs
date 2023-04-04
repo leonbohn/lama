@@ -56,7 +56,7 @@ pub trait TransitionSystem {
     where
         Self: Sized,
     {
-        Configuration::build(self, from, on)
+        Configuration::from_state(self, from, on)
     }
 
     /// Creates a copy of the current TS which has its initial state set.

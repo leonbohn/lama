@@ -1,4 +1,6 @@
+#[allow(dead_code)]
 mod constraint;
+#[allow(dead_code)]
 mod state;
 
 use automata::{Deterministic, TransitionSystem};

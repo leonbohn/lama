@@ -53,7 +53,7 @@ where
                     .find_map(|((_, a), (_, b))| {
                         let compared = a.partial_cmp(b);
                         if compared.is_none() || compared.unwrap() == Ordering::Equal {
-                            Some(Ordering::Equal)
+                            None
                         } else {
                             compared
                         }
@@ -295,6 +295,5 @@ mod tests {
         ts.add_transition(&q2, 'b', &q0);
 
         assert_eq!(ts.run_word_from("abba", q0).evaluate(), Ok(q1));
-        assert_eq!(ts.run_word_from("abba", q0).evaluate(), Ok(q0));
     }
 }

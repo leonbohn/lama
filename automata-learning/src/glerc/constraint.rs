@@ -1,15 +1,9 @@
-use std::{fmt::Debug, hash::Hash};
+use std::fmt::Debug;
 
-use automata::{
-    run::EscapePrefix, AcceptanceCondition, Equivalent, FiniteKind, Pointed, ReachabilityCondition,
-    Set, StateIndex, Subword, Symbol, Word,
-};
+use automata::{run::EscapePrefix, Equivalent, Subword, Symbol};
 use itertools::Itertools;
 
-use crate::{
-    acceptance::AcceptanceError,
-    forcs::{Class, RightCongruence},
-};
+use crate::{acceptance::AcceptanceError, forcs::Class};
 
 use super::state::GlercState;
 
@@ -51,7 +45,7 @@ pub enum ConstraintError<'s, S, W: Subword> {
 impl Constraint for EscapeSeparabilityConstraint {
     fn satisfied<'s, S: Symbol, W: Subword<S = S>>(
         &self,
-        ts: &GlercState<'s, S, W>,
+        _state: &GlercState<'s, S, W>,
     ) -> Result<(), ConstraintError<'s, S, W>> {
         todo!()
     }
@@ -70,9 +64,9 @@ where
         .find(|(x, y)| x.1.equivalent(&y.1))
     {
         Err(ConstraintError::SameEscape(
-            &positive_word,
+            positive_word,
             positive_prefix,
-            &negative_word,
+            negative_word,
             negative_prefix,
         ))
     } else {
@@ -84,12 +78,12 @@ fn induced_consistent<'s, S: Symbol, W: Subword<S = S> + Eq>(
     set_x: &[(&'s W, EscapePrefix<Class<S>, W>)],
     set_y: &[(&'s W, EscapePrefix<Class<S>, W>)],
 ) -> Result<(), ConstraintError<'s, S, W>> {
-    if let Some(((positive_word, positive_induced), (negative_word, negative_induced))) = set_x
+    if let Some(((positive_word, _positive_induced), (negative_word, _negative_induced))) = set_x
         .iter()
         .cartesian_product(set_y.iter())
         .find(|(x, y)| x.1 == y.1)
     {
-        Err(ConstraintError::SameInduced(&positive_word, &negative_word))
+        Err(ConstraintError::SameInduced(positive_word, negative_word))
     } else {
         Ok(())
     }
@@ -100,8 +94,6 @@ mod tests {
     use automata::{ts::Trivial, Growable, Pointed};
 
     use crate::{forcs::RightCongruence, sample::Sample};
-
-    use super::Constraint;
 
     #[test]
     fn reachability_from_induced() {
@@ -117,7 +109,7 @@ mod tests {
 
     #[test]
     fn congruence_learning() {
-        let sample = Sample::from_parts(["a", "aa"], ["", "ab", "b"]);
+        let _sample = Sample::from_parts(["a", "aa"], ["", "ab", "b"]);
         let mut ts = RightCongruence::trivial();
         let q0 = ts.initial();
         let q1 = "a".into();

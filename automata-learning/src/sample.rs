@@ -28,6 +28,14 @@ impl<W: Eq + Hash> Sample<W> {
     pub fn iter(&self) -> impl Iterator<Item = &W> {
         self.positive.iter().chain(self.negative.iter())
     }
+
+    pub fn positive_iter(&self) -> impl Iterator<Item = &W> {
+        self.positive.iter()
+    }
+
+    pub fn negative_iter(&self) -> impl Iterator<Item = &W> {
+        self.negative.iter()
+    }
 }
 
 impl<W: Word<Kind = FiniteKind>> Sample<W> {

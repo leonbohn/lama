@@ -64,7 +64,7 @@ where
         W: Word<S = <Self::TS as TransitionSystem>::S>,
     {
         match self.run_word_from(on, self.initial()).evaluate() {
-            Ok(_) => todo!(),
+            Ok(induced) => self.is_accepting(&induced),
             _ => false,
         }
     }

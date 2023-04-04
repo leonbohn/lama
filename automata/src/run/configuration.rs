@@ -33,7 +33,7 @@ impl<TS: TransitionSystem, W> Configuration<TS, W> {
     }
 
     /// Builds a configuration for the given [`TransitionSystem`], state and [`Word`].
-    pub fn build(ts: TS, q: TS::Q, word: W) -> Self {
+    pub fn from_state(ts: TS, q: TS::Q, word: W) -> Self {
         Configuration {
             ts,
             word,
@@ -96,7 +96,7 @@ where
         let prefix_length = self.word.base_length();
         let recur_length = self.word.recur_length();
         let prefix = self.word.prefix(prefix_length);
-        let cfg = Configuration::build(&self.ts, self.start.clone(), prefix);
+        let cfg = Configuration::from_state(&self.ts, self.start.clone(), prefix);
         match cfg.eval() {
             Err(_e) => todo!(),
             Ok(reached) => {
