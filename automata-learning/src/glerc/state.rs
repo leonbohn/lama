@@ -2,13 +2,13 @@ use std::hash::Hash;
 
 use automata::{
     run::{EscapePrefix, InitialRun, Run},
-    Growable, Shrinkable, Subword, Symbol, TransitionSystem, Word,
+    Growable, Shrinkable, Subword, Symbol, Word,
 };
 
 use crate::sample::Sample;
 use automata::{Class, RightCongruence};
 
-use super::{constraint::Constraint, GlercOutput};
+use super::{constraint::Constraint, GlercOutput, GlercSignal};
 
 #[derive(Clone, Debug)]
 enum GlercIterationStatus<S: Symbol> {
@@ -32,6 +32,7 @@ pub struct GlercState<
     W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind>,
     C: Constraint,
 > {
+    timer: Result<std::time::Duration, std::time::Instant>,
     /// The congruence constructed thus far
     pub(crate) cong: RightCongruence<S>,
     /// The default congruence
@@ -81,6 +82,7 @@ where
     pub fn new(sample: &'s Sample<W>, default: RightCongruence<S>, constraint: C) -> Self {
         let cong = RightCongruence::empty_trivial();
         let mut out = Self {
+            timer: Err(std::time::Instant::now()),
             cong,
             default,
             sample,
@@ -101,6 +103,7 @@ where
         constraint: C,
     ) -> Self {
         let mut out = Self {
+            timer: Err(std::time::Instant::now()),
             cong,
             default,
             sample,
@@ -146,7 +149,7 @@ where
         self.status.clone()
     }
 
-    pub fn step(&mut self) -> GlercOutput<S> {
+    pub fn step(&mut self) -> GlercSignal<S> {
         let (new_status, result) = match &self.get_status() {
             GlercIterationStatus::TryInsertion(from, on, states, index) => {
                 if let Some(target) = states.get(*index) {
@@ -162,7 +165,7 @@ where
                     if success {
                         (
                             GlercIterationStatus::FindMissing,
-                            GlercOutput::SuccessfulInsertion(
+                            GlercSignal::SuccessfulInsertion(
                                 from.clone(),
                                 on.clone(),
                                 target.clone(),
@@ -177,7 +180,7 @@ where
                                 states.clone(),
                                 index + 1,
                             ),
-                            GlercOutput::FailedInsertion(from.clone(), on.clone(), target.clone()),
+                            GlercSignal::FailedInsertion(from.clone(), on.clone(), target.clone()),
                         )
                     }
                     // Now we verify if the inserted transition leads to a consistent TS
@@ -187,7 +190,7 @@ where
                     self.cong.add_transition(from, on.clone(), &new_state);
                     (
                         GlercIterationStatus::FindMissing,
-                        GlercOutput::NewState(from.clone(), on.clone(), new_state.clone()),
+                        GlercSignal::NewState(from.clone(), on.clone(), new_state.clone()),
                     )
                 }
             }
@@ -200,15 +203,27 @@ where
                             self.cong.states_canonical().cloned().collect(),
                             0,
                         ),
-                        GlercOutput::MissingTransition(q, a),
+                        GlercSignal::MissingTransition(q, a),
                     )
                 } else {
-                    (GlercIterationStatus::Finished, GlercOutput::Finished)
+                    self.timer = if let Err(start) = self.timer {
+                        Ok(start.elapsed())
+                    } else {
+                        self.timer
+                    };
+                    (
+                        GlercIterationStatus::Finished,
+                        GlercSignal::Finished(super::GlercOutput::new(
+                            &self.cong,
+                            self.timer.unwrap(),
+                        )),
+                    )
                 }
             }
-            GlercIterationStatus::Finished => {
-                (GlercIterationStatus::Finished, GlercOutput::Finished)
-            }
+            GlercIterationStatus::Finished => (
+                GlercIterationStatus::Finished,
+                GlercSignal::Finished(GlercOutput::new(&self.cong, self.timer.unwrap())),
+            ),
         };
         self.update_info();
 

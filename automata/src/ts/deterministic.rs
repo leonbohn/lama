@@ -5,7 +5,10 @@ use super::{
     TransitionSystem, TriggerIterable, Trivial,
 };
 
-use std::{borrow::Borrow, fmt::Debug};
+use std::{
+    borrow::Borrow,
+    fmt::{Debug, Display, Formatter},
+};
 
 /// An implementation of a deterministic transition system, stored as two `Vec`s containing the states and [`DeterministicTransition`]s.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -321,5 +324,24 @@ where
         } else {
             panic!("Failed to add new state")
         }
+    }
+}
+
+impl<S: Symbol, Q: StateIndex + Display> Display for Deterministic<Q, S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Deterministic {{")?;
+        for state in self.states() {
+            write!(f, "\nState \"{}\"\t", state)?;
+            for (trigger, target) in self.triggers_from(state) {
+                write!(f, "\t{} -> {}", trigger, target)?;
+            }
+        }
+        write!(f, "}}")
+    }
+}
+
+impl<S: Symbol, Q: StateIndex + Display> Display for InitializedDeterministic<Q, S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} with initial state: {}", self.det, self.initial)
     }
 }

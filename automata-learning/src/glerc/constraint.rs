@@ -158,7 +158,7 @@ mod tests {
     use automata::{ts::Trivial, Class, Growable, Pointed, RightCongruence};
 
     use crate::{
-        glerc::{constraint::ReachabilityConstraint, state::GlercState, GlercOutput},
+        glerc::{constraint::ReachabilityConstraint, state::GlercState, GlercSignal},
         sample::Sample,
     };
 
@@ -175,12 +175,24 @@ mod tests {
     }
 
     #[test]
-    fn congruence_learning() {
+    fn dfa_learning() {
         let sample = Sample::from_parts(["a", "ab"], ["", "b", "aa"]);
         let mut glerc =
             GlercState::new(&sample, RightCongruence::trivial(), ReachabilityConstraint);
-        assert!(matches!(glerc.step(), GlercOutput::MissingTransition(..)));
-        assert!(matches!(glerc.step(), GlercOutput::FailedInsertion(..)));
-        assert!(matches!(glerc.step(), GlercOutput::NewState(..)));
+        assert!(matches!(glerc.step(), GlercSignal::MissingTransition(..)));
+        assert!(matches!(glerc.step(), GlercSignal::FailedInsertion(..)));
+        assert!(matches!(glerc.step(), GlercSignal::NewState(..)));
+        assert!(matches!(glerc.step(), GlercSignal::MissingTransition(..)));
+        assert!(matches!(glerc.step(), GlercSignal::SuccessfulInsertion(..)));
+        assert!(matches!(glerc.step(), GlercSignal::MissingTransition(..)));
+        assert!(matches!(glerc.step(), GlercSignal::SuccessfulInsertion(..)));
+        assert!(matches!(glerc.step(), GlercSignal::MissingTransition(..)));
+        assert!(matches!(glerc.step(), GlercSignal::FailedInsertion(..)));
+        assert!(matches!(glerc.step(), GlercSignal::SuccessfulInsertion(..)));
+
+        match glerc.step() {
+            GlercSignal::Finished(result) => println!("{}", result),
+            _ => unreachable!("Execution should be finished by now!"),
+        }
     }
 }

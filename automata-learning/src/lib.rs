@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 pub mod acceptance;
 pub mod glerc;
 pub mod sample;

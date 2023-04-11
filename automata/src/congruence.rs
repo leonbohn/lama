@@ -11,12 +11,6 @@ use itertools::Itertools;
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct Class<S: Symbol>(pub Str<S>);
 
-impl<S: Symbol> Display for Class<S> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[{}]", self.0)
-    }
-}
-
 impl<S: Symbol> Class<S> {
     /// Returns the class associated with the empty word.
     pub fn epsilon() -> Self {
@@ -178,6 +172,18 @@ impl<S: Symbol> Growable for ProgressRightCongruence<S> {
 /// Encapsulates a family of right congruences (FORC), which is a special kind of acceptor for omega languages.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FORC<S: Symbol>(RightCongruence<S>, Mapping<Class<S>, RightCongruence<S>>);
+
+impl<S: Symbol> Display for RightCongruence<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Congruence: [[ {} ]]", self.0)
+    }
+}
+
+impl<S: Symbol> Display for Class<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}]", self.0)
+    }
+}
 
 #[cfg(test)]
 mod tests {

@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 automata = {version = "0.1", path = "../automata"}
 itertools = "0.10.5"
+impl-tools = "0.8"

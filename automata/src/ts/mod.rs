@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 
-use crate::{run::Configuration, Symbol, Word};
+use crate::{run::Configuration, Set, Symbol, Word};
 
 mod initialized;
 mod temporary;
@@ -16,10 +16,10 @@ pub use deterministic::{Deterministic, InitializedDeterministic};
 
 use self::{initialized::Initialized, temporary::Temporary};
 
-/// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`.
-pub trait StateIndex: Clone + Eq + std::hash::Hash + std::fmt::Debug + Ord {}
+/// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`
+pub trait StateIndex: Clone + PartialEq + Eq + std::hash::Hash + std::fmt::Debug + Ord {}
 
-impl<X: Clone + Eq + std::hash::Hash + std::fmt::Debug + Ord> StateIndex for X {}
+impl<X: Clone + Eq + PartialEq + std::hash::Hash + std::fmt::Debug + Ord> StateIndex for X {}
 
 // The following two type aliases might change in the future to allow for more flexibility, i.e. for example for implementing nondeterminism.
 /// Helper type for getting the symbol type of a transition system.
@@ -117,23 +117,33 @@ pub trait StateIterable: TransitionSystem {
 /// Trait that allows iterating over all edges in a [`TransitionSystem`].
 pub trait TransitionIterable: TransitionSystem {
     /// The edge type.
-    type TransitionRef;
+    type TransitionRef: Transition<Q = Self::Q, S = Self::S>;
     /// Type of the iterator over all edges.
     type TransitionIter: Iterator<Item = Self::TransitionRef>;
 
     /// Returns an iterator over all edges in the transition system.
     fn edges(&self) -> Self::TransitionIter;
+
+    /// Returns the set of transitions originating from a given state.
+    fn transitions_from(&self, from: &Self::Q) -> Set<Self::TransitionRef> {
+        self.edges().filter(|e| e.source() == from).collect()
+    }
 }
 
 /// Trait that allows iterating over all triggers in a [`TransitionSystem`].
 pub trait TriggerIterable: TransitionSystem {
     /// The trigger type.
-    type TriggerRef;
+    type TriggerRef: Trigger<Q = Self::Q, S = Self::S>;
     /// Type of the iterator over all triggers.
     type TriggerIter: Iterator<Item = Self::TriggerRef>;
 
     /// Returns an iterator over all triggers in the transition system.
     fn triggers(&self) -> Self::TriggerIter;
+
+    /// Returns the set of triggers originating from a given state.
+    fn triggers_from(&self, from: &Self::Q) -> Set<Self::TriggerRef> {
+        self.triggers().filter(|e| e.source() == from).collect()
+    }
 }
 
 /// Converts the given transition system in to an Iterator over references to its states.
