@@ -2,7 +2,7 @@ use std::{fmt::Display, ops::Add};
 
 use crate::{
     ts::{SymbolOf, Trivial},
-    Deterministic, Growable, InitializedDeterministic, Mapping, Pointed, Str, Symbol,
+    Deterministic, Growable, InitializedDeterministic, Mapping, Pointed, Shrinkable, Str, Symbol,
     TransitionSystem,
 };
 use itertools::Itertools;
@@ -132,6 +132,16 @@ impl<S: Symbol> Growable for RightCongruence<S> {
         to: Y,
     ) -> Option<Self::Q> {
         self.0.add_transition(from, on, to)
+    }
+}
+
+impl<S: Symbol> Shrinkable for RightCongruence<S> {
+    fn remove_state(&mut self, state: Self::Q) -> Option<Self::Q> {
+        self.0.remove_state(state)
+    }
+
+    fn remove_transition(&mut self, from: Self::Q, on: SymbolOf<Self>) -> Option<Self::Q> {
+        self.0.remove_transition(from, on)
     }
 }
 

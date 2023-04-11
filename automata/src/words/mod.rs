@@ -18,7 +18,7 @@ pub use subword::Subword;
 
 /// Abstracts a word over some given alphabet. The type parameter `S` is the alphabet, and `Kind` is a marker type which indicates whether the word is finite or infinite.
 #[autoimpl(for<T: trait> &T, &mut T)]
-pub trait Word: Debug + Eq {
+pub trait Word: Debug + Eq + std::hash::Hash {
     /// The type of the symbols making up the word.
     type S: Symbol;
 

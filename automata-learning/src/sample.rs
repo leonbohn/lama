@@ -8,6 +8,14 @@ pub struct Sample<W> {
     pub negative: Set<W>,
 }
 
+impl<W: Eq + Hash> PartialEq for Sample<W> {
+    fn eq(&self, other: &Self) -> bool {
+        self.positive == other.positive && self.negative == other.negative
+    }
+}
+
+impl<W: Eq + Hash> Eq for Sample<W> {}
+
 impl<W: Eq + Hash> Sample<W> {
     pub fn new(positive: Set<W>, negative: Set<W>) -> Self {
         Self { positive, negative }

@@ -1,24 +1,98 @@
 use std::fmt::Debug;
 
-use automata::{run::EscapePrefix, Class, Equivalent, RightCongruence, Subword, Symbol};
+use automata::{
+    run::{EscapePrefix, Run},
+    Class, Equivalent, RightCongruence, Subword, Symbol, Word,
+};
 use itertools::Itertools;
 
 use crate::acceptance::AcceptanceError;
 
+use super::state::GlercInfo;
+
+/// Represents a constraint that can be verified during the execution of the GLERC algorithm.
 pub trait Constraint {
-    fn satisfied<'s, S: Symbol, W: Subword<S = S>>(
+    /// Verifies that under the given information, the constraint is satisfied.
+    fn satisfied<'s, S: Symbol, W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind>>(
         &self,
-        ts: &RightCongruence<S>,
+        info: &'s GlercInfo<'s, S, W>,
     ) -> Result<(), ConstraintError<'s, S, W>>;
 }
 
-pub struct ReachabilityConstraint<'s, S>(&'s S);
-pub struct BuchiConstraint<'s, S>(&'s S);
-pub struct CoBuchiConstraint<'s, S>(&'s S);
+/// A constraint that is always satisfied.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EmptyConstraint;
 
+impl Constraint for EmptyConstraint {
+    fn satisfied<'s, S: Symbol, W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind>>(
+        &self,
+        _: &'s GlercInfo<'s, S, W>,
+    ) -> Result<(), ConstraintError<'s, S, W>> {
+        Ok(())
+    }
+}
+
+/// A constraint that checks whether the sample words are all separated, meaning that
+/// positive and negative words never end up in the same state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReachabilityConstraint;
+
+impl Constraint for ReachabilityConstraint {
+    fn satisfied<'s, S: Symbol, W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind>>(
+        &self,
+        info: &'s GlercInfo<'s, S, W>,
+    ) -> Result<(), ConstraintError<'s, S, W>> {
+        EscapeSeparabilityConstraint.satisfied(info)?;
+        InducedSeparabilityConstraint.satisfied(info)
+    }
+}
+
+/// Constraint for verifying that the escaping words/escape prefixes for positive and
+/// negative words can be separated from each other. In other words this is violated
+/// if a positive and a negative word escape from the same state with the same suffix.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EscapeSeparabilityConstraint;
-pub struct InducedSeparabilityConstraint<'s, S>(&'s S);
+
+impl Constraint for EscapeSeparabilityConstraint {
+    fn satisfied<'s, S: Symbol, W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind>>(
+        &self,
+        info: &'s GlercInfo<'s, S, W>,
+    ) -> Result<(), ConstraintError<'s, S, W>> {
+        for (lword, lesc) in &info.escaping.0 {
+            for (rword, resc) in &info.escaping.1 {
+                if lesc.equivalent(resc) {
+                    return Err(ConstraintError::SameEscape(*lword, lesc, *rword, resc));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Constraint, which ensures that the induced objects can be separated from each other.
+/// In other words this is violated if the positive and negative words induce the same
+/// object in the current congruence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InducedSeparabilityConstraint;
+
+impl Constraint for InducedSeparabilityConstraint {
+    fn satisfied<'s, S: Symbol, W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind>>(
+        &self,
+        info: &'s GlercInfo<'s, S, W>,
+    ) -> Result<(), ConstraintError<'s, S, W>> {
+        for (lword, lind) in &info.induced.0 {
+            for (rword, rind) in &info.induced.1 {
+                if lind == rind {
+                    return Err(ConstraintError::SameInduced(*lword, *rword));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+pub struct BuchiConstraint<'s, S>(&'s S);
+pub struct CoBuchiConstraint<'s, S>(&'s S);
 
 /// Encapsulates what can go wrong during an execution of GLERC.
 /// The lifetime parameter `'s` is the lifetime of the sample.
@@ -38,15 +112,6 @@ pub enum ConstraintError<'s, S: Symbol, W: Subword> {
     SameInduced(&'s W, &'s W),
     /// The Computation of acceptance was unsuccessful, refer to [`AcceptanceError`] for details.
     Acceptance(AcceptanceError<'s, S, W>),
-}
-
-impl Constraint for EscapeSeparabilityConstraint {
-    fn satisfied<'s, S: Symbol, W: Subword<S = S>>(
-        &self,
-        _state: &RightCongruence<S>,
-    ) -> Result<(), ConstraintError<'s, S, W>> {
-        todo!()
-    }
 }
 
 fn escape_consistent<'s, S: Symbol, W: Subword<S = S> + Eq>(
@@ -89,9 +154,13 @@ fn induced_consistent<'s, S: Symbol, W: Subword<S = S> + Eq>(
 
 #[cfg(test)]
 mod tests {
+
     use automata::{ts::Trivial, Class, Growable, Pointed, RightCongruence};
 
-    use crate::sample::Sample;
+    use crate::{
+        glerc::{constraint::ReachabilityConstraint, state::GlercState, GlercOutput},
+        sample::Sample,
+    };
 
     #[test]
     fn reachability_from_induced() {
@@ -107,14 +176,11 @@ mod tests {
 
     #[test]
     fn congruence_learning() {
-        let _sample = Sample::from_parts(["a", "aa"], ["", "ab", "b"]);
-        let mut ts = RightCongruence::trivial();
-        let q0 = ts.initial();
-        let q1 = Class::from("a");
-        assert!(ts.add_state(&q1));
-        ts.add_transition(&q0, 'a', &q1);
-        ts.add_transition(&q1, 'a', &q1);
-        ts.add_transition(&q1, 'b', &q0);
-        ts.add_transition(&q0, 'b', &q0);
+        let sample = Sample::from_parts(["a", "ab"], ["", "b", "aa"]);
+        let mut glerc =
+            GlercState::new(&sample, RightCongruence::trivial(), ReachabilityConstraint);
+        assert!(matches!(glerc.step(), GlercOutput::MissingTransition(..)));
+        assert!(matches!(glerc.step(), GlercOutput::FailedInsertion(..)));
+        assert!(matches!(glerc.step(), GlercOutput::NewState(..)));
     }
 }

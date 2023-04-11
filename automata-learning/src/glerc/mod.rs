@@ -7,6 +7,7 @@ use automata::Symbol;
 
 use automata::Class;
 
+#[derive(Eq, Debug, Clone, PartialEq)]
 pub enum GlercOutput<S: Symbol> {
     /// Indicates that the transition (q,a) is missing
     MissingTransition(Class<S>, S),
