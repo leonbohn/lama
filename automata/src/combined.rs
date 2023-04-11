@@ -1,3 +1,5 @@
+use impl_tools::autoimpl;
+
 use crate::{
     acceptance::{AcceptanceCondition, BuchiCondition, ParityCondition, ReachabilityCondition},
     ts::{Deterministic, Growable, Pointed, Shrinkable, TransitionSystem},
@@ -51,6 +53,14 @@ impl<TS: TransitionSystem, Acc: AcceptanceCondition> TransitionSystem for Combin
         on: &crate::ts::SymbolOf<Self>,
     ) -> Option<crate::ts::StateOf<Self>> {
         self.ts.succ(from, on)
+    }
+
+    fn vec_alphabet(&self) -> Vec<Self::S> {
+        self.ts.vec_alphabet()
+    }
+
+    fn vec_states(&self) -> Vec<Self::Q> {
+        self.ts.vec_states()
     }
 }
 

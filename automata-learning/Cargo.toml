@@ -9,3 +9,4 @@ edition = "2021"
 automata = {version = "0.1", path = "../automata"}
 itertools = "0.10.5"
 impl-tools = "0.8"
+tabled = "0.10.0"

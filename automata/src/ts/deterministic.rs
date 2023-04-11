@@ -1,3 +1,5 @@
+use tabled::{builder::Builder, Style};
+
 use crate::{AnonymousGrowable, Mapping, Pointed, Set, Symbol};
 
 use super::{
@@ -13,15 +15,23 @@ use std::{
 /// An implementation of a deterministic transition system, stored as two `Vec`s containing the states and [`DeterministicTransition`]s.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Deterministic<Q: StateIndex = u32, S: Symbol = char> {
-    states: Set<Q>,
-    edges: Mapping<(Q, S), Q>,
+    pub(crate) states: Set<Q>,
+    pub(crate) edges: Mapping<(Q, S), Q>,
 }
 
 /// Stores a [`Deterministic`] transition system with an initial state.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct InitializedDeterministic<Q: StateIndex = u32, S: Symbol = char> {
-    det: Deterministic<Q, S>,
-    initial: Q,
+    pub(crate) det: Deterministic<Q, S>,
+    pub(crate) initial: Q,
+}
+
+impl<Q: StateIndex, S: Symbol> StateIterable for Deterministic<Q, S> {
+    type StateIter<'me> = std::collections::hash_set::Iter<'me, Q> where Q: 'me, S: 'me;
+
+    fn states_iter(&self) -> Self::StateIter<'_> {
+        self.states.iter()
+    }
 }
 
 impl<Q: StateIndex, S: Symbol> From<(Deterministic<Q, S>, Q)> for InitializedDeterministic<Q, S> {
@@ -40,18 +50,6 @@ impl<Q: StateIndex, S: Symbol> Deterministic<Q, S> {
             edges: Mapping::new(),
             states: Set::new(),
         }
-    }
-
-    /// Returns an iterator over the states of the transition system.
-    pub fn states(&self) -> impl Iterator<Item = &Q> {
-        self.states.iter()
-    }
-}
-
-impl<Q: StateIndex, S: Symbol> InitializedDeterministic<Q, S> {
-    /// Returns an iterator over the states of the transition system.
-    pub fn states(&self) -> impl Iterator<Item = &Q> {
-        self.det.states()
     }
 }
 
@@ -99,6 +97,19 @@ where
             .find(|((f, s), _)| f == from && s == on)
             .map(|((_, _), t)| t.clone())
     }
+
+    fn vec_alphabet(&self) -> Vec<Self::S> {
+        self.edges
+            .iter()
+            .map(|((_, s), _)| s.clone())
+            .collect::<Set<_>>()
+            .into_iter()
+            .collect()
+    }
+
+    fn vec_states(&self) -> Vec<Self::Q> {
+        self.states.iter().cloned().collect()
+    }
 }
 
 impl<S, Q> TransitionSystem for InitializedDeterministic<Q, S>
@@ -111,6 +122,14 @@ where
 
     fn succ(&self, from: &Self::Q, on: &Self::S) -> Option<Self::Q> {
         self.det.succ(from, on)
+    }
+
+    fn vec_alphabet(&self) -> Vec<Self::S> {
+        self.det.vec_alphabet()
+    }
+
+    fn vec_states(&self) -> Vec<Self::Q> {
+        self.det.vec_states()
     }
 }
 
@@ -140,39 +159,21 @@ pub struct StateIter<'a, Q: StateIndex> {
 }
 
 impl<'a, Q: StateIndex> Iterator for StateIter<'a, Q> {
-    type Item = Q;
+    type Item = &'a Q;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().cloned()
+        self.iter.next()
     }
 }
 
-impl<'a, Q, S> StateIterable for &'a Deterministic<Q, S>
+impl<Q, S> StateIterable for InitializedDeterministic<Q, S>
 where
     Q: StateIndex,
     S: Symbol,
 {
-    type StateRef = Q;
+    type StateIter<'me> = StateIter<'me, Q> where Q: 'me, S: 'me;
 
-    type StateIter = StateIter<'a, Q>;
-
-    fn states(&self) -> Self::StateIter {
-        StateIter {
-            iter: self.states.iter(),
-        }
-    }
-}
-
-impl<'a, Q, S> StateIterable for &'a InitializedDeterministic<Q, S>
-where
-    Q: StateIndex,
-    S: Symbol,
-{
-    type StateRef = Q;
-
-    type StateIter = StateIter<'a, Q>;
-
-    fn states(&self) -> Self::StateIter {
+    fn states_iter(&self) -> Self::StateIter<'_> {
         StateIter {
             iter: self.det.states.iter(),
         }
@@ -186,7 +187,7 @@ impl<'a, Q: StateIndex, S: Symbol> TransitionIterable for &'a Deterministic<Q, S
         fn((&(Q, S), &Q)) -> (Q, S, Q),
     >;
 
-    fn edges(&self) -> Self::TransitionIter {
+    fn edges_iter(&self) -> Self::TransitionIter {
         self.edges
             .iter()
             .map(|((p, a), q)| (p.clone(), a.clone(), q.clone()))
@@ -200,7 +201,7 @@ impl<'a, Q: StateIndex, S: Symbol> TransitionIterable for &'a InitializedDetermi
         fn((&(Q, S), &Q)) -> (Q, S, Q),
     >;
 
-    fn edges(&self) -> Self::TransitionIter {
+    fn edges_iter(&self) -> Self::TransitionIter {
         self.det
             .edges
             .iter()
@@ -212,7 +213,7 @@ impl<'a, Q: StateIndex, S: Symbol> TriggerIterable for &'a Deterministic<Q, S> {
     type TriggerRef = &'a (Q, S);
     type TriggerIter = std::collections::hash_map::Keys<'a, (Q, S), Q>;
 
-    fn triggers(&self) -> Self::TriggerIter {
+    fn triggers_iter(&self) -> Self::TriggerIter {
         self.edges.keys()
     }
 }
@@ -221,7 +222,7 @@ impl<'a, Q: StateIndex, S: Symbol> TriggerIterable for &'a InitializedDeterminis
     type TriggerRef = &'a (Q, S);
     type TriggerIter = std::collections::hash_map::Keys<'a, (Q, S), Q>;
 
-    fn triggers(&self) -> Self::TriggerIter {
+    fn triggers_iter(&self) -> Self::TriggerIter {
         self.det.edges.keys()
     }
 }
@@ -329,14 +330,28 @@ where
 
 impl<S: Symbol, Q: StateIndex + Display> Display for Deterministic<Q, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Deterministic {{")?;
-        for state in self.states() {
-            write!(f, "\nState \"{}\"\t", state)?;
-            for (trigger, target) in self.triggers_from(state) {
-                write!(f, "\t{} -> {}", trigger, target)?;
+        let mut builder = Builder::default();
+        builder.set_columns(
+            vec!["Deterministic".to_string()].into_iter().chain(
+                self.vec_alphabet()
+                    .into_iter()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<String>>(),
+            ),
+        );
+        for state in self.vec_states() {
+            let mut row = vec![state.to_string()];
+            for sym in self.vec_alphabet() {
+                row.push(if let Some(successor) = self.succ(&state, &sym) {
+                    successor.to_string()
+                } else {
+                    "-".to_string()
+                });
             }
         }
-        write!(f, "}}")
+        let mut transition_table = builder.build();
+        transition_table.with(Style::re_structured_text());
+        write!(f, "{}", transition_table)
     }
 }
 

@@ -2,8 +2,8 @@ use std::{fmt::Display, ops::Add};
 
 use crate::{
     ts::{SymbolOf, Trivial},
-    Deterministic, Growable, InitializedDeterministic, Mapping, Pointed, Shrinkable, Str, Symbol,
-    TransitionSystem,
+    Deterministic, Growable, InitializedDeterministic, Mapping, Pointed, Shrinkable, StateIterable,
+    Str, Symbol, TransitionSystem,
 };
 use itertools::Itertools;
 
@@ -74,6 +74,14 @@ pub type CongruenceTrigger<S> = (Class<S>, S);
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RightCongruence<S: Symbol = char>(InitializedDeterministic<Class<S>, S>);
 
+impl<S: Symbol> StateIterable for RightCongruence<S> {
+    type StateIter<'me> = std::collections::hash_set::Iter<'me, Class<S>> where S: 'me;
+
+    fn states_iter(&self) -> Self::StateIter<'_> {
+        self.0.det.states.iter()
+    }
+}
+
 impl<S: Symbol> RightCongruence<S> {
     /// Builds a new empty right congruence relation consisting of a single initial
     /// congruence class, the epsilon class.
@@ -86,7 +94,7 @@ impl<S: Symbol> RightCongruence<S> {
 
     /// Iterates over the classes/states of a right congruence in canonical order (i.e. in the order that they were created/inserted).
     pub fn states_canonical(&self) -> impl Iterator<Item = &Class<S>> + '_ {
-        self.0.states().sorted()
+        self.states_iter().sorted()
     }
 }
 
@@ -97,6 +105,14 @@ impl<S: Symbol> TransitionSystem for RightCongruence<S> {
 
     fn succ(&self, from: &Self::Q, on: &Self::S) -> Option<Self::Q> {
         self.0.succ(from, on)
+    }
+
+    fn vec_alphabet(&self) -> Vec<Self::S> {
+        self.0.vec_alphabet()
+    }
+
+    fn vec_states(&self) -> Vec<Self::Q> {
+        self.0.vec_states()
     }
 }
 
@@ -151,6 +167,14 @@ impl<S: Symbol> TransitionSystem for ProgressRightCongruence<S> {
 
     fn succ(&self, from: &Self::Q, on: &Self::S) -> Option<Self::Q> {
         self.1.succ(from, on)
+    }
+
+    fn vec_alphabet(&self) -> Vec<Self::S> {
+        self.1.vec_alphabet()
+    }
+
+    fn vec_states(&self) -> Vec<Self::Q> {
+        self.1.vec_states()
     }
 }
 

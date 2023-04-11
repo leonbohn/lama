@@ -1,11 +1,11 @@
-use std::borrow::Borrow;
+use std::{borrow::Borrow, fmt::Display};
 
 use crate::{run::Configuration, Set, Symbol, Word};
 
 mod initialized;
-mod temporary;
 mod transition;
 use impl_tools::autoimpl;
+use tabled::{builder::Builder, Style};
 pub use transition::{Transition, Trigger};
 
 /// An implementation of a deterministic `TransitionSystem` in form of an edge list. The edge list is represented by a vector of tuples `(from, to, symbol)`. Is only available if the `det` feature is enabled.
@@ -14,7 +14,7 @@ pub mod deterministic;
 #[cfg(feature = "det")]
 pub use deterministic::{Deterministic, InitializedDeterministic};
 
-use self::{initialized::Initialized, temporary::Temporary};
+use self::initialized::Initialized;
 
 /// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`
 pub trait StateIndex: Clone + PartialEq + Eq + std::hash::Hash + std::fmt::Debug + Ord {}
@@ -71,13 +71,40 @@ pub trait TransitionSystem {
         }
     }
 
-    /// Creates a new [`Temporary`] object from the current TS, this allows insertion
-    /// of new states and transitions without modifying the original TS.
-    fn temporary(&self) -> Temporary<Self>
+    /// Returns the set of all states of the transition system. This is costly.
+    fn vec_alphabet(&self) -> Vec<Self::S>;
+
+    /// Returns the set of all symbols of the transition system. This is costly.
+    fn vec_states(&self) -> Vec<Self::Q>;
+
+    /// Builds a string representation of the transition table of the transition system.
+    /// For this, the [`tabled`] crate is used.
+    fn display_transition_table(&self) -> String
     where
-        Self: Sized,
+        Self::Q: Display,
     {
-        Temporary::new(self)
+        let mut builder = Builder::default();
+        builder.set_columns(
+            vec!["Deterministic".to_string()].into_iter().chain(
+                self.vec_alphabet()
+                    .into_iter()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<String>>(),
+            ),
+        );
+        for state in self.vec_states() {
+            let mut row = vec![state.to_string()];
+            for sym in self.vec_alphabet() {
+                row.push(if let Some(successor) = self.succ(&state, &sym) {
+                    successor.to_string()
+                } else {
+                    "-".to_string()
+                });
+            }
+        }
+        let mut transition_table = builder.build();
+        transition_table.with(Style::re_structured_text());
+        transition_table.to_string()
     }
 }
 
@@ -105,13 +132,13 @@ pub trait Pointed: TransitionSystem {
 
 /// Implemented by objects which have a finite number of states.
 pub trait StateIterable: TransitionSystem {
-    /// The state index type.
-    type StateRef: StateIndex;
     /// Type of the iterator over all states.
-    type StateIter: Iterator<Item = Self::StateRef>;
+    type StateIter<'me>: Iterator<Item = &'me Self::Q>
+    where
+        Self: 'me;
 
     /// Returns a `Vec` of all states in the transition system.
-    fn states(&self) -> Self::StateIter;
+    fn states_iter(&self) -> Self::StateIter<'_>;
 }
 
 /// Trait that allows iterating over all edges in a [`TransitionSystem`].
@@ -122,11 +149,11 @@ pub trait TransitionIterable: TransitionSystem {
     type TransitionIter: Iterator<Item = Self::TransitionRef>;
 
     /// Returns an iterator over all edges in the transition system.
-    fn edges(&self) -> Self::TransitionIter;
+    fn edges_iter(&self) -> Self::TransitionIter;
 
     /// Returns the set of transitions originating from a given state.
     fn transitions_from(&self, from: &Self::Q) -> Set<Self::TransitionRef> {
-        self.edges().filter(|e| e.source() == from).collect()
+        self.edges_iter().filter(|e| e.source() == from).collect()
     }
 }
 
@@ -138,11 +165,13 @@ pub trait TriggerIterable: TransitionSystem {
     type TriggerIter: Iterator<Item = Self::TriggerRef>;
 
     /// Returns an iterator over all triggers in the transition system.
-    fn triggers(&self) -> Self::TriggerIter;
+    fn triggers_iter(&self) -> Self::TriggerIter;
 
     /// Returns the set of triggers originating from a given state.
     fn triggers_from(&self, from: &Self::Q) -> Set<Self::TriggerRef> {
-        self.triggers().filter(|e| e.source() == from).collect()
+        self.triggers_iter()
+            .filter(|e| e.source() == from)
+            .collect()
     }
 }
 
