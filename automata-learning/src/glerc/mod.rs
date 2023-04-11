@@ -5,7 +5,7 @@ mod state;
 
 use automata::Symbol;
 
-use crate::forcs::Class;
+use automata::Class;
 
 pub enum GlercOutput<S: Symbol> {
     /// Indicates that the transition (q,a) is missing
@@ -21,10 +21,4 @@ pub enum GlercOutput<S: Symbol> {
 }
 
 #[cfg(test)]
-mod tests {
-    use crate::sample::Sample;
-
-    pub fn sample_two() -> Sample<&'static str> {
-        Sample::from_parts(["a", "ab"], ["", "b", "aa"])
-    }
-}
+mod tests {}

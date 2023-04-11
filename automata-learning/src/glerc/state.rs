@@ -6,10 +6,8 @@ use automata::{
 };
 use itertools::Itertools;
 
-use crate::{
-    forcs::{Class, RightCongruence},
-    sample::Sample,
-};
+use crate::sample::Sample;
+use automata::{Class, RightCongruence};
 
 use super::GlercOutput;
 
@@ -146,6 +144,8 @@ where
                 (GlercIterationStatus::Finished, GlercOutput::Finished)
             }
         };
+        self.update_info();
+
         self.status = new_status;
         result
     }
@@ -174,11 +174,11 @@ mod tests {
     use automata::Growable;
 
     use super::*;
-    use crate::{forcs::RightCongruence, glerc::tests::sample_two};
+    use automata::RightCongruence;
 
     #[test]
     fn test_missings() {
-        let sample = sample_two();
+        let sample = Sample::from_parts(["a", "ab"], ["", "b", "aa"]);
         let mut glercstate = GlercState::new(&sample, RightCongruence::empty_trivial());
         let eps = Class::epsilon();
         let a = Class::from('a');
@@ -190,21 +190,25 @@ mod tests {
         glercstate.cong.add_state(&a);
         glercstate.cong.add_transition(&eps, 'a', &a);
         expected_induced.0.push(a.clone());
+        glercstate.update_info();
         assert_eq!(glercstate.next_missing(), Some((eps.clone(), 'b')));
         assert_eq!(glercstate.induced(), expected_induced);
 
         glercstate.cong.add_transition(&eps, 'b', &eps);
         expected_induced.1.push(eps.clone());
+        glercstate.update_info();
         assert_eq!(glercstate.next_missing(), Some((a.clone(), 'a')));
         assert_eq!(glercstate.induced(), expected_induced);
 
         glercstate.cong.add_transition(&a, 'a', &eps);
         expected_induced.1.push(eps.clone());
+        glercstate.update_info();
         assert_eq!(glercstate.next_missing(), Some((a.clone(), 'b')));
         assert_eq!(glercstate.induced(), expected_induced);
 
         glercstate.cong.add_transition(&a, 'b', &a);
         expected_induced.0.push(a.clone());
+        glercstate.update_info();
         assert_eq!(glercstate.next_missing(), None);
         assert_eq!(glercstate.induced(), expected_induced);
     }

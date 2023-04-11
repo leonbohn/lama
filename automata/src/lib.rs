@@ -31,6 +31,10 @@ pub use ts::{
 pub mod words;
 pub use words::{Append, PeriodicWord, Prepend, Str, Subword, UltimatelyPeriodicWord, Word};
 
+/// Here, (right) congruence relations and constructs building upon them are introduced based on [`ts::TransitionSystem`].
+pub mod congruence;
+pub use congruence::{Class, ProgressRightCongruence, RightCongruence, FORC};
+
 /// Module in which acceptance conditions of automata are defined. This includes the [`AcceptanceCondition`] trait, which is implemented by all acceptance conditions, and provides a common interface for working with acceptance conditions.
 mod acceptance;
 pub use acceptance::{

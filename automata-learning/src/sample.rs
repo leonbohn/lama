@@ -1,8 +1,6 @@
 use std::hash::Hash;
 
-use automata::{FiniteKind, Set, Word};
-
-use crate::forcs::RightCongruence;
+use automata::{FiniteKind, RightCongruence, Set, Word};
 
 #[derive(Debug, Clone)]
 pub struct Sample<W> {

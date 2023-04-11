@@ -1,23 +1,32 @@
 use std::{fmt::Display, ops::Add};
 
-use automata::{
+use crate::{
     ts::{SymbolOf, Trivial},
     Deterministic, Growable, InitializedDeterministic, Mapping, Pointed, Str, Symbol,
     TransitionSystem,
 };
 use itertools::Itertools;
 
+/// Represents an equivalence class of a right congruence relation.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct Class<S: Symbol>(pub Str<S>);
 
+impl<S: Symbol> Display for Class<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}]", self.0)
+    }
+}
+
 impl<S: Symbol> Class<S> {
+    /// Returns the class associated with the empty word.
     pub fn epsilon() -> Self {
         Self(Str::empty())
     }
 }
 
-impl<D: Display> From<D> for Class<char> {
-    fn from(d: D) -> Self {
+impl Class<char> {
+    /// Turns a given displayable thing into a class.
+    pub fn from<D: Display>(d: D) -> Self {
         Self(Str::from_display(d))
     }
 }
@@ -62,9 +71,12 @@ impl<S: Symbol> Add<&S> for Class<S> {
     }
 }
 
+/// Alias for a transition in a right congruence relation.
 pub type CongruenceTransition<S> = (Class<S>, S, Class<S>);
+/// Alias for a trigger in a right congruence relation.
 pub type CongruenceTrigger<S> = (Class<S>, S);
 
+/// Represents a right congruence relation, which is in essence just a deterministic transition system. The only notable difference is that a right congruence per default encodes an initial state, namely that belonging to the epsilon class (see [`Class::epsilon`]]).
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RightCongruence<S: Symbol = char>(InitializedDeterministic<Class<S>, S>);
 
@@ -78,6 +90,7 @@ impl<S: Symbol> RightCongruence<S> {
         Self((ts, eps).into())
     }
 
+    /// Iterates over the classes/states of a right congruence in canonical order (i.e. in the order that they were created/inserted).
     pub fn states_canonical(&self) -> impl Iterator<Item = &Class<S>> + '_ {
         self.0.states().sorted()
     }
@@ -122,6 +135,8 @@ impl<S: Symbol> Growable for RightCongruence<S> {
     }
 }
 
+/// Encapsulates a special type of right congruence relation which is can be used to build
+/// family of right congruences (FORC), which is a special kind of acceptor for omega languages.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ProgressRightCongruence<S: Symbol>(Class<S>, RightCongruence<S>);
 
@@ -150,19 +165,20 @@ impl<S: Symbol> Growable for ProgressRightCongruence<S> {
     }
 }
 
+/// Encapsulates a family of right congruences (FORC), which is a special kind of acceptor for omega languages.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FORC<S: Symbol>(RightCongruence<S>, Mapping<Class<S>, RightCongruence<S>>);
 
 #[cfg(test)]
 mod tests {
-    use automata::{ts::Trivial, Growable, Pointed};
+    use crate::{ts::Trivial, Growable, Pointed};
 
-    use crate::forcs::{Class, RightCongruence};
+    use super::{Class, RightCongruence};
 
     pub fn easy_cong() -> RightCongruence {
         let mut ts = RightCongruence::trivial();
         let q0 = ts.initial();
-        let q1 = "b".into();
+        let q1 = Class::from("b");
         assert!(ts.add_state(&q1));
         ts.add_transition(&q0, 'a', &q0);
         ts.add_transition(&q1, 'a', &q1);
@@ -175,6 +191,6 @@ mod tests {
     fn state_ordering_test() {
         let cong = easy_cong();
         let states: Vec<_> = cong.states_canonical().collect();
-        assert_eq!(states, vec![&Class::epsilon(), &"b".into()])
+        assert_eq!(states, vec![&Class::epsilon(), &Class::from("b")])
     }
 }

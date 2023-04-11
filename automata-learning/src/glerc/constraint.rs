@@ -1,12 +1,9 @@
 use std::fmt::Debug;
 
-use automata::{run::EscapePrefix, Equivalent, Subword, Symbol};
+use automata::{run::EscapePrefix, Class, Equivalent, RightCongruence, Subword, Symbol};
 use itertools::Itertools;
 
-use crate::{
-    acceptance::AcceptanceError,
-    forcs::{Class, RightCongruence},
-};
+use crate::acceptance::AcceptanceError;
 
 pub trait Constraint {
     fn satisfied<'s, S: Symbol, W: Subword<S = S>>(
@@ -92,15 +89,15 @@ fn induced_consistent<'s, S: Symbol, W: Subword<S = S> + Eq>(
 
 #[cfg(test)]
 mod tests {
-    use automata::{ts::Trivial, Growable, Pointed};
+    use automata::{ts::Trivial, Class, Growable, Pointed, RightCongruence};
 
-    use crate::{forcs::RightCongruence, sample::Sample};
+    use crate::sample::Sample;
 
     #[test]
     fn reachability_from_induced() {
         let mut ts = RightCongruence::trivial();
         let q0 = ts.initial();
-        let q1 = "b".into();
+        let q1 = Class::from("b");
         assert!(ts.add_state(&q1));
         ts.add_transition(&q0, 'a', &q0);
         ts.add_transition(&q1, 'a', &q1);
@@ -113,7 +110,7 @@ mod tests {
         let _sample = Sample::from_parts(["a", "aa"], ["", "ab", "b"]);
         let mut ts = RightCongruence::trivial();
         let q0 = ts.initial();
-        let q1 = "a".into();
+        let q1 = Class::from("a");
         assert!(ts.add_state(&q1));
         ts.add_transition(&q0, 'a', &q1);
         ts.add_transition(&q1, 'a', &q1);

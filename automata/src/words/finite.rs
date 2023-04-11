@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use itertools::Itertools;
+
 use super::{IsFinite, SymbolIterable, Word};
 use crate::{FiniteKind, Symbol};
 
@@ -12,6 +14,16 @@ pub trait FiniteWord {
 pub struct Str<S> {
     /// The symbols making up the object.
     pub symbols: Vec<S>,
+}
+
+impl<S: Symbol> Display for Str<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.symbols.iter().map(|chr| format!("{}", chr)).join("")
+        )
+    }
 }
 
 impl<S: Symbol> PartialOrd for Str<S> {
