@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use chumsky::prelude::*;
 
 use crate::{
@@ -34,7 +36,7 @@ fn item() -> impl Parser<Token, HeaderItem, Error = Simple<Token>> {
 
     let start = just(Token::Header("Start".to_string()))
         .ignore_then(value::integer().separated_by(just(Token::Op('&'))))
-        .map(HeaderItem::Start);
+        .map(|conjunction| HeaderItem::Start(StateConjunction(conjunction)));
 
     let aps = just(Token::Header("AP".to_string()))
         .ignore_then(value::integer())
@@ -101,6 +103,14 @@ impl Header {
 
     pub fn from_vec(value: Vec<HeaderItem>) -> Self {
         Self(value)
+    }
+}
+
+impl Deref for Header {
+    type Target = Vec<HeaderItem>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -192,7 +202,10 @@ mod tests {
                 vec![AcceptanceInfo::Int(3)],
             )],
         );
-        assert_header("Start: 0 & 7", &[HeaderItem::Start(vec![0, 7])]);
+        assert_header(
+            "Start: 0 & 7",
+            &[HeaderItem::Start(StateConjunction(vec![0, 7]))],
+        );
     }
 
     #[test]

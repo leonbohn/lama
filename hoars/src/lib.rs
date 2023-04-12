@@ -1,3 +1,5 @@
+//! This crate provides a parser for the HOA format.
+#![warn(missing_docs)]
 mod body;
 mod format;
 mod header;
@@ -16,14 +18,19 @@ pub use format::{
     LabelExpression, Property,
 };
 
-pub use body::{Body, Label};
+pub use body::{Body, Edge, HoaSymbol, Label, State};
 pub use header::{Header, HeaderItem};
 
 use itertools::Itertools;
 use lexer::Token;
 
+/// The type of identifier used for states.
 pub type Id = u32;
 
+/// Represents a parsed HOA automaton. It consists of a the version string,
+/// a [`Header`] and a [`Body`].
+/// The header contains all the information about the automaton (e.g. the number of states, the
+/// acceptance condition, aliases etc.) and the body contains the actual transitions.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct HoaAutomaton {
     version: String,
@@ -31,7 +38,25 @@ pub struct HoaAutomaton {
     body: Body,
 }
 
+/// Represents an acceptance condition as it is encoded in a HOA automaton.
+pub type HoaAcceptance = (usize, AcceptanceCondition);
+
 impl HoaAutomaton {
+    /// Returns the version of the HOA file.
+    pub fn version(&self) -> &str {
+        &self.version
+    }
+
+    /// Returns the header of the HOA file.
+    pub fn header(&self) -> &Header {
+        &self.header
+    }
+
+    /// Returns the body of the HOA file.
+    pub fn body(&self) -> &Body {
+        &self.body
+    }
+
     fn from_parsed(((version, header), body): ((String, Header), Body)) -> Self {
         Self {
             version,
@@ -55,6 +80,103 @@ impl HoaAutomaton {
             header,
             body,
         }
+    }
+
+    pub fn num_states(&self) -> Option<usize> {
+        debug_assert!(
+            self.header()
+                .iter()
+                .filter(|item| matches!(item, HeaderItem::States(_)))
+                .count()
+                == 1,
+            "The number of states must be set exactly once!"
+        );
+        self.header().iter().find_map(|item| match item {
+            HeaderItem::States(id) => Some(*id as usize),
+            _ => None,
+        })
+    }
+
+    pub fn start(&self) -> Vec<&StateConjunction> {
+        debug_assert!(
+            self.header()
+                .iter()
+                .filter(|item| matches!(item, HeaderItem::Start(_)))
+                .count()
+                >= 1,
+            "At least one initial state conjunction has to be present!"
+        );
+        self.header()
+            .iter()
+            .filter_map(|item| match item {
+                HeaderItem::Start(start) => Some(start),
+                _ => None,
+            })
+            .collect()
+    }
+
+    pub fn ap(&self) -> Option<&Vec<String>> {
+        debug_assert!(
+            self.header()
+                .iter()
+                .filter(|item| matches!(item, HeaderItem::AP(_)))
+                .count()
+                == 1,
+            "There must be exactly one AP header!"
+        );
+        self.header().iter().find_map(|item| match item {
+            HeaderItem::AP(ap) => Some(ap),
+            _ => None,
+        })
+    }
+
+    pub fn num_aps(&self) -> usize {
+        self.ap().map(|ap| ap.len()).unwrap_or(0)
+    }
+
+    pub fn acceptance(&self) -> HoaAcceptance {
+        debug_assert!(
+            self.header()
+                .iter()
+                .filter(|item| matches!(item, HeaderItem::Acceptance(..)))
+                .count()
+                == 1,
+            "There must be exactly one Acceptance header!"
+        );
+        self.header()
+            .iter()
+            .find_map(|item| match item {
+                HeaderItem::Acceptance(acceptance_sets, condition) => {
+                    Some((*acceptance_sets as usize, condition.clone()))
+                }
+                _ => None,
+            })
+            .expect("Acceptance header is missing!")
+    }
+
+    pub fn aliases(&self) -> Vec<(&AliasName, &LabelExpression)> {
+        self.header()
+            .iter()
+            .filter_map(|item| match item {
+                HeaderItem::Alias(name, expr) => Some((name, expr)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    pub fn acceptance_name(&self) -> Option<(&AcceptanceName, &Vec<AcceptanceInfo>)> {
+        debug_assert!(
+            self.header()
+                .iter()
+                .filter(|item| matches!(item, HeaderItem::AcceptanceName(..)))
+                .count()
+                == 1,
+            "There must be exactly one AcceptanceName header!"
+        );
+        self.header().iter().find_map(|item| match item {
+            HeaderItem::AcceptanceName(name, info) => Some((name, info)),
+            _ => None,
+        })
     }
 }
 
@@ -173,8 +295,8 @@ mod tests {
     use crate::{
         body::{Edge, State},
         header::Header,
-        AcceptanceAtom, AcceptanceCondition, AcceptanceName, Body, HeaderItem, HoaAutomaton, Label,
-        LabelExpression,
+        AcceptanceAtom, AcceptanceCondition, AcceptanceName, AcceptanceSignature, Body, HeaderItem,
+        HoaAutomaton, Label, LabelExpression, StateConjunction,
     };
 
     #[test]
@@ -204,7 +326,7 @@ mod tests {
         let header = Header::from_vec(vec![
             HeaderItem::AP(vec!["a".to_string()]),
             HeaderItem::States(3),
-            HeaderItem::Start(vec![0]),
+            HeaderItem::Start(StateConjunction(vec![0])),
             HeaderItem::AcceptanceName(AcceptanceName::Buchi, vec![]),
             HeaderItem::Acceptance(1, AcceptanceCondition::Inf(AcceptanceAtom::Positive(0))),
         ]);
@@ -212,11 +334,15 @@ mod tests {
             0,
             None,
             vec![
-                Edge::from_parts(Label(LabelExpression::Integer(0)), vec![1], vec![0]),
+                Edge::from_parts(
+                    Label(LabelExpression::Integer(0)),
+                    StateConjunction(vec![1]),
+                    AcceptanceSignature(vec![0]),
+                ),
                 Edge::from_parts(
                     Label(LabelExpression::Not(Box::new(LabelExpression::Integer(0)))),
-                    vec![2],
-                    vec![0],
+                    StateConjunction(vec![2]),
+                    AcceptanceSignature(vec![0]),
                 ),
             ],
         );
@@ -224,11 +350,15 @@ mod tests {
             1,
             None,
             vec![
-                Edge::from_parts(Label(LabelExpression::Integer(0)), vec![1], vec![]),
+                Edge::from_parts(
+                    Label(LabelExpression::Integer(0)),
+                    StateConjunction(vec![1]),
+                    AcceptanceSignature(vec![]),
+                ),
                 Edge::from_parts(
                     Label(LabelExpression::Not(Box::new(LabelExpression::Integer(0)))),
-                    vec![2],
-                    vec![],
+                    StateConjunction(vec![2]),
+                    AcceptanceSignature(vec![]),
                 ),
             ],
         );

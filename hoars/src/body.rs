@@ -1,9 +1,81 @@
+use std::{collections::HashSet, fmt::Display, ops::Deref};
+
 use chumsky::prelude::*;
+use fixedbitset::FixedBitSet;
 
 use crate::{lexer::Token, value, AcceptanceSignature, Id, LabelExpression, StateConjunction};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// Newtype wrapper around a [`LabelExpression`], implements [`Deref`].
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Label(pub(crate) LabelExpression);
+
+impl Deref for Label {
+    type Target = LabelExpression;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Label {
+    pub fn symbol(&self, aps: usize) -> HoaSymbol {
+        Label::eval(&self.0, aps)
+    }
+
+    fn eval(what: &LabelExpression, aps: usize) -> HoaSymbol {
+        match what {
+            LabelExpression::Boolean(b) => {
+                let mut bits = FixedBitSet::with_capacity(aps);
+                bits.set_range(.., *b);
+                HoaSymbol(bits)
+            }
+            LabelExpression::Integer(i) => {
+                let mut bits = FixedBitSet::with_capacity(aps);
+                bits.set(*i as usize, true);
+                HoaSymbol(bits)
+            }
+            LabelExpression::Alias(_) => unimplemented!(),
+            LabelExpression::Not(expr) => {
+                let mut bits = Label::eval(expr, aps);
+                bits.0.toggle_range(..);
+                bits
+            }
+            LabelExpression::And(lexpr, rexpr) => {
+                let mut left_bits = Label::eval(lexpr, aps);
+                let right_bits = Label::eval(rexpr, aps);
+                left_bits.0.intersect_with(&right_bits.0);
+                left_bits
+            }
+            LabelExpression::Or(lexpr, rexpr) => {
+                let mut left_bits = Label::eval(lexpr, aps);
+                let right_bits = Label::eval(rexpr, aps);
+                left_bits.0.union_with(&right_bits.0);
+                left_bits
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct HoaSymbol(FixedBitSet);
+
+impl PartialOrd for HoaSymbol {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.0.partial_cmp(&other.0)
+    }
+}
+
+impl Ord for HoaSymbol {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
+impl Display for HoaSymbol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "\"{}\"", self.0)
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct RawState(
@@ -19,11 +91,34 @@ struct ExplicitEdge(Label, StateConjunction, Option<AcceptanceSignature>);
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct ImplicitEdge(StateConjunction, Option<AcceptanceSignature>);
 
+/// Represents an edge in a HOA automaton. It contains the [`LabelExpression`], the
+/// [`StateConjunction`] and the [`AcceptanceSignature`] of the edge.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Edge(Label, StateConjunction, AcceptanceSignature);
 
 impl Edge {
-    pub fn from_parts(
+    /// Returns the label of the edge.
+    pub fn label(&self) -> &Label {
+        &self.0
+    }
+
+    /// Returns the state conjunction of the edge.
+    pub fn state_conjunction(&self) -> &StateConjunction {
+        &self.1
+    }
+
+    /// Returns the acceptance signature of the edge.
+    pub fn acceptance_signature(&self) -> &AcceptanceSignature {
+        &self.2
+    }
+
+    /// Tries to get the target (singular) of the transition. Returns `None` if the
+    /// transition does not have a singular target.
+    pub fn target(&self) -> Option<Id> {
+        self.1.get_singleton()
+    }
+
+    pub(crate) fn from_parts(
         label_expression: Label,
         state_conjunction: StateConjunction,
         acceptance_signature: AcceptanceSignature,
@@ -32,22 +127,41 @@ impl Edge {
     }
 }
 
+/// Represents a state in a HOA automaton. It contains the [`Id`] of the state, an optional
+/// comment and a list of outgoing edges.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct State(Id, Option<String>, Vec<Edge>);
 
 impl State {
-    pub fn from_parts(id: Id, comment: Option<String>, edges: Vec<Edge>) -> Self {
+    pub(crate) fn from_parts(id: Id, comment: Option<String>, edges: Vec<Edge>) -> Self {
         Self(id, comment, edges)
+    }
+
+    /// Extracts the id of the state.
+    pub fn id(&self) -> Id {
+        self.0
+    }
+
+    /// Extracts the comment of the state, if present.
+    pub fn comment(&self) -> Option<&str> {
+        self.1.as_deref()
+    }
+
+    /// Extracts the edges of the state.
+    pub fn edges(&self) -> &[Edge] {
+        &self.2
     }
 }
 
 impl From<(Option<AcceptanceSignature>, ExplicitEdge)> for Edge {
     fn from((state_acc, edge): (Option<AcceptanceSignature>, ExplicitEdge)) -> Self {
         let acc = match (state_acc, &edge.2) {
-            (None, None) => Vec::new(),
+            (None, None) => AcceptanceSignature(Vec::new()),
             (Some(acc), None) => acc,
             (None, Some(acc)) => acc.clone(),
-            (Some(left), Some(right)) => left.into_iter().chain(right.iter().cloned()).collect(),
+            (Some(left), Some(right)) => {
+                AcceptanceSignature(left.iter().cloned().chain(right.iter().cloned()).collect())
+            }
         };
         Edge(edge.0, edge.1, acc)
     }
@@ -109,11 +223,12 @@ pub fn state() -> impl Parser<Token, State, Error = Simple<Token>> {
         .try_map(|input, span| State::try_from(input).map_err(|err| Simple::custom(span, err)))
 }
 
+/// Represents the body of a HOA automaton. In essence, this is just a vector of [`State`]s.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Body(Vec<State>);
 
 impl Body {
-    pub fn parser() -> impl Parser<Token, Self, Error = Simple<Token>> {
+    pub(crate) fn parser() -> impl Parser<Token, Self, Error = Simple<Token>> {
         just(Token::BodyStart)
             .ignore_then(state().repeated())
             .map(Body)
@@ -127,11 +242,19 @@ impl From<Vec<State>> for Body {
     }
 }
 
+impl Deref for Body {
+    type Target = Vec<State>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use chumsky::{primitive::end, Parser, Stream};
 
-    use crate::{lexer, LabelExpression};
+    use crate::{lexer, LabelExpression, StateConjunction};
 
     use super::{Edge, Label, State};
 
@@ -176,10 +299,14 @@ mod tests {
                 Box::new(LabelExpression::Integer(0)),
                 Box::new(LabelExpression::Not(Box::new(LabelExpression::Integer(1)))),
             )),
-            vec![0],
-            vec![0],
+            StateConjunction(vec![0]),
+            crate::AcceptanceSignature(vec![0]),
         );
-        let t1 = Edge::from_parts(Label(LabelExpression::Integer(1)), vec![1], vec![0]);
+        let t1 = Edge::from_parts(
+            Label(LabelExpression::Integer(1)),
+            StateConjunction(vec![1]),
+            crate::AcceptanceSignature(vec![0]),
+        );
         let q0 = State::from_parts(0, Some("a U b".to_string()), vec![t0, t1]);
         assert_eq!(process_body(&in_tags(hoa)), Ok(vec![q0]));
     }
@@ -190,7 +317,11 @@ mod tests {
             State: 1
             [t] 1 {1}
         "#;
-        let t0 = Edge::from_parts(Label(LabelExpression::Boolean(true)), vec![1], vec![1]);
+        let t0 = Edge::from_parts(
+            Label(LabelExpression::Boolean(true)),
+            StateConjunction(vec![1]),
+            crate::AcceptanceSignature(vec![1]),
+        );
         let q0 = State::from_parts(1, None, vec![t0]);
         assert_eq!(process_body(&in_tags(hoa)), Ok(vec![q0]));
     }

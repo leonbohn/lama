@@ -1,5 +1,3 @@
-use impl_tools::autoimpl;
-
 use crate::{
     acceptance::{AcceptanceCondition, BuchiCondition, ParityCondition, ReachabilityCondition},
     ts::{Deterministic, Growable, Pointed, Shrinkable, TransitionSystem},
@@ -35,7 +33,9 @@ impl<TS: TransitionSystem + Default + AnonymousGrowable, Acc: AcceptanceConditio
     pub fn acceptance(&self) -> &Acc {
         &self.acc
     }
+}
 
+impl<TS: TransitionSystem, Acc> Combined<TS, Acc> {
     /// Constructs a new instance from the given transition system, initial state and acceptance condition.
     pub fn from_parts(ts: TS, initial: TS::Q, acc: Acc) -> Self {
         Self { ts, initial, acc }

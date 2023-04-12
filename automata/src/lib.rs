@@ -75,6 +75,9 @@ pub type Set<X> = ahash::AHashSet<X>;
 #[cfg(not(feature = "ahash"))]
 pub type Set<X> = std::collections::AHashSet<X>;
 
+#[cfg(feature = "hoa")]
+mod hoa;
+
 /// Abstracts things that are equivalent, meaning they represent the same thing. Useful for comparing represtantions of words.
 pub trait Equivalent<T = Self> {
     /// Returns true if `self` and `other` are equivalent.
