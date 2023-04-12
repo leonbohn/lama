@@ -7,9 +7,11 @@ edition = "2021"
 ahash = {version = "0.8.3", optional = true}
 impl-tools = "0.8.0"
 itertools = "0.10.5"
-tabled = "0.10.0"
+tabled = "0.11.0"
+hoars = {version = "0.1", path = "../hoars", optional = true}
 
 [features]
-default = ["det", "ahash"]
+default = ["det", "ahash", "hoa"]
 det = []
+hoa = ["dep:hoars"]
 ahash = ["dep:ahash"]
