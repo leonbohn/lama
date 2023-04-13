@@ -1,7 +1,10 @@
 use std::{
+    fmt::Display,
     hash::Hash,
     ops::{AddAssign, SubAssign},
 };
+
+use itertools::Itertools;
 
 use crate::Set;
 
@@ -140,5 +143,24 @@ where
 impl<X: Hash + Eq> Default for BuchiCondition<X> {
     fn default() -> Self {
         Self(Set::new())
+    }
+}
+
+impl<X, Y> Display for BuchiCondition<(X, Y)>
+where
+    X: Display,
+    Y: Display,
+    (X, Y): Ord,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Buchi({})",
+            self.0
+                .iter()
+                .sorted()
+                .map(|(x, y)| format!("({}, {})", x, y))
+                .join(", ")
+        )
     }
 }

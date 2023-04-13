@@ -3,8 +3,11 @@
 mod body;
 mod format;
 mod header;
+mod label_expression;
 mod lexer;
 mod value;
+
+pub use label_expression::LabelExpression;
 
 use ariadne::{Color, Fmt, ReportKind, Source};
 
@@ -14,8 +17,7 @@ pub use format::*;
 
 use chumsky::{prelude::Simple, Parser, Stream};
 pub use format::{
-    AcceptanceCondition, AcceptanceInfo, AcceptanceName, AcceptanceSignature, AliasName,
-    LabelExpression, Property,
+    AcceptanceCondition, AcceptanceInfo, AcceptanceName, AcceptanceSignature, AliasName, Property,
 };
 
 pub use body::{Body, Edge, HoaSymbol, Label, State};
@@ -41,6 +43,8 @@ pub struct HoaAutomaton {
 /// Represents an acceptance condition as it is encoded in a HOA automaton.
 pub type HoaAcceptance = (usize, AcceptanceCondition);
 
+pub type Aliases = Vec<(AliasName, LabelExpression)>;
+
 impl HoaAutomaton {
     /// Returns the version of the HOA file.
     pub fn version(&self) -> &str {
@@ -58,11 +62,7 @@ impl HoaAutomaton {
     }
 
     fn from_parsed(((version, header), body): ((String, Header), Body)) -> Self {
-        Self {
-            version,
-            header,
-            body,
-        }
+        Self::from_parts(version, header, body)
     }
 
     pub fn parser() -> impl Parser<Token, Self, Error = Simple<Token>> {
@@ -75,11 +75,13 @@ impl HoaAutomaton {
     }
 
     pub fn from_parts(version: String, header: Header, body: Body) -> Self {
-        Self {
+        let mut out = Self {
             version,
             header,
             body,
-        }
+        };
+        out.unalias();
+        out
     }
 
     pub fn num_states(&self) -> Option<usize> {
@@ -154,11 +156,11 @@ impl HoaAutomaton {
             .expect("Acceptance header is missing!")
     }
 
-    pub fn aliases(&self) -> Vec<(&AliasName, &LabelExpression)> {
+    pub fn aliases(&self) -> Vec<(AliasName, LabelExpression)> {
         self.header()
             .iter()
             .filter_map(|item| match item {
-                HeaderItem::Alias(name, expr) => Some((name, expr)),
+                HeaderItem::Alias(name, expr) => Some((name.clone(), expr.clone())),
                 _ => None,
             })
             .collect()
@@ -177,6 +179,15 @@ impl HoaAutomaton {
             HeaderItem::AcceptanceName(name, info) => Some((name, info)),
             _ => None,
         })
+    }
+
+    pub fn unalias(&mut self) {
+        let aliases = self.aliases();
+        for state in self.body.iter_mut() {
+            for edge in state.edges_mut() {
+                edge.label_mut().unalias(&aliases);
+            }
+        }
     }
 }
 

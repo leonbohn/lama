@@ -1,9 +1,12 @@
-use std::{collections::HashSet, fmt::Display, ops::Deref};
+use std::{
+    fmt::Display,
+    ops::{Deref, DerefMut},
+};
 
+pub use crate::label_expression::{DnfLabelExpression, LabelConjunct, LabelExpression};
 use chumsky::prelude::*;
-use fixedbitset::FixedBitSet;
 
-use crate::{lexer::Token, value, AcceptanceSignature, Id, LabelExpression, StateConjunction};
+use crate::{lexer::Token, value, AcceptanceSignature, Aliases, Id, StateConjunction};
 
 /// Newtype wrapper around a [`LabelExpression`], implements [`Deref`].
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -18,46 +21,31 @@ impl Deref for Label {
 }
 
 impl Label {
-    pub fn symbol(&self, aps: usize) -> HoaSymbol {
-        Label::eval(&self.0, aps)
+    pub fn symbol(&self) -> HoaSymbol {
+        HoaSymbol::from(self.clone())
     }
 
-    fn eval(what: &LabelExpression, aps: usize) -> HoaSymbol {
-        match what {
-            LabelExpression::Boolean(b) => {
-                let mut bits = FixedBitSet::with_capacity(aps);
-                bits.set_range(.., *b);
-                HoaSymbol(bits)
-            }
-            LabelExpression::Integer(i) => {
-                let mut bits = FixedBitSet::with_capacity(aps);
-                bits.set(*i as usize, true);
-                HoaSymbol(bits)
-            }
-            LabelExpression::Alias(_) => unimplemented!(),
-            LabelExpression::Not(expr) => {
-                let mut bits = Label::eval(expr, aps);
-                bits.0.toggle_range(..);
-                bits
-            }
-            LabelExpression::And(lexpr, rexpr) => {
-                let mut left_bits = Label::eval(lexpr, aps);
-                let right_bits = Label::eval(rexpr, aps);
-                left_bits.0.intersect_with(&right_bits.0);
-                left_bits
-            }
-            LabelExpression::Or(lexpr, rexpr) => {
-                let mut left_bits = Label::eval(lexpr, aps);
-                let right_bits = Label::eval(rexpr, aps);
-                left_bits.0.union_with(&right_bits.0);
-                left_bits
-            }
+    pub fn unalias(&self, aliases: &Aliases) -> LabelExpression {
+        match &self.0 {
+            LabelExpression::Alias(a) => aliases
+                .iter()
+                .find_map(
+                    |(name, expr)| {
+                        if name == a {
+                            Some(expr.clone())
+                        } else {
+                            None
+                        }
+                    },
+                )
+                .unwrap_or_else(|| panic!("Invalid input, alias with name {} not defined", a)),
+            otherwise => otherwise.clone(),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct HoaSymbol(FixedBitSet);
+pub struct HoaSymbol(pub DnfLabelExpression);
 
 impl PartialOrd for HoaSymbol {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -74,6 +62,24 @@ impl Ord for HoaSymbol {
 impl Display for HoaSymbol {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "\"{}\"", self.0)
+    }
+}
+
+impl From<Label> for HoaSymbol {
+    fn from(label: Label) -> Self {
+        Self(label.0.into())
+    }
+}
+
+impl From<LabelExpression> for HoaSymbol {
+    fn from(expr: LabelExpression) -> Self {
+        Self(expr.into())
+    }
+}
+
+impl From<DnfLabelExpression> for HoaSymbol {
+    fn from(expr: DnfLabelExpression) -> Self {
+        Self(expr)
     }
 }
 
@@ -100,6 +106,11 @@ impl Edge {
     /// Returns the label of the edge.
     pub fn label(&self) -> &Label {
         &self.0
+    }
+
+    /// Gives mutable access to the label of the edge.
+    pub fn label_mut(&mut self) -> &mut Label {
+        &mut self.0
     }
 
     /// Returns the state conjunction of the edge.
@@ -150,6 +161,11 @@ impl State {
     /// Extracts the edges of the state.
     pub fn edges(&self) -> &[Edge] {
         &self.2
+    }
+
+    /// Gives mutable access to the edges of this state.
+    pub fn edges_mut(&mut self) -> &mut [Edge] {
+        &mut self.2
     }
 }
 
@@ -247,6 +263,12 @@ impl Deref for Body {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl DerefMut for Body {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 

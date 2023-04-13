@@ -3,8 +3,9 @@ use std::ops::Deref;
 use chumsky::prelude::*;
 
 use crate::{
-    format::{AtomicProposition, LabelExpression, StateConjunction},
-    value, AcceptanceCondition, AcceptanceInfo, AcceptanceName, AliasName, Id, Property, Token,
+    format::{AtomicProposition, StateConjunction},
+    value, AcceptanceCondition, AcceptanceInfo, AcceptanceName, AliasName, Id, LabelExpression,
+    Property, Token,
 };
 
 #[derive(Debug, PartialEq, Eq, Clone)]

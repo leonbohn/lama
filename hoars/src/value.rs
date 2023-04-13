@@ -1,8 +1,8 @@
 use chumsky::{prelude::*, select};
 
 use crate::{
-    format::LabelExpression, AcceptanceAtom, AcceptanceCondition, AcceptanceInfo,
-    AcceptanceSignature, Id, StateConjunction, Token,
+    AcceptanceAtom, AcceptanceCondition, AcceptanceInfo, AcceptanceSignature, Id, LabelExpression,
+    StateConjunction, Token,
 };
 
 #[allow(unused)]

@@ -1,7 +1,5 @@
 use std::{fmt::Display, ops::Deref};
 
-use ariadne::Label;
-
 use crate::Id;
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
@@ -36,9 +34,11 @@ pub struct AcceptanceSignature(pub(crate) Vec<crate::Id>);
 impl AcceptanceSignature {
     /// Tries to get the singleton element of the acceptance signature, if it exists.
     /// Returns `None` if the acceptance signature is not a singleton.
-    pub fn get_singleton(&self) -> Option<Id> {
-        if self.len() == 1 {
-            Some(self[0])
+    pub fn get_singleton(&self) -> Option<Option<Id>> {
+        if self.len() == 0 {
+            Some(None)
+        } else if self.len() == 1 {
+            Some(Some(self[0]))
         } else {
             None
         }
@@ -50,82 +50,6 @@ impl Deref for AcceptanceSignature {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
-pub enum LabelExpression {
-    Boolean(bool),
-    Integer(u32),
-    Alias(AliasName),
-    Not(Box<LabelExpression>),
-    And(Box<LabelExpression>, Box<LabelExpression>),
-    Or(Box<LabelExpression>, Box<LabelExpression>),
-}
-
-impl LabelExpression {
-    pub fn nnf(&self) -> LabelExpression {
-        match self {
-            LabelExpression::Not(subexpr) => match subexpr.deref() {
-                LabelExpression::Not(subsubexpr) => subsubexpr.nnf(),
-                LabelExpression::And(l, r) => LabelExpression::Or(
-                    Box::new(LabelExpression::Not(l.clone()).nnf()),
-                    Box::new(LabelExpression::Not(r.clone()).nnf()),
-                ),
-                LabelExpression::Or(l, r) => LabelExpression::And(
-                    Box::new(LabelExpression::Not(l.clone()).nnf()),
-                    Box::new(LabelExpression::Not(r.clone()).nnf()),
-                ),
-                otherwise => LabelExpression::Not(Box::new(otherwise.nnf())),
-            },
-            LabelExpression::And(l, r) => {
-                LabelExpression::And(Box::new(l.nnf()), Box::new(r.nnf()))
-            }
-            LabelExpression::Or(l, r) => LabelExpression::Or(Box::new(l.nnf()), Box::new(r.nnf())),
-            otherwise => otherwise.clone(),
-        }
-    }
-
-    pub fn dnf(&self) -> LabelExpression {
-        match self.nnf() {
-            LabelExpression::And(l, r) => match (l.dnf(), r.dnf()) {
-                (LabelExpression::Or(l1, r1), _) => LabelExpression::Or(
-                    Box::new(LabelExpression::And(l1.clone(), r.clone()).dnf()),
-                    Box::new(LabelExpression::And(r1.clone(), r.clone()).dnf()),
-                ),
-                (_, LabelExpression::Or(l2, r2)) => LabelExpression::Or(
-                    Box::new(LabelExpression::And(l.clone(), l2.clone()).dnf()),
-                    Box::new(LabelExpression::And(r.clone(), r2.clone()).dnf()),
-                ),
-                (other, wise) => LabelExpression::And(Box::new(other), Box::new(wise)),
-            },
-            otherwise => otherwise.clone(),
-        }
-    }
-}
-
-impl PartialOrd for LabelExpression {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for LabelExpression {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        todo!()
-    }
-}
-
-impl Display for LabelExpression {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LabelExpression::Boolean(val) => write!(f, "{}", if *val { "T" } else { "F" }),
-            LabelExpression::Integer(val) => write!(f, "{}", val),
-            LabelExpression::Alias(val) => write!(f, "{}", val),
-            LabelExpression::Not(val) => write!(f, "!{}", val),
-            LabelExpression::And(lhs, rhs) => write!(f, "({} & {})", lhs, rhs),
-            LabelExpression::Or(lhs, rhs) => write!(f, "({} | {})", lhs, rhs),
-        }
     }
 }
 
@@ -246,22 +170,5 @@ impl Display for AcceptanceCondition {
             AcceptanceCondition::Or(left, right) => write!(f, "({} | {})", left, right),
             AcceptanceCondition::Boolean(val) => write!(f, "{}", if *val { "T" } else { "F" }),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn formula_transformations() {
-        use super::*;
-        let formula = LabelExpression::Or(
-            Box::new(LabelExpression::Not(Box::new(LabelExpression::Or(
-                Box::new(LabelExpression::Integer(0)),
-                Box::new(LabelExpression::Integer(2)),
-            )))),
-            Box::new(LabelExpression::Not(Box::new(LabelExpression::Integer(4)))),
-        );
-        let dnf = formula.dnf();
-        println!("{:?}", dnf)
     }
 }

@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::{
     acceptance::{AcceptanceCondition, BuchiCondition, ParityCondition, ReachabilityCondition},
     ts::{Deterministic, Growable, Pointed, Shrinkable, TransitionSystem},
@@ -106,6 +108,16 @@ impl<TS: Shrinkable, Acc: AcceptanceCondition> Shrinkable for Combined<TS, Acc> 
 impl<TS: TransitionSystem, Acc: AcceptanceCondition> Pointed for Combined<TS, Acc> {
     fn initial(&self) -> Self::Q {
         self.initial.clone()
+    }
+}
+
+impl<TS, Acc> Display for Combined<TS, Acc>
+where
+    TS: TransitionSystem + Display,
+    Acc: AcceptanceCondition + Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}\n{}", self.ts, self.acc)
     }
 }
 

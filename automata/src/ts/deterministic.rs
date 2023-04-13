@@ -343,11 +343,14 @@ impl<S: Symbol, Q: StateIndex + Display> Display for Deterministic<Q, S> {
             let mut row = vec![state.to_string()];
             for sym in self.vec_alphabet() {
                 row.push(if let Some(successor) = self.succ(&state, &sym) {
+                    println!("{} -> {}", state.to_string(), successor.to_string());
                     successor.to_string()
                 } else {
                     "-".to_string()
                 });
             }
+            println!("{:?}", row);
+            builder.add_record(row);
         }
         let mut transition_table = builder.build();
         transition_table.with(Style::re_structured_text());
@@ -357,6 +360,6 @@ impl<S: Symbol, Q: StateIndex + Display> Display for Deterministic<Q, S> {
 
 impl<S: Symbol, Q: StateIndex + Display> Display for InitializedDeterministic<Q, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} with initial state: {}", self.det, self.initial)
+        write!(f, "{}\\with initial state: {}", self.det, self.initial)
     }
 }
