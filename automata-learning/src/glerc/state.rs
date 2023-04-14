@@ -273,7 +273,7 @@ mod tests {
 
     #[test]
     fn test_missings() {
-        let sample = Sample::from_parts(["a", "ab"], ["", "b", "aa"]);
+        let sample = Sample::from_iters(["a", "ab"], ["", "b", "aa"]);
         let mut glercstate =
             GlercState::new(&sample, RightCongruence::empty_trivial(), EmptyConstraint);
         let eps = Class::epsilon();

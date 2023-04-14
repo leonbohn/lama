@@ -176,7 +176,7 @@ mod tests {
 
     #[test]
     fn dfa_learning() {
-        let sample = Sample::from_parts(["a", "ab"], ["", "b", "aa"]);
+        let sample = Sample::from_iters(["a", "ab"], ["", "b", "aa"]);
         let mut glerc =
             GlercState::new(&sample, RightCongruence::trivial(), ReachabilityConstraint);
         assert!(matches!(glerc.step(), GlercSignal::MissingTransition(..)));
