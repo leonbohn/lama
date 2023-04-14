@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use tabled::{builder::Builder, Style};
 
 use crate::{AnonymousGrowable, Mapping, Pointed, Set, Symbol};
@@ -331,25 +332,24 @@ where
 impl<S: Symbol, Q: StateIndex + Display> Display for Deterministic<Q, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = Builder::default();
+        let alphabet = self.vec_alphabet().into_iter().sorted().collect_vec();
         builder.set_columns(
             vec!["Deterministic".to_string()].into_iter().chain(
-                self.vec_alphabet()
-                    .into_iter()
+                alphabet
+                    .iter()
                     .map(|s| s.to_string())
                     .collect::<Vec<String>>(),
             ),
         );
-        for state in self.vec_states() {
+        for state in self.vec_states().iter().sorted() {
             let mut row = vec![state.to_string()];
-            for sym in self.vec_alphabet() {
-                row.push(if let Some(successor) = self.succ(&state, &sym) {
-                    println!("{} -> {}", state.to_string(), successor.to_string());
+            for sym in &alphabet {
+                row.push(if let Some(successor) = self.succ(state, sym) {
                     successor.to_string()
                 } else {
                     "-".to_string()
                 });
             }
-            println!("{:?}", row);
             builder.add_record(row);
         }
         let mut transition_table = builder.build();

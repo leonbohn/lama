@@ -136,10 +136,13 @@ mod tests {
              acc-name: Buchi
              Acceptance: 1 Inf(0)
              --BODY--
-             State: 0 {0}
+             State: 0
               [0] 1
               [!0]  2
-             State: 1 {0} /* former state 0 */
+             State: 1 /* former state 0 */
+              [0] 1  {0}
+              [!0] 2 {0}
+             State: 2  /* former state 1 */
               [0] 1
               [!0] 2
              --END--

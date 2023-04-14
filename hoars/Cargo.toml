@@ -1,9 +1,9 @@
 [package]
 name = "hoars"
-license = "GPL-3.0-or-later"
+license = "MIT"
 description = "A library for dealing with the HOA (Hanoi Omega Automata) file format."
-homepage = "https://github.com/leonbohn/hoars/"
-repository = "https://github.com/leonbohn/hoars/"
+homepage = "https://github.com/leonbohn/lama/"
+repository = "https://github.com/leonbohn/lama/hoars"
 readme = "README.md"
 keywords = ["omega-automata", "hoa", "automata"]
 categories = ["encoding", "parser-implementations"]
