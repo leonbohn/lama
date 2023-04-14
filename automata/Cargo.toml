@@ -1,0 +1,17 @@
+[package]
+name = "automata"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ahash = {version = "0.8.3", optional = true}
+impl-tools = "0.8.0"
+itertools = "0.10.5"
+tabled = "0.10"
+hoars = {version = "0.1", path = "../hoars", optional = true}
+
+[features]
+default = ["det", "ahash", "hoa"]
+det = []
+hoa = ["dep:hoars"]
+ahash = ["dep:ahash"]

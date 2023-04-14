@@ -1,0 +1,19 @@
+[package]
+name = "hoars"
+license = "MIT"
+description = "A library for dealing with the HOA (Hanoi Omega Automata) file format."
+homepage = "https://github.com/leonbohn/lama/"
+repository = "https://github.com/leonbohn/lama/hoars"
+readme = "README.md"
+keywords = ["omega-automata", "hoa", "automata"]
+categories = ["encoding", "parser-implementations"]
+version = "0.1.1"
+edition = "2021"
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ariadne = "0.2"
+chumsky = "0.9"
+itertools = "0.10"

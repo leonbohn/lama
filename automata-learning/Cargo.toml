@@ -1,0 +1,12 @@
+[package]
+name = "automata-learning"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+automata = {version = "0.1", path = "../automata"}
+itertools = "0.10.5"
+impl-tools = "0.8"
+tabled = "0.10.0"
