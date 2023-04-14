@@ -8,17 +8,29 @@ use crate::{
     Property, Token,
 };
 
+/// Represents a header item in a HOA file, for more information on each
+/// element, see the [HOA format specification](https://adl.github.io/hoaf/).
+/// The multiplicity of each element is given in parenthesis.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum HeaderItem {
+    /// (0|1) State header, gives the number of states in the automaton.
     States(Id),
+    /// (>=0) Gives a conjunction of states that are the start states of the
+    /// automaton. May be specified multiple times.
     Start(StateConjunction),
+    /// (1) Gives the atomic propositions of the automaton.
     AP(Vec<AtomicProposition>),
+    /// (>=0) Allows the introduction of an alias for a label expression.
     Alias(AliasName, LabelExpression),
+    /// (1) Gives the acceptance condition of the automaton.
     Acceptance(Id, AcceptanceCondition),
+    /// (>=0) Gives the acceptance sets of the automaton.
     AcceptanceName(AcceptanceName, Vec<AcceptanceInfo>),
-    // Correspond to tool name and optional version number
+    /// (0|1) Correspond to tool name and optional version number.
     Tool(String, Option<String>),
+    /// (0|1) Correspond to the name of the automaton.
     Name(String),
+    /// (>=0) Gives the properties of the automaton.
     Properties(Vec<Property>),
 }
 
@@ -94,14 +106,17 @@ fn item() -> impl Parser<Token, HeaderItem, Error = Simple<Token>> {
     ))
 }
 
+/// Represents the header of a HOA file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Header(Vec<HeaderItem>);
 
 impl Header {
+    /// Construts a new header parser.
     pub fn parser() -> impl Parser<Token, Self, Error = Simple<Token>> {
         item().repeated().map(Header)
     }
 
+    /// Constructs a new header from a vector of header items.
     pub fn from_vec(value: Vec<HeaderItem>) -> Self {
         Self(value)
     }

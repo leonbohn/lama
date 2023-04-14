@@ -43,14 +43,14 @@ pub fn state_conjunction() -> impl Parser<Token, StateConjunction, Error = Simpl
     integer()
         .separated_by(just(Token::Op('&')))
         .at_least(1)
-        .map(|v| StateConjunction(v))
+        .map(StateConjunction)
 }
 
 pub fn acceptance_signature() -> impl Parser<Token, AcceptanceSignature, Error = Simple<Token>> {
     integer()
         .repeated()
         .delimited_by(just(Token::Paren('{')), just(Token::Paren('}')))
-        .map(|v| AcceptanceSignature(v))
+        .map(AcceptanceSignature)
 }
 
 pub fn acceptance_info() -> impl Parser<Token, AcceptanceInfo, Error = Simple<Token>> {

@@ -21,10 +21,15 @@ impl Deref for Label {
 }
 
 impl Label {
+    /// Turns the Label into a [`HoaSymbol`].
     pub fn symbol(&self) -> HoaSymbol {
         HoaSymbol::from(self.clone())
     }
 
+    /// Performs an unaliasing of the label, using the given aliases in the
+    /// form of a [`Aliases`] map.
+    /// This should guarantee that the resulting [`LabelExpression`] does
+    /// not contain any [`LabelExpression::Alias`]es.
     pub fn unalias(&self, aliases: &Aliases) -> LabelExpression {
         match &self.0 {
             LabelExpression::Alias(a) => aliases
@@ -44,6 +49,7 @@ impl Label {
     }
 }
 
+/// Used as a symbol in a parsed HOA automaton.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct HoaSymbol(pub DnfLabelExpression);
 
@@ -129,6 +135,8 @@ impl Edge {
         self.1.get_singleton()
     }
 
+    #[cfg(test)]
+    /// Builds an edge from its parts.
     pub(crate) fn from_parts(
         label_expression: Label,
         state_conjunction: StateConjunction,
@@ -144,6 +152,8 @@ impl Edge {
 pub struct State(Id, Option<String>, Vec<Edge>);
 
 impl State {
+    #[cfg(test)]
+    /// Constructs a new state from its parts.
     pub(crate) fn from_parts(id: Id, comment: Option<String>, edges: Vec<Edge>) -> Self {
         Self(id, comment, edges)
     }

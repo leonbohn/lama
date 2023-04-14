@@ -43,6 +43,8 @@ pub struct HoaAutomaton {
 /// Represents an acceptance condition as it is encoded in a HOA automaton.
 pub type HoaAcceptance = (usize, AcceptanceCondition);
 
+/// Stores information on aliases, it holds a vector of pairs of alias
+/// names and label expression. This can be used to [unalias](HoaAutomaton::unalias) an automaton.
 pub type Aliases = Vec<(AliasName, LabelExpression)>;
 
 impl HoaAutomaton {
@@ -65,6 +67,7 @@ impl HoaAutomaton {
         Self::from_parts(version, header, body)
     }
 
+    /// Parses a HOA automaton from a string.
     pub fn parser() -> impl Parser<Token, Self, Error = Simple<Token>> {
         just(Token::Header("HOA".to_string()))
             .ignore_then(value::identifier())
@@ -74,6 +77,9 @@ impl HoaAutomaton {
             .map(HoaAutomaton::from_parsed)
     }
 
+    /// Creates a new HOA automaton from the given version, header and
+    /// body. This function will also [unalias](HoaAutomaton::unalias) the
+    /// automaton.
     pub fn from_parts(version: String, header: Header, body: Body) -> Self {
         let mut out = Self {
             version,
@@ -84,6 +90,35 @@ impl HoaAutomaton {
         out
     }
 
+    /// Verifies that the automaton is well-formed. This means that
+    /// - the number of states is set correctly
+    /// - all states are defined exactly once
+    pub fn verify(&self) -> Result<(), String> {
+        let mut errors = Vec::new();
+        let mut states = Vec::new();
+        for state in self.body().iter() {
+            if states.contains(&state.id()) {
+                errors.push(format!("State {} is defined more than once!", state.id()));
+            }
+            states.push(state.id());
+        }
+        if let Some(num_states) = self.num_states() {
+            if states.len() != num_states {
+                errors.push(format!(
+                    "The number of states is set to {} but there are {} states!",
+                    num_states,
+                    states.len()
+                ));
+            }
+        }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors.join("\n"))
+        }
+    }
+
+    /// Returns the number of states in the automaton.
     pub fn num_states(&self) -> Option<usize> {
         debug_assert!(
             self.header()
@@ -99,6 +134,7 @@ impl HoaAutomaton {
         })
     }
 
+    /// Returns the number of edges in the automaton.
     pub fn start(&self) -> Vec<&StateConjunction> {
         debug_assert!(
             self.header()
@@ -117,25 +153,26 @@ impl HoaAutomaton {
             .collect()
     }
 
-    pub fn ap(&self) -> Option<&Vec<String>> {
-        debug_assert!(
-            self.header()
-                .iter()
-                .filter(|item| matches!(item, HeaderItem::AP(_)))
-                .count()
-                == 1,
-            "There must be exactly one AP header!"
-        );
-        self.header().iter().find_map(|item| match item {
-            HeaderItem::AP(ap) => Some(ap),
-            _ => None,
-        })
+    /// Returns the set of all atomic propositions in the automaton.
+    pub fn aps(&self) -> &Vec<String> {
+        let aps = self
+            .header()
+            .iter()
+            .filter_map(|item| match item {
+                HeaderItem::AP(ap) => Some(ap),
+                _ => None,
+            })
+            .collect_vec();
+        debug_assert!(aps.len() == 1, "There must be exactly one AP header!");
+        aps.first().unwrap()
     }
 
+    /// Counts the number of atomic propositions in the automaton.
     pub fn num_aps(&self) -> usize {
-        self.ap().map(|ap| ap.len()).unwrap_or(0)
+        self.aps().len()
     }
 
+    /// Returns the acceptance condition of the automaton.
     pub fn acceptance(&self) -> HoaAcceptance {
         debug_assert!(
             self.header()
@@ -156,6 +193,7 @@ impl HoaAutomaton {
             .expect("Acceptance header is missing!")
     }
 
+    /// Returns the aliases of the automaton.
     pub fn aliases(&self) -> Vec<(AliasName, LabelExpression)> {
         self.header()
             .iter()
@@ -166,6 +204,7 @@ impl HoaAutomaton {
             .collect()
     }
 
+    /// Returns the acceptance name of the automaton.
     pub fn acceptance_name(&self) -> Option<(&AcceptanceName, &Vec<AcceptanceInfo>)> {
         debug_assert!(
             self.header()
@@ -181,6 +220,9 @@ impl HoaAutomaton {
         })
     }
 
+    /// Performs an unaliasing, which replaces each occurrence of an
+    /// alias in a label expression with the corresponding label
+    /// as given by the [aliases](HoaAutomaton::aliases) mapping.
     pub fn unalias(&mut self) {
         let aliases = self.aliases();
         for state in self.body.iter_mut() {
@@ -325,6 +367,9 @@ mod tests {
              State: 1  /* former state 0 */
               [0] 1
               [!0] 2
+             State: 2  /* former state 1 */
+              [0] 1
+              [!0] 2
              --END--
              "#;
         let hoa_aut = HoaAutomaton::try_from(contents);
@@ -373,12 +418,28 @@ mod tests {
                 ),
             ],
         );
+        let q2 = State::from_parts(
+            2,
+            None,
+            vec![
+                Edge::from_parts(
+                    Label(LabelExpression::Integer(0)),
+                    StateConjunction(vec![1]),
+                    AcceptanceSignature(vec![]),
+                ),
+                Edge::from_parts(
+                    Label(LabelExpression::Not(Box::new(LabelExpression::Integer(0)))),
+                    StateConjunction(vec![2]),
+                    AcceptanceSignature(vec![]),
+                ),
+            ],
+        );
         assert_eq!(
             hoa_aut,
             Ok(HoaAutomaton::from_parts(
                 "v1".to_string(),
                 header,
-                Body::from(vec![q0, q1])
+                Body::from(vec![q0, q1, q2])
             ))
         )
     }
