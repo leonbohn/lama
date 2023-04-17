@@ -1,9 +1,14 @@
 use std::fmt::Display;
 
-use hoars::{AcceptanceAtom, AcceptanceCondition, AcceptanceInfo, HoaAutomaton, HoaSymbol, Id};
+use hoars::{
+    AcceptanceAtom, AcceptanceCondition, AcceptanceInfo, FromHoaError, HoaAutomaton, HoaSymbol, Id,
+};
 use tracing::{debug, info, trace};
 
-use crate::{BuchiCondition, Combined, Deterministic, Growable, ParityCondition, Set};
+use crate::{
+    BuchiCondition, Combined, Dba, Deterministic, Dpa, Growable, OmegaAutomaton, OmegaCondition,
+    ParityCondition, Set,
+};
 
 impl TryFrom<HoaAutomaton> for ParityCondition<(Id, HoaSymbol)> {
     type Error = FromHoaError;
@@ -153,30 +158,34 @@ impl<Acc: crate::AcceptanceCondition + TryFrom<HoaAutomaton, Error = FromHoaErro
     }
 }
 
-/// Represents the different types of error that can be encountered when parsing a [`HoaAutomaton`].
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum FromHoaError {
-    /// The version string does not match, we only support v1.
-    UnsupportedVersion(String),
-    UnsupportedAcceptanceCondition,
-    ParseAcceptanceCondition(String),
-    UnsupportedBody,
+/// Function for trying to parse a HOA automaton into a DBA.
+pub fn parse_dba(hoa: &str) -> Result<Dba<Id, HoaSymbol>, FromHoaError> {
+    let hoa_aut = HoaAutomaton::try_from(hoa)?;
+    Combined::try_from(hoa_aut).map_err(|e| FromHoaError::ParseAcceptanceCondition(e.to_string()))
 }
 
-impl Display for FromHoaError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FromHoaError::UnsupportedVersion(version) => {
-                write!(f, "Unsupported HOA version ({})", version)
-            }
-            FromHoaError::UnsupportedAcceptanceCondition => {
-                write!(f, "Unsupported acceptance condition")
-            }
-            FromHoaError::UnsupportedBody => write!(f, "Unsupported body"),
-            FromHoaError::ParseAcceptanceCondition(message) => {
-                write!(f, "Could not parse acceptance condition: {}", message)
-            }
+/// Function for trying to parse a HOA automaton into a DBA.
+pub fn parse_dpa(hoa: &str) -> Result<Dpa<Id, HoaSymbol>, FromHoaError> {
+    let hoa_aut = HoaAutomaton::try_from(hoa)?;
+    Combined::try_from(hoa_aut).map_err(|e| FromHoaError::ParseAcceptanceCondition(e.to_string()))
+}
+
+/// Function for attempting to parse an omega automaton from a HOA string.
+pub fn parse_hoa(hoa: &str) -> Result<OmegaAutomaton<u32, HoaSymbol>, FromHoaError> {
+    let hoa_aut = HoaAutomaton::try_from(hoa)?;
+
+    match hoa_aut.acceptance_name() {
+        Some((&hoars::AcceptanceName::Buchi, _)) => {
+            Combined::<_, BuchiCondition<_>>::try_from(hoa_aut)
+                .map(|combined| combined.to_omega())
+                .map_err(|e| FromHoaError::ParseAcceptanceCondition(e.to_string()))
         }
+        Some((&hoars::AcceptanceName::Parity, _)) => {
+            Combined::<_, ParityCondition<_>>::try_from(hoa_aut)
+                .map(|combined| combined.to_omega())
+                .map_err(|e| FromHoaError::ParseAcceptanceCondition(e.to_string()))
+        }
+        _ => Err(FromHoaError::UnsupportedAcceptanceCondition),
     }
 }
 

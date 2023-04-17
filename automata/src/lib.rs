@@ -40,7 +40,8 @@ pub use congruence::{Class, ProgressRightCongruence, RightCongruence, FORC};
 /// Module in which acceptance conditions of automata are defined. This includes the [`AcceptanceCondition`] trait, which is implemented by all acceptance conditions, and provides a common interface for working with acceptance conditions.
 mod acceptance;
 pub use acceptance::{
-    AcceptanceCondition, BuchiCondition, Parity, ParityCondition, ReachabilityCondition,
+    AcceptanceCondition, BuchiCondition, OmegaCondition, Parity, ParityCondition,
+    ReachabilityCondition,
 };
 
 mod acceptor;
@@ -81,6 +82,8 @@ pub type Set<X> = std::collections::AHashSet<X>;
 
 #[cfg(feature = "hoa")]
 mod hoa;
+#[cfg(feature = "hoa")]
+pub use hoa::parse_hoa;
 
 /// Abstracts things that are equivalent, meaning they represent the same thing. Useful for comparing represtantions of words.
 pub trait Equivalent<T = Self> {
@@ -106,6 +109,8 @@ pub trait HasAlphabet {
     /// Returns an iterator over the alphabet of `self`.
     fn alphabet_iter(&self) -> Self::AlphabetIter;
 }
+
+pub type OmegaAutomaton<Q = u32, S = char> = Combined<Deterministic<Q, S>, OmegaCondition<(Q, S)>>;
 
 #[cfg(test)]
 mod tests {

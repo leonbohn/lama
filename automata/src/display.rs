@@ -9,7 +9,8 @@ use owo_colors::OwoColorize;
 use tabled::{builder::Builder, settings::Style};
 
 use crate::{
-    AcceptanceCondition, BuchiCondition, Combined, ParityCondition, StateIterable, TransitionSystem,
+    AcceptanceCondition, BuchiCondition, Combined, OmegaCondition, ParityCondition, StateIterable,
+    TransitionSystem,
 };
 
 pub trait Annotates<X, Y> {
@@ -51,6 +52,19 @@ where
             0 => format!("{}", z.to_string().green().bold(),),
             1 => format!("{}", z.to_string().red().bold(),),
             _ => unreachable!(),
+        }
+    }
+}
+
+impl<X, Y> Annotates<X, Y> for OmegaCondition<(X, Y)>
+where
+    X: Eq + Hash + Display,
+    Y: Eq + Hash + Display,
+{
+    fn annotate(&self, x: &(X, Y), z: &X) -> String {
+        match self {
+            OmegaCondition::Parity(c) => c.annotate(x, z),
+            OmegaCondition::Buchi(c) => c.annotate(x, z),
         }
     }
 }

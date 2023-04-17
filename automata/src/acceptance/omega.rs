@@ -10,9 +10,38 @@ use crate::Set;
 
 use super::{AcceptanceCondition, Finite, Parity, Priority, PriorityMapping};
 
+pub enum OmegaCondition<X> {
+    Parity(ParityCondition<X>),
+    Buchi(BuchiCondition<X>),
+}
+
+impl<X: Hash + Eq> AcceptanceCondition for OmegaCondition<X> {
+    type Induced = Set<X>;
+
+    fn is_accepting(&self, induced: &Self::Induced) -> bool {
+        match self {
+            Self::Parity(parity) => parity.is_accepting(induced),
+            Self::Buchi(buchi) => buchi.is_accepting(induced),
+        }
+    }
+}
+
+pub trait ToOmega {
+    type X: Hash + Eq + Clone;
+    fn to_omega(&self) -> OmegaCondition<Self::X>;
+}
+
 /// Represents a parity condition as a vector of sets which encode a Zielonka path. The sets form an inclusion chain, where the first set contains the states with the lowest priority, the second set contains the states with the second lowest priority, and so on. The last set contains the states with the highest priority.
 /// Note that we are using min-even, meaning the first set contains the most significant even priority, the second set contains the second most significant even priority, and so on.
+#[derive(Debug, Clone)]
 pub struct ParityCondition<X>(pub Vec<Set<X>>);
+
+impl<X: Hash + Eq + Clone> ToOmega for ParityCondition<X> {
+    type X = X;
+    fn to_omega(&self) -> OmegaCondition<Self::X> {
+        OmegaCondition::Parity(self.clone())
+    }
+}
 
 impl<X: Eq + Hash> AcceptanceCondition for ParityCondition<X> {
     type Induced = Set<X>;
@@ -78,7 +107,15 @@ where
 }
 
 /// Represents a Buchi condition which marks a set of transitions as accepting.
+#[derive(Debug, Clone)]
 pub struct BuchiCondition<X>(pub Set<X>);
+
+impl<X: Hash + Eq + Clone> ToOmega for BuchiCondition<X> {
+    type X = X;
+    fn to_omega(&self) -> OmegaCondition<Self::X> {
+        OmegaCondition::Buchi(self.clone())
+    }
+}
 
 impl<X: Eq + Hash> AcceptanceCondition for BuchiCondition<X> {
     type Induced = Set<X>;

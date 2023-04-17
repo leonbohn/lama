@@ -1,10 +1,13 @@
 use hoars::HoaSymbol;
 
 use crate::{
-    acceptance::{AcceptanceCondition, BuchiCondition, ParityCondition, ReachabilityCondition},
+    acceptance::{
+        AcceptanceCondition, BuchiCondition, ParityCondition, ReachabilityCondition, ToOmega,
+    },
     congruence::CongruenceTrigger,
     ts::{Deterministic, Growable, Pointed, Shrinkable, TransitionSystem},
-    AnonymousGrowable, HasAlphabet, RightCongruence, StateIterable,
+    AnonymousGrowable, HasAlphabet, OmegaAutomaton, OmegaCondition, RightCongruence, StateIndex,
+    StateIterable, Symbol,
 };
 
 /// Struct that represents the 'usual' automata, which is a combination of a transition system, a designated initial state and an acceptance condition.
@@ -33,6 +36,27 @@ impl<TS: TransitionSystem, Acc> Combined<TS, Acc> {
     /// Returns a reference to the underlying acceptance condition.
     pub fn acceptance(&self) -> &Acc {
         &self.acc
+    }
+
+    pub fn with_acceptance<Bdd>(&self, acc: Bdd) -> Combined<TS, Bdd>
+    where
+        Bdd: AcceptanceCondition,
+        TS: Clone,
+    {
+        Combined {
+            ts: self.ts.clone(),
+            initial: self.initial.clone(),
+            acc,
+        }
+    }
+}
+
+impl<Q: StateIndex, S: Symbol, Acc> Combined<Deterministic<Q, S>, Acc> {
+    pub fn to_omega(&self) -> OmegaAutomaton<Q, S>
+    where
+        Acc: ToOmega<X = (Q, S)> + AcceptanceCondition,
+    {
+        self.with_acceptance(self.acceptance().to_omega())
     }
 }
 

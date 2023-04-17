@@ -1,7 +1,7 @@
 use crate::Set;
 
 mod omega;
-pub use omega::{BuchiCondition, ParityCondition};
+pub use omega::{BuchiCondition, OmegaCondition, ParityCondition, ToOmega};
 mod reachability;
 
 pub use reachability::{ReachabilityCondition, SafetyAcceptance};

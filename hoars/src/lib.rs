@@ -7,6 +7,8 @@ mod label_expression;
 mod lexer;
 mod value;
 
+use std::fmt::Display;
+
 pub use label_expression::LabelExpression;
 
 use ariadne::{Color, Fmt, ReportKind, Source};
@@ -34,6 +36,39 @@ pub type HoaTrigger = (Id, HoaSymbol);
 
 /// Represents a transition as it is encoded in a HOA automaton.
 pub type HoaTransition = (Id, HoaSymbol, Id);
+
+/// Represents the different types of error that can be encountered when parsing a [`HoaAutomaton`].
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum FromHoaError {
+    /// The version string does not match, we only support v1.
+    UnsupportedVersion(String),
+    UnsupportedAcceptanceCondition,
+    ParseAcceptanceCondition(String),
+    UnsupportedBody,
+    /// Lexer encountered an error, contains detailed report.
+    LexerError(String),
+    /// Parser encountered an error, contains detailed report.
+    ParserError(String),
+}
+
+impl Display for FromHoaError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FromHoaError::UnsupportedVersion(version) => {
+                write!(f, "Unsupported HOA version ({})", version)
+            }
+            FromHoaError::UnsupportedAcceptanceCondition => {
+                write!(f, "Unsupported acceptance condition")
+            }
+            FromHoaError::UnsupportedBody => write!(f, "Unsupported body"),
+            FromHoaError::ParseAcceptanceCondition(message) => {
+                write!(f, "Could not parse acceptance condition: {}", message)
+            }
+            FromHoaError::LexerError(rep) => write!(f, "Lexer error: {}", rep),
+            FromHoaError::ParserError(rep) => write!(f, "Parser error: {}", rep),
+        }
+    }
+}
 
 /// Represents a parsed HOA automaton. It consists of a the version string,
 /// a [`Header`] and a [`Body`].
@@ -242,16 +277,19 @@ impl HoaAutomaton {
 // fn reporter<D: std::fmt::Display>(input: &str) -> impl Fn(D)
 
 impl TryFrom<&str> for HoaAutomaton {
-    type Error = String;
+    type Error = FromHoaError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let input = value;
-        let tokens = lexer::tokenizer().parse(input).map_err(|error_list| {
-            build_error_report(
-                input,
-                error_list.into_iter().map(|err| err.map(|c| c.to_string())),
-            )
-        })?;
+        let tokens = lexer::tokenizer()
+            .parse(input)
+            .map_err(|error_list| {
+                build_error_report(
+                    input,
+                    error_list.into_iter().map(|err| err.map(|c| c.to_string())),
+                )
+            })
+            .map_err(FromHoaError::LexerError)?;
 
         let length = input.chars().count();
         HoaAutomaton::parser()
@@ -262,6 +300,7 @@ impl TryFrom<&str> for HoaAutomaton {
                     error_list.into_iter().map(|err| err.map(|c| c.to_string())),
                 )
             })
+            .map_err(FromHoaError::ParserError)
     }
 }
 
