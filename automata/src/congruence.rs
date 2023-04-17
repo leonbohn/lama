@@ -99,25 +99,25 @@ impl<S: Symbol> RightCongruence<S> {
 }
 
 impl<S: Symbol> TransitionSystem for RightCongruence<S> {
-    type Q = Class<S>;
+    type State = Class<S>;
 
-    type S = S;
+    type Input = S;
 
-    fn succ(&self, from: &Self::Q, on: &Self::S) -> Option<Self::Q> {
+    fn succ(&self, from: &Self::State, on: &Self::Input) -> Option<Self::State> {
         self.0.succ(from, on)
     }
 
-    fn vec_alphabet(&self) -> Vec<Self::S> {
+    fn vec_alphabet(&self) -> Vec<Self::Input> {
         self.0.vec_alphabet()
     }
 
-    fn vec_states(&self) -> Vec<Self::Q> {
+    fn vec_states(&self) -> Vec<Self::State> {
         self.0.vec_states()
     }
 }
 
 impl<S: Symbol> Pointed for RightCongruence<S> {
-    fn initial(&self) -> Self::Q {
+    fn initial(&self) -> Self::State {
         Class::epsilon()
     }
 }
@@ -131,26 +131,26 @@ impl<S: Symbol> Trivial for RightCongruence<S> {
 }
 
 impl<S: Symbol> Growable for RightCongruence<S> {
-    fn add_state(&mut self, state: &Self::Q) -> bool {
+    fn add_state(&mut self, state: &Self::State) -> bool {
         self.0.add_state(state)
     }
 
-    fn add_transition<X: std::borrow::Borrow<Self::Q>, Y: std::borrow::Borrow<Self::Q>>(
+    fn add_transition<X: std::borrow::Borrow<Self::State>, Y: std::borrow::Borrow<Self::State>>(
         &mut self,
         from: X,
         on: SymbolOf<Self>,
         to: Y,
-    ) -> Option<Self::Q> {
+    ) -> Option<Self::State> {
         self.0.add_transition(from, on, to)
     }
 }
 
 impl<S: Symbol> Shrinkable for RightCongruence<S> {
-    fn remove_state(&mut self, state: Self::Q) -> Option<Self::Q> {
+    fn remove_state(&mut self, state: Self::State) -> Option<Self::State> {
         self.0.remove_state(state)
     }
 
-    fn remove_transition(&mut self, from: Self::Q, on: SymbolOf<Self>) -> Option<Self::Q> {
+    fn remove_transition(&mut self, from: Self::State, on: SymbolOf<Self>) -> Option<Self::State> {
         self.0.remove_transition(from, on)
     }
 }
@@ -169,34 +169,34 @@ impl<S: Symbol> TriggerIterable for RightCongruence<S> {
 pub struct ProgressRightCongruence<S: Symbol>(Class<S>, RightCongruence<S>);
 
 impl<S: Symbol> TransitionSystem for ProgressRightCongruence<S> {
-    type Q = Class<S>;
+    type State = Class<S>;
 
-    type S = S;
+    type Input = S;
 
-    fn succ(&self, from: &Self::Q, on: &Self::S) -> Option<Self::Q> {
+    fn succ(&self, from: &Self::State, on: &Self::Input) -> Option<Self::State> {
         self.1.succ(from, on)
     }
 
-    fn vec_alphabet(&self) -> Vec<Self::S> {
+    fn vec_alphabet(&self) -> Vec<Self::Input> {
         self.1.vec_alphabet()
     }
 
-    fn vec_states(&self) -> Vec<Self::Q> {
+    fn vec_states(&self) -> Vec<Self::State> {
         self.1.vec_states()
     }
 }
 
 impl<S: Symbol> Growable for ProgressRightCongruence<S> {
-    fn add_state(&mut self, state: &Self::Q) -> bool {
+    fn add_state(&mut self, state: &Self::State) -> bool {
         self.1.add_state(state)
     }
 
-    fn add_transition<X: std::borrow::Borrow<Self::Q>, Y: std::borrow::Borrow<Self::Q>>(
+    fn add_transition<X: std::borrow::Borrow<Self::State>, Y: std::borrow::Borrow<Self::State>>(
         &mut self,
         from: X,
         on: SymbolOf<Self>,
         to: Y,
-    ) -> Option<Self::Q> {
+    ) -> Option<Self::State> {
         self.1.add_transition(from, on, to)
     }
 }

@@ -18,11 +18,11 @@ pub trait Annotates<X, Y> {
 }
 
 pub trait DisplayState: TransitionSystem {
-    fn display_state(&self, state: &Self::Q) -> String;
+    fn display_state(&self, state: &Self::State) -> String;
 }
 
 pub trait DisplaySymbol: TransitionSystem {
-    fn display_symbol(&self, sym: &Self::S) -> String;
+    fn display_symbol(&self, sym: &Self::Input) -> String;
 }
 
 impl<X, Y> Annotates<X, Y> for BuchiCondition<(X, Y)>
@@ -72,25 +72,25 @@ where
 impl<TS> DisplayState for TS
 where
     TS: TransitionSystem,
-    TS::Q: Display,
+    TS::State: Display,
 {
-    fn display_state(&self, state: &Self::Q) -> String {
+    fn display_state(&self, state: &Self::State) -> String {
         format!("{}", state.blue())
     }
 }
 
 impl<TS: TransitionSystem> DisplaySymbol for TS {
-    fn display_symbol(&self, sym: &Self::S) -> String {
+    fn display_symbol(&self, sym: &Self::Input) -> String {
         format!("{}", sym.italic().purple())
     }
 }
 
 impl<
-        Acc: AcceptanceCondition + Annotates<TS::Q, TS::S>,
+        Acc: AcceptanceCondition + Annotates<TS::State, TS::Input>,
         TS: TransitionSystem + StateIterable + DisplayState + DisplaySymbol,
     > Display for Combined<TS, Acc>
 where
-    <TS as TransitionSystem>::Q: Display,
+    <TS as TransitionSystem>::State: Display,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = Builder::default();

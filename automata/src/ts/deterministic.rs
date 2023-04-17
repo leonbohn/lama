@@ -89,17 +89,17 @@ where
     S: Symbol,
     Q: StateIndex,
 {
-    type Q = Q;
-    type S = S;
+    type State = Q;
+    type Input = S;
 
-    fn succ(&self, from: &Self::Q, on: &Self::S) -> Option<Self::Q> {
+    fn succ(&self, from: &Self::State, on: &Self::Input) -> Option<Self::State> {
         self.edges
             .iter()
             .find(|((f, s), _)| f == from && s == on)
             .map(|((_, _), t)| t.clone())
     }
 
-    fn vec_alphabet(&self) -> Vec<Self::S> {
+    fn vec_alphabet(&self) -> Vec<Self::Input> {
         self.edges
             .iter()
             .map(|((_, s), _)| s.clone())
@@ -108,7 +108,7 @@ where
             .collect()
     }
 
-    fn vec_states(&self) -> Vec<Self::Q> {
+    fn vec_states(&self) -> Vec<Self::State> {
         self.states.iter().cloned().collect()
     }
 }
@@ -118,18 +118,18 @@ where
     S: Symbol,
     Q: StateIndex,
 {
-    type Q = Q;
-    type S = S;
+    type State = Q;
+    type Input = S;
 
-    fn succ(&self, from: &Self::Q, on: &Self::S) -> Option<Self::Q> {
+    fn succ(&self, from: &Self::State, on: &Self::Input) -> Option<Self::State> {
         self.det.succ(from, on)
     }
 
-    fn vec_alphabet(&self) -> Vec<Self::S> {
+    fn vec_alphabet(&self) -> Vec<Self::Input> {
         self.det.vec_alphabet()
     }
 
-    fn vec_states(&self) -> Vec<Self::Q> {
+    fn vec_states(&self) -> Vec<Self::State> {
         self.det.vec_states()
     }
 }
@@ -148,7 +148,7 @@ where
     S: Symbol,
     Q: StateIndex,
 {
-    fn initial(&self) -> Self::Q {
+    fn initial(&self) -> Self::State {
         self.initial.clone()
     }
 }
@@ -231,7 +231,7 @@ where
     Q: StateIndex,
     S: Symbol,
 {
-    fn add_state(&mut self, state: &Self::Q) -> bool {
+    fn add_state(&mut self, state: &Self::State) -> bool {
         self.states.insert(state.clone())
     }
 
@@ -251,16 +251,16 @@ where
     Q: StateIndex,
     S: Symbol,
 {
-    fn add_state(&mut self, state: &Self::Q) -> bool {
+    fn add_state(&mut self, state: &Self::State) -> bool {
         self.det.add_state(state)
     }
 
-    fn add_transition<X: Borrow<Self::Q>, Y: Borrow<Self::Q>>(
+    fn add_transition<X: Borrow<Self::State>, Y: Borrow<Self::State>>(
         &mut self,
         from: X,
         on: SymbolOf<Self>,
         to: Y,
-    ) -> Option<Self::Q> {
+    ) -> Option<Self::State> {
         self.det.add_transition(from, on, to)
     }
 }
@@ -270,7 +270,7 @@ where
     Q: StateIndex,
     S: Symbol,
 {
-    fn remove_state(&mut self, state: Self::Q) -> Option<Self::Q> {
+    fn remove_state(&mut self, state: Self::State) -> Option<Self::State> {
         if self.states.remove(&state) {
             Some(state)
         } else {
@@ -278,7 +278,11 @@ where
         }
     }
 
-    fn remove_transition(&mut self, from: Self::Q, on: super::SymbolOf<Self>) -> Option<Self::Q> {
+    fn remove_transition(
+        &mut self,
+        from: Self::State,
+        on: super::SymbolOf<Self>,
+    ) -> Option<Self::State> {
         self.edges.remove(&(from, on))
     }
 }
@@ -288,11 +292,15 @@ where
     Q: StateIndex,
     S: Symbol,
 {
-    fn remove_state(&mut self, state: Self::Q) -> Option<Self::Q> {
+    fn remove_state(&mut self, state: Self::State) -> Option<Self::State> {
         self.det.remove_state(state)
     }
 
-    fn remove_transition(&mut self, from: Self::Q, on: super::SymbolOf<Self>) -> Option<Self::Q> {
+    fn remove_transition(
+        &mut self,
+        from: Self::State,
+        on: super::SymbolOf<Self>,
+    ) -> Option<Self::State> {
         self.det.remove_transition(from, on)
     }
 }
@@ -302,7 +310,7 @@ where
     Q: StateIndex + From<u32>,
     S: Symbol,
 {
-    fn add_new_state(&mut self) -> Self::Q {
+    fn add_new_state(&mut self) -> Self::State {
         let new_id: Q = (self.states.len() as u32).into();
         if self.add_state(&new_id) {
             new_id
@@ -317,7 +325,7 @@ where
     Q: StateIndex + From<u32>,
     S: Symbol,
 {
-    fn add_new_state(&mut self) -> Self::Q {
+    fn add_new_state(&mut self) -> Self::State {
         let new_id: Q = (self.det.states.len() as u32).into();
         if self.add_state(&new_id) {
             new_id

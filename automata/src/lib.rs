@@ -40,12 +40,9 @@ pub use congruence::{Class, ProgressRightCongruence, RightCongruence, FORC};
 /// Module in which acceptance conditions of automata are defined. This includes the [`AcceptanceCondition`] trait, which is implemented by all acceptance conditions, and provides a common interface for working with acceptance conditions.
 mod acceptance;
 pub use acceptance::{
-    AcceptanceCondition, BuchiCondition, OmegaCondition, Parity, ParityCondition,
-    ReachabilityCondition,
+    AcceptanceCondition, BuchiCondition, OmegaCondition, ParityCondition, ReachabilityCondition,
 };
 
-mod acceptor;
-pub use acceptor::Acceptor;
 use std::{fmt::Display, hash::Hash};
 
 mod combined;
@@ -59,6 +56,13 @@ pub use combined::{HoaDba, HoaDpa};
 /// A run of a transition system on a given word is a sequence of states, where each state is the successor of the previous state, and the transition between the states is triggered by a symbol as given in the input word.
 pub mod run;
 
+/// Module in which traits for working with Mealy machines are defined.
+pub mod output;
+pub use output::{OutputOf, Priority, PriorityMapping, Transducer};
+
+/// Module in which traits for working with operations on transition systems/automata are defined.
+pub mod operations;
+
 /// Module in which traits for working with boundedness of inputs for transition systems are defined.
 mod boundedness;
 pub use boundedness::{Boundedness, FiniteKind, InfiniteKind};
@@ -66,7 +70,9 @@ pub use boundedness::{Boundedness, FiniteKind, InfiniteKind};
 /// A trait for the symbols of a [`Word`] and the trigger of a transition in a [`TransitionSystem`].
 pub trait Symbol: Clone + Eq + std::fmt::Debug + PartialEq + Hash + Display + Ord {}
 
-impl<C: Clone + Eq + std::fmt::Debug + Hash + Display + Ord> Symbol for C {}
+impl Symbol for usize {}
+impl Symbol for u32 {}
+impl Symbol for char {}
 
 #[cfg(feature = "ahash")]
 /// Abstracts a mapping, assigning to each element of the domain `X` a value from the codomain `Y`.

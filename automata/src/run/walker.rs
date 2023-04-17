@@ -5,16 +5,16 @@ use super::RunOutput;
 /// Allows to iterate over the individual events that occur along a run of a transition system on some input. Stores a reference to a transition system and a word which serves as input.
 /// A `Walker` keeps track of the current state and position in the word as well as the sequence of states produces so far.
 #[derive(Clone, Debug)]
-pub struct Walker<'ts, 'w, W: Word, TS: TransitionSystem<S = W::S>> {
+pub struct Walker<'ts, 'w, W: Word, TS: TransitionSystem<Input = W::S>> {
     pub(crate) word: &'w W,
     pub(crate) ts: &'ts TS,
-    pub(crate) state: Option<TS::Q>,
+    pub(crate) state: Option<TS::State>,
     pub(crate) position: usize,
-    pub(crate) seq: Vec<(TS::Q, TS::S)>,
+    pub(crate) seq: Vec<(TS::State, TS::Input)>,
 }
 
-impl<'t, 'w, W: Word, TS: TransitionSystem<S = W::S>> Iterator for Walker<'t, 'w, W, TS> {
-    type Item = RunOutput<TS::Q, TS::S>;
+impl<'t, 'w, W: Word, TS: TransitionSystem<Input = W::S>> Iterator for Walker<'t, 'w, W, TS> {
+    type Item = RunOutput<TS::State, TS::Input>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.take_transition() {
@@ -24,9 +24,9 @@ impl<'t, 'w, W: Word, TS: TransitionSystem<S = W::S>> Iterator for Walker<'t, 'w
     }
 }
 
-impl<'t, 'w, W: Word, TS: TransitionSystem<S = W::S>> Walker<'t, 'w, W, TS> {
+impl<'t, 'w, W: Word, TS: TransitionSystem<Input = W::S>> Walker<'t, 'w, W, TS> {
     /// Creates a new `Walker` with the given transition system, word and initial state.
-    pub fn new<I: Into<&'w W>>(ts: &'t TS, word: I, from: TS::Q) -> Self {
+    pub fn new<I: Into<&'w W>>(ts: &'t TS, word: I, from: TS::State) -> Self {
         Self {
             word: word.into(),
             ts,
@@ -37,7 +37,7 @@ impl<'t, 'w, W: Word, TS: TransitionSystem<S = W::S>> Walker<'t, 'w, W, TS> {
     }
 
     /// Takes a single transition, returning the corresponding [`RunOutput`].
-    pub fn take_transition(&mut self) -> RunOutput<TS::Q, TS::S> {
+    pub fn take_transition(&mut self) -> RunOutput<TS::State, TS::Input> {
         if let Some(state) = self.state.clone() {
             if let Some(symbol) = self.word.nth(self.position) {
                 if let Some(successor) = self.ts.succ(&state, &symbol) {
@@ -57,7 +57,7 @@ impl<'t, 'w, W: Word, TS: TransitionSystem<S = W::S>> Walker<'t, 'w, W, TS> {
     }
 
     /// Try to take `n` transitions. If successful, returns the state reached after the `n` transitions. Otherwise, returns the [`RunOutput`] that caused the failure.
-    pub fn try_take_n(&mut self, n: usize) -> Result<TS::Q, RunOutput<TS::Q, TS::S>> {
+    pub fn try_take_n(&mut self, n: usize) -> Result<TS::State, RunOutput<TS::State, TS::Input>> {
         for _ in 1..n {
             self.take_transition();
         }

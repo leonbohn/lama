@@ -7,8 +7,10 @@ use tracing::{debug, info, trace};
 
 use crate::{
     BuchiCondition, Combined, Dba, Deterministic, Dpa, Growable, OmegaAutomaton, OmegaCondition,
-    ParityCondition, Set,
+    ParityCondition, Set, Symbol,
 };
+
+impl Symbol for HoaSymbol {}
 
 impl TryFrom<HoaAutomaton> for ParityCondition<(Id, HoaSymbol)> {
     type Error = FromHoaError;

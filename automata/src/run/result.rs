@@ -14,7 +14,11 @@ pub trait Run<TS: TransitionSystem + ?Sized, K>: Subword {
     type Induces: Clone + Debug + Eq;
 
     /// Evaluates the run and returns the result.
-    fn run(&self, on: &TS, from: StateOf<TS>) -> Result<Self::Induces, EscapePrefix<TS::Q, Self>>
+    fn run(
+        &self,
+        on: &TS,
+        from: StateOf<TS>,
+    ) -> Result<Self::Induces, EscapePrefix<TS::State, Self>>
     where
         Self: Sized;
 }
@@ -22,7 +26,7 @@ pub trait Run<TS: TransitionSystem + ?Sized, K>: Subword {
 /// Abstracts the evaluation of an initial run, i.e. a [`Run`] that starts at the initial state of the transition system.
 pub trait InitialRun<TS: TransitionSystem + ?Sized, K>: Run<TS, K> {
     /// Evaluates the run and returns the result.
-    fn initial_run(&self, on: &TS) -> Result<Self::Induces, EscapePrefix<TS::Q, Self>>
+    fn initial_run(&self, on: &TS) -> Result<Self::Induces, EscapePrefix<TS::State, Self>>
     where
         Self: Sized;
 }
@@ -33,7 +37,7 @@ impl<TS: TransitionSystem + Pointed + ?Sized, K: Boundedness, R: Run<TS, K>> Ini
     fn initial_run(
         &self,
         on: &TS,
-    ) -> Result<Self::Induces, EscapePrefix<<TS as TransitionSystem>::Q, Self>>
+    ) -> Result<Self::Induces, EscapePrefix<<TS as TransitionSystem>::State, Self>>
     where
         Self: Sized,
     {
@@ -41,10 +45,14 @@ impl<TS: TransitionSystem + Pointed + ?Sized, K: Boundedness, R: Run<TS, K>> Ini
     }
 }
 
-impl<W: IsFinite + Subword, TS: TransitionSystem<S = W::S>> Run<TS, FiniteKind> for W {
-    type Induces = TS::Q;
+impl<W: IsFinite + Subword, TS: TransitionSystem<Input = W::S>> Run<TS, FiniteKind> for W {
+    type Induces = TS::State;
 
-    fn run(&self, on: &TS, from: TS::Q) -> Result<Self::Induces, EscapePrefix<TS::Q, Self>> {
+    fn run(
+        &self,
+        on: &TS,
+        from: TS::State,
+    ) -> Result<Self::Induces, EscapePrefix<TS::State, Self>> {
         let mut walker = on.walk(from, self);
         let prefix = walker
             .by_ref()
@@ -59,13 +67,17 @@ impl<W: IsFinite + Subword, TS: TransitionSystem<S = W::S>> Run<TS, FiniteKind> 
     }
 }
 
-impl<W: IsInfinite + Subword, TS: TransitionSystem<S = W::S>> Run<TS, InfiniteKind> for W
+impl<W: IsInfinite + Subword, TS: TransitionSystem<Input = W::S>> Run<TS, InfiniteKind> for W
 where
-    <W as Subword>::PrefixType: IsFinite + Run<TS, FiniteKind, Induces = TS::Q>,
+    <W as Subword>::PrefixType: IsFinite + Run<TS, FiniteKind, Induces = TS::State>,
 {
-    type Induces = Set<(TS::Q, TS::S)>;
+    type Induces = Set<(TS::State, TS::Input)>;
 
-    fn run(&self, on: &TS, from: TS::Q) -> Result<Self::Induces, EscapePrefix<TS::Q, Self>> {
+    fn run(
+        &self,
+        on: &TS,
+        from: TS::State,
+    ) -> Result<Self::Induces, EscapePrefix<TS::State, Self>> {
         let prefix_length = self.base_length();
         let recur_length = self.recur_length();
         let prefix = self.prefix(prefix_length);

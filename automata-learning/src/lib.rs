@@ -10,5 +10,8 @@ pub mod glerc;
 /// positive and negative instances.
 pub mod sample;
 
+pub mod active;
+pub mod passive;
+
 #[cfg(test)]
 mod tests {}

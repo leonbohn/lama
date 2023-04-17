@@ -6,13 +6,13 @@ use crate::{Pointed, TransitionSystem};
 #[autoimpl(Deref, DerefMut using self.ts)]
 pub struct Initialized<TS: TransitionSystem> {
     pub(crate) ts: TS,
-    pub(crate) start: TS::Q,
+    pub(crate) start: TS::State,
 }
 
 impl<TS: TransitionSystem> Initialized<TS> {}
 
 impl<TS: TransitionSystem> Pointed for Initialized<TS> {
-    fn initial(&self) -> Self::Q {
+    fn initial(&self) -> Self::State {
         self.start.clone()
     }
 }

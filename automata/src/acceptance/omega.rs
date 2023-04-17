@@ -6,9 +6,12 @@ use std::{
 
 use itertools::Itertools;
 
-use crate::Set;
+use crate::{
+    output::{Parity, Priority, PriorityMapping},
+    Set,
+};
 
-use super::{AcceptanceCondition, Finite, Parity, Priority, PriorityMapping};
+use super::{AcceptanceCondition, Finite};
 
 pub enum OmegaCondition<X> {
     Parity(ParityCondition<X>),
@@ -64,7 +67,7 @@ impl<X: Eq + Hash> ParityCondition<X> {
 
 impl<X: Eq + Hash + Finite> ParityCondition<X> {
     /// Creates a new `ParityCondition` from the given mapping. *EXPENSIVE*
-    pub fn from_mapping<C: PriorityMapping<X = X>>(condition: C) -> Self {
+    pub fn from_mapping<C: PriorityMapping<Domain = X>>(condition: C) -> Self {
         let mut out = (0..condition.complexity())
             .map(|_| Set::new())
             .collect::<Vec<_>>();
@@ -86,9 +89,9 @@ impl<X> PriorityMapping for ParityCondition<X>
 where
     X: Eq + std::hash::Hash,
 {
-    type X = X;
+    type Domain = X;
 
-    fn priority(&self, of: &Self::X) -> Priority {
+    fn priority(&self, of: &Self::Domain) -> Priority {
         for (i, set) in self.0.iter().enumerate() {
             if set.contains(of) {
                 return Priority(i as u32);
@@ -158,9 +161,9 @@ impl<X> PriorityMapping for BuchiCondition<X>
 where
     X: Eq + Hash,
 {
-    type X = X;
+    type Domain = X;
 
-    fn priority(&self, of: &Self::X) -> Priority {
+    fn priority(&self, of: &Self::Domain) -> Priority {
         if self.0.contains(of) {
             Priority(0)
         } else {

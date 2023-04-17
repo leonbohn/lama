@@ -13,12 +13,14 @@ use crate::{
 /// Struct that represents the 'usual' automata, which is a combination of a transition system, a designated initial state and an acceptance condition.
 pub struct Combined<TS: TransitionSystem, Acc> {
     ts: TS,
-    initial: TS::Q,
+    initial: TS::State,
     acc: Acc,
 }
 
-impl<TS: TransitionSystem + HasAlphabet<Alphabet = TS::S>, Acc> HasAlphabet for Combined<TS, Acc> {
-    type Alphabet = TS::S;
+impl<TS: TransitionSystem + HasAlphabet<Alphabet = TS::Input>, Acc> HasAlphabet
+    for Combined<TS, Acc>
+{
+    type Alphabet = TS::Input;
 
     type AlphabetIter = TS::AlphabetIter;
 
@@ -76,7 +78,7 @@ impl<TS: TransitionSystem + Default + AnonymousGrowable, Acc: AcceptanceConditio
 
 impl<TS: TransitionSystem, Acc> Combined<TS, Acc> {
     /// Constructs a new instance from the given transition system, initial state and acceptance condition.
-    pub fn from_parts(ts: TS, initial: TS::Q, acc: Acc) -> Self {
+    pub fn from_parts(ts: TS, initial: TS::State, acc: Acc) -> Self {
         Self { ts, initial, acc }
     }
 
@@ -98,24 +100,24 @@ impl<TS: TransitionSystem + StateIterable, Acc: AcceptanceCondition> StateIterab
     }
 }
 
-impl<TS: TransitionSystem, Acc: AcceptanceCondition> TransitionSystem for Combined<TS, Acc> {
-    type Q = TS::Q;
+impl<TS: TransitionSystem, Acc> TransitionSystem for Combined<TS, Acc> {
+    type State = TS::State;
 
-    type S = TS::S;
+    type Input = TS::Input;
 
     fn succ(
         &self,
-        from: &Self::Q,
+        from: &Self::State,
         on: &crate::ts::SymbolOf<Self>,
     ) -> Option<crate::ts::StateOf<Self>> {
         self.ts.succ(from, on)
     }
 
-    fn vec_alphabet(&self) -> Vec<Self::S> {
+    fn vec_alphabet(&self) -> Vec<Self::Input> {
         self.ts.vec_alphabet()
     }
 
-    fn vec_states(&self) -> Vec<Self::Q> {
+    fn vec_states(&self) -> Vec<Self::State> {
         self.ts.vec_states()
     }
 }
@@ -129,38 +131,38 @@ impl<TS: TransitionSystem, Acc: AcceptanceCondition> AcceptanceCondition for Com
 }
 
 impl<TS: Growable, Acc: AcceptanceCondition> Growable for Combined<TS, Acc> {
-    fn add_state(&mut self, state: &Self::Q) -> bool {
+    fn add_state(&mut self, state: &Self::State) -> bool {
         self.ts.add_state(state)
     }
 
-    fn add_transition<X: std::borrow::Borrow<Self::Q>, Y: std::borrow::Borrow<Self::Q>>(
+    fn add_transition<X: std::borrow::Borrow<Self::State>, Y: std::borrow::Borrow<Self::State>>(
         &mut self,
         from: X,
         on: crate::ts::SymbolOf<Self>,
         to: Y,
-    ) -> Option<Self::Q> {
+    ) -> Option<Self::State> {
         self.ts.add_transition(from, on, to)
     }
 }
 
 impl<TS: AnonymousGrowable, Acc: AcceptanceCondition> AnonymousGrowable for Combined<TS, Acc> {
-    fn add_new_state(&mut self) -> Self::Q {
+    fn add_new_state(&mut self) -> Self::State {
         self.ts.add_new_state()
     }
 }
 
 impl<TS: Shrinkable, Acc: AcceptanceCondition> Shrinkable for Combined<TS, Acc> {
-    fn remove_state(&mut self, state: Self::Q) -> Option<Self::Q> {
+    fn remove_state(&mut self, state: Self::State) -> Option<Self::State> {
         self.ts.remove_state(state)
     }
 
-    fn remove_transition(&mut self, from: Self::Q, on: Self::S) -> Option<Self::Q> {
+    fn remove_transition(&mut self, from: Self::State, on: Self::Input) -> Option<Self::State> {
         self.ts.remove_transition(from, on)
     }
 }
 
 impl<TS: TransitionSystem, Acc: AcceptanceCondition> Pointed for Combined<TS, Acc> {
-    fn initial(&self) -> Self::Q {
+    fn initial(&self) -> Self::State {
         self.initial.clone()
     }
 }
@@ -190,9 +192,9 @@ pub type CongruenceDpa<S = char> =
 #[cfg(test)]
 mod tests {
     use crate::{
+        acceptance::Acceptor,
         ts::{Growable, Pointed},
         words::PeriodicWord,
-        Acceptor,
     };
 
     #[test]
