@@ -27,6 +27,8 @@ pub use ts::{
     TransitionSystem, Trigger, TriggerIterable,
 };
 
+mod display;
+
 /// Module in which traits for working with words are defined, see [`crate::Word`] for more details.
 pub mod words;
 pub use words::{Append, PeriodicWord, Prepend, Str, Subword, UltimatelyPeriodicWord, Word};
@@ -84,6 +86,25 @@ mod hoa;
 pub trait Equivalent<T = Self> {
     /// Returns true if `self` and `other` are equivalent.
     fn equivalent(&self, other: &T) -> bool;
+}
+
+/// Implemented by things that have an alphabet, i.e. a finite set of symbols. For example a transition
+/// system has an alphabet, which is the set of symbols that can be used as triggers for transitions.
+/// A word has an alphabet, which is the set of symbols that can be used in the word.
+pub trait HasAlphabet {
+    /// The type of the symbols in the alphabet.
+    type Alphabet: Symbol;
+
+    /// Type of the iterator over the alphabet.
+    type AlphabetIter: Iterator<Item = Self::Alphabet>;
+
+    /// Returns the alphabet of `self`.
+    fn alphabet(&self) -> Set<Self::Alphabet> {
+        self.alphabet_iter().collect()
+    }
+
+    /// Returns an iterator over the alphabet of `self`.
+    fn alphabet_iter(&self) -> Self::AlphabetIter;
 }
 
 #[cfg(test)]

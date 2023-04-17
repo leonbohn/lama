@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use tabled::{builder::Builder, Style};
+use tabled::{builder::Builder, settings::Style};
 
 use crate::{AnonymousGrowable, Mapping, Pointed, Set, Symbol};
 
@@ -331,7 +331,7 @@ impl<S: Symbol, Q: StateIndex + Display> Display for Deterministic<Q, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = Builder::default();
         let alphabet = self.vec_alphabet().into_iter().sorted().collect_vec();
-        builder.set_columns(
+        builder.set_header(
             vec!["Deterministic".to_string()].into_iter().chain(
                 alphabet
                     .iter()
@@ -348,10 +348,10 @@ impl<S: Symbol, Q: StateIndex + Display> Display for Deterministic<Q, S> {
                     "-".to_string()
                 });
             }
-            builder.add_record(row);
+            builder.push_record(row);
         }
         let mut transition_table = builder.build();
-        transition_table.with(Style::re_structured_text());
+        transition_table.with(Style::psql());
         write!(f, "{}", transition_table)
     }
 }

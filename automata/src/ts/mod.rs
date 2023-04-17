@@ -5,7 +5,8 @@ use crate::{run::Configuration, Set, Symbol, Word};
 mod initialized;
 mod transition;
 use impl_tools::autoimpl;
-use tabled::{builder::Builder, Style};
+use owo_colors::OwoColorize;
+use tabled::{builder::Builder, settings::Style};
 pub use transition::{Transition, Trigger};
 
 /// An implementation of a deterministic `TransitionSystem` in form of an edge list. The edge list is represented by a vector of tuples `(from, to, symbol)`. Is only available if the `det` feature is enabled.
@@ -84,11 +85,11 @@ pub trait TransitionSystem {
         Self::Q: Display,
     {
         let mut builder = Builder::default();
-        builder.set_columns(
+        builder.set_header(
             vec!["Deterministic".to_string()].into_iter().chain(
                 self.vec_alphabet()
                     .into_iter()
-                    .map(|s| s.to_string())
+                    .map(|s| s.purple().to_string())
                     .collect::<Vec<String>>(),
             ),
         );
@@ -101,9 +102,10 @@ pub trait TransitionSystem {
                     "-".to_string()
                 });
             }
+            builder.push_record(row);
         }
         let mut transition_table = builder.build();
-        transition_table.with(Style::re_structured_text());
+        transition_table.with(Style::psql());
         transition_table.to_string()
     }
 }
