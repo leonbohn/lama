@@ -108,6 +108,14 @@ impl<S: Symbol> Word for Vec<S> {
     }
 }
 
+/// A macro for constructing an ultimately periodic word from string(s).
+#[macro_export]
+macro_rules! upw {
+    ($cyc:expr) => {
+        $crate::words::UltimatelyPeriodicWord::from($crate::words::PeriodicWord::from($cyc))
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

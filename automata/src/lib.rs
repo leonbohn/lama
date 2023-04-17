@@ -48,7 +48,7 @@ use std::{fmt::Display, hash::Hash};
 mod combined;
 pub use combined::Combined;
 #[cfg(feature = "det")]
-pub use combined::{Dba, Dfa, Dpa};
+pub use combined::{CongruenceDba, CongruenceDpa, Dba, Dfa, Dpa};
 #[cfg(feature = "hoa")]
 pub use combined::{HoaDba, HoaDpa};
 

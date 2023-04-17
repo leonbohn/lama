@@ -159,16 +159,16 @@ pub trait TransitionIterable: TransitionSystem {
 
 /// Trait that allows iterating over all triggers in a [`TransitionSystem`].
 pub trait TriggerIterable: TransitionSystem {
-    /// The trigger type.
-    type TriggerRef: Trigger<Q = Self::Q, S = Self::S>;
-    /// Type of the iterator over all triggers.
-    type TriggerIter: Iterator<Item = Self::TriggerRef>;
+    /// THe iterator type
+    type TriggerIter<'me>: Iterator<Item = &'me (Self::Q, Self::S)>
+    where
+        Self: 'me;
 
     /// Returns an iterator over all triggers in the transition system.
-    fn triggers_iter(&self) -> Self::TriggerIter;
+    fn triggers_iter(&self) -> Self::TriggerIter<'_>;
 
     /// Returns the set of triggers originating from a given state.
-    fn triggers_from(&self, from: &Self::Q) -> Set<Self::TriggerRef> {
+    fn triggers_from(&self, from: &Self::Q) -> Set<&'_ (Self::Q, Self::S)> {
         self.triggers_iter()
             .filter(|e| e.source() == from)
             .collect()

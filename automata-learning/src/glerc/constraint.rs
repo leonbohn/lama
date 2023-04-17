@@ -1,8 +1,10 @@
 use std::fmt::Debug;
 
 use automata::{
+    congruence::CongruenceTrigger,
     run::{EscapePrefix, Run},
-    Class, Equivalent, RightCongruence, Subword, Symbol, Word,
+    BuchiCondition, Class, Equivalent, RightCongruence, Set, Subword, Symbol, TriggerIterable,
+    Word,
 };
 use itertools::Itertools;
 
@@ -11,20 +13,54 @@ use crate::acceptance::AcceptanceError;
 use super::state::GlercInfo;
 
 /// Represents a constraint that can be verified during the execution of the GLERC algorithm.
-pub trait Constraint {
+pub trait Constraint<S: Symbol, X> {
+    type Output;
+
     /// Verifies that under the given information, the constraint is satisfied.
-    fn satisfied<'s, S: Symbol, W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind>>(
+    fn satisfied<'s, W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind, Induces = X>>(
         &self,
         info: &'s GlercInfo<'s, S, W>,
-    ) -> Result<(), ConstraintError<'s, S, W>>;
+    ) -> Result<Self::Output, ConstraintError<'s, S, W>>;
 }
 
 /// A constraint that is always satisfied.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EmptyConstraint;
 
-impl Constraint for EmptyConstraint {
-    fn satisfied<'s, S: Symbol, W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind>>(
+/// A constraint that checks whether the sample words are all separated, meaning that
+/// positive and negative words never end up in the same state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReachabilityConstraint;
+
+/// Constraint for verifying that the escaping words/escape prefixes for positive and
+/// negative words can be separated from each other. In other words this is violated
+/// if a positive and a negative word escape from the same state with the same suffix.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EscapeSeparabilityConstraint;
+
+/// Constraint, which ensures that the induced objects can be separated from each other.
+/// In other words this is violated if the positive and negative words induce the same
+/// object in the current congruence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InducedSeparabilityConstraint;
+
+/// Constraint, which ensures that the transition system can be endowed with a Büchi acceptance
+/// condition.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BuchiConstraint;
+
+/// Constraint, which ensures that the transition system can be endowed with a parity acceptance
+/// condition.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParityConstraint;
+
+impl<S: Symbol, X> Constraint<S, X> for EmptyConstraint {
+    type Output = ();
+
+    fn satisfied<
+        's,
+        W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind, Induces = X>,
+    >(
         &self,
         _: &'s GlercInfo<'s, S, W>,
     ) -> Result<(), ConstraintError<'s, S, W>> {
@@ -32,13 +68,13 @@ impl Constraint for EmptyConstraint {
     }
 }
 
-/// A constraint that checks whether the sample words are all separated, meaning that
-/// positive and negative words never end up in the same state.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ReachabilityConstraint;
+impl<S: Symbol, X: Eq> Constraint<S, X> for ReachabilityConstraint {
+    type Output = ();
 
-impl Constraint for ReachabilityConstraint {
-    fn satisfied<'s, S: Symbol, W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind>>(
+    fn satisfied<
+        's,
+        W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind, Induces = X>,
+    >(
         &self,
         info: &'s GlercInfo<'s, S, W>,
     ) -> Result<(), ConstraintError<'s, S, W>> {
@@ -47,14 +83,13 @@ impl Constraint for ReachabilityConstraint {
     }
 }
 
-/// Constraint for verifying that the escaping words/escape prefixes for positive and
-/// negative words can be separated from each other. In other words this is violated
-/// if a positive and a negative word escape from the same state with the same suffix.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EscapeSeparabilityConstraint;
+impl<S: Symbol, X> Constraint<S, X> for EscapeSeparabilityConstraint {
+    type Output = ();
 
-impl Constraint for EscapeSeparabilityConstraint {
-    fn satisfied<'s, S: Symbol, W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind>>(
+    fn satisfied<
+        's,
+        W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind, Induces = X>,
+    >(
         &self,
         info: &'s GlercInfo<'s, S, W>,
     ) -> Result<(), ConstraintError<'s, S, W>> {
@@ -69,14 +104,13 @@ impl Constraint for EscapeSeparabilityConstraint {
     }
 }
 
-/// Constraint, which ensures that the induced objects can be separated from each other.
-/// In other words this is violated if the positive and negative words induce the same
-/// object in the current congruence.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct InducedSeparabilityConstraint;
+impl<S: Symbol, X: Eq> Constraint<S, X> for InducedSeparabilityConstraint {
+    type Output = ();
 
-impl Constraint for InducedSeparabilityConstraint {
-    fn satisfied<'s, S: Symbol, W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind>>(
+    fn satisfied<
+        's,
+        W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind, Induces = X>,
+    >(
         &self,
         info: &'s GlercInfo<'s, S, W>,
     ) -> Result<(), ConstraintError<'s, S, W>> {
@@ -91,8 +125,47 @@ impl Constraint for InducedSeparabilityConstraint {
     }
 }
 
-pub struct BuchiConstraint<'s, S>(&'s S);
-pub struct CoBuchiConstraint<'s, S>(&'s S);
+impl<S: Symbol> Constraint<S, Set<CongruenceTrigger<S>>> for BuchiConstraint {
+    type Output = BuchiCondition<CongruenceTrigger<S>>;
+
+    fn satisfied<
+        's,
+        W: Subword<S = S>
+            + Run<RightCongruence<S>, <W as Word>::Kind, Induces = Set<CongruenceTrigger<S>>>,
+    >(
+        &self,
+        info: &'s GlercInfo<'s, S, W>,
+    ) -> Result<Self::Output, ConstraintError<'s, S, W>> {
+        // A description of this algorithm can be found in the paper
+        // ["Constructing deterministic ω-automata from examples by an extension of the RPNI algorithm"](https://arxiv.org/pdf/2108.03735.pdf)
+        let mut union = Set::new();
+        for (_word, induced) in &info.induced.1 {
+            union.extend(induced.iter().cloned());
+        }
+
+        // Now we check if there is some positive loop that is fully contained in the union
+        if let Some((_word, _)) = info
+            .induced
+            .0
+            .iter()
+            .find(|(_, induced)| union.is_superset(induced))
+        {
+            return Err(ConstraintError::Acceptance(
+                AcceptanceError::BuchiPositiveContained,
+            ));
+        }
+
+        // Now we can compute the actual condition
+        let condition_triggers: Set<_> = info
+            .cong
+            .triggers_iter()
+            .filter(|trigger| !union.contains(*trigger))
+            .cloned()
+            .collect();
+
+        Ok(BuchiCondition(condition_triggers))
+    }
+}
 
 /// Encapsulates what can go wrong during an execution of GLERC.
 /// The lifetime parameter `'s` is the lifetime of the sample.
@@ -155,12 +228,14 @@ fn induced_consistent<'s, S: Symbol, W: Subword<S = S> + Eq>(
 #[cfg(test)]
 mod tests {
 
-    use automata::{ts::Trivial, Class, Growable, Pointed, RightCongruence};
+    use automata::{ts::Trivial, upw, Class, Growable, Pointed, RightCongruence};
 
     use crate::{
         glerc::{constraint::ReachabilityConstraint, state::GlercState, GlercSignal},
         sample::Sample,
     };
+
+    use super::BuchiConstraint;
 
     #[test]
     fn reachability_from_induced() {
@@ -194,5 +269,24 @@ mod tests {
             GlercSignal::Finished(result) => println!("{}", result),
             _ => unreachable!("Execution should be finished by now!"),
         }
+    }
+
+    #[test]
+    fn dba_learning() {
+        let sample = Sample::from_iters(
+            [
+                upw!("b"),
+                upw!("bbbabbaba"),
+                upw!("abbb"),
+                upw!("babb"),
+                upw!("bbab"),
+                upw!("bbba"),
+            ],
+            [upw!("a"), upw!("ba"), upw!("bba")],
+        );
+
+        let glerc = GlercState::new(&sample, RightCongruence::trivial(), BuchiConstraint);
+        let aut: automata::CongruenceDba = glerc.into();
+        println!("{}", aut);
     }
 }

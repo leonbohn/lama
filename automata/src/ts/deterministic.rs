@@ -210,21 +210,19 @@ impl<'a, Q: StateIndex, S: Symbol> TransitionIterable for &'a InitializedDetermi
     }
 }
 
-impl<'a, Q: StateIndex, S: Symbol> TriggerIterable for &'a Deterministic<Q, S> {
-    type TriggerRef = &'a (Q, S);
-    type TriggerIter = std::collections::hash_map::Keys<'a, (Q, S), Q>;
+impl<Q: StateIndex, S: Symbol> TriggerIterable for Deterministic<Q, S> {
+    type TriggerIter<'me> = std::collections::hash_map::Keys<'me, (Q, S), Q> where Q: 'me, S: 'me;
 
-    fn triggers_iter(&self) -> Self::TriggerIter {
+    fn triggers_iter(&self) -> Self::TriggerIter<'_> {
         self.edges.keys()
     }
 }
 
-impl<'a, Q: StateIndex, S: Symbol> TriggerIterable for &'a InitializedDeterministic<Q, S> {
-    type TriggerRef = &'a (Q, S);
-    type TriggerIter = std::collections::hash_map::Keys<'a, (Q, S), Q>;
+impl<Q: StateIndex, S: Symbol> TriggerIterable for InitializedDeterministic<Q, S> {
+    type TriggerIter<'me> = std::collections::hash_map::Keys<'me, (Q, S), Q> where Q: 'me, S: 'me;
 
-    fn triggers_iter(&self) -> Self::TriggerIter {
-        self.det.edges.keys()
+    fn triggers_iter(&self) -> Self::TriggerIter<'_> {
+        self.det.triggers_iter()
     }
 }
 
@@ -360,6 +358,6 @@ impl<S: Symbol, Q: StateIndex + Display> Display for Deterministic<Q, S> {
 
 impl<S: Symbol, Q: StateIndex + Display> Display for InitializedDeterministic<Q, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}\\with initial state: {}", self.det, self.initial)
+        write!(f, "{}\nwith initial state: {}", self.det, self.initial)
     }
 }

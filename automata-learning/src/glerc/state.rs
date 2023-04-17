@@ -2,8 +2,9 @@ use std::hash::Hash;
 
 use automata::{
     run::{EscapePrefix, InitialRun, Run},
-    Growable, Shrinkable, Subword, Symbol, Word,
+    AcceptanceCondition, Combined, Growable, Shrinkable, Subword, Symbol, Word,
 };
+use tracing::trace;
 
 use crate::sample::Sample;
 use automata::{Class, RightCongruence};
@@ -30,7 +31,7 @@ pub struct GlercState<
     's,
     S: Symbol,
     W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind>,
-    C: Constraint,
+    C: Constraint<S, <W as Run<RightCongruence<S>, <W as Word>::Kind>>::Induces>,
 > {
     timer: Result<std::time::Duration, std::time::Instant>,
     /// The congruence constructed thus far
@@ -76,7 +77,7 @@ where
     S: Symbol + 's,
     W: Subword<S = S> + Clone + 's + Hash,
     W: InitialRun<RightCongruence<S>, <W as Word>::Kind>,
-    C: Constraint,
+    C: Constraint<S, <W as Run<RightCongruence<S>, <W as Word>::Kind>>::Induces>,
 {
     /// Creates a new state for the given sample and default congruence
     pub fn new(sample: &'s Sample<W>, default: RightCongruence<S>, constraint: C) -> Self {
@@ -157,10 +158,7 @@ where
                     let success = {
                         self.update_info();
                         let info = self.get_info();
-                        match self.constraint.satisfied(&info) {
-                            Ok(()) => true,
-                            Err(_) => false,
-                        }
+                        self.constraint.satisfied(&info).is_ok()
                     };
                     if success {
                         (
@@ -247,6 +245,47 @@ where
     /// Returns the induced pair for the current congruence
     pub fn induced(&self) -> InducedPair<'s, S, W> {
         self.induced.clone()
+    }
+
+    pub fn constraint_output(&self) -> Option<C::Output> {
+        self.constraint.satisfied(&self.get_info()).ok()
+    }
+
+    /// Runs the algorithm to completion, executing [`step`] until it returns [`GlercSignal::Finished`].
+    pub fn execute(&mut self) -> GlercOutput<S> {
+        let mut iteration = 0;
+        loop {
+            iteration += 1;
+            match self.step() {
+                GlercSignal::Finished(out) => return out,
+                signal => {
+                    trace!("Iteration {iteration}, signal: {:?}", signal)
+                }
+            }
+        }
+    }
+}
+
+impl<'s, S, W, C, Acc> From<GlercState<'s, S, W, C>> for Combined<RightCongruence<S>, Acc>
+where
+    Acc: AcceptanceCondition,
+    S: Symbol + 's,
+    W: Subword<S = S> + Clone + 's + Hash,
+    W: InitialRun<RightCongruence<S>, <W as Word>::Kind>,
+    C: Constraint<S, <W as Run<RightCongruence<S>, <W as Word>::Kind>>::Induces, Output = Acc>,
+{
+    fn from(value: GlercState<'s, S, W, C>) -> Self {
+        let mut gs = value;
+        let result = gs.execute();
+        let acceptance_condition = gs
+            .constraint_output()
+            .expect("Constraint must be satisfied when the algorithm terminates!");
+
+        Combined::from_parts(
+            result.learned_congruence,
+            Class::epsilon(),
+            acceptance_condition,
+        )
     }
 }
 

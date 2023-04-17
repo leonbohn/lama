@@ -4,8 +4,9 @@ use hoars::HoaSymbol;
 
 use crate::{
     acceptance::{AcceptanceCondition, BuchiCondition, ParityCondition, ReachabilityCondition},
+    congruence::CongruenceTrigger,
     ts::{Deterministic, Growable, Pointed, Shrinkable, TransitionSystem},
-    AnonymousGrowable,
+    AnonymousGrowable, RightCongruence,
 };
 
 /// Struct that represents the 'usual' automata, which is a combination of a transition system, a designated initial state and an acceptance condition.
@@ -137,6 +138,13 @@ pub type Dpa<Q = u32, S = char> = Combined<Deterministic<Q, S>, ParityCondition<
 pub type HoaDpa<Q = u32, S = HoaSymbol> = Combined<Deterministic<Q, S>, ParityCondition<(Q, S)>>;
 /// Alias that makes working with HOA easier. This is the same as a [`Dba`], but with [`HoaSymbol`] as the symbol type.
 pub type HoaDba<Q = u32, S = HoaSymbol> = Combined<Deterministic<Q, S>, BuchiCondition<(Q, S)>>;
+
+/// Alias that makes working with congruences easier, using [`RightCongruence`] as the transition system.
+pub type CongruenceDba<S = char> =
+    Combined<RightCongruence<S>, BuchiCondition<CongruenceTrigger<S>>>;
+/// Alias that makes working with congruences easier, using [`RightCongruence`] as the transition system.
+pub type CongruenceDpa<S = char> =
+    Combined<RightCongruence<S>, ParityCondition<CongruenceTrigger<S>>>;
 
 #[cfg(test)]
 mod tests {

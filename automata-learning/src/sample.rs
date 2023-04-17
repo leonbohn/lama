@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use automata::{FiniteKind, Set, Word};
+use automata::{words::IsInfinite, FiniteKind, Set, Word};
 
 /// Represents a finite sample, which is a pair of positive and negative instances.
 #[derive(Debug, Clone)]
@@ -18,10 +18,32 @@ impl<W: Eq + Hash> PartialEq for Sample<W> {
 
 impl<W: Eq + Hash> Eq for Sample<W> {}
 
+impl<W: IsInfinite> Sample<W> {
+    /// Returns the maximum length of the base prefix of any word in the sample.
+    pub fn max_base_len(&self) -> usize {
+        self.iter().map(|w| w.base_length()).max().unwrap_or(0)
+    }
+
+    /// Returns the maximum loop length of any word in the sample.
+    pub fn max_recur_len(&self) -> usize {
+        self.iter().map(|w| w.recur_length()).max().unwrap_or(0)
+    }
+}
+
 impl<W: Eq + Hash> Sample<W> {
     /// Creates a new sample from the given data.
     pub fn from_parts(positive: Set<W>, negative: Set<W>) -> Self {
         Self { positive, negative }
+    }
+
+    /// Returns the number of elements in the sample.
+    pub fn len(&self) -> usize {
+        self.positive.len() + self.negative.len()
+    }
+
+    /// Checks if the sample is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Creates a new sample from two iterators.

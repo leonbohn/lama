@@ -3,7 +3,7 @@ use std::{fmt::Display, ops::Add};
 use crate::{
     ts::{SymbolOf, Trivial},
     Deterministic, Growable, InitializedDeterministic, Mapping, Pointed, Shrinkable, StateIterable,
-    Str, Symbol, TransitionSystem,
+    Str, Symbol, TransitionSystem, TriggerIterable,
 };
 use itertools::Itertools;
 
@@ -155,6 +155,14 @@ impl<S: Symbol> Shrinkable for RightCongruence<S> {
     }
 }
 
+impl<S: Symbol> TriggerIterable for RightCongruence<S> {
+    type TriggerIter<'me> = std::collections::hash_map::Keys<'me, CongruenceTrigger<S>, Class<S>> where  S: 'me;
+
+    fn triggers_iter(&self) -> Self::TriggerIter<'_> {
+        self.0.det.triggers_iter()
+    }
+}
+
 /// Encapsulates a special type of right congruence relation which is can be used to build
 /// family of right congruences (FORC), which is a special kind of acceptor for omega languages.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -199,7 +207,7 @@ pub struct FORC<S: Symbol>(RightCongruence<S>, Mapping<Class<S>, RightCongruence
 
 impl<S: Symbol> Display for RightCongruence<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Congruence: [[ {} ]]", self.0)
+        write!(f, "Congruence: [[\n{}\n]]", self.0)
     }
 }
 
