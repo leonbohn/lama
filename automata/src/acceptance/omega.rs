@@ -164,3 +164,28 @@ where
         )
     }
 }
+
+impl<X, Y> Display for ParityCondition<(X, Y)>
+where
+    X: Display,
+    Y: Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Parity({})",
+            self.0
+                .iter()
+                .enumerate()
+                .map(|(i, set)| {
+                    format!(
+                        "[{i} => {}]",
+                        set.iter()
+                            .map(|(x, y)| format!("({}, {})", x, y))
+                            .join(", ")
+                    )
+                })
+                .join(" ")
+        )
+    }
+}

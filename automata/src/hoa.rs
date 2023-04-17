@@ -1,8 +1,67 @@
 use std::fmt::Display;
 
-use hoars::{AcceptanceAtom, AcceptanceCondition, HoaAutomaton, HoaSymbol, Id};
+use hoars::{AcceptanceAtom, AcceptanceCondition, AcceptanceInfo, HoaAutomaton, HoaSymbol, Id};
+use tracing::{debug, info, trace};
 
-use crate::{BuchiCondition, Combined, Deterministic, Growable, Set};
+use crate::{BuchiCondition, Combined, Deterministic, Growable, ParityCondition, Set};
+
+impl TryFrom<HoaAutomaton> for ParityCondition<(Id, HoaSymbol)> {
+    type Error = FromHoaError;
+
+    fn try_from(hoa_aut: HoaAutomaton) -> Result<Self, FromHoaError> {
+        debug!("Parsing parity condition from HOA automaton");
+        let (num_acceptance_sets, _acceptance_condition) = hoa_aut.acceptance();
+        // For now we assume that everything is in min even format
+        // TODO: support max even, min odd and max odd
+
+        // verify that the acceptance name is parity and min even (for now)
+        match hoa_aut.acceptance_name() {
+            Some((&hoars::AcceptanceName::Parity, info)) => {
+                if info[0..=1]
+                    != [
+                        AcceptanceInfo::Identifier("min".to_string()),
+                        AcceptanceInfo::Identifier("even".to_string()),
+                    ]
+                {
+                    return Err(FromHoaError::UnsupportedAcceptanceCondition);
+                }
+                trace!("Acceptance name is parity min even");
+            }
+            None => {
+                info!("No acceptance name specified, assuming parity min even");
+            }
+            _ => {
+                return Err(FromHoaError::UnsupportedAcceptanceCondition);
+            }
+        }
+
+        // TODO: verify that the acceptance condition is fitting
+
+        let mut out = std::iter::repeat(Set::new())
+            .take(num_acceptance_sets)
+            .collect::<Vec<_>>();
+
+        for state in hoa_aut.body().iter() {
+            let state_id = state.id();
+            for edge in state.edges() {
+                if edge.target().is_some() {
+                    let acceptance = edge.acceptance_signature().get_singleton();
+                    if let Some(Some(i)) = acceptance {
+                        let label = edge.label().symbol();
+                        out.get_mut(i as usize)
+                            .expect("Acceptance set index out of bounds")
+                            .insert((state_id, label));
+                    } else if acceptance.is_none() {
+                        return Err(FromHoaError::UnsupportedAcceptanceCondition);
+                    }
+                } else {
+                    return Err(FromHoaError::UnsupportedBody);
+                }
+            }
+        }
+        Ok(ParityCondition(out))
+    }
+}
 
 impl TryFrom<HoaAutomaton> for BuchiCondition<(Id, HoaSymbol)> {
     type Error = FromHoaError;
@@ -125,7 +184,7 @@ impl Display for FromHoaError {
 mod tests {
     use hoars::HoaAutomaton;
 
-    use crate::{BuchiCondition, Combined};
+    use crate::{combined::HoaDpa, BuchiCondition, Combined};
 
     #[test]
     fn hoa_parse_dba_test() {
@@ -150,6 +209,31 @@ mod tests {
         let hoa_aut = HoaAutomaton::try_from(contents);
         let aut: Result<Combined<_, BuchiCondition<_>>, _> =
             super::Combined::try_from(hoa_aut.unwrap());
+        println!("{}", aut.unwrap());
+    }
+
+    #[test]
+    fn hoa_parse_dpa_test() {
+        let hoa_dpa = r#"HOA: v1
+        States: 3
+        Start: 0
+        AP: 2 "a" "b"
+        acc-name: parity min even 3
+        Acceptance: 3 Inf(0) | (Fin(1) & Inf(2))
+        properties: trans-labels explicit-labels trans-acc complete
+        properties: deterministic
+        --BODY--
+        State: 0
+        [0] 1
+        [!0] 0 {2}
+        State: 1
+        [t] 2 {1}
+        State: 2
+        [0] 1 {0}
+        [!0] 2
+        --END--"#;
+        let hoa_aut = HoaAutomaton::try_from(hoa_dpa).expect("Could not parse HOA automaton");
+        let aut = HoaDpa::try_from(hoa_aut);
         println!("{}", aut.unwrap());
     }
 }

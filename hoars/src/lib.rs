@@ -29,6 +29,12 @@ use lexer::Token;
 /// The type of identifier used for states.
 pub type Id = u32;
 
+/// Represents a trigger as it is encoded in a HOA automaton.
+pub type HoaTrigger = (Id, HoaSymbol);
+
+/// Represents a transition as it is encoded in a HOA automaton.
+pub type HoaTransition = (Id, HoaSymbol, Id);
+
 /// Represents a parsed HOA automaton. It consists of a the version string,
 /// a [`Header`] and a [`Body`].
 /// The header contains all the information about the automaton (e.g. the number of states, the

@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use hoars::HoaSymbol;
+
 use crate::{
     acceptance::{AcceptanceCondition, BuchiCondition, ParityCondition, ReachabilityCondition},
     ts::{Deterministic, Growable, Pointed, Shrinkable, TransitionSystem},
@@ -130,6 +132,11 @@ pub type Dba<Q = u32, S = char> = Combined<Deterministic<Q, S>, BuchiCondition<(
 #[cfg(feature = "det")]
 /// Type alias for a deterministic parity automaton, only available for crate feature `det`.
 pub type Dpa<Q = u32, S = char> = Combined<Deterministic<Q, S>, ParityCondition<(Q, S)>>;
+
+/// Alias that makes working with HOA easier. This is the same as a [`Dpa`], but with [`HoaSymbol`] as the symbol type.
+pub type HoaDpa<Q = u32, S = HoaSymbol> = Combined<Deterministic<Q, S>, ParityCondition<(Q, S)>>;
+/// Alias that makes working with HOA easier. This is the same as a [`Dba`], but with [`HoaSymbol`] as the symbol type.
+pub type HoaDba<Q = u32, S = HoaSymbol> = Combined<Deterministic<Q, S>, BuchiCondition<(Q, S)>>;
 
 #[cfg(test)]
 mod tests {

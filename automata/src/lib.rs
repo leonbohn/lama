@@ -49,6 +49,8 @@ mod combined;
 pub use combined::Combined;
 #[cfg(feature = "det")]
 pub use combined::{Dba, Dfa, Dpa};
+#[cfg(feature = "hoa")]
+pub use combined::{HoaDba, HoaDpa};
 
 /// Module in which traits for working with runs of transition systems are defined.
 /// A run of a transition system on a given word is a sequence of states, where each state is the successor of the previous state, and the transition between the states is triggered by a symbol as given in the input word.
