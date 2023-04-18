@@ -42,7 +42,8 @@ pub use congruence::{Class, ProgressRightCongruence, RightCongruence, FORC};
 /// Module in which acceptance conditions of automata are defined. This includes the [`AcceptanceCondition`] trait, which is implemented by all acceptance conditions, and provides a common interface for working with acceptance conditions.
 mod acceptance;
 pub use acceptance::{
-    AcceptanceCondition, BuchiCondition, OmegaCondition, ParityCondition, ReachabilityCondition,
+    AcceptanceCondition, Acceptor, BuchiCondition, OmegaCondition, ParityCondition,
+    ReachabilityCondition,
 };
 
 use std::{fmt::Display, hash::Hash};
@@ -76,6 +77,7 @@ impl Symbol for usize {}
 impl Symbol for u32 {}
 impl Symbol for char {}
 impl Symbol for i32 {}
+impl Symbol for bool {}
 
 #[cfg(feature = "ahash")]
 /// Abstracts a mapping, assigning to each element of the domain `X` a value from the codomain `Y`.

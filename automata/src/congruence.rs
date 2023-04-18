@@ -1,9 +1,10 @@
-use std::{fmt::Display, ops::Add};
+use std::{borrow::Borrow, fmt::Display, ops::Add};
 
 use crate::{
     ts::{SymbolOf, Trivial},
-    Deterministic, Growable, InitializedDeterministic, Mapping, Pointed, Shrinkable, StateIterable,
-    Str, Symbol, TransitionSystem, TriggerIterable,
+    words::IsFinite,
+    Deterministic, FiniteKind, Growable, InitializedDeterministic, Mapping, Pointed, Shrinkable,
+    StateIterable, Str, Subword, Symbol, TransitionSystem, TriggerIterable, Word,
 };
 use itertools::Itertools;
 
@@ -15,6 +16,43 @@ impl<S: Symbol> Class<S> {
     /// Returns the class associated with the empty word.
     pub fn epsilon() -> Self {
         Self(Str::empty())
+    }
+
+    /// Create a class for the given single letter.
+    pub fn letter<L: Borrow<S>>(l: L) -> Self {
+        Self(Str {
+            symbols: vec![l.borrow().clone()],
+        })
+    }
+}
+
+impl<S: Symbol> Word for Class<S> {
+    type S = S;
+
+    type Kind = FiniteKind;
+
+    fn nth(&self, index: usize) -> Option<Self::S> {
+        self.0.symbols.get(index).cloned()
+    }
+}
+
+impl<S: Symbol> IsFinite for Class<S> {
+    fn length(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl<S: Symbol> Subword for Class<S> {
+    type SuffixType = Class<S>;
+
+    type PrefixType = Class<S>;
+
+    fn prefix(&self, length: usize) -> Self::PrefixType {
+        Class(self.0.prefix(length))
+    }
+
+    fn skip(&self, number: usize) -> Self::SuffixType {
+        Class(self.0.skip(number))
     }
 }
 
@@ -62,6 +100,66 @@ impl<S: Symbol> Add<&S> for Class<S> {
         let mut extend = self.0;
         extend.symbols.push(rhs.clone());
         Self(extend)
+    }
+}
+
+impl<S: Symbol> Add<Class<S>> for Class<S> {
+    type Output = Self;
+
+    fn add(self, rhs: Class<S>) -> Self::Output {
+        Class(
+            self.0
+                .symbols
+                .iter()
+                .chain(rhs.0.symbols.iter())
+                .cloned()
+                .collect(),
+        )
+    }
+}
+
+impl<S: Symbol> Add<&Class<S>> for Class<S> {
+    type Output = Self;
+
+    fn add(self, rhs: &Class<S>) -> Self::Output {
+        Class(
+            self.0
+                .symbols
+                .iter()
+                .chain(rhs.0.symbols.iter())
+                .cloned()
+                .collect(),
+        )
+    }
+}
+
+impl<S: Symbol> Add<Class<S>> for &Class<S> {
+    type Output = Class<S>;
+
+    fn add(self, rhs: Class<S>) -> Self::Output {
+        Class(
+            self.0
+                .symbols
+                .iter()
+                .chain(rhs.0.symbols.iter())
+                .cloned()
+                .collect(),
+        )
+    }
+}
+
+impl<S: Symbol> Add<&Class<S>> for &Class<S> {
+    type Output = Class<S>;
+
+    fn add(self, rhs: &Class<S>) -> Self::Output {
+        Class(
+            self.0
+                .symbols
+                .iter()
+                .chain(rhs.0.symbols.iter())
+                .cloned()
+                .collect(),
+        )
     }
 }
 

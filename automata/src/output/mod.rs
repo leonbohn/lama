@@ -1,4 +1,6 @@
-use crate::Set;
+use crate::{
+    congruence::CongruenceTrigger, Combined, Deterministic, Mapping, RightCongruence, Set,
+};
 
 mod transducer;
 
@@ -56,3 +58,5 @@ pub trait MutableMapping: PriorityMapping {
     /// Sets the priority of the given element to the given priority.
     fn set_priority(&mut self, of: &Self::Domain, to: Priority) -> Option<Priority>;
 }
+
+pub type MealyCongruence<I, O> = Combined<RightCongruence<I>, Mapping<CongruenceTrigger<I>, O>>;
