@@ -2,12 +2,16 @@ use std::fmt::Display;
 
 use crate::{Symbol, TransitionSystem};
 
+/// A product of two transition systems.
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct Product<L, R> {
     pub left: L,
     pub right: R,
 }
 
+/// Represents a pair of objects from two different types, mainly used for the construction of
+/// product transition systems.
 #[derive(Debug, Clone, Ord, PartialEq, PartialOrd, Eq, Hash)]
 pub struct Pair<X, Y>(pub X, pub Y);
 
@@ -37,7 +41,7 @@ where
 
     type Input = Pair<L::Input, R::Input>;
 
-    fn succ(&self, from: &Self::State, on: &Self::Input) -> Option<Self::State> {
+    fn succ(&self, _from: &Self::State, _on: &Self::Input) -> Option<Self::State> {
         todo!()
     }
 

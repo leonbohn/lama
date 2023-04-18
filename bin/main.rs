@@ -16,7 +16,9 @@ fn main() {
         .propagate_version(true)
         .subcommand_required(true)
         .arg_required_else_help(true)
-        .subcommand(Command::new("parse").about("Parses input"))
+        .subcommand(
+            Command::new("noop").about("Parses HOA input and prints the parsed thing as HOA"),
+        )
         .arg(
             Arg::new("infile")
                 // .about("Can be set to read from input file instead of stdin")
@@ -40,7 +42,7 @@ fn main() {
 
     match matches.subcommand() {
         Some(("parse", _sub_matches)) => {
-            trace!("Parsing input");
+            trace!("Running <noop> command");
             let aut = parse_hoa(&input).expect("Could not parse input");
             println!("{}", aut);
         }

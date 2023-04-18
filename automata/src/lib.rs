@@ -21,6 +21,8 @@
 /// Module in which traits for working with transition systems are defined. See [`ts::TransitionSystem`] and the crate level documentation for an overview of the trait hierarchy.
 /// This module also contains a concrete implementation of a transition system, [`ts::Deterministic`], which stores the transition system as a vector of states, and a vector of transitions. Is only available when the `det` feature is enabled.
 pub mod ts;
+use itertools::Itertools;
+use ts::SymbolOf;
 pub use ts::{
     AnonymousGrowable, Deterministic, Growable, InitializedDeterministic, IntoStateReferences,
     Pointed, Shrinkable, StateIndex, StateIterable, Transition, TransitionIterable,
@@ -73,6 +75,7 @@ pub trait Symbol: Clone + Eq + std::fmt::Debug + PartialEq + Hash + Display + Or
 impl Symbol for usize {}
 impl Symbol for u32 {}
 impl Symbol for char {}
+impl Symbol for i32 {}
 
 #[cfg(feature = "ahash")]
 /// Abstracts a mapping, assigning to each element of the domain `X` a value from the codomain `Y`.
@@ -89,7 +92,7 @@ pub type Set<X> = std::collections::AHashSet<X>;
 #[cfg(feature = "hoa")]
 mod hoa;
 #[cfg(feature = "hoa")]
-pub use hoa::parse_hoa;
+pub use hoa::{parse_dba, parse_dpa, parse_hoa};
 
 /// Abstracts things that are equivalent, meaning they represent the same thing. Useful for comparing represtantions of words.
 pub trait Equivalent<T = Self> {
@@ -114,8 +117,45 @@ pub trait HasAlphabet {
 
     /// Returns an iterator over the alphabet of `self`.
     fn alphabet_iter(&self) -> Self::AlphabetIter;
+
+    /// Returns a sorted vector of alphabet symbols.
+    fn get_sorted(&self) -> Vec<Self::Alphabet> {
+        self.alphabet_iter().sorted().collect()
+    }
 }
 
+/// An iterator over the alphabet of a transition system.
+pub struct AlphabetIter<TS: TriggerIterable> {
+    alphabet: Vec<SymbolOf<TS>>,
+    pos: usize,
+}
+
+impl<TS: TriggerIterable> Iterator for AlphabetIter<TS> {
+    type Item = SymbolOf<TS>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(result) = self.alphabet.get(self.pos) {
+            self.pos += 1;
+            Some(result.clone())
+        } else {
+            None
+        }
+    }
+}
+
+impl<TS: TriggerIterable> HasAlphabet for TS {
+    type Alphabet = SymbolOf<TS>;
+    type AlphabetIter = AlphabetIter<TS>;
+
+    fn alphabet_iter(&self) -> Self::AlphabetIter {
+        AlphabetIter {
+            alphabet: self.triggers_iter().map(|t| t.sym().clone()).collect(),
+            pos: 0,
+        }
+    }
+}
+
+/// Represents an automaton with an omega acceptance condition.
 pub type OmegaAutomaton<Q = u32, S = char> = Combined<Deterministic<Q, S>, OmegaCondition<(Q, S)>>;
 
 #[cfg(test)]

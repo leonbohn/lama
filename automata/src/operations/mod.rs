@@ -1,5 +1,5 @@
-use crate::Transducer;
+pub use crate::Transducer;
 
-use self::product::Product;
+pub use self::product::Product;
 
 mod product;

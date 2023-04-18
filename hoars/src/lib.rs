@@ -1,6 +1,7 @@
 //! This crate provides a parser for the HOA format.
 #![warn(missing_docs)]
 mod body;
+mod display;
 mod format;
 mod header;
 mod label_expression;
@@ -42,8 +43,11 @@ pub type HoaTransition = (Id, HoaSymbol, Id);
 pub enum FromHoaError {
     /// The version string does not match, we only support v1.
     UnsupportedVersion(String),
+    /// Encapsulates that an unsupported acceptance condition was used.
     UnsupportedAcceptanceCondition,
+    /// An error occurred when parsing the acceptance condition.
     ParseAcceptanceCondition(String),
+    /// There was an error in the body.
     UnsupportedBody,
     /// Lexer encountered an error, contains detailed report.
     LexerError(String),
@@ -74,9 +78,8 @@ impl Display for FromHoaError {
 /// a [`Header`] and a [`Body`].
 /// The header contains all the information about the automaton (e.g. the number of states, the
 /// acceptance condition, aliases etc.) and the body contains the actual transitions.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct HoaAutomaton {
-    version: String,
     header: Header,
     body: Body,
 }
@@ -89,9 +92,14 @@ pub type HoaAcceptance = (usize, AcceptanceCondition);
 pub type Aliases = Vec<(AliasName, LabelExpression)>;
 
 impl HoaAutomaton {
+    /// Adds the given state.
+    pub fn add_state(&mut self, state: State) {
+        self.body.push(state);
+    }
+
     /// Returns the version of the HOA file.
-    pub fn version(&self) -> &str {
-        &self.version
+    pub fn version(&self) -> String {
+        self.header.get_version().expect("Version must be set!")
     }
 
     /// Returns the header of the HOA file.
@@ -104,15 +112,13 @@ impl HoaAutomaton {
         &self.body
     }
 
-    fn from_parsed(((version, header), body): ((String, Header), Body)) -> Self {
-        Self::from_parts(version, header, body)
+    fn from_parsed((header, body): (Header, Body)) -> Self {
+        Self::from_parts(header, body)
     }
 
     /// Parses a HOA automaton from a string.
     pub fn parser() -> impl Parser<Token, Self, Error = Simple<Token>> {
-        just(Token::Header("HOA".to_string()))
-            .ignore_then(value::identifier())
-            .then(Header::parser())
+        Header::parser()
             .then(Body::parser())
             .then_ignore(end())
             .map(HoaAutomaton::from_parsed)
@@ -121,12 +127,8 @@ impl HoaAutomaton {
     /// Creates a new HOA automaton from the given version, header and
     /// body. This function will also [unalias](HoaAutomaton::unalias) the
     /// automaton.
-    pub fn from_parts(version: String, header: Header, body: Body) -> Self {
-        let mut out = Self {
-            version,
-            header,
-            body,
-        };
+    pub fn from_parts(header: Header, body: Body) -> Self {
+        let mut out = Self { header, body };
         out.unalias();
         out
     }
@@ -271,6 +273,11 @@ impl HoaAutomaton {
                 edge.label_mut().unalias(&aliases);
             }
         }
+    }
+
+    /// Adds a header item to the automaton.
+    pub fn add_header_item(&mut self, item: HeaderItem) {
+        self.header.push(item);
     }
 }
 
@@ -425,6 +432,7 @@ mod tests {
         }
 
         let header = Header::from_vec(vec![
+            HeaderItem::Version("v1".to_string()),
             HeaderItem::AP(vec!["a".to_string()]),
             HeaderItem::States(3),
             HeaderItem::Start(StateConjunction(vec![0])),
@@ -482,7 +490,6 @@ mod tests {
         assert_eq!(
             hoa_aut,
             Ok(HoaAutomaton::from_parts(
-                "v1".to_string(),
                 header,
                 Body::from(vec![q0, q1, q2])
             ))

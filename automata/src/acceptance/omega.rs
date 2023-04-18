@@ -13,8 +13,11 @@ use crate::{
 
 use super::{AcceptanceCondition, Finite};
 
+/// Represents an omega acceptance condition.
 pub enum OmegaCondition<X> {
+    /// This variant encapsulates a [`ParityCondition`].
     Parity(ParityCondition<X>),
+    /// Encapsulates a [`BuchiCondition`].
     Buchi(BuchiCondition<X>),
 }
 
@@ -62,6 +65,11 @@ impl<X: Eq + Hash> ParityCondition<X> {
     /// Creates a new `ParityCondition` from the given vector of sets.
     pub fn new(parity: Vec<Set<X>>) -> Self {
         Self(parity)
+    }
+
+    /// Returns the number of priorities in the condition.
+    pub fn priorities(&self) -> usize {
+        self.0.len()
     }
 }
 

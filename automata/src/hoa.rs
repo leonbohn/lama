@@ -1,14 +1,179 @@
 use std::fmt::Display;
 
 use hoars::{
-    AcceptanceAtom, AcceptanceCondition, AcceptanceInfo, FromHoaError, HoaAutomaton, HoaSymbol, Id,
+    AcceptanceAtom, AcceptanceCondition, AcceptanceInfo, AcceptanceName, AcceptanceSignature, Edge,
+    FromHoaError, HeaderItem, HoaAutomaton, HoaBool, HoaSymbol, Id, Label, LabelExpression, State,
+    StateConjunction,
 };
 use tracing::{debug, info, trace};
 
 use crate::{
-    BuchiCondition, Combined, Dba, Deterministic, Dpa, Growable, OmegaAutomaton, OmegaCondition,
-    ParityCondition, Set, Symbol,
+    output::Parity, BuchiCondition, Combined, Dba, Deterministic, Dpa, Growable, HasAlphabet,
+    OmegaAutomaton, OmegaCondition, ParityCondition, Pointed, PriorityMapping, Set, Symbol,
+    TransitionSystem,
 };
+
+pub trait ToHoaAcceptance {
+    type Trigger;
+
+    fn to_hoa_acceptance(&self) -> (Id, AcceptanceCondition, AcceptanceName, Vec<AcceptanceInfo>);
+
+    fn acceptance_signature(&self, of: &Self::Trigger) -> AcceptanceSignature;
+}
+
+pub trait ToHoaLabel {
+    fn to_hoa_symbol(&self, maximum: u32) -> Label;
+
+    fn max_ap_index(&self) -> u32;
+}
+
+pub trait ToHoa {
+    fn to_hoa(&self) -> HoaAutomaton;
+}
+
+impl ToHoaLabel for char {
+    fn to_hoa_symbol(&self, maximum: u32) -> Label {
+        let ascii_based_at_a = *self as u32 - 'a' as u32;
+        Label(
+            (0..maximum)
+                .map(|i| {
+                    if i == ascii_based_at_a {
+                        LabelExpression::Integer(i)
+                    } else {
+                        LabelExpression::Not(Box::new(LabelExpression::Integer(i)))
+                    }
+                })
+                .reduce(|acc, expr| LabelExpression::And(Box::new(acc), Box::new(expr)))
+                .unwrap_or(LabelExpression::Boolean(HoaBool(true))),
+        )
+    }
+
+    fn max_ap_index(&self) -> u32 {
+        *self as u32 - 'a' as u32
+    }
+}
+
+impl ToHoaLabel for HoaSymbol {
+    fn to_hoa_symbol(&self, _maximum: u32) -> Label {
+        self.0.to_label()
+    }
+
+    fn max_ap_index(&self) -> u32 {
+        self.0.get_aps().cloned().max().unwrap_or(0)
+    }
+}
+
+impl<X, Y> ToHoaAcceptance for OmegaCondition<(X, Y)>
+where
+    X: Display,
+    Y: Display,
+    (X, Y): PartialEq + Eq + std::hash::Hash,
+{
+    type Trigger = (X, Y);
+
+    fn to_hoa_acceptance(&self) -> (Id, AcceptanceCondition, AcceptanceName, Vec<AcceptanceInfo>) {
+        match self {
+            OmegaCondition::Parity(parity) => (
+                parity.priorities() as Id,
+                AcceptanceCondition::parity(parity.priorities() as Id),
+                // TODO: make this more generic
+                AcceptanceName::Parity,
+                vec![
+                    AcceptanceInfo::identifier("min"),
+                    AcceptanceInfo::identifier("even"),
+                    AcceptanceInfo::integer(parity.priorities() as Id),
+                ],
+            ),
+            OmegaCondition::Buchi(_) => (
+                1,
+                AcceptanceCondition::buchi(),
+                AcceptanceName::Buchi,
+                vec![AcceptanceInfo::integer(1)],
+            ),
+        }
+    }
+
+    fn acceptance_signature(&self, of: &Self::Trigger) -> AcceptanceSignature {
+        match self {
+            OmegaCondition::Parity(parity) => {
+                AcceptanceSignature::from_singleton(parity.priority(of).number())
+            }
+            OmegaCondition::Buchi(buchi) => {
+                if buchi.priority(of).parity() {
+                    AcceptanceSignature::from_singleton(0)
+                } else {
+                    AcceptanceSignature::empty()
+                }
+            }
+        }
+    }
+}
+
+impl<I, TS, Acc> ToHoa for Combined<TS, Acc>
+where
+    I: ToHoaLabel + Clone,
+    TS: TransitionSystem<Input = I> + HasAlphabet,
+    Acc: ToHoaAcceptance<Trigger = (TS::State, TS::Input)>,
+{
+    fn to_hoa(&self) -> HoaAutomaton {
+        let mut hoa = HoaAutomaton::default();
+        let mut states = self.vec_states();
+        states.sort();
+
+        let alphabet = self.vec_alphabet();
+
+        hoa.add_header_item(HeaderItem::Version("v1".to_string()));
+        hoa.add_header_item(HeaderItem::States(states.len() as Id));
+
+        let (num_acceptance_sets, acceptance_condition, acceptance_name, acceptance_info) =
+            self.acceptance().to_hoa_acceptance();
+        hoa.add_header_item(HeaderItem::Acceptance(
+            num_acceptance_sets,
+            acceptance_condition,
+        ));
+        hoa.add_header_item(HeaderItem::AcceptanceName(acceptance_name, acceptance_info));
+
+        let max_ap = alphabet
+            .iter()
+            .map(|symbol| symbol.max_ap_index())
+            .max()
+            .unwrap_or(0);
+
+        let idx = states.iter().cloned().enumerate().collect::<Vec<_>>();
+
+        for (i, state) in &idx {
+            let mut edges = Vec::new();
+            for sym in &alphabet {
+                if let Some(target) = self.succ(state, sym) {
+                    let target_id = idx.iter().find(|(_, s)| s == &target).unwrap().0;
+                    let edge = Edge::from_parts(
+                        sym.to_hoa_symbol(max_ap),
+                        StateConjunction::singleton(target_id as Id),
+                        self.acceptance()
+                            .acceptance_signature(&(state.clone(), sym.clone())),
+                    );
+                    edges.push(edge);
+                }
+            }
+            let state = State::from_parts(*i as Id, Some(format!("{:?}", state)), edges);
+            hoa.add_state(state);
+        }
+
+        let initial_id = idx.iter().find(|(_, s)| s == &self.initial()).unwrap().0;
+        hoa.add_header_item(HeaderItem::Start(StateConjunction::singleton(
+            initial_id as u32,
+        )));
+
+        // TODO: remove this stupid hack
+        hoa.add_header_item(HeaderItem::AP(
+            (0..=max_ap)
+                .map(|i| ((i + 'a' as u32) as u8 as char).to_string())
+                .collect(),
+        ));
+
+        hoa
+    }
+}
 
 impl Symbol for HoaSymbol {}
 
@@ -123,7 +288,7 @@ impl<Acc: crate::AcceptanceCondition + TryFrom<HoaAutomaton, Error = FromHoaErro
     fn try_from(aut: HoaAutomaton) -> Result<Self, FromHoaError> {
         let version = aut.version();
         if version != "v1" {
-            return Err(FromHoaError::UnsupportedVersion(version.to_string()));
+            return Err(FromHoaError::UnsupportedVersion(version));
         }
 
         let acceptance = Acc::try_from(aut.clone())?;
@@ -193,9 +358,9 @@ pub fn parse_hoa(hoa: &str) -> Result<OmegaAutomaton<u32, HoaSymbol>, FromHoaErr
 
 #[cfg(test)]
 mod tests {
+    use super::ToHoa;
+    use crate::{combined::HoaDpa, parse_dba, BuchiCondition, Combined};
     use hoars::HoaAutomaton;
-
-    use crate::{combined::HoaDpa, BuchiCondition, Combined};
 
     #[test]
     fn hoa_parse_dba_test() {
@@ -221,6 +386,31 @@ mod tests {
         let aut: Result<Combined<_, BuchiCondition<_>>, _> =
             super::Combined::try_from(hoa_aut.unwrap());
         println!("{}", aut.unwrap());
+    }
+
+    #[test]
+    fn hoa_parse_unparse_test() {
+        let contents = r#"HOA: v1
+             AP: 1 "a"
+             States: 3
+             Start: 0
+             acc-name: Buchi
+             Acceptance: 1 Inf(0)
+             --BODY--
+             State: 0
+              [0] 1
+              [!0]  2
+             State: 1 /* former state 0 */
+              [0] 1  {0}
+              [!0] 2 {0}
+             State: 2  /* former state 1 */
+              [0] 1
+              [!0] 2
+             --END--
+             "#;
+        let dba = parse_dba(contents).unwrap();
+        let hoa = dba.to_omega().to_hoa();
+        println!("original:\n{}\nparsed:\n{}", contents, hoa);
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use chumsky::prelude::*;
 
@@ -13,6 +13,8 @@ use crate::{
 /// The multiplicity of each element is given in parenthesis.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum HeaderItem {
+    /// The version of the HOA format.
+    Version(String),
     /// (0|1) State header, gives the number of states in the automaton.
     States(Id),
     /// (>=0) Gives a conjunction of states that are the start states of the
@@ -32,6 +34,13 @@ pub enum HeaderItem {
     Name(String),
     /// (>=0) Gives the properties of the automaton.
     Properties(Vec<Property>),
+}
+
+impl HeaderItem {
+    /// Creates a new version 1 header item.
+    pub fn v1() -> Self {
+        HeaderItem::Version("v1".to_string())
+    }
 }
 
 fn item() -> impl Parser<Token, HeaderItem, Error = Simple<Token>> {
@@ -73,7 +82,7 @@ fn item() -> impl Parser<Token, HeaderItem, Error = Simple<Token>> {
     let alias = just(Token::Header("Alias".to_string()))
         .ignore_then(value::alias_name())
         .then(value::label_expression())
-        .map(|(aname, expression)| HeaderItem::Alias(aname, expression));
+        .map(|(aname, expression)| HeaderItem::Alias(AliasName(aname), expression));
 
     let name = just(Token::Header("name".to_string()))
         .ignore_then(value::text())
@@ -106,19 +115,36 @@ fn item() -> impl Parser<Token, HeaderItem, Error = Simple<Token>> {
     ))
 }
 
-/// Represents the header of a HOA file.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Represents the header of a HOA file, consists of a set of [`HeaderItem`]s.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Header(Vec<HeaderItem>);
 
 impl Header {
     /// Construts a new header parser.
     pub fn parser() -> impl Parser<Token, Self, Error = Simple<Token>> {
-        item().repeated().map(Header)
+        let version = just(Token::Header("HOA".to_string()))
+            .ignore_then(value::identifier())
+            .map(HeaderItem::Version);
+        version.then(item().repeated()).map(|(version, headers)| {
+            Header(
+                std::iter::once(version)
+                    .chain(headers.into_iter())
+                    .collect(),
+            )
+        })
     }
 
     /// Constructs a new header from a vector of header items.
     pub fn from_vec(value: Vec<HeaderItem>) -> Self {
         Self(value)
+    }
+
+    /// Returns the version of the format.
+    pub fn get_version(&self) -> Option<String> {
+        self.iter().find_map(|item| match item {
+            HeaderItem::Version(version) => Some(version.clone()),
+            _ => None,
+        })
     }
 }
 
@@ -127,6 +153,12 @@ impl Deref for Header {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl DerefMut for Header {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
@@ -139,7 +171,9 @@ mod tests {
 
         use crate::{build_error_report, lexer};
 
-        let (tokens, errs) = lexer::tokenizer().parse_recovery(input);
+        let with_hoa = format!("HOA: v1\n{}", input);
+
+        let (tokens, errs) = lexer::tokenizer().parse_recovery(with_hoa);
         if let Some(tokens) = tokens {
             let len = input.chars().count();
             let (ast, parse_errs) = Header::parser()
@@ -185,10 +219,10 @@ mod tests {
     fn property() {
         assert_header(
             r#"properties: trans-labels state-labels"#,
-            &[HeaderItem::Properties(vec![
-                Property::TransLabels,
-                Property::StateLabels,
-            ])],
+            &[
+                HeaderItem::Version("v1".to_string()),
+                HeaderItem::Properties(vec![Property::TransLabels, Property::StateLabels]),
+            ],
         );
         assert_fails(r#"properties: trans-labels statelabels"#);
         assert_fails(r#"properties: "#);
@@ -202,6 +236,7 @@ mod tests {
                 name: "BA for GFa & GFb"
             "#,
             &[
+                HeaderItem::Version("v1".to_string()),
                 HeaderItem::Tool("ltl-translate".to_string(), Some("1.2-alpha".to_string())),
                 HeaderItem::Name("BA for GFa & GFb".to_string()),
             ],
@@ -213,14 +248,17 @@ mod tests {
     fn ariadne() {
         assert_header(
             "acc-name: Rabin 3",
-            &[HeaderItem::AcceptanceName(
-                AcceptanceName::Rabin,
-                vec![AcceptanceInfo::Int(3)],
-            )],
+            &[
+                HeaderItem::Version("v1".to_string()),
+                HeaderItem::AcceptanceName(AcceptanceName::Rabin, vec![AcceptanceInfo::Int(3)]),
+            ],
         );
         assert_header(
             "Start: 0 & 7",
-            &[HeaderItem::Start(StateConjunction(vec![0, 7]))],
+            &[
+                HeaderItem::Version("v1".to_string()),
+                HeaderItem::Start(StateConjunction(vec![0, 7])),
+            ],
         );
     }
 
@@ -228,11 +266,14 @@ mod tests {
     fn aps() {
         assert_header(
             r#"AP: 3 "a" "proc@state" "a[x] >= 2""#,
-            &[HeaderItem::AP(vec![
-                "a".to_string(),
-                "proc@state".to_string(),
-                "a[x] >= 2".to_string(),
-            ])],
+            &[
+                HeaderItem::Version("v1".to_string()),
+                HeaderItem::AP(vec![
+                    "a".to_string(),
+                    "proc@state".to_string(),
+                    "a[x] >= 2".to_string(),
+                ]),
+            ],
         )
     }
 
@@ -240,62 +281,74 @@ mod tests {
     fn alias() {
         assert_header(
             "Alias: @a 0",
-            &[HeaderItem::Alias(
-                "a".to_string(),
-                LabelExpression::Integer(0),
-            )],
+            &[
+                HeaderItem::Version("v1".to_string()),
+                HeaderItem::Alias(AliasName("a".to_string()), LabelExpression::Integer(0)),
+            ],
         );
         assert_header(
             "Alias: @a 0 & 1",
-            &[HeaderItem::Alias(
-                "a".to_string(),
-                LabelExpression::And(
-                    Box::new(LabelExpression::Integer(0)),
-                    Box::new(LabelExpression::Integer(1)),
+            &[
+                HeaderItem::Version("v1".to_string()),
+                HeaderItem::Alias(
+                    AliasName("a".to_string()),
+                    LabelExpression::And(
+                        Box::new(LabelExpression::Integer(0)),
+                        Box::new(LabelExpression::Integer(1)),
+                    ),
                 ),
-            )],
+            ],
         );
 
         // & binds stronger
         assert_header(
             "Alias: @a 1 | 2 & 0",
-            &[HeaderItem::Alias(
-                "a".to_string(),
-                LabelExpression::Or(
-                    Box::new(LabelExpression::Integer(1)),
-                    Box::new(LabelExpression::And(
-                        Box::new(LabelExpression::Integer(2)),
-                        Box::new(LabelExpression::Integer(0)),
-                    )),
+            &[
+                HeaderItem::Version("v1".to_string()),
+                HeaderItem::Alias(
+                    AliasName("a".to_string()),
+                    LabelExpression::Or(
+                        Box::new(LabelExpression::Integer(1)),
+                        Box::new(LabelExpression::And(
+                            Box::new(LabelExpression::Integer(2)),
+                            Box::new(LabelExpression::Integer(0)),
+                        )),
+                    ),
                 ),
-            )],
+            ],
         );
         assert_header(
             "Alias: @a 0 & 1 | 2",
-            &[HeaderItem::Alias(
-                "a".to_string(),
-                LabelExpression::Or(
-                    Box::new(LabelExpression::And(
-                        Box::new(LabelExpression::Integer(0)),
-                        Box::new(LabelExpression::Integer(1)),
-                    )),
-                    Box::new(LabelExpression::Integer(2)),
+            &[
+                HeaderItem::Version("v1".to_string()),
+                HeaderItem::Alias(
+                    AliasName("a".to_string()),
+                    LabelExpression::Or(
+                        Box::new(LabelExpression::And(
+                            Box::new(LabelExpression::Integer(0)),
+                            Box::new(LabelExpression::Integer(1)),
+                        )),
+                        Box::new(LabelExpression::Integer(2)),
+                    ),
                 ),
-            )],
+            ],
         );
 
         assert_header(
             "Alias: @a (0 | 1) & 2",
-            &[HeaderItem::Alias(
-                "a".to_string(),
-                LabelExpression::And(
-                    Box::new(LabelExpression::Or(
-                        Box::new(LabelExpression::Integer(0)),
-                        Box::new(LabelExpression::Integer(1)),
-                    )),
-                    Box::new(LabelExpression::Integer(2)),
+            &[
+                HeaderItem::Version("v1".to_string()),
+                HeaderItem::Alias(
+                    AliasName("a".to_string()),
+                    LabelExpression::And(
+                        Box::new(LabelExpression::Or(
+                            Box::new(LabelExpression::Integer(0)),
+                            Box::new(LabelExpression::Integer(1)),
+                        )),
+                        Box::new(LabelExpression::Integer(2)),
+                    ),
                 ),
-            )],
+            ],
         );
     }
 

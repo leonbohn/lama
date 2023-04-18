@@ -12,6 +12,18 @@ pub type OutputOf<T> = <T as Transducer>::Output;
 #[derive(Debug, Clone, Eq, Ord, PartialOrd, PartialEq, Hash)]
 pub struct Priority(pub u32);
 
+impl Priority {
+    /// Creates a new priority from the given number.
+    pub fn new(number: u32) -> Self {
+        Self(number)
+    }
+
+    /// Returns the number representing the priority.
+    pub fn number(&self) -> u32 {
+        self.0
+    }
+}
+
 /// A trait for types that induce a parity, which is either true or false.
 pub trait Parity {
     /// Returns true if the parity is even, false if it is odd.

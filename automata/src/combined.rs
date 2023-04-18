@@ -6,8 +6,8 @@ use crate::{
     },
     congruence::CongruenceTrigger,
     ts::{Deterministic, Growable, Pointed, Shrinkable, TransitionSystem},
-    AnonymousGrowable, HasAlphabet, OmegaAutomaton, OmegaCondition, RightCongruence, StateIndex,
-    StateIterable, Symbol,
+    AnonymousGrowable, HasAlphabet, OmegaAutomaton, RightCongruence, StateIndex, StateIterable,
+    Symbol,
 };
 
 /// Struct that represents the 'usual' automata, which is a combination of a transition system, a designated initial state and an acceptance condition.
@@ -29,6 +29,15 @@ impl<TS: TransitionSystem + HasAlphabet<Alphabet = TS::Input>, Acc> HasAlphabet
     }
 }
 
+impl<TS, Acc> Pointed for Combined<TS, Acc>
+where
+    TS: TransitionSystem,
+{
+    fn initial(&self) -> Self::State {
+        self.initial.clone()
+    }
+}
+
 impl<TS: TransitionSystem, Acc> Combined<TS, Acc> {
     /// Returns a mutable reference to the underlying acceptance condition.
     pub fn acceptance_mut(&mut self) -> &mut Acc {
@@ -40,6 +49,8 @@ impl<TS: TransitionSystem, Acc> Combined<TS, Acc> {
         &self.acc
     }
 
+    /// Returns a new [`Combined`] instance with the same transition system in which
+    /// the acceptance condition is replaced by `acc`.
     pub fn with_acceptance<Bdd>(&self, acc: Bdd) -> Combined<TS, Bdd>
     where
         Bdd: AcceptanceCondition,
@@ -54,6 +65,8 @@ impl<TS: TransitionSystem, Acc> Combined<TS, Acc> {
 }
 
 impl<Q: StateIndex, S: Symbol, Acc> Combined<Deterministic<Q, S>, Acc> {
+    /// Converts the automaton to an [`OmegaAutomaton`], which boils down to simply
+    /// replacing the acceptance condition with an [`OmegaCondition`].
     pub fn to_omega(&self) -> OmegaAutomaton<Q, S>
     where
         Acc: ToOmega<X = (Q, S)> + AcceptanceCondition,
@@ -158,12 +171,6 @@ impl<TS: Shrinkable, Acc: AcceptanceCondition> Shrinkable for Combined<TS, Acc> 
 
     fn remove_transition(&mut self, from: Self::State, on: Self::Input) -> Option<Self::State> {
         self.ts.remove_transition(from, on)
-    }
-}
-
-impl<TS: TransitionSystem, Acc: AcceptanceCondition> Pointed for Combined<TS, Acc> {
-    fn initial(&self) -> Self::State {
-        self.initial.clone()
     }
 }
 
