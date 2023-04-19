@@ -17,4 +17,14 @@ pub mod active;
 pub mod passive;
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    pub(crate) fn init_logger() {
+        // Set up the tracing subscriber
+        let subscriber = tracing_subscriber::fmt::Subscriber::builder()
+            .with_max_level(tracing::metadata::LevelFilter::TRACE)
+            .finish();
+
+        tracing::subscriber::set_global_default(subscriber)
+            .expect("Unable to set global tracing subscriber");
+    }
+}
