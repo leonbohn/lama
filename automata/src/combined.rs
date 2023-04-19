@@ -101,9 +101,7 @@ impl<TS: TransitionSystem, Acc> Combined<TS, Acc> {
     }
 }
 
-impl<TS: TransitionSystem + StateIterable, Acc: AcceptanceCondition> StateIterable
-    for Combined<TS, Acc>
-{
+impl<TS: TransitionSystem + StateIterable, Acc> StateIterable for Combined<TS, Acc> {
     type StateIter<'me> = TS::StateIter<'me>
     where
         Self: 'me;

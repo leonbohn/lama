@@ -1,4 +1,4 @@
-use automata::{Acceptor, Class, Dfa, StateIndex, Symbol, Transducer};
+use automata::{Acceptor, Class, Dfa, Pointed, StateIndex, Symbol, Transducer};
 
 pub trait Oracle {
     type Input: Symbol;
@@ -6,7 +6,10 @@ pub trait Oracle {
 
     fn output(&mut self, word: &Class<Self::Input>) -> Self::Output;
 
-    fn equivalence<M: Transducer>(&mut self, hypothesis: &M) -> Result<(), Class<Self::Input>>;
+    fn equivalence<M: Pointed + Transducer<Input = Self::Input, Output = Self::Output>>(
+        &mut self,
+        hypothesis: &M,
+    ) -> Result<(), Class<Self::Input>>;
 }
 
 impl<Q: StateIndex, S: Symbol> Oracle for Dfa<Q, S> {

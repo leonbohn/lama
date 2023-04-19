@@ -7,7 +7,7 @@ use std::{
 use itertools::Itertools;
 
 use crate::{
-    output::{Parity, Priority, PriorityMapping},
+    output::{Mapping, Parity, Priority, PriorityMapping},
     Set,
 };
 
@@ -21,7 +21,7 @@ pub enum OmegaCondition<X> {
     Buchi(BuchiCondition<X>),
 }
 
-impl<X: Hash + Eq> AcceptanceCondition for OmegaCondition<X> {
+impl<X: Clone + Hash + Eq> AcceptanceCondition for OmegaCondition<X> {
     type Induced = Set<X>;
 
     fn is_accepting(&self, induced: &Self::Induced) -> bool {
@@ -49,11 +49,11 @@ impl<X: Hash + Eq + Clone> ToOmega for ParityCondition<X> {
     }
 }
 
-impl<X: Eq + Hash> AcceptanceCondition for ParityCondition<X> {
+impl<X: Eq + Hash + Clone> AcceptanceCondition for ParityCondition<X> {
     type Induced = Set<X>;
 
     fn is_accepting(&self, induced: &Self::Induced) -> bool {
-        if let Some(minimum) = induced.iter().map(|x| self.priority(x)).min() {
+        if let Some(minimum) = induced.iter().map(|x| self.get_value(x)).min() {
             minimum.parity()
         } else {
             false
@@ -80,7 +80,7 @@ impl<X: Eq + Hash + Finite> ParityCondition<X> {
             .map(|_| Set::new())
             .collect::<Vec<_>>();
         for x in X::universe() {
-            out[condition.priority(&x).0 as usize].insert(x);
+            out[condition.get_value(&x).as_usize()].insert(x);
         }
 
         Self(out)
@@ -93,27 +93,31 @@ impl<X: Eq + Hash> Default for ParityCondition<X> {
     }
 }
 
-impl<X> PriorityMapping for ParityCondition<X>
+pub struct ParityConditionDomainIter<'a, X>(&'a ParityCondition<X>);
+
+impl<X> Mapping for ParityCondition<X>
 where
-    X: Eq + std::hash::Hash,
+    X: Clone + Eq + std::hash::Hash,
 {
     type Domain = X;
 
-    fn priority(&self, of: &Self::Domain) -> Priority {
+    type Range = Priority;
+
+    fn get_value(&self, of: &Self::Domain) -> Priority {
         for (i, set) in self.0.iter().enumerate() {
             if set.contains(of) {
                 return Priority(i as u32);
             }
         }
-        Priority(self.complexity())
+        Priority(self.complexity() as u32)
     }
 
     fn universe(&self) -> Set<Priority> {
-        (0..self.complexity()).map(Priority).collect()
+        (0..self.0.len()).map(|i| Priority(i as u32)).collect()
     }
 
-    fn complexity(&self) -> u32 {
-        self.0.len() as u32
+    fn domain(&self) -> Set<Self::Domain> {
+        self.0.iter().flatten().cloned().collect()
     }
 }
 
@@ -165,26 +169,27 @@ impl<X: Eq + Hash> SubAssign<X> for BuchiCondition<X> {
     }
 }
 
-impl<X> PriorityMapping for BuchiCondition<X>
+impl<X> Mapping for BuchiCondition<X>
 where
-    X: Eq + Hash,
+    X: Eq + Hash + Clone,
 {
     type Domain = X;
+    type Range = bool;
 
-    fn priority(&self, of: &Self::Domain) -> Priority {
+    fn get_value(&self, of: &Self::Domain) -> Self::Range {
         if self.0.contains(of) {
-            Priority(0)
+            true
         } else {
-            Priority(1)
+            false
         }
     }
 
-    fn universe(&self) -> Set<Priority> {
-        vec![Priority(0), Priority(1)].into_iter().collect()
+    fn universe(&self) -> Set<Self::Range> {
+        vec![false, true].into_iter().collect()
     }
 
-    fn complexity(&self) -> u32 {
-        2
+    fn domain(&self) -> Set<Self::Domain> {
+        self.0.clone()
     }
 }
 

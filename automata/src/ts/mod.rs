@@ -1,6 +1,6 @@
 use std::{borrow::Borrow, fmt::Display};
 
-use crate::{run::Configuration, Set, Symbol, Word};
+use crate::{operations::Product, run::Configuration, Set, Symbol, Word};
 
 mod initialized;
 mod transition;

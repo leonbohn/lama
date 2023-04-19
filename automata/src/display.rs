@@ -9,8 +9,8 @@ use owo_colors::OwoColorize;
 use tabled::{builder::Builder, settings::Style};
 
 use crate::{
-    AcceptanceCondition, BuchiCondition, Combined, OmegaCondition, ParityCondition, StateIterable,
-    TransitionSystem,
+    AcceptanceCondition, BuchiCondition, Combined, Map, Mapping, OmegaCondition, ParityCondition,
+    StateIterable, TransitionSystem,
 };
 
 pub trait Annotates<X, Y> {
@@ -85,8 +85,23 @@ impl<TS: TransitionSystem> DisplaySymbol for TS {
     }
 }
 
+impl<X, Y, Z> Annotates<X, Y> for Map<(X, Y), Z>
+where
+    (X, Y): Eq + Hash,
+    Y: Display,
+    X: Display,
+    Z: Display,
+{
+    fn annotate(&self, x: &(X, Y), z: &X) -> String {
+        match self.get(x) {
+            Some(v) => format!("{}@{}", z, v.to_string().bright_blue()),
+            None => format!("{}", z.to_string().bright_cyan()),
+        }
+    }
+}
+
 impl<
-        Acc: AcceptanceCondition + Annotates<TS::State, TS::Input>,
+        Acc: Annotates<TS::State, TS::Input>,
         TS: TransitionSystem + StateIterable + DisplayState + DisplaySymbol,
     > Display for Combined<TS, Acc>
 where

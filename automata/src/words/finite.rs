@@ -18,11 +18,15 @@ pub struct Str<S> {
 
 impl<S: Symbol> Display for Str<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.symbols.iter().map(|chr| format!("{}", chr)).join("")
-        )
+        if self.is_empty() {
+            write!(f, "ε")
+        } else {
+            write!(
+                f,
+                "{}",
+                self.symbols.iter().map(|chr| format!("{}", chr)).join("")
+            )
+        }
     }
 }
 

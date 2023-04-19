@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use tabled::{builder::Builder, settings::Style};
 
-use crate::{AnonymousGrowable, Mapping, Pointed, Set, Symbol};
+use crate::{AnonymousGrowable, Map, Pointed, Set, Symbol};
 
 use super::{
     Growable, Shrinkable, StateIndex, StateIterable, SymbolOf, TransitionIterable,
@@ -17,7 +17,7 @@ use std::{
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Deterministic<Q: StateIndex = u32, S: Symbol = char> {
     pub(crate) states: Set<Q>,
-    pub(crate) edges: Mapping<(Q, S), Q>,
+    pub(crate) edges: Map<(Q, S), Q>,
 }
 
 /// Stores a [`Deterministic`] transition system with an initial state.
@@ -48,7 +48,7 @@ impl<Q: StateIndex, S: Symbol> Deterministic<Q, S> {
     /// Create a new empty deterministic transition system.
     pub fn new() -> Self {
         Self {
-            edges: Mapping::new(),
+            edges: Map::new(),
             states: Set::new(),
         }
     }
@@ -64,15 +64,14 @@ impl<Q: StateIndex> Trivial for Deterministic<Q> {
     fn trivial() -> Self {
         Self {
             states: Set::new(),
-            edges: Mapping::new(),
+            edges: Map::new(),
         }
     }
 }
 
 impl<I: IntoIterator<Item = (u32, char, u32)>> From<I> for Deterministic {
     fn from(iter: I) -> Self {
-        let edges: Mapping<(u32, char), u32> =
-            iter.into_iter().map(|(p, a, q)| ((p, a), q)).collect();
+        let edges: Map<(u32, char), u32> = iter.into_iter().map(|(p, a, q)| ((p, a), q)).collect();
 
         Self {
             states: edges

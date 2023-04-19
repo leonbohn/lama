@@ -61,7 +61,7 @@ pub mod run;
 
 /// Module in which traits for working with Mealy machines are defined.
 pub mod output;
-pub use output::{OutputOf, Priority, PriorityMapping, Transducer};
+pub use output::{Mapping, OutputOf, Priority, Transducer};
 
 /// Module in which traits for working with operations on transition systems/automata are defined.
 pub mod operations;
@@ -81,9 +81,9 @@ impl Symbol for bool {}
 
 #[cfg(feature = "ahash")]
 /// Abstracts a mapping, assigning to each element of the domain `X` a value from the codomain `Y`.
-pub type Mapping<X, Y> = ahash::AHashMap<X, Y>;
+pub type Map<X, Y> = ahash::AHashMap<X, Y>;
 #[cfg(not(feature = "ahash"))]
-pub type Mapping<X, Y> = std::collections::HashMap<X, Y>;
+pub type Map<X, Y> = std::collections::HashMap<X, Y>;
 
 #[cfg(feature = "ahash")]
 /// Abstracts a set of elements of type `X`.

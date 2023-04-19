@@ -3,13 +3,13 @@ use std::{borrow::Borrow, fmt::Display, ops::Add};
 use crate::{
     ts::{SymbolOf, Trivial},
     words::IsFinite,
-    Deterministic, FiniteKind, Growable, InitializedDeterministic, Mapping, Pointed, Shrinkable,
+    Deterministic, FiniteKind, Growable, InitializedDeterministic, Map, Pointed, Shrinkable,
     StateIterable, Str, Subword, Symbol, TransitionSystem, TriggerIterable, Word,
 };
 use itertools::Itertools;
 
 /// Represents an equivalence class of a right congruence relation.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Class<S: Symbol>(pub Str<S>);
 
 impl<S: Symbol> Class<S> {
@@ -23,6 +23,25 @@ impl<S: Symbol> Class<S> {
         Self(Str {
             symbols: vec![l.borrow().clone()],
         })
+    }
+
+    /// Returns an iterator over the elements/symbols of the class
+    pub fn iter(&self) -> impl Iterator<Item = &S> + '_ {
+        self.0.symbols.iter()
+    }
+}
+
+impl<S: Symbol> Ord for Class<S> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.length()
+            .cmp(&other.length())
+            .then(self.iter().cmp(other.iter()))
+    }
+}
+
+impl<S: Symbol> PartialOrd for Class<S> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -301,7 +320,7 @@ impl<S: Symbol> Growable for ProgressRightCongruence<S> {
 
 /// Encapsulates a family of right congruences (FORC), which is a special kind of acceptor for omega languages.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct FORC<S: Symbol>(RightCongruence<S>, Mapping<Class<S>, RightCongruence<S>>);
+pub struct FORC<S: Symbol>(RightCongruence<S>, Map<Class<S>, RightCongruence<S>>);
 
 impl<S: Symbol> Display for RightCongruence<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -1,158 +1,113 @@
-use automata::{output::MealyCongruence, Class, Growable, Mapping, RightCongruence, Set, Symbol};
+use super::table::Table;
+use automata::{Class, Pointed, Symbol, Transducer};
 
 use super::teacher::Oracle;
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-struct Row<Input: Symbol, Output: Symbol> {
-    outputs: Mapping<Class<Input>, Output>,
+#[derive(Debug, Clone)]
+pub struct LStar<In: Symbol, Out: Symbol, T: Oracle<Input = In, Output = Out>> {
+    teacher: T,
+    alphabet: Vec<In>,
+    table: Table<In, Out>,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-struct SquareTable<Input: Symbol, Output: Symbol> {
-    alphabet: Vec<Input>,
-    experiments: Vec<Class<Input>>,
-    base: Set<Class<Input>>,
-    rows: Mapping<Class<Input>, Row<Input, Output>>,
-}
-
-impl<Input, Output> Row<Input, Output>
-where
-    Input: Symbol,
-    Output: Symbol,
+impl<Input: Symbol, Output: Symbol, T: Oracle<Input = Input, Output = Output>>
+    LStar<Input, Output, T>
 {
-    pub fn empty() -> Self {
+    pub fn new(teacher: T, alphabet: Vec<Input>) -> Self {
+        let mut table = Table::new(alphabet.clone());
+        let mut teach = teacher;
+        table.fill(&mut teach);
         Self {
-            outputs: Mapping::new(),
+            teacher: teach,
+            alphabet,
+            table,
         }
+    }
+
+    pub fn close(&mut self) {
+        self.table.close(&mut self.teacher)
+    }
+
+    pub fn fill(&mut self) -> bool {
+        self.table.fill(&mut self.teacher)
+    }
+
+    pub fn equivalent(&mut self) -> bool {
+        self.teacher
+            .equivalence(
+                &self
+                    .table
+                    .to_hypothesis()
+                    .expect("Could not build hypothesis"),
+            )
+            .is_ok()
     }
 }
 
-impl<Input, Output> SquareTable<Input, Output>
-where
-    Input: Symbol,
-    Output: Symbol,
-{
-    fn to_hypothesis(&self) -> Option<MealyCongruence<Input, Output>> {
-        if !self.is_closed() {
-            return None;
-        }
+#[cfg(test)]
+struct EvenAEvenB();
 
-        let mut ts = RightCongruence::empty_trivial();
-        let mut outputs = Mapping::new();
+#[cfg(test)]
+impl Oracle for EvenAEvenB {
+    type Input = char;
 
-        for class in &self.base {
-            ts.add_state(class);
-        }
+    type Output = bool;
 
-        for class in &self.base {
-            for sym in &self.alphabet {
-                let extension = class + sym;
-                let target = self.equivalent_class(&extension).expect("class not found");
-                ts.add_transition(class, sym.clone(), target);
+    fn output(&mut self, word: &automata::Class<Self::Input>) -> Self::Output {
+        let (count_a, count_b) = word.iter().fold((0, 0), |(a, b), c| match c {
+            'a' => (a + 1, b),
+            'b' => (a, b + 1),
+            _ => unreachable!(),
+        });
 
-                let output = self
-                    .rows
-                    .get(&extension)
-                    .expect("row not found")
-                    .outputs
-                    .get(&Class::epsilon())
-                    .expect("output not found");
-                outputs.insert((class.clone(), sym.clone()), output.clone());
+        count_a % 2 == 0 && count_b % 2 == 0
+    }
+
+    fn equivalence<M: Pointed + Transducer<Input = Self::Input, Output = Self::Output>>(
+        &mut self,
+        hypothesis: &M,
+    ) -> Result<(), automata::Class<Self::Input>> {
+        for word in ["aa", "bb", "bab", "aba", "abba", "bbab", "", "b", "a"] {
+            let word = Class::from(word);
+            if Some(self.output(&word)) != hypothesis.output(word.iter()) {
+                return Err(word);
             }
         }
-
-        Some(MealyCongruence::from_parts(ts, Class::epsilon(), outputs))
+        Ok(())
     }
-
-    fn is_closed(&self) -> bool {
-        if !self.base.contains(&Class::epsilon()) || !self.experiments.contains(&Class::epsilon()) {
-            return false;
-        }
-
-        if !self
-            .alphabet
-            .iter()
-            .map(|chr| Class::letter(chr))
-            .all(|class| self.experiments.contains(&class) && self.base.contains(&class))
-        {
-            return false;
-        };
-
-        for class in &self.base {
-            for sym in &self.alphabet {
-                let extension = class + sym;
-                if let Some(row) = self.rows.get(&extension) {
-                    // if the row is not complete, then the table is not closed
-                    if row.outputs.len() != self.experiments.len() {
-                        return false;
-                    }
-
-                    // If something equivalent to the row is not yet present in the base, then the table is not closed.
-                    if !self
-                        .base
-                        .iter()
-                        .any(|base| self.rows.get(base).expect("base class not found") == row)
-                    {
-                        return false;
-                    }
-                } else {
-                    return false;
-                }
-            }
-        }
-        true
-    }
-
-    fn close<T: Oracle<Input = Input, Output = Output>>(&mut self, oracle: &mut T) {
-        while !self.is_closed() {
-            self.extend(oracle);
-        }
-    }
-
-    fn equivalent_class(&self, class: &Class<Input>) -> Option<&Class<Input>> {
-        self.base.iter().find(|base| {
-            Some(self.rows.get(base).expect("base class not found")) == self.rows.get(class)
-        })
-    }
-
-    fn extend<T: Oracle<Input = Input, Output = Output>>(&mut self, oracle: &mut T) -> bool {
-        let mut changed = self.base.insert(Class::epsilon());
-
-        for class in &self.base {
-            for sym in &self.alphabet {
-                let extension = class + sym;
-
-                // ensure that the extension is a valid row
-                if !self.rows.contains_key(&extension) {
-                    changed |= true;
-                    self.rows.insert(extension.clone(), Row::empty());
-                }
-            }
-        }
-        self.fill(oracle);
-        changed
-    }
-
-    fn fill<T: Oracle<Input = Input, Output = Output>>(&mut self, oracle: &mut T) {
-        for (class, row) in self.rows.iter_mut() {
-            for experiment in &self.experiments {
-                if !row.outputs.contains_key(experiment) {
-                    // update the row only if the experiment is not already present
-                    let output = oracle.output(&(class + experiment));
-                    row.outputs.insert(experiment.clone(), output);
-                }
-            }
-        }
-    }
-}
-
-pub trait ObservationTable<S: Symbol> {
-    fn new(alphabet: Vec<S>) -> Self;
-    fn alphabet(&self) -> &[S];
 }
 
 #[cfg(test)]
 mod tests {
+    use automata::Class;
+    use tracing::metadata::LevelFilter;
+
+    use crate::active::Oracle;
+
+    use super::EvenAEvenB;
+
     #[test]
-    fn simple_observation_table() {}
+    fn lstar_even_a_even_b() {
+        // Set up the tracing subscriber
+        let subscriber = tracing_subscriber::fmt::Subscriber::builder()
+            .with_max_level(LevelFilter::TRACE)
+            .finish();
+
+        tracing::subscriber::set_global_default(subscriber)
+            .expect("Unable to set global tracing subscriber");
+
+        let mut oracle = EvenAEvenB();
+        assert_eq!(oracle.output(&automata::Class::from("aa")), true);
+
+        let mut lstar = super::LStar::new(oracle, vec!['a', 'b']);
+        println!("{}", lstar.table);
+        lstar.table.insert_extensions();
+        lstar.fill();
+        println!("{}", lstar.table);
+        let x = lstar.table.equivalent_class(&Class::from("aa"));
+        println!("{:?}", x);
+        lstar.close();
+        println!("{}", lstar.table);
+        println!("{}", lstar.table.to_hypothesis().unwrap());
+    }
 }

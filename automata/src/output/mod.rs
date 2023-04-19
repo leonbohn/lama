@@ -1,9 +1,9 @@
-use crate::{
-    congruence::CongruenceTrigger, Combined, Deterministic, Mapping, RightCongruence, Set,
-};
+use crate::{congruence::CongruenceTrigger, Combined, Map, RightCongruence};
 
+mod mapping;
 mod transducer;
 
+pub use mapping::{Mapping, MutableMapping, PriorityMapping};
 pub use transducer::Transducer;
 
 /// Type alias to get the output type of a transducer.
@@ -24,6 +24,10 @@ impl Priority {
     pub fn number(&self) -> u32 {
         self.0
     }
+
+    pub fn as_usize(&self) -> usize {
+        self.0 as usize
+    }
 }
 
 /// A trait for types that induce a parity, which is either true or false.
@@ -38,25 +42,4 @@ impl Parity for Priority {
     }
 }
 
-/// A mapping from a type `X` to a [`Priority`].
-pub trait PriorityMapping {
-    /// The domain of the mapping.
-    type Domain;
-
-    /// Obtains the priority of the given element.
-    fn priority(&self, of: &Self::Domain) -> Priority;
-
-    /// Returns the set of all priorities.
-    fn universe(&self) -> Set<Priority>;
-
-    /// Returns the number of distinct priorities.
-    fn complexity(&self) -> u32;
-}
-
-/// A mutable mapping from a type `X` to a [`Priority`].
-pub trait MutableMapping: PriorityMapping {
-    /// Sets the priority of the given element to the given priority.
-    fn set_priority(&mut self, of: &Self::Domain, to: Priority) -> Option<Priority>;
-}
-
-pub type MealyCongruence<I, O> = Combined<RightCongruence<I>, Mapping<CongruenceTrigger<I>, O>>;
+pub type MealyCongruence<I, O> = Combined<RightCongruence<I>, Map<CongruenceTrigger<I>, O>>;

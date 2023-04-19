@@ -8,9 +8,8 @@ use hoars::{
 use tracing::{debug, info, trace};
 
 use crate::{
-    output::Parity, BuchiCondition, Combined, Dba, Deterministic, Dpa, Growable, HasAlphabet,
-    OmegaAutomaton, OmegaCondition, ParityCondition, Pointed, PriorityMapping, Set, Symbol,
-    TransitionSystem,
+    BuchiCondition, Combined, Dba, Deterministic, Dpa, Growable, HasAlphabet, Mapping,
+    OmegaAutomaton, OmegaCondition, ParityCondition, Pointed, Set, Symbol, TransitionSystem,
 };
 
 pub trait ToHoaAcceptance {
@@ -67,7 +66,7 @@ impl<X, Y> ToHoaAcceptance for OmegaCondition<(X, Y)>
 where
     X: Display,
     Y: Display,
-    (X, Y): PartialEq + Eq + std::hash::Hash,
+    (X, Y): PartialEq + Eq + std::hash::Hash + Clone,
 {
     type Trigger = (X, Y);
 
@@ -96,10 +95,10 @@ where
     fn acceptance_signature(&self, of: &Self::Trigger) -> AcceptanceSignature {
         match self {
             OmegaCondition::Parity(parity) => {
-                AcceptanceSignature::from_singleton(parity.priority(of).number())
+                AcceptanceSignature::from_singleton(parity.get_value(of).number())
             }
             OmegaCondition::Buchi(buchi) => {
-                if buchi.priority(of).parity() {
+                if buchi.get_value(of) {
                     AcceptanceSignature::from_singleton(0)
                 } else {
                     AcceptanceSignature::empty()
