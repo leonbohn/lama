@@ -12,6 +12,7 @@ itertools = "0.10.5"
 tabled = {version = "0.11", features=["color"]}
 owo-colors = "3.5.0"
 hoars = {version = "0.1", path = "../hoars", optional = true}
+tracing-test = "0.2"
 
 [features]
 default = ["det", "ahash", "hoa"]

@@ -9,7 +9,7 @@ use owo_colors::OwoColorize;
 use tabled::{builder::Builder, settings::Style};
 use tracing::{debug, trace};
 
-use super::teacher::Oracle;
+use super::oracle::Oracle;
 
 /// Represents a row of an observation table. It stores a mapping that associates classes (which
 /// are in essence words over `Input`) to outputs of type `Output`.

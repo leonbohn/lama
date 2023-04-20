@@ -1,6 +1,6 @@
 mod lstar;
 
+mod oracle;
 pub mod table;
-mod teacher;
 
-pub use teacher::Oracle;
+pub use oracle::Oracle;

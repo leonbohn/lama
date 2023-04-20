@@ -180,34 +180,34 @@ where
     }
 }
 
-impl<'a, Q: StateIndex, S: Symbol> TransitionIterable for &'a Deterministic<Q, S> {
-    type TransitionRef = (Q, S, Q);
-    type TransitionIter = std::iter::Map<
-        std::collections::hash_map::Iter<'a, (Q, S), Q>,
-        fn((&(Q, S), &Q)) -> (Q, S, Q),
-    >;
+// impl<'a, Q: StateIndex, S: Symbol> TransitionIterable for &'a Deterministic<Q, S> {
+//     type TransitionRef = (Q, S, Q);
+//     type TransitionIter = std::iter::Map<
+//         std::collections::hash_map::Iter<'a, (Q, S), Q>,
+//         fn((&(Q, S), &Q)) -> (Q, S, Q),
+//     >;
 
-    fn edges_iter(&self) -> Self::TransitionIter {
-        self.edges
-            .iter()
-            .map(|((p, a), q)| (p.clone(), a.clone(), q.clone()))
-    }
-}
+//     fn edges_iter(&self) -> Self::TransitionIter {
+//         self.edges
+//             .iter()
+//             .map(|((p, a), q)| (p.clone(), a.clone(), q.clone()))
+//     }
+// }
 
-impl<'a, Q: StateIndex, S: Symbol> TransitionIterable for &'a InitializedDeterministic<Q, S> {
-    type TransitionRef = (Q, S, Q);
-    type TransitionIter = std::iter::Map<
-        std::collections::hash_map::Iter<'a, (Q, S), Q>,
-        fn((&(Q, S), &Q)) -> (Q, S, Q),
-    >;
+// impl<'a, Q: StateIndex, S: Symbol> TransitionIterable for &'a InitializedDeterministic<Q, S> {
+//     type TransitionRef = (Q, S, Q);
+//     type TransitionIter = std::iter::Map<
+//         std::collections::hash_map::Iter<'a, (Q, S), Q>,
+//         fn((&(Q, S), &Q)) -> (Q, S, Q),
+//     >;
 
-    fn edges_iter(&self) -> Self::TransitionIter {
-        self.det
-            .edges
-            .iter()
-            .map(|((p, a), q)| (p.clone(), a.clone(), q.clone()))
-    }
-}
+//     fn edges_iter(&self) -> Self::TransitionIter {
+//         self.det
+//             .edges
+//             .iter()
+//             .map(|((p, a), q)| (p.clone(), a.clone(), q.clone()))
+//     }
+// }
 
 impl<Q: StateIndex, S: Symbol> TriggerIterable for Deterministic<Q, S> {
     type TriggerIter<'me> = std::collections::hash_map::Keys<'me, (Q, S), Q> where Q: 'me, S: 'me;

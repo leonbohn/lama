@@ -13,3 +13,4 @@ itertools = "0.10.5"
 impl-tools = "0.8"
 tabled = {version = "0.11", features=["color"]}
 owo-colors = "3.5.0"
+tracing-test = "0.2.4"

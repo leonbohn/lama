@@ -15,8 +15,6 @@ pub mod deterministic;
 #[cfg(feature = "det")]
 pub use deterministic::{Deterministic, InitializedDeterministic};
 
-use self::initialized::Initialized;
-
 /// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`
 pub trait StateIndex: Clone + PartialEq + Eq + std::hash::Hash + std::fmt::Debug + Ord {}
 
@@ -36,7 +34,7 @@ pub type TransitionOf<TS> = (StateOf<TS>, StateOf<TS>, SymbolOf<TS>);
 /// States of a transition system are generic, and can be any type that implements the [`StateIndex`] trait.
 /// Also the symbols of a transition system are generic, and can be any type that implements the [`Alphabet`] trait.
 /// The [`TransitionTrigger`] trait is used to represent an outgoing transition. Note, that such a trigger is a pair consisting of a state and a symbol, meaning the target state is not included in a trigger.
-#[autoimpl(for<T: trait> &T, &mut T, Initialized<T>)]
+#[autoimpl(for<T: trait> &T, &mut T, initialized::Initialized<T>)]
 pub trait TransitionSystem {
     /// The type of the states of the transition system.
     type State: StateIndex;
@@ -70,11 +68,11 @@ pub trait TransitionSystem {
     }
 
     /// Creates a copy of the current TS which has its initial state set.
-    fn start(&self, start: Self::State) -> Initialized<Self>
+    fn start(&self, start: Self::State) -> initialized::Initialized<Self>
     where
         Self: Sized + Clone,
     {
-        Initialized {
+        initialized::Initialized {
             ts: self.clone(),
             start,
         }

@@ -1,7 +1,7 @@
 use super::table::Table;
 use automata::{Class, Pointed, Symbol, Transducer};
 
-use super::teacher::Oracle;
+use super::oracle::Oracle;
 
 #[derive(Debug, Clone)]
 pub struct LStar<In: Symbol, Out: Symbol, T: Oracle<Input = In, Output = Out>> {
@@ -47,8 +47,9 @@ impl<Input: Symbol, Output: Symbol, T: Oracle<Input = Input, Output = Output>>
 #[cfg(test)]
 mod tests {
     use automata::{words::IsFinite, Class, Pointed, Transducer};
+    use tracing_test::traced_test;
 
-    use crate::{active::Oracle, tests::init_logger};
+    use crate::active::Oracle;
 
     struct EvenAEvenB();
     struct WordLenModThree();
@@ -107,10 +108,10 @@ mod tests {
             Ok(())
         }
     }
+
+    #[traced_test]
     #[test]
     fn lstar_word_len_mod_3() {
-        init_logger();
-
         let mut oracle = WordLenModThree();
         let mut lstar = super::LStar::new(oracle, vec!['a', 'b']);
 
@@ -120,10 +121,9 @@ mod tests {
         println!("{}", lstar.table.to_hypothesis().unwrap());
     }
 
+    #[traced_test]
     #[test]
     fn lstar_even_a_even_b() {
-        init_logger();
-
         let mut oracle = EvenAEvenB();
         assert_eq!(oracle.output(&automata::Class::from("aa")), true);
 
