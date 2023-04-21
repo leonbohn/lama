@@ -1,6 +1,6 @@
-use crate::{Map, Mapping, Priority};
+use crate::Priority;
 
-use super::{product::DirectProduct, Product};
+use super::DirectProduct;
 
 pub trait Union<Rhs = Self> {
     type Output;

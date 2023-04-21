@@ -19,6 +19,7 @@ pub mod deterministic;
 pub use deterministic::{Deterministic, InitializedDeterministic};
 
 use self::visit::{LengthLexicographic, LengthLexicographicEdges};
+pub use visit::Visitor;
 
 /// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`
 pub trait StateIndex: Clone + PartialEq + Eq + std::hash::Hash + std::fmt::Debug + Ord {}

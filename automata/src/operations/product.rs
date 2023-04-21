@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use itertools::Itertools;
+
 use crate::{Mapping, Set, Symbol, TransitionSystem};
 
 use super::union::Union;
@@ -7,13 +9,13 @@ use super::union::Union;
 pub trait DirectProduct<Rhs> {
     type Output;
 
-    fn product(self, rhs: Rhs) -> Self::Output;
+    fn direct_product(self, rhs: Rhs) -> Self::Output;
 }
 
 impl<TS1: TransitionSystem, TS2: TransitionSystem> DirectProduct<TS2> for TS1 {
     type Output = Product<TS1, TS2>;
 
-    fn product(self, rhs: TS2) -> Self::Output {
+    fn direct_product(self, rhs: TS2) -> Self::Output {
         Product {
             left: self,
             right: rhs,
@@ -30,9 +32,14 @@ pub struct Product<L, R> {
 }
 
 impl<L, R> Product<L, R> {
-    /// Creates a new product of two transition systems.
+    /// Creates a new product of two things.
     pub fn new(left: L, right: R) -> Self {
         Self { left, right }
+    }
+
+    /// Creates a new product from a pair of elements.
+    pub fn from_pair(pair: (L, R)) -> Self {
+        Self::new(pair.0, pair.1)
     }
 }
 
@@ -104,22 +111,36 @@ where
 impl<L, R> TransitionSystem for Product<L, R>
 where
     L: TransitionSystem,
-    R: TransitionSystem,
+    R: TransitionSystem<Input = L::Input>,
 {
     type State = Product<L::State, R::State>;
 
-    type Input = Product<L::Input, R::Input>;
+    type Input = L::Input;
 
-    fn succ(&self, _from: &Self::State, _on: &Self::Input) -> Option<Self::State> {
-        todo!()
+    fn succ(&self, from: &Self::State, on: &Self::Input) -> Option<Self::State> {
+        let Product { left, right } = from;
+        self.left.succ(left, on).and_then(|left| {
+            self.right
+                .succ(right, on)
+                .map(|right| Product { left, right })
+        })
     }
 
     fn vec_alphabet(&self) -> Vec<Self::Input> {
-        todo!()
+        self.left
+            .vec_alphabet()
+            .into_iter()
+            .chain(self.right.vec_alphabet())
+            .collect()
     }
 
     fn vec_states(&self) -> Vec<Self::State> {
-        todo!()
+        self.left
+            .vec_states()
+            .into_iter()
+            .cartesian_product(self.right.vec_states())
+            .map(Product::from_pair)
+            .collect()
     }
 }
 
