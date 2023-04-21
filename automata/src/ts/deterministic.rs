@@ -4,8 +4,8 @@ use tabled::{builder::Builder, settings::Style};
 use crate::{AnonymousGrowable, Map, Pointed, Set, Symbol};
 
 use super::{
-    Growable, Shrinkable, StateIndex, StateIterable, SymbolOf, TransitionIterable,
-    TransitionSystem, TriggerIterable, Trivial,
+    Growable, Shrinkable, StateIndex, StateIterable, SymbolOf, TransitionSystem, TriggerIterable,
+    Trivial,
 };
 
 use std::{

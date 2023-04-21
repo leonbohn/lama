@@ -29,6 +29,9 @@ pub trait Word: Debug + Eq + std::hash::Hash {
     fn nth(&self, index: usize) -> Option<Self::S>;
 }
 
+/// Alias to extract the kind of the word.
+pub type WordKind<W> = <W as Word>::Kind;
+
 /// A trait which indicates that a word is finite.
 #[autoimpl(for<T: trait> &T, &mut T)]
 pub trait IsFinite: Word {

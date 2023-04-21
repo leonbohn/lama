@@ -9,8 +9,7 @@ use owo_colors::OwoColorize;
 use tabled::{builder::Builder, settings::Style};
 
 use crate::{
-    AcceptanceCondition, BuchiCondition, Combined, Map, Mapping, OmegaCondition, ParityCondition,
-    StateIterable, TransitionSystem,
+    BuchiCondition, Combined, Map, OmegaCondition, ParityCondition, StateIterable, TransitionSystem,
 };
 
 pub trait Annotates<X, Y> {

@@ -1,7 +1,7 @@
 use crate::{ts::TriggerOf, Combined, Pointed, TransitionSystem};
 use std::{borrow::Borrow, hash::Hash};
 
-use super::{MutableMapping, Priority};
+use super::MutableMapping;
 
 pub struct TransducerInputIterator<'me, M: Transducer, I> {
     machine: &'me M,

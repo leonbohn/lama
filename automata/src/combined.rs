@@ -11,6 +11,7 @@ use crate::{
 };
 
 /// Struct that represents the 'usual' automata, which is a combination of a transition system, a designated initial state and an acceptance condition.
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Combined<TS: TransitionSystem, Acc> {
     ts: TS,
     initial: TS::State,

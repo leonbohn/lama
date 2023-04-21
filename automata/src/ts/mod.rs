@@ -1,9 +1,12 @@
 use std::{borrow::Borrow, fmt::Display};
 
-use crate::{operations::Product, run::Configuration, Set, Symbol, Word};
+use crate::{run::Configuration, Set, Symbol, Word};
 
+mod implementations;
 mod initialized;
 mod transition;
+mod visit;
+
 use impl_tools::autoimpl;
 use owo_colors::OwoColorize;
 use tabled::{builder::Builder, settings::Style};
@@ -14,6 +17,8 @@ pub use transition::{Transition, Trigger};
 pub mod deterministic;
 #[cfg(feature = "det")]
 pub use deterministic::{Deterministic, InitializedDeterministic};
+
+use self::visit::{LengthLexicographic, LengthLexicographicEdges};
 
 /// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`
 pub trait StateIndex: Clone + PartialEq + Eq + std::hash::Hash + std::fmt::Debug + Ord {}
@@ -28,7 +33,7 @@ pub type StateOf<X> = <X as TransitionSystem>::State;
 /// Helper type for getting the trigger type of a transition system.
 pub type TriggerOf<TS> = (StateOf<TS>, SymbolOf<TS>);
 /// Helper type for getting the transition type of a transition system.
-pub type TransitionOf<TS> = (StateOf<TS>, StateOf<TS>, SymbolOf<TS>);
+pub type TransitionOf<TS> = (StateOf<TS>, SymbolOf<TS>, StateOf<TS>);
 
 /// The base trait implemented by a deterministic transition system. A transition system is a tuple `(Q, S, δ)`, where `Q` is a finite set of states, `S` is a finite set of symbols and `δ: Q × S → Q` is a transition function. Note that the transition function is not necessarily complete and some transitions may be missing.
 /// States of a transition system are generic, and can be any type that implements the [`StateIndex`] trait.
@@ -114,6 +119,38 @@ pub trait TransitionSystem {
         transition_table.with(Style::psql());
         transition_table.to_string()
     }
+
+    /// Performs a breadth-first search on the transition system, starting from the given state.
+    fn bfs_from(&self, start: Self::State) -> LengthLexicographic<&Self>
+    where
+        Self: Sized,
+    {
+        LengthLexicographic::new_from(self, start)
+    }
+
+    /// Performs a breadth-first search on the transition system, starting from the initial state.
+    fn bfs(&self) -> LengthLexicographic<&Self>
+    where
+        Self: Sized + Pointed,
+    {
+        LengthLexicographic::new(self)
+    }
+
+    /// Performs a breadth-first search on the transition system, starting from the given state, emitting each visited edge.
+    fn bfs_edges_from(&self, start: Self::State) -> LengthLexicographicEdges<&Self>
+    where
+        Self: Sized,
+    {
+        LengthLexicographicEdges::new_from(self, start)
+    }
+
+    /// Performs a breadth-first search on the transition system, starting from the initial state, emitting each visited edge.
+    fn bfs_edges(&self) -> LengthLexicographicEdges<&Self>
+    where
+        Self: Sized + Pointed,
+    {
+        LengthLexicographicEdges::new(self)
+    }
 }
 
 /// Creates a new trivial transition system, which could either be empty (for [`TransitionSystem`]) or contain a single initial state (for [`InitializedDeterministic`]).
@@ -150,18 +187,24 @@ pub trait StateIterable: TransitionSystem {
 }
 
 /// Trait that allows iterating over all edges in a [`TransitionSystem`].
+#[autoimpl(for<T: trait> &T, &mut T)]
 pub trait TransitionIterable: TransitionSystem {
-    /// The edge type.
-    type TransitionRef: Transition<Q = Self::State, S = Self::Input>;
     /// Type of the iterator over all edges.
-    type TransitionIter: Iterator<Item = Self::TransitionRef>;
+    type TransitionIter<'me>: Iterator<Item = &'me (Self::State, Self::Input, Self::State)>
+    where
+        Self: 'me,
+        Self::State: 'me,
+        Self::Input: 'me;
 
     /// Returns an iterator over all edges in the transition system.
-    fn edges_iter(&self) -> Self::TransitionIter;
+    fn transitions_iter(&self) -> Self::TransitionIter<'_>;
 
     /// Returns the set of transitions originating from a given state.
-    fn transitions_from(&self, from: &Self::State) -> Set<Self::TransitionRef> {
-        self.edges_iter().filter(|e| e.source() == from).collect()
+    fn transitions_from(&self, from: &Self::State) -> Set<(Self::State, Self::Input, Self::State)> {
+        self.transitions_iter()
+            .filter(|e| e.source() == from)
+            .cloned()
+            .collect()
     }
 }
 
