@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use crate::{Set, StateIndex, Symbol, TransitionSystem};
 
 use super::TransitionIterable;
@@ -21,10 +23,21 @@ impl<Q: StateIndex, S: Symbol> TransitionSystem for VecTS<Q, S> {
     }
 
     fn vec_alphabet(&self) -> Vec<Self::Input> {
-        self.iter().map(|(_, a, _)| a.clone()).collect()
+        self.iter().map(|(_, a, _)| a.clone()).unique().collect()
     }
 
     fn vec_states(&self) -> Vec<Self::State> {
+        self.iter()
+            .flat_map(|(p, _, q)| vec![p.clone(), q.clone()])
+            .unique()
+            .collect()
+    }
+
+    fn set_alphabet(&self) -> ahash::HashSet<Self::Input> {
+        self.iter().map(|(_, a, _)| a.clone()).collect()
+    }
+
+    fn set_states(&self) -> ahash::HashSet<Self::State> {
         self.iter()
             .flat_map(|(p, _, q)| vec![p.clone(), q.clone()])
             .collect()
@@ -46,10 +59,21 @@ impl<Q: StateIndex, S: Symbol> TransitionSystem for SetTS<Q, S> {
     }
 
     fn vec_alphabet(&self) -> Vec<Self::Input> {
-        self.iter().map(|(_, a, _)| a.clone()).collect()
+        self.iter().map(|(_, a, _)| a.clone()).unique().collect()
     }
 
     fn vec_states(&self) -> Vec<Self::State> {
+        self.iter()
+            .flat_map(|(p, _, q)| vec![p.clone(), q.clone()])
+            .unique()
+            .collect()
+    }
+
+    fn set_alphabet(&self) -> ahash::HashSet<Self::Input> {
+        self.iter().map(|(_, a, _)| a.clone()).collect()
+    }
+
+    fn set_states(&self) -> ahash::HashSet<Self::State> {
         self.iter()
             .flat_map(|(p, _, q)| vec![p.clone(), q.clone()])
             .collect()

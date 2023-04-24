@@ -102,12 +102,19 @@ where
         self.edges
             .iter()
             .map(|((_, s), _)| s.clone())
-            .collect::<Set<_>>()
-            .into_iter()
+            .unique()
             .collect()
     }
 
     fn vec_states(&self) -> Vec<Self::State> {
+        self.states.iter().cloned().unique().collect()
+    }
+
+    fn set_alphabet(&self) -> ahash::HashSet<Self::Input> {
+        self.edges.iter().map(|((_, s), _)| s.clone()).collect()
+    }
+
+    fn set_states(&self) -> ahash::HashSet<Self::State> {
         self.states.iter().cloned().collect()
     }
 }
@@ -130,6 +137,14 @@ where
 
     fn vec_states(&self) -> Vec<Self::State> {
         self.det.vec_states()
+    }
+
+    fn set_alphabet(&self) -> ahash::HashSet<Self::Input> {
+        self.det.set_alphabet()
+    }
+
+    fn set_states(&self) -> ahash::HashSet<Self::State> {
+        self.det.set_states()
     }
 }
 

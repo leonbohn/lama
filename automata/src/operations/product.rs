@@ -131,10 +131,29 @@ where
             .vec_alphabet()
             .into_iter()
             .chain(self.right.vec_alphabet())
+            .unique()
             .collect()
     }
 
     fn vec_states(&self) -> Vec<Self::State> {
+        self.left
+            .vec_states()
+            .into_iter()
+            .cartesian_product(self.right.vec_states())
+            .map(Product::from_pair)
+            .unique()
+            .collect()
+    }
+
+    fn set_alphabet(&self) -> ahash::HashSet<Self::Input> {
+        self.left
+            .vec_alphabet()
+            .into_iter()
+            .chain(self.right.vec_alphabet())
+            .collect()
+    }
+
+    fn set_states(&self) -> ahash::HashSet<Self::State> {
         self.left
             .vec_states()
             .into_iter()

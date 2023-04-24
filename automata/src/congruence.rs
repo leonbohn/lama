@@ -231,6 +231,14 @@ impl<S: Symbol> TransitionSystem for RightCongruence<S> {
     fn vec_states(&self) -> Vec<Self::State> {
         self.0.vec_states()
     }
+
+    fn set_alphabet(&self) -> ahash::HashSet<Self::Input> {
+        self.0.set_alphabet()
+    }
+
+    fn set_states(&self) -> ahash::HashSet<Self::State> {
+        self.0.set_states()
+    }
 }
 
 impl<S: Symbol> Pointed for RightCongruence<S> {
@@ -300,6 +308,14 @@ impl<S: Symbol> TransitionSystem for ProgressRightCongruence<S> {
 
     fn vec_states(&self) -> Vec<Self::State> {
         self.1.vec_states()
+    }
+
+    fn set_alphabet(&self) -> ahash::HashSet<Self::Input> {
+        self.1.set_alphabet()
+    }
+
+    fn set_states(&self) -> ahash::HashSet<Self::State> {
+        self.1.set_states()
     }
 }
 

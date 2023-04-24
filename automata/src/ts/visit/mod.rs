@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{BTreeSet, VecDeque};
 
 use crate::{Pointed, Set, TransitionSystem};
 
@@ -34,17 +34,19 @@ where
 }
 
 #[derive(Debug, Clone)]
-struct VisitInfo<TS: TransitionSystem> {
+pub struct LengthLexicographic<TS: TransitionSystem> {
     ts: TS,
-    alphabet: Vec<TS::Input>,
+    alphabet: BTreeSet<TS::Input>,
     queue: VecDeque<TS::State>,
     seen: Set<TS::State>,
 }
 
-#[derive(Debug, Clone)]
-pub struct LengthLexicographic<TS: TransitionSystem>(VisitInfo<TS>);
-
-pub struct LengthLexicographicEdges<TS: TransitionSystem>(VisitInfo<TS>);
+pub struct LengthLexicographicEdges<TS: TransitionSystem> {
+    ts: TS,
+    alphabet: BTreeSet<TS::Input>,
+    queue: VecDeque<(TS::State, TS::Input)>,
+    seen: Set<TS::State>,
+}
 
 impl<TS> LengthLexicographic<TS>
 where
@@ -52,16 +54,16 @@ where
 {
     /// Creates a new `LengthLexicographic` visitor from a given state.
     pub fn new_from(ts: TS, start: TS::State) -> Self {
-        let alphabet = ts.vec_alphabet();
+        let alphabet: BTreeSet<_> = ts.set_alphabet().into_iter().collect();
         let queue = VecDeque::from([start.clone()]);
         let seen = Set::from([start]);
 
-        Self(VisitInfo {
+        Self {
             ts,
             alphabet,
             queue,
             seen,
-        })
+        }
     }
 
     /// Creates a new `LengthLexicographic` visitor from the initial state of `TS`.
@@ -80,16 +82,19 @@ where
 {
     /// Creates a new `LengthLexicographicEdges` visitor from a given state.
     pub fn new_from(ts: TS, start: TS::State) -> Self {
-        let alphabet = ts.vec_alphabet();
-        let queue = VecDeque::from([start.clone()]);
+        let alphabet: BTreeSet<_> = ts.set_alphabet().into_iter().collect();
+        let queue = alphabet
+            .iter()
+            .map(|sym| (start.clone(), sym.clone()))
+            .collect();
         let seen = Set::from([start]);
 
-        Self(VisitInfo {
+        Self {
             ts,
             alphabet,
             queue,
             seen,
-        })
+        }
     }
 
     /// Creates a new `LengthLexicographicEdges` visitor from the initial state of `TS`.
@@ -109,11 +114,11 @@ where
     type Place = TS::State;
 
     fn visit_next(&mut self) -> Option<Self::Place> {
-        if let Some(q) = self.0.queue.pop_front() {
-            for sym in &self.0.alphabet {
-                if let Some(successor) = self.0.ts.succ(&q, sym) {
-                    if self.0.seen.insert(successor.clone()) {
-                        self.0.queue.push_back(successor);
+        if let Some(q) = self.queue.pop_front() {
+            for sym in &self.alphabet {
+                if let Some(successor) = self.ts.succ(&q, sym) {
+                    if self.seen.insert(successor.clone()) {
+                        self.queue.push_back(successor);
                     }
                 }
             }
@@ -131,12 +136,29 @@ where
     type Place = TransitionOf<TS>;
 
     fn visit_next(&mut self) -> Option<Self::Place> {
-        todo!()
+        if let Some((q, sym)) = self.queue.pop_front() {
+            if let Some(successor) = self.ts.succ(&q, &sym) {
+                if self.seen.insert(successor.clone()) {
+                    self.queue.extend(
+                        self.alphabet
+                            .iter()
+                            .map(|sym| (successor.clone(), sym.clone())),
+                    );
+                }
+                Some((q, sym, successor))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use tracing_test::traced_test;
+
     use crate::{ts::Visitor, TransitionSystem};
 
     #[test]

@@ -7,6 +7,7 @@ mod initialized;
 mod transition;
 mod visit;
 
+use ahash::HashSet;
 use impl_tools::autoimpl;
 use owo_colors::OwoColorize;
 use tabled::{builder::Builder, settings::Style};
@@ -89,6 +90,11 @@ pub trait TransitionSystem {
 
     /// Returns the set of all symbols of the transition system. This is costly.
     fn vec_states(&self) -> Vec<Self::State>;
+
+    /// Returns the set of all states of the transition system. This is costly.
+    fn set_alphabet(&self) -> HashSet<Self::Input>;
+    /// Returns the set of all symbols of the transition system. This is costly.
+    fn set_states(&self) -> HashSet<Self::State>;
 
     /// Builds a string representation of the transition table of the transition system.
     /// For this, the [`tabled`] crate is used.

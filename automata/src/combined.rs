@@ -132,6 +132,14 @@ impl<TS: TransitionSystem, Acc> TransitionSystem for Combined<TS, Acc> {
     fn vec_states(&self) -> Vec<Self::State> {
         self.ts.vec_states()
     }
+
+    fn set_alphabet(&self) -> ahash::HashSet<Self::Input> {
+        self.ts.set_alphabet()
+    }
+
+    fn set_states(&self) -> ahash::HashSet<Self::State> {
+        self.ts.set_states()
+    }
 }
 
 impl<TS: TransitionSystem, Acc: AcceptanceCondition> AcceptanceCondition for Combined<TS, Acc> {
