@@ -1,5 +1,5 @@
 use super::table::Table;
-use automata::{Class, Pointed, Symbol, WithOutput};
+use automata::Symbol;
 
 use super::oracle::Oracle;
 
@@ -69,7 +69,7 @@ mod tests {
             count_a % 2 == 0 && count_b % 2 == 0
         }
 
-        fn equivalence<M: Pointed + WithOutput<Input = Self::Input, Output = Self::Output>>(
+        fn equivalence<M: Pointed + WithOutput<Sigma = Self::Input, Output = Self::Output>>(
             &mut self,
             hypothesis: &M,
         ) -> Result<(), automata::Class<Self::Input>> {
@@ -93,7 +93,7 @@ mod tests {
             word.length() % 3
         }
 
-        fn equivalence<M: Pointed + WithOutput<Input = Self::Input, Output = Self::Output>>(
+        fn equivalence<M: Pointed + WithOutput<Sigma = Self::Input, Output = Self::Output>>(
             &mut self,
             hypothesis: &M,
         ) -> Result<(), Class<Self::Input>> {
@@ -109,10 +109,9 @@ mod tests {
         }
     }
 
-    #[traced_test]
     #[test]
     fn lstar_word_len_mod_3() {
-        let mut oracle = WordLenModThree();
+        let oracle = WordLenModThree();
         let mut lstar = super::LStar::new(oracle, vec!['a', 'b']);
 
         lstar.close();
@@ -120,12 +119,10 @@ mod tests {
 
         println!("{}", lstar.table.to_hypothesis().unwrap());
     }
-
-    #[traced_test]
     #[test]
     fn lstar_even_a_even_b() {
         let mut oracle = EvenAEvenB();
-        assert_eq!(oracle.output(&automata::Class::from("aa")), true);
+        assert!(oracle.output(&automata::Class::from("aa")));
 
         let mut lstar = super::LStar::new(oracle, vec!['a', 'b']);
         println!("{}", lstar.table);

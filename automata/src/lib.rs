@@ -24,9 +24,8 @@ pub mod ts;
 use itertools::Itertools;
 use ts::SymbolOf;
 pub use ts::{
-    AnonymousGrowable, Deterministic, Growable, InitializedDeterministic, IntoStateReferences,
-    Pointed, Shrinkable, StateIndex, StateIterable, Transition, TransitionIterable,
-    TransitionSystem, Trigger, TriggerIterable,
+    AnonymousGrowable, Deterministic, Growable, IntoStateReferences, Pointed, Shrinkable,
+    StateIndex, Transition, TransitionIterable, TransitionSystem, Trigger, TriggerIterable,
 };
 
 mod display;

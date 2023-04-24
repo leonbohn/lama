@@ -151,8 +151,20 @@ where
     }
 
     pub fn step(&mut self) -> GlercSignal<S> {
+        trace!("Starting iteration {}", self.iteration);
         let (new_status, result) = match &self.get_status() {
             GlercIterationStatus::TryInsertion(from, on, states, index) => {
+                trace!(
+                    "Trying insertion of {} -> {} at index {}, stateslist: [{}]",
+                    from,
+                    on,
+                    index,
+                    states
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
                 if let Some(target) = states.get(*index) {
                     self.cong.add_transition(from, on.clone(), target);
                     let success = {
@@ -160,6 +172,12 @@ where
                         let info = self.get_info();
                         self.constraint.satisfied(&info).is_ok()
                     };
+                    trace!(
+                        "Insertion {} -> {} {}",
+                        from,
+                        on,
+                        if success { "succeeded" } else { "failed" }
+                    );
                     if success {
                         (
                             GlercIterationStatus::FindMissing,

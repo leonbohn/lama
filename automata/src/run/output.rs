@@ -9,7 +9,7 @@ pub trait RunWithOutput<TS: WithOutput + ?Sized, K>: Run<TS, K> {
         &self,
         on: &TS,
         from: StateOf<TS>,
-    ) -> Result<Self::Output, EscapePrefix<TS::State, Self>>
+    ) -> Result<Self::Output, EscapePrefix<StateOf<TS>, Self>>
     where
         Self: Sized;
 }

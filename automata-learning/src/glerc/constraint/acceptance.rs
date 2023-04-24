@@ -2,6 +2,7 @@ use automata::{
     congruence::CongruenceTrigger, run::Run, BuchiCondition, RightCongruence, Set, Subword, Symbol,
     TriggerIterable, Word,
 };
+use tracing::trace;
 
 use crate::{acceptance::AcceptanceError, glerc::state::GlercInfo};
 
@@ -21,6 +22,7 @@ impl<S: Symbol, X: Eq> Constraint<S, X> for ReachabilityConstraint {
         info: &'s GlercInfo<'s, S, W>,
     ) -> Result<(), ConstraintError<'s, S, W>> {
         EscapeSeparabilityConstraint.satisfied(info)?;
+        trace!("Escape separability constraint satisfied");
         InducedSeparabilityConstraint.satisfied(info)
     }
 }

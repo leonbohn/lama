@@ -9,7 +9,8 @@ use owo_colors::OwoColorize;
 use tabled::{builder::Builder, settings::Style};
 
 use crate::{
-    BuchiCondition, Combined, Map, OmegaCondition, ParityCondition, StateIterable, TransitionSystem,
+    ts::{HasStates, StateOf},
+    BuchiCondition, Combined, Map, OmegaCondition, ParityCondition, TransitionSystem,
 };
 
 pub trait Annotates<X, Y> {
@@ -17,11 +18,11 @@ pub trait Annotates<X, Y> {
 }
 
 pub trait DisplayState: TransitionSystem {
-    fn display_state(&self, state: &Self::State) -> String;
+    fn display_state(&self, state: &Self::Q) -> String;
 }
 
 pub trait DisplaySymbol: TransitionSystem {
-    fn display_symbol(&self, sym: &Self::Input) -> String;
+    fn display_symbol(&self, sym: &Self::Sigma) -> String;
 }
 
 impl<X, Y> Annotates<X, Y> for BuchiCondition<(X, Y)>
@@ -71,15 +72,15 @@ where
 impl<TS> DisplayState for TS
 where
     TS: TransitionSystem,
-    TS::State: Display,
+    TS::Q: Display,
 {
-    fn display_state(&self, state: &Self::State) -> String {
+    fn display_state(&self, state: &Self::Q) -> String {
         format!("{}", state.blue())
     }
 }
 
 impl<TS: TransitionSystem> DisplaySymbol for TS {
-    fn display_symbol(&self, sym: &Self::Input) -> String {
+    fn display_symbol(&self, sym: &Self::Sigma) -> String {
         format!("{}", sym.italic().purple())
     }
 }
@@ -99,16 +100,14 @@ where
     }
 }
 
-impl<
-        Acc: Annotates<TS::State, TS::Input>,
-        TS: TransitionSystem + StateIterable + DisplayState + DisplaySymbol,
-    > Display for Combined<TS, Acc>
+impl<Acc: Annotates<TS::Q, TS::Sigma>, TS: TransitionSystem + DisplayState + DisplaySymbol> Display
+    for Combined<TS, Acc>
 where
-    <TS as TransitionSystem>::State: Display,
+    StateOf<TS>: Display,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = Builder::default();
-        let alphabet = self.ts().vec_alphabet().into_iter().sorted().collect_vec();
+        let alphabet = self.ts().input_alphabet().cloned().sorted().collect_vec();
         builder.set_header(
             vec!["δ".bright_yellow().to_string()].into_iter().chain(
                 alphabet
@@ -117,7 +116,7 @@ where
                     .collect::<Vec<String>>(),
             ),
         );
-        for state in self.states_iter().sorted() {
+        for state in self.states().sorted() {
             let mut row = vec![state.to_string().blue().bold().to_string()];
             for sym in &alphabet {
                 if let Some(target) = self.ts().succ(state, sym) {

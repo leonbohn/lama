@@ -80,13 +80,13 @@ pub trait Walk<'ts, 'w, W: 'w>: TransitionSystem + Sized {
     type Walker;
 
     /// Creates a new [`Self::Walker`] that starts at the given state and consumes the given word.
-    fn walk(&'ts self, from: Self::State, word: &'w W) -> Self::Walker;
+    fn walk(&'ts self, from: Self::Q, word: &'w W) -> Self::Walker;
 }
 
-impl<'ts, 'w, TS: TransitionSystem + 'ts, W: Word<S = TS::Input> + 'w> Walk<'ts, 'w, W> for TS {
+impl<'ts, 'w, TS: TransitionSystem + 'ts, W: Word<S = TS::Sigma> + 'w> Walk<'ts, 'w, W> for TS {
     type Walker = Walker<'ts, 'w, W, TS>;
 
-    fn walk(&'ts self, from: Self::State, word: &'w W) -> Self::Walker {
+    fn walk(&'ts self, from: Self::Q, word: &'w W) -> Self::Walker {
         Walker::new(self, word, from)
     }
 }

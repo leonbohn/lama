@@ -1,7 +1,7 @@
 use crate::{
     acceptance::AcceptanceCondition,
     run::{Configuration, Evaluate},
-    ts::{Pointed, TransitionSystem},
+    ts::{Pointed, SymbolOf, TransitionSystem},
     Word,
 };
 
@@ -18,14 +18,14 @@ pub trait Acceptor {
     where
         Configuration<&'t Self::TS, W>:
             Evaluate<Output = <Self::Acc as AcceptanceCondition>::Induced>,
-        W: Word<S = <Self::TS as TransitionSystem>::Input>;
+        W: Word<S = SymbolOf<Self::TS>>;
 
     /// Returns the opposite of `accepts`.
     fn rejects<'t, W>(&'t self, on: W) -> bool
     where
         Configuration<&'t Self::TS, W>:
             Evaluate<Output = <Self::Acc as AcceptanceCondition>::Induced>,
-        W: Word<S = <Self::TS as TransitionSystem>::Input>,
+        W: Word<S = SymbolOf<Self::TS>>,
     {
         !self.accepts(on)
     }
@@ -44,7 +44,7 @@ where
     where
         Configuration<&'t Self::TS, W>:
             Evaluate<Output = <Self::Acc as AcceptanceCondition>::Induced>,
-        W: Word<S = <Self::TS as TransitionSystem>::Input>,
+        W: Word<S = SymbolOf<Self::TS>>,
     {
         matches!(self.0.run_word_from(on, self.0.initial()).evaluate(), Ok(_))
     }
@@ -61,7 +61,7 @@ where
     where
         Configuration<&'t Self::TS, W>:
             Evaluate<Output = <Self::Acc as AcceptanceCondition>::Induced>,
-        W: Word<S = <Self::TS as TransitionSystem>::Input>,
+        W: Word<S = SymbolOf<Self::TS>>,
     {
         match self.run_word_from(on, self.initial()).evaluate() {
             Ok(induced) => self.is_accepting(&induced),

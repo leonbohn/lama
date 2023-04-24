@@ -103,6 +103,7 @@ impl<S: Symbol, X> Constraint<S, X> for EmptyConstraint {
 mod tests {
 
     use automata::{ts::Trivial, upw, Class, Growable, Pointed, RightCongruence};
+    use tracing_test::traced_test;
 
     use crate::{
         glerc::{constraint::ReachabilityConstraint, state::GlercState, GlercSignal},

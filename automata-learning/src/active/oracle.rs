@@ -20,7 +20,7 @@ pub trait Oracle {
     /// Test the given hypothesis for equivalence, returning `Ok(())` if it is equivalent and `Err(word)` otherwise.
     /// In the latter case, `word` is a counterexample from the symmetric difference of the target and the hypothesis,
     /// meaning it produces a different output in the hypothesis compared to the target.
-    fn equivalence<M: Pointed + WithOutput<Input = Self::Input, Output = Self::Output>>(
+    fn equivalence<M: Pointed + WithOutput<Sigma = Self::Input, Output = Self::Output>>(
         &mut self,
         hypothesis: &M,
     ) -> Result<(), Class<Self::Input>>;
@@ -34,7 +34,7 @@ impl<Q: StateIndex, S: Symbol> Oracle for Dfa<Q, S> {
         self.accepts(word)
     }
 
-    fn equivalence<M: WithOutput>(&mut self, hypothesis: &M) -> Result<(), Class<S>> {
+    fn equivalence<M: WithOutput>(&mut self, _hypothesis: &M) -> Result<(), Class<S>> {
         todo!()
     }
 }
@@ -74,7 +74,7 @@ impl<O: Oracle> Oracle for MemorizingOracle<O> {
         result
     }
 
-    fn equivalence<M: Pointed + WithOutput<Input = Self::Input, Output = Self::Output>>(
+    fn equivalence<M: Pointed + WithOutput<Sigma = Self::Input, Output = Self::Output>>(
         &mut self,
         hypothesis: &M,
     ) -> Result<(), Class<Self::Input>> {

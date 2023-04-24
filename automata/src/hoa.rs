@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, hash::Hash};
 
 use hoars::{
     AcceptanceAtom, AcceptanceCondition, AcceptanceInfo, AcceptanceName, AcceptanceSignature, Edge,
@@ -8,6 +8,7 @@ use hoars::{
 use tracing::{debug, info, trace};
 
 use crate::{
+    ts::{HasInput, HasStates},
     BuchiCondition, Combined, Dba, Deterministic, Dpa, Growable, HasAlphabet, Mapping,
     OmegaAutomaton, OmegaCondition, ParityCondition, Pointed, Set, Symbol, TransitionSystem,
 };
@@ -110,16 +111,16 @@ where
 
 impl<I, TS, Acc> ToHoa for Combined<TS, Acc>
 where
-    I: ToHoaLabel + Clone,
-    TS: TransitionSystem<Input = I> + HasAlphabet,
-    Acc: ToHoaAcceptance<Trigger = (TS::State, TS::Input)>,
+    I: ToHoaLabel + Clone + Eq + Hash,
+    TS: TransitionSystem<Sigma = I> + HasAlphabet,
+    Acc: ToHoaAcceptance<Trigger = (TS::Q, TS::Sigma)>,
 {
     fn to_hoa(&self) -> HoaAutomaton {
         let mut hoa = HoaAutomaton::default();
-        let mut states = self.vec_states();
+        let mut states = self.states().collect::<Vec<_>>();
         states.sort();
 
-        let alphabet = self.vec_alphabet();
+        let alphabet = self.input_alphabet().collect::<Set<_>>();
 
         hoa.add_header_item(HeaderItem::Version("v1".to_string()));
         hoa.add_header_item(HeaderItem::States(states.len() as Id));
@@ -144,12 +145,12 @@ where
             let mut edges = Vec::new();
             for sym in &alphabet {
                 if let Some(target) = self.succ(state, sym) {
-                    let target_id = idx.iter().find(|(_, s)| s == &target).unwrap().0;
+                    let target_id = idx.iter().find(|(_, s)| *s == &target).unwrap().0;
                     let edge = Edge::from_parts(
                         sym.to_hoa_symbol(max_ap),
                         StateConjunction::singleton(target_id as Id),
                         self.acceptance()
-                            .acceptance_signature(&(state.clone(), sym.clone())),
+                            .acceptance_signature(&((*state).clone(), (*sym).clone())),
                     );
                     edges.push(edge);
                 }
@@ -158,7 +159,7 @@ where
             hoa.add_state(state);
         }
 
-        let initial_id = idx.iter().find(|(_, s)| s == &self.initial()).unwrap().0;
+        let initial_id = idx.iter().find(|(_, s)| *s == &self.initial()).unwrap().0;
         hoa.add_header_item(HeaderItem::Start(StateConjunction::singleton(
             initial_id as u32,
         )));
@@ -382,6 +383,7 @@ mod tests {
              --END--
              "#;
         let hoa_aut = HoaAutomaton::try_from(contents);
+        println!("HOA");
         let aut: Result<Combined<_, BuchiCondition<_>>, _> =
             super::Combined::try_from(hoa_aut.unwrap());
         println!("{}", aut.unwrap());

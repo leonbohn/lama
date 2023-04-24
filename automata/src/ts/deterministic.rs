@@ -1,11 +1,11 @@
 use itertools::Itertools;
 use tabled::{builder::Builder, settings::Style};
 
-use crate::{AnonymousGrowable, Map, Pointed, Set, Symbol};
+use crate::{AnonymousGrowable, Map, Set, Symbol};
 
 use super::{
-    Growable, Shrinkable, StateIndex, StateIterable, SymbolOf, TransitionSystem, TriggerIterable,
-    Trivial,
+    Growable, HasInput, HasStates, Shrinkable, StateIndex, StateOf, SymbolOf, TransitionOf,
+    TransitionSystem, TriggerIterable, Trivial,
 };
 
 use std::{
@@ -20,26 +20,38 @@ pub struct Deterministic<Q: StateIndex = u32, S: Symbol = char> {
     pub(crate) edges: Map<(Q, S), Q>,
 }
 
-/// Stores a [`Deterministic`] transition system with an initial state.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct InitializedDeterministic<Q: StateIndex = u32, S: Symbol = char> {
-    pub(crate) det: Deterministic<Q, S>,
-    pub(crate) initial: Q,
-}
+impl<Q: StateIndex, S: Symbol> HasStates for Deterministic<Q, S> {
+    type Q = Q;
 
-impl<Q: StateIndex, S: Symbol> StateIterable for Deterministic<Q, S> {
-    type StateIter<'me> = std::collections::hash_set::Iter<'me, Q> where Q: 'me, S: 'me;
+    type States<'me> = std::collections::hash_set::Iter<'me, Q>
+    where Self:'me;
 
-    fn states_iter(&self) -> Self::StateIter<'_> {
+    fn states_iter(&self) -> Self::States<'_> {
         self.states.iter()
     }
 }
 
-impl<Q: StateIndex, S: Symbol> From<(Deterministic<Q, S>, Q)> for InitializedDeterministic<Q, S> {
-    fn from(value: (Deterministic<Q, S>, Q)) -> Self {
-        Self {
-            det: value.0,
-            initial: value.1,
+pub struct DeterministicAlphabetIter<'a, Q: StateIndex, S: Symbol> {
+    iter: std::collections::hash_map::Iter<'a, (Q, S), Q>,
+}
+
+impl<'a, Q: StateIndex, S: Symbol> Iterator for DeterministicAlphabetIter<'a, Q, S> {
+    type Item = &'a S;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|((_, s), _)| s)
+    }
+}
+
+impl<Q: StateIndex, S: Symbol> HasInput for Deterministic<Q, S> {
+    type Sigma = S;
+
+    type Input<'me> = DeterministicAlphabetIter<'me, Q, S>
+    where Self:'me;
+
+    fn input_alphabet_iter(&self) -> Self::Input<'_> {
+        DeterministicAlphabetIter {
+            iter: self.edges.iter(),
         }
     }
 }
@@ -50,6 +62,16 @@ impl<Q: StateIndex, S: Symbol> Deterministic<Q, S> {
         Self {
             edges: Map::new(),
             states: Set::new(),
+        }
+    }
+}
+
+impl<Q: StateIndex, S: Symbol> FromIterator<TransitionOf<Self>> for Deterministic<Q, S> {
+    fn from_iter<T: IntoIterator<Item = TransitionOf<Self>>>(iter: T) -> Self {
+        let (it, er) = iter.into_iter().tee();
+        Self {
+            states: it.map(|(q, _, _)| q).collect(),
+            edges: er.map(|(q, a, p)| ((q, a), p)).collect(),
         }
     }
 }
@@ -88,82 +110,11 @@ where
     S: Symbol,
     Q: StateIndex,
 {
-    type State = Q;
-    type Input = S;
-
-    fn succ(&self, from: &Self::State, on: &Self::Input) -> Option<Self::State> {
+    fn succ(&self, from: &StateOf<Self>, on: &Self::Sigma) -> Option<StateOf<Self>> {
         self.edges
             .iter()
             .find(|((f, s), _)| f == from && s == on)
             .map(|((_, _), t)| t.clone())
-    }
-
-    fn vec_alphabet(&self) -> Vec<Self::Input> {
-        self.edges
-            .iter()
-            .map(|((_, s), _)| s.clone())
-            .unique()
-            .collect()
-    }
-
-    fn vec_states(&self) -> Vec<Self::State> {
-        self.states.iter().cloned().unique().collect()
-    }
-
-    fn set_alphabet(&self) -> ahash::HashSet<Self::Input> {
-        self.edges.iter().map(|((_, s), _)| s.clone()).collect()
-    }
-
-    fn set_states(&self) -> ahash::HashSet<Self::State> {
-        self.states.iter().cloned().collect()
-    }
-}
-
-impl<S, Q> TransitionSystem for InitializedDeterministic<Q, S>
-where
-    S: Symbol,
-    Q: StateIndex,
-{
-    type State = Q;
-    type Input = S;
-
-    fn succ(&self, from: &Self::State, on: &Self::Input) -> Option<Self::State> {
-        self.det.succ(from, on)
-    }
-
-    fn vec_alphabet(&self) -> Vec<Self::Input> {
-        self.det.vec_alphabet()
-    }
-
-    fn vec_states(&self) -> Vec<Self::State> {
-        self.det.vec_states()
-    }
-
-    fn set_alphabet(&self) -> ahash::HashSet<Self::Input> {
-        self.det.set_alphabet()
-    }
-
-    fn set_states(&self) -> ahash::HashSet<Self::State> {
-        self.det.set_states()
-    }
-}
-
-impl<Q: StateIndex + From<u32>> Trivial for InitializedDeterministic<Q> {
-    fn trivial() -> Self {
-        Self {
-            det: Deterministic::trivial(),
-            initial: 0.into(),
-        }
-    }
-}
-
-impl<S, Q> Pointed for InitializedDeterministic<Q, S>
-where
-    S: Symbol,
-    Q: StateIndex,
-{
-    fn initial(&self) -> Self::State {
-        self.initial.clone()
     }
 }
 
@@ -181,49 +132,6 @@ impl<'a, Q: StateIndex> Iterator for StateIter<'a, Q> {
     }
 }
 
-impl<Q, S> StateIterable for InitializedDeterministic<Q, S>
-where
-    Q: StateIndex,
-    S: Symbol,
-{
-    type StateIter<'me> = StateIter<'me, Q> where Q: 'me, S: 'me;
-
-    fn states_iter(&self) -> Self::StateIter<'_> {
-        StateIter {
-            iter: self.det.states.iter(),
-        }
-    }
-}
-
-// impl<'a, Q: StateIndex, S: Symbol> TransitionIterable for &'a Deterministic<Q, S> {
-//     type TransitionRef = (Q, S, Q);
-//     type TransitionIter = std::iter::Map<
-//         std::collections::hash_map::Iter<'a, (Q, S), Q>,
-//         fn((&(Q, S), &Q)) -> (Q, S, Q),
-//     >;
-
-//     fn edges_iter(&self) -> Self::TransitionIter {
-//         self.edges
-//             .iter()
-//             .map(|((p, a), q)| (p.clone(), a.clone(), q.clone()))
-//     }
-// }
-
-// impl<'a, Q: StateIndex, S: Symbol> TransitionIterable for &'a InitializedDeterministic<Q, S> {
-//     type TransitionRef = (Q, S, Q);
-//     type TransitionIter = std::iter::Map<
-//         std::collections::hash_map::Iter<'a, (Q, S), Q>,
-//         fn((&(Q, S), &Q)) -> (Q, S, Q),
-//     >;
-
-//     fn edges_iter(&self) -> Self::TransitionIter {
-//         self.det
-//             .edges
-//             .iter()
-//             .map(|((p, a), q)| (p.clone(), a.clone(), q.clone()))
-//     }
-// }
-
 impl<Q: StateIndex, S: Symbol> TriggerIterable for Deterministic<Q, S> {
     type TriggerIter<'me> = std::collections::hash_map::Keys<'me, (Q, S), Q> where Q: 'me, S: 'me;
 
@@ -232,20 +140,12 @@ impl<Q: StateIndex, S: Symbol> TriggerIterable for Deterministic<Q, S> {
     }
 }
 
-impl<Q: StateIndex, S: Symbol> TriggerIterable for InitializedDeterministic<Q, S> {
-    type TriggerIter<'me> = std::collections::hash_map::Keys<'me, (Q, S), Q> where Q: 'me, S: 'me;
-
-    fn triggers_iter(&self) -> Self::TriggerIter<'_> {
-        self.det.triggers_iter()
-    }
-}
-
 impl<Q, S> Growable for Deterministic<Q, S>
 where
     Q: StateIndex,
     S: Symbol,
 {
-    fn add_state(&mut self, state: &Self::State) -> bool {
+    fn add_state(&mut self, state: &StateOf<Self>) -> bool {
         self.states.insert(state.clone())
     }
 
@@ -260,31 +160,12 @@ where
     }
 }
 
-impl<Q, S> Growable for InitializedDeterministic<Q, S>
-where
-    Q: StateIndex,
-    S: Symbol,
-{
-    fn add_state(&mut self, state: &Self::State) -> bool {
-        self.det.add_state(state)
-    }
-
-    fn add_transition<X: Borrow<Self::State>, Y: Borrow<Self::State>>(
-        &mut self,
-        from: X,
-        on: SymbolOf<Self>,
-        to: Y,
-    ) -> Option<Self::State> {
-        self.det.add_transition(from, on, to)
-    }
-}
-
 impl<S, Q> Shrinkable for Deterministic<Q, S>
 where
     Q: StateIndex,
     S: Symbol,
 {
-    fn remove_state(&mut self, state: Self::State) -> Option<Self::State> {
+    fn remove_state(&mut self, state: StateOf<Self>) -> Option<StateOf<Self>> {
         if self.states.remove(&state) {
             Some(state)
         } else {
@@ -294,28 +175,10 @@ where
 
     fn remove_transition(
         &mut self,
-        from: Self::State,
+        from: StateOf<Self>,
         on: super::SymbolOf<Self>,
-    ) -> Option<Self::State> {
+    ) -> Option<StateOf<Self>> {
         self.edges.remove(&(from, on))
-    }
-}
-
-impl<S, Q> Shrinkable for InitializedDeterministic<Q, S>
-where
-    Q: StateIndex,
-    S: Symbol,
-{
-    fn remove_state(&mut self, state: Self::State) -> Option<Self::State> {
-        self.det.remove_state(state)
-    }
-
-    fn remove_transition(
-        &mut self,
-        from: Self::State,
-        on: super::SymbolOf<Self>,
-    ) -> Option<Self::State> {
-        self.det.remove_transition(from, on)
     }
 }
 
@@ -324,23 +187,8 @@ where
     Q: StateIndex + From<u32>,
     S: Symbol,
 {
-    fn add_new_state(&mut self) -> Self::State {
+    fn add_new_state(&mut self) -> StateOf<Self> {
         let new_id: Q = (self.states.len() as u32).into();
-        if self.add_state(&new_id) {
-            new_id
-        } else {
-            panic!("Failed to add new state")
-        }
-    }
-}
-
-impl<S, Q> AnonymousGrowable for InitializedDeterministic<Q, S>
-where
-    Q: StateIndex + From<u32>,
-    S: Symbol,
-{
-    fn add_new_state(&mut self) -> Self::State {
-        let new_id: Q = (self.det.states.len() as u32).into();
         if self.add_state(&new_id) {
             new_id
         } else {
@@ -352,7 +200,7 @@ where
 impl<S: Symbol, Q: StateIndex + Display> Display for Deterministic<Q, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = Builder::default();
-        let alphabet = self.vec_alphabet().into_iter().sorted().collect_vec();
+        let alphabet = self.input_alphabet().sorted().collect_vec();
         builder.set_header(
             vec!["Deterministic".to_string()].into_iter().chain(
                 alphabet
@@ -361,7 +209,7 @@ impl<S: Symbol, Q: StateIndex + Display> Display for Deterministic<Q, S> {
                     .collect::<Vec<String>>(),
             ),
         );
-        for state in self.vec_states().iter().sorted() {
+        for state in self.states().sorted() {
             let mut row = vec![state.to_string()];
             for sym in &alphabet {
                 row.push(if let Some(successor) = self.succ(state, sym) {
@@ -375,11 +223,5 @@ impl<S: Symbol, Q: StateIndex + Display> Display for Deterministic<Q, S> {
         let mut transition_table = builder.build();
         transition_table.with(Style::psql());
         write!(f, "{}", transition_table)
-    }
-}
-
-impl<S: Symbol, Q: StateIndex + Display> Display for InitializedDeterministic<Q, S> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}\nwith initial state: {}", self.det, self.initial)
     }
 }

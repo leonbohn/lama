@@ -1,10 +1,10 @@
 use std::{borrow::Borrow, fmt::Display, ops::Add};
 
 use crate::{
-    ts::{SymbolOf, Trivial},
+    ts::{HasStates, SymbolOf, Trivial, HasInput, deterministic::{DeterministicAlphabetIter}, StateOf},
     words::IsFinite,
-    Deterministic, FiniteKind, Growable, InitializedDeterministic, Map, Pointed, Shrinkable,
-    StateIterable, Str, Subword, Symbol, TransitionSystem, TriggerIterable, Word,
+    Deterministic, FiniteKind, Growable, Map, Pointed, Shrinkable,
+     Str, Subword, Symbol, TransitionSystem, TriggerIterable, Word,
 };
 use itertools::Itertools;
 
@@ -189,13 +189,15 @@ pub type CongruenceTrigger<S> = (Class<S>, S);
 
 /// Represents a right congruence relation, which is in essence just a deterministic transition system. The only notable difference is that a right congruence per default encodes an initial state, namely that belonging to the epsilon class (see [`Class::epsilon`]]).
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct RightCongruence<S: Symbol = char>(InitializedDeterministic<Class<S>, S>);
+pub struct RightCongruence<S: Symbol = char>(Deterministic<Class<S>, S>, Class<S>);
 
-impl<S: Symbol> StateIterable for RightCongruence<S> {
-    type StateIter<'me> = std::collections::hash_set::Iter<'me, Class<S>> where S: 'me;
+impl<S: Symbol> HasStates for RightCongruence<S> {
+    type Q = Class<S>;
 
-    fn states_iter(&self) -> Self::StateIter<'_> {
-        self.0.det.states.iter()
+    type States<'me> = std::collections::hash_set::Iter<'me, Self::Q> where S: 'me;
+
+    fn states_iter(&self) -> Self::States<'_> {
+        self.0.states_iter()
     }
 }
 
@@ -206,43 +208,33 @@ impl<S: Symbol> RightCongruence<S> {
         let mut ts = Deterministic::new();
         let eps = Class::epsilon();
         ts.add_state(&eps);
-        Self((ts, eps).into())
+        RightCongruence(ts, eps)
     }
 
     /// Iterates over the classes/states of a right congruence in canonical order (i.e. in the order that they were created/inserted).
     pub fn states_canonical(&self) -> impl Iterator<Item = &Class<S>> + '_ {
-        self.states_iter().sorted()
+        self.states().sorted()
+    }
+}
+
+impl<S: Symbol> HasInput for RightCongruence<S> {
+    type Sigma = S;
+
+    type Input<'me> = DeterministicAlphabetIter<'me, StateOf<Self>, S> where Self:'me;
+
+    fn input_alphabet_iter(&self) -> Self::Input<'_> {
+        self.0.input_alphabet_iter()
     }
 }
 
 impl<S: Symbol> TransitionSystem for RightCongruence<S> {
-    type State = Class<S>;
-
-    type Input = S;
-
-    fn succ(&self, from: &Self::State, on: &Self::Input) -> Option<Self::State> {
+    fn succ(&self, from: &Self::Q, on: &Self::Sigma) -> Option<Self::Q> {
         self.0.succ(from, on)
-    }
-
-    fn vec_alphabet(&self) -> Vec<Self::Input> {
-        self.0.vec_alphabet()
-    }
-
-    fn vec_states(&self) -> Vec<Self::State> {
-        self.0.vec_states()
-    }
-
-    fn set_alphabet(&self) -> ahash::HashSet<Self::Input> {
-        self.0.set_alphabet()
-    }
-
-    fn set_states(&self) -> ahash::HashSet<Self::State> {
-        self.0.set_states()
     }
 }
 
 impl<S: Symbol> Pointed for RightCongruence<S> {
-    fn initial(&self) -> Self::State {
+    fn initial(&self) -> Self::Q {
         Class::epsilon()
     }
 }
@@ -251,31 +243,31 @@ impl<S: Symbol> Trivial for RightCongruence<S> {
     fn trivial() -> Self {
         let mut det = Deterministic::new();
         det.add_state(&Class::epsilon());
-        Self((det, Class::epsilon()).into())
+        Self(det, Class::epsilon())
     }
 }
 
 impl<S: Symbol> Growable for RightCongruence<S> {
-    fn add_state(&mut self, state: &Self::State) -> bool {
+    fn add_state(&mut self, state: &Self::Q) -> bool {
         self.0.add_state(state)
     }
 
-    fn add_transition<X: std::borrow::Borrow<Self::State>, Y: std::borrow::Borrow<Self::State>>(
+    fn add_transition<X: std::borrow::Borrow<Self::Q>, Y: std::borrow::Borrow<Self::Q>>(
         &mut self,
         from: X,
         on: SymbolOf<Self>,
         to: Y,
-    ) -> Option<Self::State> {
+    ) -> Option<Self::Q> {
         self.0.add_transition(from, on, to)
     }
 }
 
 impl<S: Symbol> Shrinkable for RightCongruence<S> {
-    fn remove_state(&mut self, state: Self::State) -> Option<Self::State> {
+    fn remove_state(&mut self, state: Self::Q) -> Option<Self::Q> {
         self.0.remove_state(state)
     }
 
-    fn remove_transition(&mut self, from: Self::State, on: SymbolOf<Self>) -> Option<Self::State> {
+    fn remove_transition(&mut self, from: Self::Q, on: SymbolOf<Self>) -> Option<Self::Q> {
         self.0.remove_transition(from, on)
     }
 }
@@ -284,7 +276,7 @@ impl<S: Symbol> TriggerIterable for RightCongruence<S> {
     type TriggerIter<'me> = std::collections::hash_map::Keys<'me, CongruenceTrigger<S>, Class<S>> where  S: 'me;
 
     fn triggers_iter(&self) -> Self::TriggerIter<'_> {
-        self.0.det.triggers_iter()
+        self.0.triggers_iter()
     }
 }
 
@@ -293,43 +285,46 @@ impl<S: Symbol> TriggerIterable for RightCongruence<S> {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ProgressRightCongruence<S: Symbol>(Class<S>, RightCongruence<S>);
 
+impl<S: Symbol> HasStates for ProgressRightCongruence<S> {
+    type Q = Class<S>;
+
+    type States<'me> = std::collections::hash_set::Iter<'me, Self::Q> 
+    where
+        Self: 'me;
+
+    fn states_iter(&self) -> Self::States<'_> {
+        self.1.states_iter()
+    }
+}
+
+impl<S: Symbol> HasInput for ProgressRightCongruence<S> {
+    type Sigma = S;
+
+    type Input<'me> = DeterministicAlphabetIter<'me, StateOf<Self>, S>
+    where Self:'me;
+
+    fn input_alphabet_iter(&self) -> Self::Input<'_> {
+        self.1.input_alphabet_iter()
+    }
+}
+
 impl<S: Symbol> TransitionSystem for ProgressRightCongruence<S> {
-    type State = Class<S>;
-
-    type Input = S;
-
-    fn succ(&self, from: &Self::State, on: &Self::Input) -> Option<Self::State> {
+    fn succ(&self, from: &Self::Q, on: &Self::Sigma) -> Option<Self::Q> {
         self.1.succ(from, on)
-    }
-
-    fn vec_alphabet(&self) -> Vec<Self::Input> {
-        self.1.vec_alphabet()
-    }
-
-    fn vec_states(&self) -> Vec<Self::State> {
-        self.1.vec_states()
-    }
-
-    fn set_alphabet(&self) -> ahash::HashSet<Self::Input> {
-        self.1.set_alphabet()
-    }
-
-    fn set_states(&self) -> ahash::HashSet<Self::State> {
-        self.1.set_states()
     }
 }
 
 impl<S: Symbol> Growable for ProgressRightCongruence<S> {
-    fn add_state(&mut self, state: &Self::State) -> bool {
+    fn add_state(&mut self, state: &Self::Q) -> bool {
         self.1.add_state(state)
     }
 
-    fn add_transition<X: std::borrow::Borrow<Self::State>, Y: std::borrow::Borrow<Self::State>>(
+    fn add_transition<X: std::borrow::Borrow<Self::Q>, Y: std::borrow::Borrow<Self::Q>>(
         &mut self,
         from: X,
         on: SymbolOf<Self>,
         to: Y,
-    ) -> Option<Self::State> {
+    ) -> Option<Self::Q> {
         self.1.add_transition(from, on, to)
     }
 }
@@ -352,7 +347,9 @@ impl<S: Symbol> Display for Class<S> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ts::Trivial, Growable, Pointed};
+    use itertools::Itertools;
+
+    use crate::{ts::{Trivial, HasStates}, Growable, Pointed};
 
     use super::{Class, RightCongruence};
 
@@ -371,7 +368,7 @@ mod tests {
     #[test]
     fn state_ordering_test() {
         let cong = easy_cong();
-        let states: Vec<_> = cong.states_canonical().collect();
+        let states: Vec<_> = cong.states().sorted().collect();
         assert_eq!(states, vec![&Class::epsilon(), &Class::from("b")])
     }
 }

@@ -1,6 +1,6 @@
 use automata::{
-    congruence::CongruenceTrigger, operations::DirectProduct, run::Run, words::WordKind, Dfa,
-    RightCongruence, Set, StateIndex, Subword, Symbol,
+    congruence::CongruenceTrigger, run::Run, words::WordKind, Dfa, RightCongruence, Set,
+    StateIndex, Subword, Symbol,
 };
 
 use crate::glerc::state::GlercInfo;
@@ -27,10 +27,10 @@ impl<Q: StateIndex, S: Symbol> Constraint<S, Set<CongruenceTrigger<S>>>
         W: Subword<S = S> + Run<RightCongruence<S>, WordKind<W>, Induces = Set<CongruenceTrigger<S>>>,
     >(
         &self,
-        info: &'s GlercInfo<'s, S, W>,
+        _info: &'s GlercInfo<'s, S, W>,
     ) -> Result<Self::Output, super::ConstraintError<'s, S, W>> {
-        let lp = info.cong.direct_product(&self.positive);
-        let rp = info.cong.direct_product(&self.negative);
+        // let lp = info.cong.direct_product(&self.positive);
+        // let rp = info.cong.direct_product(&self.negative);
 
         Ok(())
     }

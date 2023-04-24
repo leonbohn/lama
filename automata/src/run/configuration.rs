@@ -9,9 +9,9 @@ use super::{EscapePrefix, RunOutput, Walk};
 /// where the run started and `q` is the current state of the run.
 pub struct Configuration<TS: TransitionSystem, W> {
     /// Where the run originates from.
-    pub start: TS::State,
+    pub start: TS::Q,
     /// The state the run is currently in.
-    pub q: TS::State,
+    pub q: TS::Q,
     /// The word we are running on.
     pub word: W,
     /// The [`TransitionSystem`] we are running in.
@@ -33,7 +33,7 @@ impl<TS: TransitionSystem, W> Configuration<TS, W> {
     }
 
     /// Builds a configuration for the given [`TransitionSystem`], state and [`Word`].
-    pub fn from_state(ts: TS, q: TS::State, word: W) -> Self {
+    pub fn from_state(ts: TS, q: TS::Q, word: W) -> Self {
         Configuration {
             ts,
             word,
@@ -62,11 +62,11 @@ pub trait Eval<K> {
     fn eval(&self) -> Result<Self::Output, Self::Failure>;
 }
 
-impl<TS: TransitionSystem, W: IsFinite + Subword<S = TS::Input>> Eval<FiniteKind>
+impl<TS: TransitionSystem, W: IsFinite + Subword<S = TS::Sigma>> Eval<FiniteKind>
     for Configuration<TS, W>
 {
-    type Output = TS::State;
-    type Failure = EscapePrefix<TS::State, W>;
+    type Output = TS::Q;
+    type Failure = EscapePrefix<TS::Q, W>;
 
     fn eval(&self) -> Result<Self::Output, Self::Failure> {
         let mut walker = self.ts.walk(self.start.clone(), &self.word);
@@ -83,14 +83,14 @@ impl<TS: TransitionSystem, W: IsFinite + Subword<S = TS::Input>> Eval<FiniteKind
     }
 }
 
-impl<TS: TransitionSystem, W: IsInfinite + Subword<S = TS::Input>> Eval<InfiniteKind>
+impl<TS: TransitionSystem, W: IsInfinite + Subword<S = TS::Sigma>> Eval<InfiniteKind>
     for Configuration<TS, W>
 where
     <W as Subword>::PrefixType: IsFinite,
-    Configuration<TS, <W as Subword>::PrefixType>: Eval<FiniteKind, Output = TS::State>,
+    Configuration<TS, <W as Subword>::PrefixType>: Eval<FiniteKind, Output = TS::Q>,
 {
-    type Output = Set<(TS::State, TS::Input)>;
-    type Failure = EscapePrefix<TS::State, W>;
+    type Output = Set<(TS::Q, TS::Sigma)>;
+    type Failure = EscapePrefix<TS::Q, W>;
 
     fn eval(&self) -> Result<Self::Output, Self::Failure> {
         let prefix_length = self.word.base_length();
