@@ -2,13 +2,23 @@ use std::collections::{BTreeSet, VecDeque};
 
 use crate::{Pointed, Set, TransitionSystem};
 
-use super::{TransitionOf, TriggerOf};
+use super::TransitionOf;
 
+/// Trait that encapsulates the ability to visit `Places` of a transition system.
+/// A `place` could be a state or a transition, in the future, we might also allow
+/// loops and SCCs as places.
+/// The main imlementors of this trait will be `LengthLexicographic` and
+/// `LengthLexicographicEdges`, which are objects that visit states/transitions of a
+/// transition system in length-lexicographic order (which essentially corresponds to
+/// visitation in breadth-first order from the initial state).
 pub trait Visitor {
+    /// The type of thing that is visited, could be a state or a transition.
     type Place;
 
+    /// Visits the next place.
     fn visit_next(&mut self) -> Option<Self::Place>;
 
+    /// Returns an iterator over the places visited by this visitor.
     fn iter(self) -> VisitorIter<Self>
     where
         Self: Sized,
@@ -17,6 +27,7 @@ pub trait Visitor {
     }
 }
 
+/// Stores a visitor and allows iteration over the places visited by it.
 #[derive(Debug, Clone)]
 pub struct VisitorIter<V> {
     visitor: V,
@@ -33,6 +44,7 @@ where
     }
 }
 
+/// A [`Visitor`] that visits states of a transition system in length-lexicographic order.
 #[derive(Debug, Clone)]
 pub struct LengthLexicographic<TS: TransitionSystem> {
     ts: TS,
@@ -40,7 +52,9 @@ pub struct LengthLexicographic<TS: TransitionSystem> {
     queue: VecDeque<TS::State>,
     seen: Set<TS::State>,
 }
-
+/// A [`Visitor`] that visits edges (i.e. state-symbol-state triples) of a transition
+/// system in length-lexicographic order.
+#[derive(Debug, Clone)]
 pub struct LengthLexicographicEdges<TS: TransitionSystem> {
     ts: TS,
     alphabet: BTreeSet<TS::Input>,
@@ -157,8 +171,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use tracing_test::traced_test;
-
     use crate::{ts::Visitor, TransitionSystem};
 
     #[test]

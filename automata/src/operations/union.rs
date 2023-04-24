@@ -1,6 +1,6 @@
 use crate::Priority;
 
-use super::DirectProduct;
+
 
 pub trait Union<Rhs = Self> {
     type Output;

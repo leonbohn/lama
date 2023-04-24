@@ -55,7 +55,7 @@ where
 
     type Range = O;
 
-    fn get_value(&self, of: &Self::Domain) -> Self::Range {
+    fn get_value(&self, _of: &Self::Domain) -> Self::Range {
         todo!()
     }
 

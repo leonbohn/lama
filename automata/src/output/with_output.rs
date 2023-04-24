@@ -3,13 +3,13 @@ use std::{borrow::Borrow, hash::Hash};
 
 use super::MutableMapping;
 
-pub struct TransducerInputIterator<'me, M: Transducer, I> {
+pub struct TransducerInputIterator<'me, M: WithOutput, I> {
     machine: &'me M,
     state: M::State,
     input: I,
 }
 
-impl<'me, M: Transducer, B: Borrow<M::Input>, I> Iterator for TransducerInputIterator<'me, M, I>
+impl<'me, M: WithOutput, B: Borrow<M::Input>, I> Iterator for TransducerInputIterator<'me, M, I>
 where
     I: Iterator<Item = B>,
 {
@@ -28,15 +28,12 @@ where
 }
 
 /// A Mealy machine is a transition system with output.
-pub trait Transducer: TransitionSystem {
+pub trait WithOutput: TransitionSystem {
     /// The output type.
     type Output: Eq + Hash;
 
     /// Returns the output of the transition from `from` on `on`.
     fn trigger_output(&self, from: &TriggerOf<Self>) -> Self::Output;
-
-    /// Sets the output of the transition from `from` on `on`. Returns the previous output, if any.
-    fn set_output(&mut self, from: &TriggerOf<Self>, output: Self::Output) -> Option<Self::Output>;
 
     /// Computes the output on the given word starting in the initial state.
     fn output_iter<B: Borrow<Self::Input>, W: IntoIterator<Item = B>>(
@@ -77,7 +74,12 @@ pub trait Transducer: TransitionSystem {
     }
 }
 
-impl<TS, P> Transducer for Combined<TS, P>
+pub trait ModifyOutput: WithOutput {
+    /// Sets the output of the transition from `from` on `on`. Returns the previous output, if any.
+    fn set_output(&mut self, from: &TriggerOf<Self>, output: Self::Output) -> Option<Self::Output>;
+}
+
+impl<TS, P> WithOutput for Combined<TS, P>
 where
     TS: TransitionSystem,
     P: MutableMapping<Domain = TriggerOf<TS>>,
@@ -87,7 +89,13 @@ where
     fn trigger_output(&self, from: &TriggerOf<Self>) -> Self::Output {
         self.acceptance().get_value(from)
     }
+}
 
+impl<TS, P> ModifyOutput for Combined<TS, P>
+where
+    TS: TransitionSystem,
+    P: MutableMapping<Domain = TriggerOf<TS>>,
+{
     fn set_output(&mut self, from: &TriggerOf<Self>, output: Self::Output) -> Option<Self::Output> {
         self.acceptance_mut().set_value(from, output)
     }

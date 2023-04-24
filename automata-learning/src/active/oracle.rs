@@ -1,4 +1,4 @@
-use automata::{Acceptor, Class, Dfa, Map, Pointed, StateIndex, Symbol, Transducer};
+use automata::{Acceptor, Class, Dfa, Map, Pointed, StateIndex, Symbol, WithOutput};
 
 /// A trait that encapsulates a minimally adequate teacher (MAT) for active learning. This is mainly used by
 /// L*-esque algorithms and can be implemented by wildly different types, for example an automaton, a function
@@ -20,7 +20,7 @@ pub trait Oracle {
     /// Test the given hypothesis for equivalence, returning `Ok(())` if it is equivalent and `Err(word)` otherwise.
     /// In the latter case, `word` is a counterexample from the symmetric difference of the target and the hypothesis,
     /// meaning it produces a different output in the hypothesis compared to the target.
-    fn equivalence<M: Pointed + Transducer<Input = Self::Input, Output = Self::Output>>(
+    fn equivalence<M: Pointed + WithOutput<Input = Self::Input, Output = Self::Output>>(
         &mut self,
         hypothesis: &M,
     ) -> Result<(), Class<Self::Input>>;
@@ -34,7 +34,7 @@ impl<Q: StateIndex, S: Symbol> Oracle for Dfa<Q, S> {
         self.accepts(word)
     }
 
-    fn equivalence<M: Transducer>(&mut self, hypothesis: &M) -> Result<(), Class<S>> {
+    fn equivalence<M: WithOutput>(&mut self, hypothesis: &M) -> Result<(), Class<S>> {
         todo!()
     }
 }
@@ -74,7 +74,7 @@ impl<O: Oracle> Oracle for MemorizingOracle<O> {
         result
     }
 
-    fn equivalence<M: Pointed + Transducer<Input = Self::Input, Output = Self::Output>>(
+    fn equivalence<M: Pointed + WithOutput<Input = Self::Input, Output = Self::Output>>(
         &mut self,
         hypothesis: &M,
     ) -> Result<(), Class<Self::Input>> {

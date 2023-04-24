@@ -1,13 +1,13 @@
 use crate::{congruence::CongruenceTrigger, Combined, Map, RightCongruence};
 
 mod mapping;
-mod transducer;
+mod with_output;
 
 pub use mapping::{Mapping, MutableMapping, PriorityMapping};
-pub use transducer::Transducer;
+pub use with_output::WithOutput;
 
 /// Type alias to get the output type of a transducer.
-pub type OutputOf<T> = <T as Transducer>::Output;
+pub type OutputOf<T> = <T as WithOutput>::Output;
 
 /// Holds the priority (i.e. label) of either a transition or of a state.
 /// The type C is the label, which by default is a u32.
