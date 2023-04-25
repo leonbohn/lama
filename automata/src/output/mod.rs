@@ -3,7 +3,9 @@ use crate::{congruence::CongruenceTrigger, Combined, Map, RightCongruence};
 mod mapping;
 mod with_output;
 
-pub use mapping::{Assignment, IntoAssigments, Mapping, MutableTransformer, Transformer};
+pub use mapping::{
+    Assignment, AssignmentReference, IntoAssigments, Mapping, MutableTransformer, Transformer,
+};
 pub use with_output::TransitionOutput;
 
 use self::with_output::HasOutput;

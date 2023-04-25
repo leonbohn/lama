@@ -1,17 +1,18 @@
 use hoars::HoaSymbol;
+use itertools::Itertools;
 
 use crate::{
     acceptance::{
         AcceptanceCondition, BuchiCondition, ParityCondition, ReachabilityCondition, ToOmega,
     },
     congruence::CongruenceTrigger,
-    output::IntoAssigments,
+    output::{Assignment, IntoAssigments, Mapping},
     ts::{
         transitionsystem::Transitions, Growable, HasInput, HasStates, IntoTransitions, Pointed,
         Shrinkable, Successor, SymbolOf, TransitionReference, TransitionSystem,
     },
-    AnonymousGrowable, HasAlphabet, OmegaAutomaton, RightCongruence, StateIndex, Symbol,
-    Transformer,
+    AnonymousGrowable, HasAlphabet, MealyMachine, OmegaAutomaton, RightCongruence, StateIndex,
+    Symbol, Transformer, Transition, Value,
 };
 
 /// Struct that represents the 'usual' automata, which is a combination of a transition system, a designated initial state and an acceptance condition.
@@ -117,6 +118,31 @@ impl<Q: StateIndex, S: Symbol, Acc> Combined<TransitionSystem<Q, S>, Acc> {
         Acc: ToOmega<X = (Q, S)> + AcceptanceCondition,
     {
         self.with_acceptance(self.acceptance().to_omega())
+    }
+}
+
+impl<Q: StateIndex, S: Symbol, C: Value> MealyMachine<C, Q, S> {
+    /// Creates a mealy machine from an iterator of transitions annotated with their output.
+    pub fn from_iter<
+        X: Transition<S = S, Q = Q> + Assignment<Left = (Q, S), Right = C>,
+        T: IntoIterator<Item = X>,
+    >(
+        iter: T,
+        initial: Q,
+    ) -> Self {
+        let (ts, assignments) = iter
+            .into_iter()
+            .map(|x| {
+                let transition = (x.source().clone(), x.sym().clone(), x.target().clone());
+                let assignment = (x.left(), x.right());
+                (transition, assignment)
+            })
+            .unzip();
+        Self {
+            ts,
+            initial,
+            acc: assignments,
+        }
     }
 }
 
@@ -242,7 +268,7 @@ mod tests {
     fn dfa_acceptor() {
         let mut dfa = super::Dfa::trivial();
         let q0 = dfa.initial();
-        let q1 = 1;
+        let q1 = 1u32;
         assert!(dfa.add_state(&q1));
         dfa.add_transition(&q0, 'a', &q1);
         dfa.add_transition(&q1, 'a', &q0);
@@ -259,7 +285,7 @@ mod tests {
     fn dba_accetor() {
         let mut dba = super::Dba::trivial();
         let q0 = dba.initial();
-        let q1 = 1;
+        let q1 = 1u32;
         assert!(dba.add_state(&q1));
         dba.add_transition(&q0, 'a', &q1);
         dba.add_transition(&q1, 'a', &q0);

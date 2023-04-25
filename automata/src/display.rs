@@ -9,8 +9,9 @@ use owo_colors::OwoColorize;
 use tabled::{builder::Builder, settings::Style};
 
 use crate::{
+    output::Mapping,
     ts::{HasStates, StateOf},
-    BuchiCondition, Combined, Map, OmegaCondition, ParityCondition, Successor,
+    BuchiCondition, Combined, Map, OmegaCondition, ParityCondition, Successor, Transformer, Value,
 };
 
 pub trait Annotates<X, Y> {
@@ -97,6 +98,18 @@ where
             Some(v) => format!("{}@{}", z, v.to_string().bright_blue()),
             None => format!("{}", z.to_string().bright_cyan()),
         }
+    }
+}
+
+impl<X, Y, O> Annotates<X, Y> for Mapping<(X, Y), O>
+where
+    (X, Y): Value,
+    Y: Display,
+    X: Display,
+    O: Display + Value,
+{
+    fn annotate(&self, x: &(X, Y), z: &X) -> String {
+        format!("{}@{}", z, self.apply(x).to_string().bright_blue())
     }
 }
 

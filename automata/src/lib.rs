@@ -195,7 +195,7 @@ pub type OmegaAutomaton<Q = u32, S = char> =
 pub type Automaton<Acc, Q = u32, S = char> = Combined<TransitionSystem<Q, S>, Acc>;
 
 /// Type alias for a (deterministic) mealy machine.
-pub type MealyMachine<C, Q = u32, S = char> =
+pub type MealyMachine<C = usize, Q = u32, S = char> =
     Combined<TransitionSystem<Q, S>, Mapping<TriggerOf<TransitionSystem<Q, S>>, C>>;
 
 #[cfg(test)]

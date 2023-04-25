@@ -2,7 +2,7 @@ use std::{borrow::Borrow, hash::Hash};
 
 use impl_tools::autoimpl;
 
-use crate::{StateIndex, Symbol};
+use crate::{StateIndex, Symbol, Value};
 
 pub trait StateReference {
     type Q: StateIndex;
@@ -37,6 +37,26 @@ pub trait Trigger: Clone + Eq + Hash {
 pub trait Transition: Trigger {
     /// The target state of the transition.
     fn target(&self) -> &Self::Q;
+}
+
+impl<Q: StateIndex, S: Symbol, O: Value> Trigger for (Q, S, Q, O) {
+    type S = S;
+
+    type Q = Q;
+
+    fn source(&self) -> &Self::Q {
+        &self.0
+    }
+
+    fn sym(&self) -> &Self::S {
+        &self.1
+    }
+}
+
+impl<Q: StateIndex, S: Symbol, O: Value> Transition for (Q, S, Q, O) {
+    fn target(&self) -> &Self::Q {
+        &self.2
+    }
 }
 
 impl<Q: StateIndex, S: Symbol> Trigger for (Q, S) {

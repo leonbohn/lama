@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
 use crate::{
-    output::{Assignment, IntoAssigments, Mapping},
-    ts::{IntoTransitions, TriggerOf},
+    output::{Assignment, AssignmentReference, IntoAssigments, Mapping},
+    ts::{
+        transitionsystem::{States, Transitions},
+        IntoTransitions, TransitionReference, TriggerOf,
+    },
     Combined, MealyMachine, Pair, Pointed, StateIndex, Symbol, Transition, TransitionSystem,
     Trigger, Value,
 };
@@ -69,6 +72,29 @@ impl<Q: StateIndex, S: Symbol> TransitionSystem<Q, S> {
     }
 }
 
+impl<'a, Q: StateIndex, S: Symbol, O: Value> IntoAssigments for &'a MealyMachine<O, Q, S> {
+    type AssignmentRef = AssignmentReference<'a, (Q, S), O>;
+
+    type Assignments = std::iter::Map<
+        std::collections::hash_map::Iter<'a, (Q, S), O>,
+        fn((&'a (Q, S), &'a O)) -> Self::AssignmentRef,
+    >;
+
+    fn into_assignments(self) -> Self::Assignments {
+        self.acceptance().into_assignments()
+    }
+}
+
+impl<'a, Q: StateIndex, S: Symbol, O: Value> IntoTransitions for &'a MealyMachine<O, Q, S> {
+    type TransitionRef = TransitionReference<'a, Q, S>;
+
+    type IntoTransitions = Transitions<'a, Q, S>;
+
+    fn into_transitions(self) -> Self::IntoTransitions {
+        self.ts().into_transitions()
+    }
+}
+
 impl<Q: StateIndex, S: Symbol, O: Value> MealyMachine<O, Q, S> {
     pub fn mealy_product<Rhs, Q2, O2>(
         &self,
@@ -99,7 +125,7 @@ impl<Q: StateIndex, S: Symbol, O: Value> MealyMachine<O, Q, S> {
                 }
             })
             .collect();
-        let initial = Pair::new(self.initial().clone(), other.initial().clone());
+        let initial = Pair::new(self.initial(), other.initial());
         Combined::from_parts(ts, initial, assignments)
     }
 }
@@ -109,7 +135,7 @@ mod tests {
     use crate::{
         output::{IntoAssigments, Mapping},
         ts::IntoTransitions,
-        Pair, Transformer, TransitionSystem,
+        MealyMachine, Pair, Transformer, TransitionSystem,
     };
 
     #[test]
@@ -133,5 +159,28 @@ mod tests {
     }
 
     #[test]
-    fn mealy_machine_product() {}
+    fn mealy_machine_product() {
+        let mm = MealyMachine::from_iter(
+            [
+                (0, 'a', 0, 0),
+                (0, 'b', 1, 1),
+                (1, 'a', 0, 0),
+                (1, 'b', 1, 1),
+            ],
+            0,
+        );
+
+        let mm2 = MealyMachine::from_iter(
+            [
+                (0, 'a', 1, 1),
+                (0, 'b', 0, 0),
+                (1, 'a', 0, 0),
+                (1, 'b', 0, 0),
+            ],
+            0,
+        );
+
+        let prod = mm.mealy_product(&mm2);
+        println!("{}", prod);
+    }
 }

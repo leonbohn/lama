@@ -100,7 +100,16 @@ impl<T: Transition> FromIterator<T> for TransitionSystem<T::Q, T::S> {
     }
 }
 
-impl Default for TransitionSystem {
+impl<T: Transition> Extend<T> for TransitionSystem<T::Q, T::S> {
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        self.edges.extend(
+            iter.into_iter()
+                .map(|x| ((x.source().clone(), x.sym().clone()), x.target().clone())),
+        );
+    }
+}
+
+impl<Q: StateIndex, S: Symbol> Default for TransitionSystem<Q, S> {
     fn default() -> Self {
         Self::new()
     }

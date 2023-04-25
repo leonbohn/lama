@@ -3,7 +3,7 @@ use std::{borrow::Borrow, hash::Hash};
 use impl_tools::autoimpl;
 use itertools::Itertools;
 
-use crate::{Map, Symbol, Value};
+use crate::{Map, StateIndex, Symbol, Value};
 
 use super::with_output::HasOutput;
 
@@ -19,6 +19,14 @@ pub mod types {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Mapping<X: Hash + Eq, Y> {
     map: Map<X, Y>,
+}
+
+impl<X: Value, Y: Value> Default for Mapping<X, Y> {
+    fn default() -> Self {
+        Self {
+            map: Map::default(),
+        }
+    }
 }
 
 impl<X, Y> Mapping<X, Y>
@@ -39,6 +47,13 @@ where
     /// Returns an Iterator over the assignments in this mapping.
     pub fn assigments(&self) -> impl Iterator<Item = (&X, &Y)> {
         self.map.iter()
+    }
+}
+
+impl<A: Assignment> Extend<A> for Mapping<A::Left, A::Right> {
+    fn extend<T: IntoIterator<Item = A>>(&mut self, iter: T) {
+        self.map
+            .extend(iter.into_iter().map(|a| (a.left(), a.right())));
     }
 }
 
@@ -83,9 +98,9 @@ impl<'a, X: Clone, Y: Clone> AssignmentReference<'a, X, Y> {
 /// A reference to an assignment, encoded in an arbitrary way.
 pub trait Assignment {
     /// The left type, i.e. an element from the domain.
-    type Left;
+    type Left: Value;
     /// The right type is the element from the codomain.
-    type Right;
+    type Right: Value;
 
     /// Gets the domain element.
     fn left(&self) -> Self::Left;
@@ -93,7 +108,21 @@ pub trait Assignment {
     fn right(&self) -> Self::Right;
 }
 
-impl<L: Clone, R: Clone> Assignment for (L, R) {
+impl<Q: StateIndex, S: Symbol, O: Value> Assignment for (Q, S, Q, O) {
+    type Left = (Q, S);
+
+    type Right = O;
+
+    fn left(&self) -> Self::Left {
+        (self.0.clone(), self.1.clone())
+    }
+
+    fn right(&self) -> Self::Right {
+        self.3.clone()
+    }
+}
+
+impl<L: Value, R: Value> Assignment for (L, R) {
     type Left = L;
 
     type Right = R;
@@ -107,7 +136,7 @@ impl<L: Clone, R: Clone> Assignment for (L, R) {
     }
 }
 
-impl<'a, L: Clone, R: Clone> Assignment for AssignmentReference<'a, L, R> {
+impl<'a, L: Value, R: Value> Assignment for AssignmentReference<'a, L, R> {
     type Left = L;
 
     type Right = R;
@@ -136,8 +165,8 @@ pub trait IntoAssigments: Transformer + Copy {
 
 impl<'a, X, Y> IntoAssigments for &'a Mapping<X, Y>
 where
-    X: Clone + Eq + Hash,
-    Y: Clone,
+    X: Value,
+    Y: Value,
 {
     type AssignmentRef = AssignmentReference<'a, X, Y>;
     type Assignments = std::iter::Map<
@@ -147,6 +176,16 @@ where
 
     fn into_assignments(self) -> Self::Assignments {
         self.map.iter().map(AssignmentReference::new)
+    }
+}
+
+impl<'a, W: IntoAssigments> IntoAssigments for &'a W {
+    type AssignmentRef = W::AssignmentRef;
+
+    type Assignments = W::Assignments;
+
+    fn into_assignments(self) -> Self::Assignments {
+        (*self).into_assignments()
     }
 }
 
