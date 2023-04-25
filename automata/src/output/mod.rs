@@ -3,7 +3,7 @@ use crate::{congruence::CongruenceTrigger, Combined, Map, RightCongruence};
 mod mapping;
 mod with_output;
 
-pub use mapping::{Mapping, MutableMapping, PriorityMapping};
+pub use mapping::{Mapping, MutableMapping};
 pub use with_output::TransitionOutput;
 
 use self::with_output::HasOutput;
@@ -41,6 +41,18 @@ pub trait Parity {
 impl Parity for Priority {
     fn parity(&self) -> bool {
         self.0 % 2 == 0
+    }
+}
+
+impl Parity for usize {
+    fn parity(&self) -> bool {
+        self % 2 == 0
+    }
+}
+
+impl Parity for bool {
+    fn parity(&self) -> bool {
+        *self
     }
 }
 

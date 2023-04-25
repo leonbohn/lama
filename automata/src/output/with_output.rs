@@ -113,21 +113,9 @@ where
 impl<TS, P> TransitionOutput for Combined<TS, P>
 where
     TS: TransitionSystem,
-    P: HasOutput + Mapping<Domain = TriggerOf<TS>, Range = P::Gamma>,
-    P::Range: Symbol,
+    P: HasOutput + Mapping<TriggerOf<TS>, Range = P::Gamma>,
 {
     fn trigger_output(&self, from: &TriggerOf<Self>) -> Self::Gamma {
-        self.acceptance().get_value(from)
-    }
-}
-
-impl<TS, P> ModifyOutput for Combined<TS, P>
-where
-    TS: TransitionSystem,
-    P: HasOutput + MutableMapping<Domain = TriggerOf<TS>, Range = P::Gamma>,
-    P::Range: Symbol,
-{
-    fn set_output(&mut self, from: &TriggerOf<Self>, output: Self::Gamma) -> Option<Self::Gamma> {
-        self.acceptance_mut().set_value(from, output)
+        self.acceptance().apply(from)
     }
 }

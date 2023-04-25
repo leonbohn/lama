@@ -7,7 +7,7 @@ use std::{
 use itertools::Itertools;
 
 use crate::{
-    output::{Mapping, Parity, Priority, PriorityMapping},
+    output::{Mapping, Parity, Priority},
     Set,
 };
 
@@ -53,7 +53,7 @@ impl<X: Eq + Hash + Clone> AcceptanceCondition for ParityCondition<X> {
     type Induced = Set<X>;
 
     fn is_accepting(&self, induced: &Self::Induced) -> bool {
-        if let Some(minimum) = induced.iter().map(|x| self.get_value(x)).min() {
+        if let Some(minimum) = induced.iter().map(|x| self.apply(x)).min() {
             minimum.parity()
         } else {
             false
@@ -70,20 +70,6 @@ impl<X: Eq + Hash> ParityCondition<X> {
     /// Returns the number of priorities in the condition.
     pub fn priorities(&self) -> usize {
         self.0.len()
-    }
-}
-
-impl<X: Eq + Hash + Finite> ParityCondition<X> {
-    /// Creates a new `ParityCondition` from the given mapping. *EXPENSIVE*
-    pub fn from_mapping<C: PriorityMapping<Domain = X>>(condition: C) -> Self {
-        let mut out = (0..condition.complexity())
-            .map(|_| Set::new())
-            .collect::<Vec<_>>();
-        for x in X::universe() {
-            out[condition.get_value(&x).as_usize()].insert(x);
-        }
-
-        Self(out)
     }
 }
 
@@ -109,33 +95,24 @@ impl<'a> Iterator for ParityConditionRangeIter<'a> {
     }
 }
 
-impl<X> Mapping for ParityCondition<X>
+impl<X> Mapping<X> for ParityCondition<X>
 where
     X: Clone + Eq + std::hash::Hash,
 {
-    type Domain = X;
+    type Range = usize;
 
-    type Range = Priority;
-
-    fn get_value(&self, of: &Self::Domain) -> Priority {
-        for (i, set) in self.0.iter().enumerate() {
-            if set.contains(of) {
-                return Priority(i as u32);
-            }
-        }
-        Priority(self.complexity() as u32)
-    }
-
-    type RangeIter<'me> = ParityConditionRangeIter<'me>
-    where
-        Self: 'me;
-
-    fn range_iter(&self) -> Self::RangeIter<'_> {
-        let priorities: Vec<_> = (0..self.0.len()).map(|i| Priority(i as u32)).collect();
-        ParityConditionRangeIter {
-            priorities: priorities.iter().collect(),
-            pos: 0,
-        }
+    fn apply<R: std::borrow::Borrow<X>>(&self, input: R) -> usize {
+        self.0
+            .iter()
+            .enumerate()
+            .find_map(|(i, set)| {
+                if set.contains(input.borrow()) {
+                    Some(i)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(self.0.len())
     }
 }
 
@@ -189,27 +166,18 @@ impl<X: Eq + Hash> SubAssign<X> for BuchiCondition<X> {
 
 pub struct BuchiConditionRangeIter<'a>(&'a std::ops::Range<usize>);
 
-impl<X> Mapping for BuchiCondition<X>
+impl<X> Mapping<X> for BuchiCondition<X>
 where
     X: Eq + Hash + Clone,
 {
-    type Domain = X;
     type Range = bool;
 
-    fn get_value(&self, of: &Self::Domain) -> Self::Range {
-        if self.0.contains(of) {
+    fn apply<R: std::borrow::Borrow<X>>(&self, input: R) -> bool {
+        if self.0.contains(input.borrow()) {
             true
         } else {
             false
         }
-    }
-
-    type RangeIter<'me> = std::slice::Iter<'me, bool>
-    where
-        Self: 'me;
-
-    fn range_iter(&self) -> Self::RangeIter<'_> {
-        [true, false].iter()
     }
 }
 

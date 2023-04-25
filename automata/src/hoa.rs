@@ -96,10 +96,10 @@ where
     fn acceptance_signature(&self, of: &Self::Trigger) -> AcceptanceSignature {
         match self {
             OmegaCondition::Parity(parity) => {
-                AcceptanceSignature::from_singleton(parity.get_value(of).number())
+                AcceptanceSignature::from_singleton(parity.apply(of) as Id)
             }
             OmegaCondition::Buchi(buchi) => {
-                if buchi.get_value(of) {
+                if buchi.apply(of) {
                     AcceptanceSignature::from_singleton(0)
                 } else {
                     AcceptanceSignature::empty()
