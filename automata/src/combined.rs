@@ -6,23 +6,20 @@ use crate::{
     },
     congruence::CongruenceTrigger,
     ts::{
-        Deterministic, Growable, HasInput, HasStates, Pointed, Shrinkable, SymbolOf,
-        TransitionSystem,
+        Growable, HasInput, HasStates, Pointed, Shrinkable, Successor, SymbolOf, TransitionSystem,
     },
     AnonymousGrowable, HasAlphabet, OmegaAutomaton, RightCongruence, StateIndex, Symbol,
 };
 
 /// Struct that represents the 'usual' automata, which is a combination of a transition system, a designated initial state and an acceptance condition.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Combined<TS: TransitionSystem, Acc> {
+pub struct Combined<TS: Successor, Acc> {
     ts: TS,
     initial: TS::Q,
     acc: Acc,
 }
 
-impl<TS: TransitionSystem + HasAlphabet<Alphabet = TS::Sigma>, Acc> HasAlphabet
-    for Combined<TS, Acc>
-{
+impl<TS: Successor + HasAlphabet<Alphabet = TS::Sigma>, Acc> HasAlphabet for Combined<TS, Acc> {
     type Alphabet = TS::Sigma;
 
     type AlphabetIter = TS::AlphabetIter;
@@ -32,7 +29,7 @@ impl<TS: TransitionSystem + HasAlphabet<Alphabet = TS::Sigma>, Acc> HasAlphabet
     }
 }
 
-impl<TS: TransitionSystem, Acc> HasInput for Combined<TS, Acc> {
+impl<TS: Successor, Acc> HasInput for Combined<TS, Acc> {
     type Sigma = SymbolOf<TS>;
 
     type Input<'me> = TS::Input<'me>
@@ -46,14 +43,14 @@ impl<TS: TransitionSystem, Acc> HasInput for Combined<TS, Acc> {
 
 impl<TS, Acc> Pointed for Combined<TS, Acc>
 where
-    TS: TransitionSystem,
+    TS: Successor,
 {
     fn initial(&self) -> Self::Q {
         self.initial.clone()
     }
 }
 
-impl<TS: TransitionSystem, Acc> Combined<TS, Acc> {
+impl<TS: Successor, Acc> Combined<TS, Acc> {
     /// Returns a mutable reference to the underlying acceptance condition.
     pub fn acceptance_mut(&mut self) -> &mut Acc {
         &mut self.acc
@@ -79,7 +76,7 @@ impl<TS: TransitionSystem, Acc> Combined<TS, Acc> {
     }
 }
 
-impl<Q: StateIndex, S: Symbol, Acc> Combined<Deterministic<Q, S>, Acc> {
+impl<Q: StateIndex, S: Symbol, Acc> Combined<TransitionSystem<Q, S>, Acc> {
     /// Converts the automaton to an [`OmegaAutomaton`], which boils down to simply
     /// replacing the acceptance condition with an [`OmegaCondition`].
     pub fn to_omega(&self) -> OmegaAutomaton<Q, S>
@@ -91,7 +88,7 @@ impl<Q: StateIndex, S: Symbol, Acc> Combined<Deterministic<Q, S>, Acc> {
 }
 
 #[allow(unused)]
-impl<TS: TransitionSystem + Default + AnonymousGrowable, Acc: AcceptanceCondition + Default>
+impl<TS: Successor + Default + AnonymousGrowable, Acc: AcceptanceCondition + Default>
     Combined<TS, Acc>
 {
     /// Creates a new instance with a single state that serves as the initial state.
@@ -104,7 +101,7 @@ impl<TS: TransitionSystem + Default + AnonymousGrowable, Acc: AcceptanceConditio
     }
 }
 
-impl<TS: TransitionSystem, Acc> Combined<TS, Acc> {
+impl<TS: Successor, Acc> Combined<TS, Acc> {
     /// Constructs a new instance from the given transition system, initial state and acceptance condition.
     pub fn from_parts(ts: TS, initial: TS::Q, acc: Acc) -> Self {
         Self { ts, initial, acc }
@@ -118,7 +115,7 @@ impl<TS: TransitionSystem, Acc> Combined<TS, Acc> {
 
 impl<TS, Acc> HasStates for Combined<TS, Acc>
 where
-    TS: TransitionSystem,
+    TS: Successor,
 {
     type Q = TS::Q;
 
@@ -129,7 +126,7 @@ where
     }
 }
 
-impl<TS: TransitionSystem, Acc> TransitionSystem for Combined<TS, Acc> {
+impl<TS: Successor, Acc> Successor for Combined<TS, Acc> {
     fn successor(
         &self,
         from: &Self::Q,
@@ -139,7 +136,7 @@ impl<TS: TransitionSystem, Acc> TransitionSystem for Combined<TS, Acc> {
     }
 }
 
-impl<TS: TransitionSystem, Acc: AcceptanceCondition> AcceptanceCondition for Combined<TS, Acc> {
+impl<TS: Successor, Acc: AcceptanceCondition> AcceptanceCondition for Combined<TS, Acc> {
     type Induced = Acc::Induced;
 
     fn is_accepting(&self, induced: &Self::Induced) -> bool {
@@ -180,18 +177,18 @@ impl<TS: Shrinkable, Acc: AcceptanceCondition> Shrinkable for Combined<TS, Acc> 
 
 #[cfg(feature = "det")]
 /// Type alias for a deterministic finite automaton, only available for crate feature `det`.
-pub type Dfa<Q = u32, S = char> = Combined<Deterministic<Q, S>, ReachabilityCondition<Q>>;
+pub type Dfa<Q = u32, S = char> = Combined<TransitionSystem<Q, S>, ReachabilityCondition<Q>>;
 #[cfg(feature = "det")]
 /// Type alias for a deterministic Büchi automaton, only available for crate feature `det`.
-pub type Dba<Q = u32, S = char> = Combined<Deterministic<Q, S>, BuchiCondition<(Q, S)>>;
+pub type Dba<Q = u32, S = char> = Combined<TransitionSystem<Q, S>, BuchiCondition<(Q, S)>>;
 #[cfg(feature = "det")]
 /// Type alias for a deterministic parity automaton, only available for crate feature `det`.
-pub type Dpa<Q = u32, S = char> = Combined<Deterministic<Q, S>, ParityCondition<(Q, S)>>;
+pub type Dpa<Q = u32, S = char> = Combined<TransitionSystem<Q, S>, ParityCondition<(Q, S)>>;
 
 /// Alias that makes working with HOA easier. This is the same as a [`Dpa`], but with [`HoaSymbol`] as the symbol type.
-pub type HoaDpa<Q = u32, S = HoaSymbol> = Combined<Deterministic<Q, S>, ParityCondition<(Q, S)>>;
+pub type HoaDpa<Q = u32, S = HoaSymbol> = Combined<TransitionSystem<Q, S>, ParityCondition<(Q, S)>>;
 /// Alias that makes working with HOA easier. This is the same as a [`Dba`], but with [`HoaSymbol`] as the symbol type.
-pub type HoaDba<Q = u32, S = HoaSymbol> = Combined<Deterministic<Q, S>, BuchiCondition<(Q, S)>>;
+pub type HoaDba<Q = u32, S = HoaSymbol> = Combined<TransitionSystem<Q, S>, BuchiCondition<(Q, S)>>;
 
 /// Alias that makes working with congruences easier, using [`RightCongruence`] as the transition system.
 pub type CongruenceDba<S = char> =

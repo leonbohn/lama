@@ -10,18 +10,18 @@ use tabled::{builder::Builder, settings::Style};
 
 use crate::{
     ts::{HasStates, StateOf},
-    BuchiCondition, Combined, Map, OmegaCondition, ParityCondition, TransitionSystem,
+    BuchiCondition, Combined, Map, OmegaCondition, ParityCondition, Successor,
 };
 
 pub trait Annotates<X, Y> {
     fn annotate(&self, x: &(X, Y), z: &X) -> String;
 }
 
-pub trait DisplayState: TransitionSystem {
+pub trait DisplayState: Successor {
     fn display_state(&self, state: &Self::Q) -> String;
 }
 
-pub trait DisplaySymbol: TransitionSystem {
+pub trait DisplaySymbol: Successor {
     fn display_symbol(&self, sym: &Self::Sigma) -> String;
 }
 
@@ -71,7 +71,7 @@ where
 
 impl<TS> DisplayState for TS
 where
-    TS: TransitionSystem,
+    TS: Successor,
     TS::Q: Display,
 {
     fn display_state(&self, state: &Self::Q) -> String {
@@ -79,7 +79,7 @@ where
     }
 }
 
-impl<TS: TransitionSystem> DisplaySymbol for TS {
+impl<TS: Successor> DisplaySymbol for TS {
     fn display_symbol(&self, sym: &Self::Sigma) -> String {
         format!("{}", sym.italic().purple())
     }
@@ -100,7 +100,7 @@ where
     }
 }
 
-impl<Acc: Annotates<TS::Q, TS::Sigma>, TS: TransitionSystem + DisplayState + DisplaySymbol> Display
+impl<Acc: Annotates<TS::Q, TS::Sigma>, TS: Successor + DisplayState + DisplaySymbol> Display
     for Combined<TS, Acc>
 where
     StateOf<TS>: Display,

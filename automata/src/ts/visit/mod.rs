@@ -1,6 +1,6 @@
 use std::collections::{BTreeSet, VecDeque};
 
-use crate::{Pointed, Set, TransitionSystem};
+use crate::{Pointed, Set, Successor};
 
 use super::{StateOf, TransitionOf};
 
@@ -46,7 +46,7 @@ where
 
 /// A [`Visitor`] that visits states of a transition system in length-lexicographic order.
 #[derive(Debug, Clone)]
-pub struct LengthLexicographic<TS: TransitionSystem> {
+pub struct LengthLexicographic<TS: Successor> {
     ts: TS,
     alphabet: BTreeSet<TS::Sigma>,
     queue: VecDeque<StateOf<TS>>,
@@ -55,7 +55,7 @@ pub struct LengthLexicographic<TS: TransitionSystem> {
 /// A [`Visitor`] that visits edges (i.e. state-symbol-state triples) of a transition
 /// system in length-lexicographic order.
 #[derive(Debug, Clone)]
-pub struct LengthLexicographicEdges<TS: TransitionSystem> {
+pub struct LengthLexicographicEdges<TS: Successor> {
     ts: TS,
     alphabet: BTreeSet<TS::Sigma>,
     queue: VecDeque<(StateOf<TS>, TS::Sigma)>,
@@ -64,7 +64,7 @@ pub struct LengthLexicographicEdges<TS: TransitionSystem> {
 
 impl<TS> LengthLexicographic<TS>
 where
-    TS: TransitionSystem,
+    TS: Successor,
 {
     /// Creates a new `LengthLexicographic` visitor from a given state.
     pub fn new_from(ts: TS, start: StateOf<TS>) -> Self {
@@ -92,7 +92,7 @@ where
 
 impl<TS> LengthLexicographicEdges<TS>
 where
-    TS: TransitionSystem,
+    TS: Successor,
 {
     /// Creates a new `LengthLexicographicEdges` visitor from a given state.
     pub fn new_from(ts: TS, start: StateOf<TS>) -> Self {
@@ -123,7 +123,7 @@ where
 
 impl<TS> Visitor for LengthLexicographic<TS>
 where
-    TS: TransitionSystem,
+    TS: Successor,
 {
     type Place = StateOf<TS>;
 
@@ -145,7 +145,7 @@ where
 
 impl<TS> Visitor for LengthLexicographicEdges<TS>
 where
-    TS: TransitionSystem,
+    TS: Successor,
 {
     type Place = TransitionOf<TS>;
 
@@ -171,14 +171,14 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{ts::Visitor, Deterministic, TransitionSystem};
+    use crate::{ts::Visitor, Successor, TransitionSystem};
 
     #[test]
     fn bfs_search() {
-        let ts = Deterministic::from_iter([(0, 'a', 1), (0, 'b', 0), (1, 'a', 0), (1, 'b', 1)]);
+        let ts = TransitionSystem::from_iter([(0, 'a', 1), (0, 'b', 0), (1, 'a', 0), (1, 'b', 1)]);
         assert_eq!(ts.bfs_from(0).iter().collect::<Vec<_>>(), vec![0, 1]);
         assert_eq!(
-            ts.bfs_edges_from(0).iter().collect::<Deterministic<_>>(),
+            ts.bfs_edges_from(0).iter().collect::<TransitionSystem<_>>(),
             ts
         );
     }

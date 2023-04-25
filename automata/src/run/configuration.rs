@@ -1,13 +1,13 @@
 use crate::{
     words::{IsFinite, IsInfinite},
-    FiniteKind, InfiniteKind, Pointed, Set, Subword, TransitionSystem, Word,
+    FiniteKind, InfiniteKind, Pointed, Set, Subword, Successor, Word,
 };
 
 use super::{EscapePrefix, RunOutput, Walk};
 
 /// Encapsulates the configuration of a run of some `word` in the `ts`, where `start` is the origin
 /// where the run started and `q` is the current state of the run.
-pub struct Configuration<TS: TransitionSystem, W> {
+pub struct Configuration<TS: Successor, W> {
     /// Where the run originates from.
     pub start: TS::Q,
     /// The state the run is currently in.
@@ -18,7 +18,7 @@ pub struct Configuration<TS: TransitionSystem, W> {
     pub ts: TS,
 }
 
-impl<TS: TransitionSystem, W> Configuration<TS, W> {
+impl<TS: Successor, W> Configuration<TS, W> {
     /// Creates a cnonfiguration for the given [`Pointed`] [`TransitionSystem`] and [`Word`].
     pub fn for_pointed(ts: TS, word: W) -> Self
     where
@@ -62,7 +62,7 @@ pub trait Eval<K> {
     fn eval(&self) -> Result<Self::Output, Self::Failure>;
 }
 
-impl<TS: TransitionSystem, W: IsFinite + Subword<S = TS::Sigma>> Eval<FiniteKind>
+impl<TS: Successor, W: IsFinite + Subword<S = TS::Sigma>> Eval<FiniteKind>
     for Configuration<TS, W>
 {
     type Output = TS::Q;
@@ -83,7 +83,7 @@ impl<TS: TransitionSystem, W: IsFinite + Subword<S = TS::Sigma>> Eval<FiniteKind
     }
 }
 
-impl<TS: TransitionSystem, W: IsInfinite + Subword<S = TS::Sigma>> Eval<InfiniteKind>
+impl<TS: Successor, W: IsInfinite + Subword<S = TS::Sigma>> Eval<InfiniteKind>
     for Configuration<TS, W>
 where
     <W as Subword>::PrefixType: IsFinite,
@@ -127,7 +127,7 @@ where
     }
 }
 
-impl<TS: TransitionSystem, W: Word> Evaluate for Configuration<TS, W>
+impl<TS: Successor, W: Word> Evaluate for Configuration<TS, W>
 where
     Configuration<TS, W>: Eval<W::Kind>,
 {

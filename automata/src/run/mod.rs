@@ -14,7 +14,7 @@ pub use walker::Walker;
 
 pub use configuration::{Configuration, Evaluate};
 
-use crate::{ts::TransitionSystem, words::Word};
+use crate::{ts::Successor, words::Word};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 /// Encapsulates the possible outputs of a run when a symbol is consumed.
@@ -75,7 +75,7 @@ impl<Q: Clone, S: Clone> RunOutput<Q, S> {
 }
 
 /// Abstracts the ability to run a word on a transition system step by step, producing a [`RunOutput`] for each consumed symbol of the input word.
-pub trait Walk<'ts, 'w, W: 'w>: TransitionSystem + Sized {
+pub trait Walk<'ts, 'w, W: 'w>: Successor + Sized {
     /// The walker type, which is used to iterate over the run, usually a [`Walker`].
     type Walker;
 
@@ -83,7 +83,7 @@ pub trait Walk<'ts, 'w, W: 'w>: TransitionSystem + Sized {
     fn walk(&'ts self, from: Self::Q, word: &'w W) -> Self::Walker;
 }
 
-impl<'ts, 'w, TS: TransitionSystem + 'ts, W: Word<S = TS::Sigma> + 'w> Walk<'ts, 'w, W> for TS {
+impl<'ts, 'w, TS: Successor + 'ts, W: Word<S = TS::Sigma> + 'w> Walk<'ts, 'w, W> for TS {
     type Walker = Walker<'ts, 'w, W, TS>;
 
     fn walk(&'ts self, from: Self::Q, word: &'w W) -> Self::Walker {
@@ -94,7 +94,7 @@ impl<'ts, 'w, TS: TransitionSystem + 'ts, W: Word<S = TS::Sigma> + 'w> Walk<'ts,
 #[cfg(test)]
 mod tests {
     use crate::{
-        ts::{deterministic::Deterministic, AnonymousGrowable, Growable},
+        ts::{transitionsystem::TransitionSystem, AnonymousGrowable, Growable},
         words::Str,
     };
 
@@ -102,7 +102,7 @@ mod tests {
 
     #[test]
     fn basic_run() {
-        let mut ts: Deterministic<u32> = Deterministic::new();
+        let mut ts: TransitionSystem<u32> = TransitionSystem::new();
         let q0 = ts.add_new_state();
         let q1 = ts.add_new_state();
         let q2 = ts.add_new_state();
@@ -119,7 +119,7 @@ mod tests {
 
     #[test]
     fn basic_run_with_missing() {
-        let mut ts: Deterministic<u32> = Deterministic::new();
+        let mut ts: TransitionSystem<u32> = TransitionSystem::new();
         let q0 = ts.add_new_state();
         let q1 = ts.add_new_state();
         let q2 = ts.add_new_state();
@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     fn input_to_run() {
-        let mut ts: Deterministic<u32> = Deterministic::new();
+        let mut ts: TransitionSystem<u32> = TransitionSystem::new();
         let q0 = ts.add_new_state();
         let q1 = ts.add_new_state();
         let q2 = ts.add_new_state();

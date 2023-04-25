@@ -1,14 +1,14 @@
 use crate::{
     acceptance::AcceptanceCondition,
     run::{Configuration, Evaluate},
-    ts::{Pointed, SymbolOf, TransitionSystem},
+    ts::{Pointed, Successor, SymbolOf},
     Word,
 };
 
 /// Implemented by objects which can accept a word. We use `W` as an ipnut type parameter to allow for different implementations based on the type of word.
 pub trait Acceptor {
     /// The transition system type.
-    type TS: TransitionSystem + Pointed;
+    type TS: Successor + Pointed;
 
     /// The acceptance condition type.
     type Acc: AcceptanceCondition;
@@ -33,7 +33,7 @@ pub trait Acceptor {
 
 impl<TS, Acc> Acceptor for (TS, Acc)
 where
-    TS: TransitionSystem + Pointed,
+    TS: Successor + Pointed,
     Acc: AcceptanceCondition,
 {
     type TS = TS;
@@ -52,7 +52,7 @@ where
 
 impl<A> Acceptor for A
 where
-    A: TransitionSystem + Pointed + AcceptanceCondition,
+    A: Successor + Pointed + AcceptanceCondition,
 {
     type TS = A;
     type Acc = A;

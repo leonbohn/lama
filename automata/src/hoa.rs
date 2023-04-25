@@ -9,8 +9,8 @@ use tracing::{debug, info, trace};
 
 use crate::{
     ts::{HasInput, HasStates},
-    BuchiCondition, Combined, Dba, Deterministic, Dpa, Growable, HasAlphabet, Mapping,
-    OmegaAutomaton, OmegaCondition, ParityCondition, Pointed, Set, Symbol, TransitionSystem,
+    BuchiCondition, Combined, Dba, Dpa, Growable, HasAlphabet, OmegaAutomaton, OmegaCondition,
+    ParityCondition, Pointed, Set, Successor, Symbol, Transformer, TransitionSystem,
 };
 
 pub trait ToHoaAcceptance {
@@ -112,7 +112,7 @@ where
 impl<I, TS, Acc> ToHoa for Combined<TS, Acc>
 where
     I: ToHoaLabel + Clone + Eq + Hash,
-    TS: TransitionSystem<Sigma = I> + HasAlphabet,
+    TS: Successor<Sigma = I> + HasAlphabet,
     Acc: ToHoaAcceptance<Trigger = (TS::Q, TS::Sigma)>,
 {
     fn to_hoa(&self) -> HoaAutomaton {
@@ -281,7 +281,7 @@ impl TryFrom<HoaAutomaton> for BuchiCondition<(Id, HoaSymbol)> {
 }
 
 impl<Acc: crate::AcceptanceCondition + TryFrom<HoaAutomaton, Error = FromHoaError>>
-    TryFrom<HoaAutomaton> for Combined<Deterministic<Id, HoaSymbol>, Acc>
+    TryFrom<HoaAutomaton> for Combined<TransitionSystem<Id, HoaSymbol>, Acc>
 {
     type Error = FromHoaError;
 
@@ -302,7 +302,7 @@ impl<Acc: crate::AcceptanceCondition + TryFrom<HoaAutomaton, Error = FromHoaErro
             .get_singleton()
             .ok_or(FromHoaError::UnsupportedBody)?;
 
-        let mut ts = Deterministic::new();
+        let mut ts = TransitionSystem::new();
 
         for state in aut.body().iter() {
             let state_id = state.id();

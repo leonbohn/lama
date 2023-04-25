@@ -7,7 +7,7 @@ use std::{
 use itertools::Itertools;
 
 use crate::{
-    output::{Mapping, Parity, Priority},
+    output::{Parity, Priority, Transformer},
     Set,
 };
 
@@ -95,7 +95,7 @@ impl<'a> Iterator for ParityConditionRangeIter<'a> {
     }
 }
 
-impl<X> Mapping<X> for ParityCondition<X>
+impl<X> Transformer<X> for ParityCondition<X>
 where
     X: Clone + Eq + std::hash::Hash,
 {
@@ -166,7 +166,7 @@ impl<X: Eq + Hash> SubAssign<X> for BuchiCondition<X> {
 
 pub struct BuchiConditionRangeIter<'a>(&'a std::ops::Range<usize>);
 
-impl<X> Mapping<X> for BuchiCondition<X>
+impl<X> Transformer<X> for BuchiCondition<X>
 where
     X: Eq + Hash + Clone,
 {

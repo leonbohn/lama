@@ -1,11 +1,11 @@
 use itertools::Itertools;
 use tabled::{builder::Builder, settings::Style};
 
-use crate::{AnonymousGrowable, Map, Set, Symbol};
+use crate::{AnonymousGrowable, HasAlphabet, Map, Pair, Set, Symbol, Transition};
 
 use super::{
-    Growable, HasInput, HasStates, Shrinkable, StateIndex, StateOf, SymbolOf, TransitionOf,
-    TransitionSystem, TriggerIterable, Trivial,
+    transition::TransitionReference, Growable, HasInput, HasStates, IntoStates, IntoTransitions,
+    Shrinkable, StateIndex, StateOf, Successor, SymbolOf, TransitionOf, TriggerIterable, Trivial,
 };
 
 use std::{
@@ -15,12 +15,38 @@ use std::{
 
 /// An implementation of a deterministic transition system, stored as two `Vec`s containing the states and [`DeterministicTransition`]s.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Deterministic<Q: StateIndex = u32, S: Symbol = char> {
+pub struct TransitionSystem<Q: StateIndex = u32, S: Symbol = char> {
     pub(crate) states: Set<Q>,
     pub(crate) edges: Map<(Q, S), Q>,
 }
 
-impl<Q: StateIndex, S: Symbol> HasStates for Deterministic<Q, S> {
+impl<Q: StateIndex, S: Symbol> TransitionSystem<Q, S> {
+    /// Create a new empty deterministic transition system.
+    pub fn new() -> Self {
+        Self {
+            edges: Map::new(),
+            states: Set::new(),
+        }
+    }
+
+    pub fn all_edges(&self) -> Transitions<'_, Q, S> {
+        Transitions {
+            iter: self.edges.iter(),
+        }
+    }
+
+    pub fn states(&self) -> States<'_, Q> {
+        States {
+            iter: self.states.iter(),
+        }
+    }
+
+    pub fn size(&self) -> usize {
+        self.states.len()
+    }
+}
+
+impl<Q: StateIndex, S: Symbol> HasStates for TransitionSystem<Q, S> {
     type Q = Q;
 
     type States<'me> = std::collections::hash_set::Iter<'me, Q>
@@ -32,11 +58,11 @@ impl<Q: StateIndex, S: Symbol> HasStates for Deterministic<Q, S> {
 }
 
 /// An iterator over the alphabet of a [`Deterministic`] transition system.
-pub struct DeterministicAlphabetIter<'a, Q: StateIndex, S: Symbol> {
+pub struct TransitionSystemAlphabetIter<'a, Q: StateIndex, S: Symbol> {
     iter: std::collections::hash_map::Iter<'a, (Q, S), Q>,
 }
 
-impl<'a, Q: StateIndex, S: Symbol> Iterator for DeterministicAlphabetIter<'a, Q, S> {
+impl<'a, Q: StateIndex, S: Symbol> Iterator for TransitionSystemAlphabetIter<'a, Q, S> {
     type Item = &'a S;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -44,46 +70,38 @@ impl<'a, Q: StateIndex, S: Symbol> Iterator for DeterministicAlphabetIter<'a, Q,
     }
 }
 
-impl<Q: StateIndex, S: Symbol> HasInput for Deterministic<Q, S> {
+impl<Q: StateIndex, S: Symbol> HasInput for TransitionSystem<Q, S> {
     type Sigma = S;
 
-    type Input<'me> = DeterministicAlphabetIter<'me, Q, S>
+    type Input<'me> = TransitionSystemAlphabetIter<'me, Q, S>
     where Self:'me;
 
     fn input_alphabet_iter(&self) -> Self::Input<'_> {
-        DeterministicAlphabetIter {
+        TransitionSystemAlphabetIter {
             iter: self.edges.iter(),
         }
     }
 }
 
-impl<Q: StateIndex, S: Symbol> Deterministic<Q, S> {
-    /// Create a new empty deterministic transition system.
-    pub fn new() -> Self {
-        Self {
-            edges: Map::new(),
-            states: Set::new(),
-        }
-    }
-}
-
-impl<Q: StateIndex, S: Symbol> FromIterator<TransitionOf<Self>> for Deterministic<Q, S> {
-    fn from_iter<T: IntoIterator<Item = TransitionOf<Self>>>(iter: T) -> Self {
+impl<T: Transition> FromIterator<T> for TransitionSystem<T::Q, T::S> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let (it, er) = iter.into_iter().tee();
         Self {
-            states: it.map(|(q, _, _)| q).collect(),
-            edges: er.map(|(q, a, p)| ((q, a), p)).collect(),
+            states: it.map(|x| x.source().clone()).collect(),
+            edges: er
+                .map(|x| ((x.source().clone(), x.sym().clone()), x.target().clone()))
+                .collect(),
         }
     }
 }
 
-impl Default for Deterministic {
+impl Default for TransitionSystem {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<Q: StateIndex> Trivial for Deterministic<Q> {
+impl<Q: StateIndex> Trivial for TransitionSystem<Q> {
     fn trivial() -> Self {
         Self {
             states: Set::new(),
@@ -92,7 +110,7 @@ impl<Q: StateIndex> Trivial for Deterministic<Q> {
     }
 }
 
-impl<I: IntoIterator<Item = (u32, char, u32)>> From<I> for Deterministic {
+impl<I: IntoIterator<Item = (u32, char, u32)>> From<I> for TransitionSystem {
     fn from(iter: I) -> Self {
         let edges: Map<(u32, char), u32> = iter.into_iter().map(|(p, a, q)| ((p, a), q)).collect();
 
@@ -106,7 +124,7 @@ impl<I: IntoIterator<Item = (u32, char, u32)>> From<I> for Deterministic {
     }
 }
 
-impl<S, Q> TransitionSystem for Deterministic<Q, S>
+impl<S, Q> Successor for TransitionSystem<Q, S>
 where
     S: Symbol,
     Q: StateIndex,
@@ -121,11 +139,11 @@ where
 
 #[derive(Clone, Debug)]
 /// An iterator over the states of a deterministic transition system.
-pub struct StateIter<'a, Q: StateIndex> {
+pub struct States<'a, Q: StateIndex> {
     iter: std::collections::hash_set::Iter<'a, Q>,
 }
 
-impl<'a, Q: StateIndex> Iterator for StateIter<'a, Q> {
+impl<'a, Q: StateIndex> Iterator for States<'a, Q> {
     type Item = &'a Q;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -133,7 +151,7 @@ impl<'a, Q: StateIndex> Iterator for StateIter<'a, Q> {
     }
 }
 
-impl<Q: StateIndex, S: Symbol> TriggerIterable for Deterministic<Q, S> {
+impl<Q: StateIndex, S: Symbol> TriggerIterable for TransitionSystem<Q, S> {
     type TriggerIter<'me> = std::collections::hash_map::Keys<'me, (Q, S), Q> where Q: 'me, S: 'me;
 
     fn triggers_iter(&self) -> Self::TriggerIter<'_> {
@@ -141,7 +159,7 @@ impl<Q: StateIndex, S: Symbol> TriggerIterable for Deterministic<Q, S> {
     }
 }
 
-impl<Q, S> Growable for Deterministic<Q, S>
+impl<Q, S> Growable for TransitionSystem<Q, S>
 where
     Q: StateIndex,
     S: Symbol,
@@ -161,7 +179,7 @@ where
     }
 }
 
-impl<S, Q> Shrinkable for Deterministic<Q, S>
+impl<S, Q> Shrinkable for TransitionSystem<Q, S>
 where
     Q: StateIndex,
     S: Symbol,
@@ -183,7 +201,7 @@ where
     }
 }
 
-impl<S, Q> AnonymousGrowable for Deterministic<Q, S>
+impl<S, Q> AnonymousGrowable for TransitionSystem<Q, S>
 where
     Q: StateIndex + From<u32>,
     S: Symbol,
@@ -198,7 +216,7 @@ where
     }
 }
 
-impl<S: Symbol, Q: StateIndex + Display> Display for Deterministic<Q, S> {
+impl<S: Symbol, Q: StateIndex + Display> Display for TransitionSystem<Q, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = Builder::default();
         let alphabet = self.input_alphabet().sorted().collect_vec();
@@ -224,5 +242,40 @@ impl<S: Symbol, Q: StateIndex + Display> Display for Deterministic<Q, S> {
         let mut transition_table = builder.build();
         transition_table.with(Style::psql());
         write!(f, "{}", transition_table)
+    }
+}
+
+pub struct Transitions<'a, Q, S> {
+    iter: std::collections::hash_map::Iter<'a, (Q, S), Q>,
+}
+
+impl<'a, Q: StateIndex, S: Symbol> Iterator for Transitions<'a, Q, S> {
+    type Item = TransitionReference<'a, Q, S>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter
+            .next()
+            .map(|((from, on), to)| TransitionReference::new(from, on, to))
+    }
+}
+
+impl<'a, S: Symbol, Q: StateIndex> IntoTransitions for &'a TransitionSystem<Q, S> {
+    type TransitionRef = TransitionReference<'a, Q, S>;
+
+    type IntoTransitions = Transitions<'a, Q, S>;
+
+    fn into_transitions(self) -> Self::IntoTransitions {
+        (*self).all_edges()
+    }
+}
+
+impl<'a, S: Symbol, Q: StateIndex> IntoStates for &'a TransitionSystem<Q, S> {
+    type StateRef = &'a Q;
+    type IntoStates = States<'a, Q>;
+
+    fn into_states(self) -> Self::IntoStates {
+        States {
+            iter: self.states.iter(),
+        }
     }
 }

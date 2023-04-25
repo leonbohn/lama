@@ -1,10 +1,10 @@
 use std::{borrow::Borrow, fmt::Display, ops::Add};
 
 use crate::{
-    ts::{HasStates, SymbolOf, Trivial, HasInput, deterministic::{DeterministicAlphabetIter}, StateOf},
+    ts::{HasStates, SymbolOf, Trivial, HasInput, transitionsystem::{TransitionSystemAlphabetIter}, StateOf},
     words::IsFinite,
-    Deterministic, FiniteKind, Growable, Map, Pointed, Shrinkable,
-     Str, Subword, Symbol, TransitionSystem, TriggerIterable, Word,
+    TransitionSystem, FiniteKind, Growable, Map, Pointed, Shrinkable,
+     Str, Subword, Symbol, Successor, TriggerIterable, Word,
 };
 use itertools::Itertools;
 
@@ -189,7 +189,7 @@ pub type CongruenceTrigger<S> = (Class<S>, S);
 
 /// Represents a right congruence relation, which is in essence just a deterministic transition system. The only notable difference is that a right congruence per default encodes an initial state, namely that belonging to the epsilon class (see [`Class::epsilon`]]).
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct RightCongruence<S: Symbol = char>(Deterministic<Class<S>, S>, Class<S>);
+pub struct RightCongruence<S: Symbol = char>(TransitionSystem<Class<S>, S>, Class<S>);
 
 impl<S: Symbol> HasStates for RightCongruence<S> {
     type Q = Class<S>;
@@ -205,7 +205,7 @@ impl<S: Symbol> RightCongruence<S> {
     /// Builds a new empty right congruence relation consisting of a single initial
     /// congruence class, the epsilon class.
     pub fn empty_trivial() -> Self {
-        let mut ts = Deterministic::new();
+        let mut ts = TransitionSystem::new();
         let eps = Class::epsilon();
         ts.add_state(&eps);
         RightCongruence(ts, eps)
@@ -220,14 +220,14 @@ impl<S: Symbol> RightCongruence<S> {
 impl<S: Symbol> HasInput for RightCongruence<S> {
     type Sigma = S;
 
-    type Input<'me> = DeterministicAlphabetIter<'me, StateOf<Self>, S> where Self:'me;
+    type Input<'me> = TransitionSystemAlphabetIter<'me, StateOf<Self>, S> where Self:'me;
 
     fn input_alphabet_iter(&self) -> Self::Input<'_> {
         self.0.input_alphabet_iter()
     }
 }
 
-impl<S: Symbol> TransitionSystem for RightCongruence<S> {
+impl<S: Symbol> Successor for RightCongruence<S> {
     fn successor(&self, from: &Self::Q, on: &Self::Sigma) -> Option<Self::Q> {
         self.0.successor(from, on)
     }
@@ -241,7 +241,7 @@ impl<S: Symbol> Pointed for RightCongruence<S> {
 
 impl<S: Symbol> Trivial for RightCongruence<S> {
     fn trivial() -> Self {
-        let mut det = Deterministic::new();
+        let mut det = TransitionSystem::new();
         det.add_state(&Class::epsilon());
         Self(det, Class::epsilon())
     }
@@ -300,7 +300,7 @@ impl<S: Symbol> HasStates for ProgressRightCongruence<S> {
 impl<S: Symbol> HasInput for ProgressRightCongruence<S> {
     type Sigma = S;
 
-    type Input<'me> = DeterministicAlphabetIter<'me, StateOf<Self>, S>
+    type Input<'me> = TransitionSystemAlphabetIter<'me, StateOf<Self>, S>
     where Self:'me;
 
     fn input_alphabet_iter(&self) -> Self::Input<'_> {
@@ -308,7 +308,7 @@ impl<S: Symbol> HasInput for ProgressRightCongruence<S> {
     }
 }
 
-impl<S: Symbol> TransitionSystem for ProgressRightCongruence<S> {
+impl<S: Symbol> Successor for ProgressRightCongruence<S> {
     fn successor(&self, from: &Self::Q, on: &Self::Sigma) -> Option<Self::Q> {
         self.1.successor(from, on)
     }

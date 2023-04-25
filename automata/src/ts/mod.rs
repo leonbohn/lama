@@ -14,11 +14,13 @@ pub use transition::{Transition, Trigger};
 
 /// An implementation of a deterministic `TransitionSystem` in form of an edge list. The edge list is represented by a vector of tuples `(from, to, symbol)`. Is only available if the `det` feature is enabled.
 #[cfg(feature = "det")]
-pub mod deterministic;
+pub mod transitionsystem;
 #[cfg(feature = "det")]
-pub use deterministic::Deterministic;
+pub use transitionsystem::TransitionSystem;
 
 pub use visit::{LengthLexicographic, LengthLexicographicEdges, Visitor, VisitorIter};
+
+use self::transition::{StateReference, TransitionReference};
 
 /// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`
 pub trait StateIndex: Clone + PartialEq + Eq + std::hash::Hash + std::fmt::Debug + Ord {}
@@ -68,7 +70,7 @@ pub trait HasInput {
 /// Also the symbols of a transition system are generic, and can be any type that implements the [`Alphabet`] trait.
 /// The [`TransitionTrigger`] trait is used to represent an outgoing transition. Note, that such a trigger is a pair consisting of a state and a symbol, meaning the target state is not included in a trigger.
 #[autoimpl(for<T: trait> &T, &mut T)]
-pub trait TransitionSystem: HasStates + HasInput {
+pub trait Successor: HasStates + HasInput {
     /// Returns the successor state of the given state on the given symbol. The transition function is deterministic, meaning that if a transition exists, it is unique. On the other hand there may not be a transition for a given state and symbol, in which case `succ` returns `None`.
     fn successor(&self, from: &Self::Q, on: &Self::Sigma) -> Option<Self::Q>;
 
@@ -167,14 +169,14 @@ pub trait TransitionSystem: HasStates + HasInput {
 }
 
 /// Creates a new trivial transition system, which could either be empty (for [`TransitionSystem`]) or contain a single initial state (for [`InitializedDeterministic`]).
-pub trait Trivial: TransitionSystem {
+pub trait Trivial: Successor {
     /// Creates the trivial object
     fn trivial() -> Self;
 }
 
 /// Implemented by objects which have a designated initial state.
 #[autoimpl(for<T: trait> &T, &mut T)]
-pub trait Pointed: TransitionSystem {
+pub trait Pointed: Successor {
     /// Get the initial state of the automaton.
     fn initial(&self) -> Self::Q;
 
@@ -190,7 +192,7 @@ pub trait Pointed: TransitionSystem {
 
 /// Trait that allows iterating over all edges in a [`TransitionSystem`].
 #[autoimpl(for<T: trait> &T, &mut T)]
-pub trait TransitionIterable: TransitionSystem {
+pub trait TransitionIterable: Successor {
     /// Type of the iterator over all edges.
     type TransitionIter<'me>: Iterator<Item = &'me (Self::Q, Self::Sigma, Self::Q)>
     where
@@ -211,7 +213,7 @@ pub trait TransitionIterable: TransitionSystem {
 }
 
 /// Trait that allows iterating over all triggers in a [`TransitionSystem`].
-pub trait TriggerIterable: TransitionSystem {
+pub trait TriggerIterable: Successor {
     /// THe iterator type
     type TriggerIter<'me>: Iterator<Item = &'me (Self::Q, Self::Sigma)>
     where
@@ -229,18 +231,49 @@ pub trait TriggerIterable: TransitionSystem {
 }
 
 /// Converts the given object in to an iterator over transitions, consumes self.
-pub trait IntoTransitions: TransitionSystem {
+pub trait IntoTransitions: Successor + Copy {
     /// The type of transition output by the iterator.
-    type Transition: Transition<Q = Self::Q, S = Self::Sigma>;
+    type TransitionRef: Transition<Q = Self::Q, S = Self::Sigma>;
     /// The type of the iterator.
-    type TransitionIter: Iterator<Item = Self::Transition>;
+    type IntoTransitions: Iterator<Item = Self::TransitionRef>;
 
     /// Converts the transition system into an iterator over its transitions.
-    fn into_transitions(self) -> Self::TransitionIter;
+    fn into_transitions(self) -> Self::IntoTransitions;
+}
+
+impl<'a, T> IntoTransitions for &'a T
+where
+    T: IntoTransitions,
+{
+    type TransitionRef = T::TransitionRef;
+
+    type IntoTransitions = T::IntoTransitions;
+
+    fn into_transitions(self) -> Self::IntoTransitions {
+        (*self).into_transitions()
+    }
+}
+
+pub trait IntoStates: HasStates + Copy {
+    type StateRef: StateReference<Q = Self::Q>;
+    type IntoStates: Iterator<Item = Self::StateRef>;
+
+    fn into_states(self) -> Self::IntoStates;
+}
+
+impl<'a, T> IntoStates for &'a T
+where
+    T: IntoStates,
+{
+    type StateRef = T::StateRef;
+    type IntoStates = T::IntoStates;
+    fn into_states(self) -> Self::IntoStates {
+        (*self).into_states()
+    }
 }
 
 /// Converts the given transition system in to an Iterator over references to its states.
-pub trait IntoStateReferences<'a>: TransitionSystem + 'a {
+pub trait IntoStateReferences<'a>: Successor + 'a {
     /// The type of the iterator.
     type Output: Iterator<Item = &'a Self::Q>;
     /// Converts the transition system into an iterator over references to its states.
@@ -248,7 +281,7 @@ pub trait IntoStateReferences<'a>: TransitionSystem + 'a {
 }
 
 /// Ecapsulates the ability to add states and transitions to a transition system.
-pub trait Growable: TransitionSystem {
+pub trait Growable: Successor {
     /// Add a new state to the transition system..
     fn add_state(&mut self, state: &Self::Q) -> bool;
 
@@ -268,7 +301,7 @@ pub trait AnonymousGrowable: Growable {
 }
 
 /// Implmenetors of this trait can be shrunk, i.e. states and transitions can be removed from the transition system.
-pub trait Shrinkable: TransitionSystem {
+pub trait Shrinkable: Successor {
     /// Deletes the given state from the transition system. If the state did not exist before, `None` is returned. Otherwise, the old state is returned.
     /// This method does not remove any transitions which point to the given state.
     fn remove_state(&mut self, state: Self::Q) -> Option<Self::Q>;
@@ -278,7 +311,7 @@ pub trait Shrinkable: TransitionSystem {
 }
 
 /// A trait implemented by a [`TransitionSystem`] which can be trimmed. This means that all unreachable states are removed from the transition system. Further, all transitions which point to or originate from unreachable states are removed. Note that this operation is only applicable to a [`TransitionSystem`] which is [`Pointed`], as the concept of reachability is only defined if a designated initial state is given.
-pub trait Trimable: TransitionSystem + Pointed {
+pub trait Trimable: Successor + Pointed {
     /// Removes all unreachable states from the transition system. Additionally removes any transitions which point to or originate from unreachable states.
     fn trim(&mut self);
 }

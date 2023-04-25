@@ -1,7 +1,7 @@
 use impl_tools::autoimpl;
 use itertools::Itertools;
 
-use crate::{ts::TriggerOf, Combined, Mapping, Pointed, Symbol, TransitionSystem};
+use crate::{ts::TriggerOf, Combined, Pointed, Successor, Symbol, Transformer};
 use std::borrow::Borrow;
 
 use super::MutableMapping;
@@ -21,7 +21,7 @@ pub trait HasOutput {
 }
 
 /// A Mealy machine is a transition system with output.
-pub trait TransitionOutput: TransitionSystem + HasOutput {
+pub trait TransitionOutput: Successor + HasOutput {
     /// Returns the output of the transition from `from` on `on`.
     fn trigger_output(&self, from: &TriggerOf<Self>) -> Self::Gamma;
 
@@ -96,7 +96,7 @@ pub trait ModifyOutput: TransitionOutput {
 
 impl<TS, P> HasOutput for Combined<TS, P>
 where
-    TS: TransitionSystem,
+    TS: Successor,
     P: HasOutput,
 {
     type Gamma = P::Gamma;
@@ -112,8 +112,8 @@ where
 
 impl<TS, P> TransitionOutput for Combined<TS, P>
 where
-    TS: TransitionSystem,
-    P: HasOutput + Mapping<TriggerOf<TS>, Range = P::Gamma>,
+    TS: Successor,
+    P: HasOutput + Transformer<TriggerOf<TS>, Range = P::Gamma>,
 {
     fn trigger_output(&self, from: &TriggerOf<Self>) -> Self::Gamma {
         self.acceptance().apply(from)

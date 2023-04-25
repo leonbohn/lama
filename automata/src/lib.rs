@@ -24,8 +24,8 @@ pub mod ts;
 use itertools::Itertools;
 use ts::SymbolOf;
 pub use ts::{
-    AnonymousGrowable, Deterministic, Growable, IntoStateReferences, Pointed, Shrinkable,
-    StateIndex, Transition, TransitionIterable, TransitionSystem, Trigger, TriggerIterable,
+    AnonymousGrowable, Growable, IntoStateReferences, Pointed, Shrinkable, StateIndex, Successor,
+    Transition, TransitionIterable, TransitionSystem, Trigger, TriggerIterable,
 };
 
 mod display;
@@ -60,7 +60,7 @@ pub mod run;
 
 /// Module in which traits for working with Mealy machines are defined.
 pub mod output;
-pub use output::{Mapping, OutputOf, Priority, TransitionOutput};
+pub use output::{OutputOf, Priority, Transformer, TransitionOutput};
 
 /// Module in which traits for working with operations on transition systems/automata are defined.
 pub mod operations;
@@ -99,6 +99,23 @@ pub use hoa::{parse_dba, parse_dpa, parse_hoa};
 pub trait Equivalent<T = Self> {
     /// Returns true if `self` and `other` are equivalent.
     fn equivalent(&self, other: &T) -> bool;
+}
+
+/// Pairs of elements of type `L` and `R`.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Pair<L, R> {
+    left: L,
+    right: R,
+}
+
+impl<L, R> Display for Pair<L, R>
+where
+    L: Display,
+    R: Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}|{})", self.left, self.right)
+    }
 }
 
 /// Implemented by things that have an alphabet, i.e. a finite set of symbols. For example a transition
@@ -157,14 +174,15 @@ impl<TS: TriggerIterable> HasAlphabet for TS {
 }
 
 /// Represents an automaton with an omega acceptance condition.
-pub type OmegaAutomaton<Q = u32, S = char> = Combined<Deterministic<Q, S>, OmegaCondition<(Q, S)>>;
+pub type OmegaAutomaton<Q = u32, S = char> =
+    Combined<TransitionSystem<Q, S>, OmegaCondition<(Q, S)>>;
 
 #[cfg(test)]
 mod tests {
-    use crate::{AnonymousGrowable, Deterministic, Growable};
+    use crate::{AnonymousGrowable, Growable, TransitionSystem};
 
-    pub fn simple_ts() -> Deterministic {
-        let mut ts = Deterministic::new();
+    pub fn simple_ts() -> TransitionSystem {
+        let mut ts = TransitionSystem::new();
         let q0 = ts.add_new_state();
         let q1 = ts.add_new_state();
 
