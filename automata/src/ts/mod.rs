@@ -10,7 +10,7 @@ use impl_tools::autoimpl;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 use tabled::{builder::Builder, settings::Style};
-pub use transition::{Transition, Trigger};
+pub use transition::{Transition, TransitionReference, Trigger};
 
 /// An implementation of a deterministic `TransitionSystem` in form of an edge list. The edge list is represented by a vector of tuples `(from, to, symbol)`. Is only available if the `det` feature is enabled.
 #[cfg(feature = "det")]
@@ -20,7 +20,7 @@ pub use transitionsystem::TransitionSystem;
 
 pub use visit::{LengthLexicographic, LengthLexicographicEdges, Visitor, VisitorIter};
 
-use self::transition::{StateReference, TransitionReference};
+use self::transition::StateReference;
 
 /// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`
 pub trait StateIndex: Clone + PartialEq + Eq + std::hash::Hash + std::fmt::Debug + Ord {}
@@ -37,31 +37,41 @@ pub type TriggerOf<TS> = (StateOf<TS>, SymbolOf<TS>);
 /// Helper type for getting the transition type of a transition system.
 pub type TransitionOf<TS> = (StateOf<TS>, SymbolOf<TS>, StateOf<TS>);
 
+/// Trait that encapsulates things which have a set of states. The states can be generic, as long as they implement the [`StateIndex`] trait.
 #[autoimpl(for<T: trait> &T, &mut T)]
 pub trait HasStates {
+    /// The type of states of the object.
     type Q: StateIndex;
+    /// An iterator over the states of the object.
     type States<'me>: Iterator<Item = &'me Self::Q>
     where
         Self: 'me;
 
-    fn states_iter(&self) -> Self::States<'_>;
+    /// Produces an iterator over the states of the object, may contain duplicates and should rarely be used. Instead take [`Self::states()`] to get an iterator over the states without duplicates.
+    fn raw_states_iter(&self) -> Self::States<'_>;
 
+    /// Returns an iterator over the states of the object without duplicates.
     fn states(&self) -> itertools::Unique<Self::States<'_>> {
-        self.states_iter().unique()
+        self.raw_states_iter().unique()
     }
 }
 
+/// Trait that encapsulates things which have a set of input symbols, such as a transition system or transducer. The symbols can be generic, as long as they implement the [`Symbol`] trait.
 #[autoimpl(for<T: trait> &T, &mut T)]
 pub trait HasInput {
+    /// The type of input symbol.
     type Sigma: Symbol;
+    /// An iterator over the input symbols.
     type Input<'me>: Iterator<Item = &'me Self::Sigma>
     where
         Self: 'me;
 
-    fn input_alphabet_iter(&self) -> Self::Input<'_>;
+    /// Should rarely be used as it might contain duplicates, see [`Self::input_alphabet()`] instead.
+    fn raw_input_alphabet_iter(&self) -> Self::Input<'_>;
 
+    /// Returns an iterator over the input symbols without duplicates.
     fn input_alphabet(&self) -> itertools::Unique<Self::Input<'_>> {
-        self.input_alphabet_iter().unique()
+        self.raw_input_alphabet_iter().unique()
     }
 }
 
@@ -122,7 +132,7 @@ pub trait Successor: HasStates + HasInput {
         for state in self.states() {
             let mut row = vec![state.to_string()];
             for sym in self.input_alphabet() {
-                row.push(if let Some(successor) = self.successor(&state, &sym) {
+                row.push(if let Some(successor) = self.successor(state, sym) {
                     successor.to_string()
                 } else {
                     "-".to_string()
@@ -254,10 +264,14 @@ where
     }
 }
 
+/// Converts the given object in to an iterator over states, consumes self.
 pub trait IntoStates: HasStates + Copy {
+    /// The type of state output by the iterator.
     type StateRef: StateReference<Q = Self::Q>;
+    /// The type of the iterator.
     type IntoStates: Iterator<Item = Self::StateRef>;
 
+    /// Converts the transition system into an iterator over its states.
     fn into_states(self) -> Self::IntoStates;
 }
 

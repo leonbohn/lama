@@ -29,18 +29,21 @@ impl<Q: StateIndex, S: Symbol> TransitionSystem<Q, S> {
         }
     }
 
-    pub fn all_edges(&self) -> Transitions<'_, Q, S> {
+    /// Returns an iterator over all transitions of `self`.
+    pub fn all_transitions(&self) -> Transitions<'_, Q, S> {
         Transitions {
             iter: self.edges.iter(),
         }
     }
 
+    /// Returns an iterator over all transitions of `self` that start in `state`.
     pub fn states(&self) -> States<'_, Q> {
         States {
             iter: self.states.iter(),
         }
     }
 
+    /// Returns the size of `self`, i.e. the number of states.
     pub fn size(&self) -> usize {
         self.states.len()
     }
@@ -52,7 +55,7 @@ impl<Q: StateIndex, S: Symbol> HasStates for TransitionSystem<Q, S> {
     type States<'me> = std::collections::hash_set::Iter<'me, Q>
     where Self:'me;
 
-    fn states_iter(&self) -> Self::States<'_> {
+    fn raw_states_iter(&self) -> Self::States<'_> {
         self.states.iter()
     }
 }
@@ -76,7 +79,7 @@ impl<Q: StateIndex, S: Symbol> HasInput for TransitionSystem<Q, S> {
     type Input<'me> = TransitionSystemAlphabetIter<'me, Q, S>
     where Self:'me;
 
-    fn input_alphabet_iter(&self) -> Self::Input<'_> {
+    fn raw_input_alphabet_iter(&self) -> Self::Input<'_> {
         TransitionSystemAlphabetIter {
             iter: self.edges.iter(),
         }
@@ -87,7 +90,9 @@ impl<T: Transition> FromIterator<T> for TransitionSystem<T::Q, T::S> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let (it, er) = iter.into_iter().tee();
         Self {
-            states: it.map(|x| x.source().clone()).collect(),
+            states: it
+                .flat_map(|x| [x.source().clone(), x.target().clone()])
+                .collect(),
             edges: er
                 .map(|x| ((x.source().clone(), x.sym().clone()), x.target().clone()))
                 .collect(),
@@ -245,6 +250,8 @@ impl<S: Symbol, Q: StateIndex + Display> Display for TransitionSystem<Q, S> {
     }
 }
 
+/// Helper struct for iterating over the transitions of a transition system.
+#[derive(Clone, Debug)]
 pub struct Transitions<'a, Q, S> {
     iter: std::collections::hash_map::Iter<'a, (Q, S), Q>,
 }
@@ -265,7 +272,7 @@ impl<'a, S: Symbol, Q: StateIndex> IntoTransitions for &'a TransitionSystem<Q, S
     type IntoTransitions = Transitions<'a, Q, S>;
 
     fn into_transitions(self) -> Self::IntoTransitions {
-        (*self).all_edges()
+        (*self).all_transitions()
     }
 }
 

@@ -17,16 +17,18 @@
 // - [`Trimable`]: for trimming a transition system. This corresponds to removing all states which cannot be reached from the initial state. Additionally, every transition that does not have a source or target state in the transition system is removed.
 
 #![warn(missing_docs)]
+#![allow(unused)]
 
 /// Module in which traits for working with transition systems are defined. See [`ts::TransitionSystem`] and the crate level documentation for an overview of the trait hierarchy.
 /// This module also contains a concrete implementation of a transition system, [`ts::Deterministic`], which stores the transition system as a vector of states, and a vector of transitions. Is only available when the `det` feature is enabled.
 pub mod ts;
 use itertools::Itertools;
-use ts::SymbolOf;
+use output::Mapping;
 pub use ts::{
     AnonymousGrowable, Growable, IntoStateReferences, Pointed, Shrinkable, StateIndex, Successor,
     Transition, TransitionIterable, TransitionSystem, Trigger, TriggerIterable,
 };
+use ts::{SymbolOf, TriggerOf};
 
 mod display;
 
@@ -69,6 +71,11 @@ pub mod operations;
 mod boundedness;
 pub use boundedness::{Boundedness, FiniteKind, InfiniteKind};
 
+/// Trait for types that are used as values in a [`Mapping`], for example.
+pub trait Value: Clone + Eq + Hash {}
+
+impl<T> Value for T where T: Clone + Eq + Hash {}
+
 /// A trait for the symbols of a [`Word`] and the trigger of a transition in a [`TransitionSystem`].
 pub trait Symbol: Clone + Eq + std::fmt::Debug + PartialEq + Hash + Display + Ord {}
 
@@ -106,6 +113,13 @@ pub trait Equivalent<T = Self> {
 pub struct Pair<L, R> {
     left: L,
     right: R,
+}
+
+impl<L, R> Pair<L, R> {
+    /// Creates a new pair.
+    pub fn new(left: L, right: R) -> Self {
+        Self { left, right }
+    }
 }
 
 impl<L, R> Display for Pair<L, R>
@@ -176,6 +190,13 @@ impl<TS: TriggerIterable> HasAlphabet for TS {
 /// Represents an automaton with an omega acceptance condition.
 pub type OmegaAutomaton<Q = u32, S = char> =
     Combined<TransitionSystem<Q, S>, OmegaCondition<(Q, S)>>;
+
+/// Type alias for a (deterministic) automaton.
+pub type Automaton<Acc, Q = u32, S = char> = Combined<TransitionSystem<Q, S>, Acc>;
+
+/// Type alias for a (deterministic) mealy machine.
+pub type MealyMachine<C, Q = u32, S = char> =
+    Combined<TransitionSystem<Q, S>, Mapping<TriggerOf<TransitionSystem<Q, S>>, C>>;
 
 #[cfg(test)]
 mod tests {

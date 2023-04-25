@@ -82,6 +82,7 @@ pub struct BuchiConstraint;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParityConstraint;
 
+/// [`Constraint`], which is used for the computation of the progress right congruence of a FORC.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IterationConstraint;
 

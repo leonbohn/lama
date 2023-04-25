@@ -11,7 +11,7 @@ use crate::{
     Set,
 };
 
-use super::{AcceptanceCondition, Finite};
+use super::AcceptanceCondition;
 
 /// Represents an omega acceptance condition.
 pub enum OmegaCondition<X> {
@@ -95,11 +95,12 @@ impl<'a> Iterator for ParityConditionRangeIter<'a> {
     }
 }
 
-impl<X> Transformer<X> for ParityCondition<X>
+impl<X> Transformer for ParityCondition<X>
 where
     X: Clone + Eq + std::hash::Hash,
 {
     type Range = usize;
+    type Domain = X;
 
     fn apply<R: std::borrow::Borrow<X>>(&self, input: R) -> usize {
         self.0
@@ -166,18 +167,15 @@ impl<X: Eq + Hash> SubAssign<X> for BuchiCondition<X> {
 
 pub struct BuchiConditionRangeIter<'a>(&'a std::ops::Range<usize>);
 
-impl<X> Transformer<X> for BuchiCondition<X>
+impl<X> Transformer for BuchiCondition<X>
 where
     X: Eq + Hash + Clone,
 {
     type Range = bool;
+    type Domain = X;
 
     fn apply<R: std::borrow::Borrow<X>>(&self, input: R) -> bool {
-        if self.0.contains(input.borrow()) {
-            true
-        } else {
-            false
-        }
+        self.0.contains(input.borrow())
     }
 }
 

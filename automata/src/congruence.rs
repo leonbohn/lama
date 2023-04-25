@@ -196,8 +196,8 @@ impl<S: Symbol> HasStates for RightCongruence<S> {
 
     type States<'me> = std::collections::hash_set::Iter<'me, Self::Q> where S: 'me;
 
-    fn states_iter(&self) -> Self::States<'_> {
-        self.0.states_iter()
+    fn raw_states_iter(&self) -> Self::States<'_> {
+        self.0.raw_states_iter()
     }
 }
 
@@ -222,8 +222,8 @@ impl<S: Symbol> HasInput for RightCongruence<S> {
 
     type Input<'me> = TransitionSystemAlphabetIter<'me, StateOf<Self>, S> where Self:'me;
 
-    fn input_alphabet_iter(&self) -> Self::Input<'_> {
-        self.0.input_alphabet_iter()
+    fn raw_input_alphabet_iter(&self) -> Self::Input<'_> {
+        self.0.raw_input_alphabet_iter()
     }
 }
 
@@ -292,8 +292,8 @@ impl<S: Symbol> HasStates for ProgressRightCongruence<S> {
     where
         Self: 'me;
 
-    fn states_iter(&self) -> Self::States<'_> {
-        self.1.states_iter()
+    fn raw_states_iter(&self) -> Self::States<'_> {
+        self.1.raw_states_iter()
     }
 }
 
@@ -303,8 +303,8 @@ impl<S: Symbol> HasInput for ProgressRightCongruence<S> {
     type Input<'me> = TransitionSystemAlphabetIter<'me, StateOf<Self>, S>
     where Self:'me;
 
-    fn input_alphabet_iter(&self) -> Self::Input<'_> {
-        self.1.input_alphabet_iter()
+    fn raw_input_alphabet_iter(&self) -> Self::Input<'_> {
+        self.1.raw_input_alphabet_iter()
     }
 }
 

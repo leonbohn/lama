@@ -5,10 +5,13 @@ use crate::{
         AcceptanceCondition, BuchiCondition, ParityCondition, ReachabilityCondition, ToOmega,
     },
     congruence::CongruenceTrigger,
+    output::IntoAssigments,
     ts::{
-        Growable, HasInput, HasStates, Pointed, Shrinkable, Successor, SymbolOf, TransitionSystem,
+        transitionsystem::Transitions, Growable, HasInput, HasStates, IntoTransitions, Pointed,
+        Shrinkable, Successor, SymbolOf, TransitionReference, TransitionSystem,
     },
     AnonymousGrowable, HasAlphabet, OmegaAutomaton, RightCongruence, StateIndex, Symbol,
+    Transformer,
 };
 
 /// Struct that represents the 'usual' automata, which is a combination of a transition system, a designated initial state and an acceptance condition.
@@ -17,6 +20,36 @@ pub struct Combined<TS: Successor, Acc> {
     ts: TS,
     initial: TS::Q,
     acc: Acc,
+}
+
+impl<'a, TS: Successor + IntoTransitions, Acc> IntoTransitions for &'a Combined<TS, Acc> {
+    type TransitionRef = TS::TransitionRef;
+
+    type IntoTransitions = TS::IntoTransitions;
+
+    fn into_transitions(self) -> Self::IntoTransitions {
+        self.ts.into_transitions()
+    }
+}
+
+impl<'a, TS: Successor, M: IntoAssigments> IntoAssigments for &'a Combined<TS, M> {
+    type AssignmentRef = M::AssignmentRef;
+
+    type Assignments = M::Assignments;
+
+    fn into_assignments(self) -> Self::Assignments {
+        self.acc.into_assignments()
+    }
+}
+
+impl<TS: Successor, M: Transformer> Transformer for Combined<TS, M> {
+    type Domain = M::Domain;
+
+    type Range = M::Range;
+
+    fn apply<R: std::borrow::Borrow<Self::Domain>>(&self, input: R) -> Self::Range {
+        self.acc.apply(input)
+    }
 }
 
 impl<TS: Successor + HasAlphabet<Alphabet = TS::Sigma>, Acc> HasAlphabet for Combined<TS, Acc> {
@@ -36,8 +69,8 @@ impl<TS: Successor, Acc> HasInput for Combined<TS, Acc> {
     where
         Self: 'me;
 
-    fn input_alphabet_iter(&self) -> Self::Input<'_> {
-        self.ts.input_alphabet_iter()
+    fn raw_input_alphabet_iter(&self) -> Self::Input<'_> {
+        self.ts.raw_input_alphabet_iter()
     }
 }
 
@@ -121,8 +154,8 @@ where
 
     type States<'me> = TS::States<'me> where Self:'me;
 
-    fn states_iter(&self) -> Self::States<'_> {
-        self.ts.states_iter()
+    fn raw_states_iter(&self) -> Self::States<'_> {
+        self.ts.raw_states_iter()
     }
 }
 

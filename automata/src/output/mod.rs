@@ -3,7 +3,7 @@ use crate::{congruence::CongruenceTrigger, Combined, Map, RightCongruence};
 mod mapping;
 mod with_output;
 
-pub use mapping::{MutableMapping, Transformer};
+pub use mapping::{Assignment, IntoAssigments, Mapping, MutableTransformer, Transformer};
 pub use with_output::TransitionOutput;
 
 use self::with_output::HasOutput;
@@ -27,6 +27,7 @@ impl Priority {
         self.0
     }
 
+    /// Returns the priority as a usize.
     pub fn as_usize(&self) -> usize {
         self.0 as usize
     }
@@ -56,4 +57,7 @@ impl Parity for bool {
     }
 }
 
+/// A right congruence relation, which has been combined with a mapping from transitions to outputs.
+///
+/// This encapsulates a Mealy Machine, which is defined over the transition structure of the right congruence.
 pub type MealyCongruence<I, O> = Combined<RightCongruence<I>, Map<CongruenceTrigger<I>, O>>;

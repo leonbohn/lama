@@ -1,5 +1,6 @@
 //! A library for learning automata from data.
 #![warn(missing_docs)]
+#![allow(unused)]
 
 /// This module deals with acceptance conditions and their inference.
 pub mod acceptance;

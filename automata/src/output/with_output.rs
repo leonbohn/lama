@@ -4,8 +4,6 @@ use itertools::Itertools;
 use crate::{ts::TriggerOf, Combined, Pointed, Successor, Symbol, Transformer};
 use std::borrow::Borrow;
 
-use super::MutableMapping;
-
 #[autoimpl(for<T: trait> &T, &mut T)]
 pub trait HasOutput {
     type Gamma: Symbol;
@@ -113,7 +111,7 @@ where
 impl<TS, P> TransitionOutput for Combined<TS, P>
 where
     TS: Successor,
-    P: HasOutput + Transformer<TriggerOf<TS>, Range = P::Gamma>,
+    P: HasOutput + Transformer<Domain = TriggerOf<TS>, Range = P::Gamma>,
 {
     fn trigger_output(&self, from: &TriggerOf<Self>) -> Self::Gamma {
         self.acceptance().apply(from)
