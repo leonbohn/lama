@@ -130,12 +130,12 @@ where
 }
 
 impl<TS: TransitionSystem, Acc> TransitionSystem for Combined<TS, Acc> {
-    fn succ(
+    fn successor(
         &self,
         from: &Self::Q,
         on: &crate::ts::SymbolOf<Self>,
     ) -> Option<crate::ts::StateOf<Self>> {
-        self.ts.succ(from, on)
+        self.ts.successor(from, on)
     }
 }
 

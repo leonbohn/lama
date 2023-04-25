@@ -4,10 +4,12 @@ mod mapping;
 mod with_output;
 
 pub use mapping::{Mapping, MutableMapping, PriorityMapping};
-pub use with_output::WithOutput;
+pub use with_output::TransitionOutput;
+
+use self::with_output::HasOutput;
 
 /// Type alias to get the output type of a transducer.
-pub type OutputOf<T> = <T as WithOutput>::Output;
+pub type OutputOf<T> = <T as HasOutput>::Gamma;
 
 /// Holds the priority (i.e. label) of either a transition or of a state.
 /// The type C is the label, which by default is a u32.

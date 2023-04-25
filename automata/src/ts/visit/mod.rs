@@ -130,7 +130,7 @@ where
     fn visit_next(&mut self) -> Option<Self::Place> {
         if let Some(q) = self.queue.pop_front() {
             for sym in &self.alphabet {
-                if let Some(successor) = self.ts.succ(&q, sym) {
+                if let Some(successor) = self.ts.successor(&q, sym) {
                     if self.seen.insert(successor.clone()) {
                         self.queue.push_back(successor);
                     }
@@ -151,7 +151,7 @@ where
 
     fn visit_next(&mut self) -> Option<Self::Place> {
         if let Some((q, sym)) = self.queue.pop_front() {
-            if let Some(successor) = self.ts.succ(&q, &sym) {
+            if let Some(successor) = self.ts.successor(&q, &sym) {
                 if self.seen.insert(successor.clone()) {
                     self.queue.extend(
                         self.alphabet

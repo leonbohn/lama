@@ -60,7 +60,7 @@ pub mod run;
 
 /// Module in which traits for working with Mealy machines are defined.
 pub mod output;
-pub use output::{Mapping, OutputOf, Priority, WithOutput};
+pub use output::{Mapping, OutputOf, Priority, TransitionOutput};
 
 /// Module in which traits for working with operations on transition systems/automata are defined.
 pub mod operations;

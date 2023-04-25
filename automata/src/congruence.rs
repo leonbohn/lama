@@ -228,8 +228,8 @@ impl<S: Symbol> HasInput for RightCongruence<S> {
 }
 
 impl<S: Symbol> TransitionSystem for RightCongruence<S> {
-    fn succ(&self, from: &Self::Q, on: &Self::Sigma) -> Option<Self::Q> {
-        self.0.succ(from, on)
+    fn successor(&self, from: &Self::Q, on: &Self::Sigma) -> Option<Self::Q> {
+        self.0.successor(from, on)
     }
 }
 
@@ -309,8 +309,8 @@ impl<S: Symbol> HasInput for ProgressRightCongruence<S> {
 }
 
 impl<S: Symbol> TransitionSystem for ProgressRightCongruence<S> {
-    fn succ(&self, from: &Self::Q, on: &Self::Sigma) -> Option<Self::Q> {
-        self.1.succ(from, on)
+    fn successor(&self, from: &Self::Q, on: &Self::Sigma) -> Option<Self::Q> {
+        self.1.successor(from, on)
     }
 }
 

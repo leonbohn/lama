@@ -31,6 +31,7 @@ impl<Q: StateIndex, S: Symbol> HasStates for Deterministic<Q, S> {
     }
 }
 
+/// An iterator over the alphabet of a [`Deterministic`] transition system.
 pub struct DeterministicAlphabetIter<'a, Q: StateIndex, S: Symbol> {
     iter: std::collections::hash_map::Iter<'a, (Q, S), Q>,
 }
@@ -110,7 +111,7 @@ where
     S: Symbol,
     Q: StateIndex,
 {
-    fn succ(&self, from: &StateOf<Self>, on: &Self::Sigma) -> Option<StateOf<Self>> {
+    fn successor(&self, from: &StateOf<Self>, on: &Self::Sigma) -> Option<StateOf<Self>> {
         self.edges
             .iter()
             .find(|((f, s), _)| f == from && s == on)
@@ -212,7 +213,7 @@ impl<S: Symbol, Q: StateIndex + Display> Display for Deterministic<Q, S> {
         for state in self.states().sorted() {
             let mut row = vec![state.to_string()];
             for sym in &alphabet {
-                row.push(if let Some(successor) = self.succ(state, sym) {
+                row.push(if let Some(successor) = self.successor(state, sym) {
                     successor.to_string()
                 } else {
                     "-".to_string()

@@ -63,20 +63,6 @@ pub trait HasInput {
     }
 }
 
-#[autoimpl(for<T: trait> &T, &mut T)]
-pub trait HasOutput {
-    type Gamma: Symbol;
-    type Output<'me>: Iterator<Item = &'me Self::Gamma>
-    where
-        Self: 'me;
-
-    fn output_alphabet_iter(&self) -> Self::Output<'_>;
-
-    fn output_alphabet(&self) -> itertools::Unique<Self::Output<'_>> {
-        self.output_alphabet_iter().unique()
-    }
-}
-
 /// The base trait implemented by a deterministic transition system. A transition system is a tuple `(Q, S, δ)`, where `Q` is a finite set of states, `S` is a finite set of symbols and `δ: Q × S → Q` is a transition function. Note that the transition function is not necessarily complete and some transitions may be missing.
 /// States of a transition system are generic, and can be any type that implements the [`StateIndex`] trait.
 /// Also the symbols of a transition system are generic, and can be any type that implements the [`Alphabet`] trait.
@@ -84,11 +70,11 @@ pub trait HasOutput {
 #[autoimpl(for<T: trait> &T, &mut T)]
 pub trait TransitionSystem: HasStates + HasInput {
     /// Returns the successor state of the given state on the given symbol. The transition function is deterministic, meaning that if a transition exists, it is unique. On the other hand there may not be a transition for a given state and symbol, in which case `succ` returns `None`.
-    fn succ(&self, from: &Self::Q, on: &Self::Sigma) -> Option<Self::Q>;
+    fn successor(&self, from: &Self::Q, on: &Self::Sigma) -> Option<Self::Q>;
 
     /// Returns the successor state for the given trigger through calling [`Self::succ`].
     fn apply_trigger(&self, trigger: &(Self::Q, Self::Sigma)) -> Option<Self::Q> {
-        self.succ(trigger.source(), trigger.sym())
+        self.successor(trigger.source(), trigger.sym())
     }
 
     /// Creates a new trigger from the given state and symbol.
@@ -134,7 +120,7 @@ pub trait TransitionSystem: HasStates + HasInput {
         for state in self.states() {
             let mut row = vec![state.to_string()];
             for sym in self.input_alphabet() {
-                row.push(if let Some(successor) = self.succ(&state, &sym) {
+                row.push(if let Some(successor) = self.successor(&state, &sym) {
                     successor.to_string()
                 } else {
                     "-".to_string()

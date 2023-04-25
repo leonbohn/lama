@@ -93,7 +93,21 @@ impl<X: Eq + Hash> Default for ParityCondition<X> {
     }
 }
 
-pub struct ParityConditionDomainIter<'a, X>(&'a ParityCondition<X>);
+pub struct ParityConditionRangeIter<'a> {
+    priorities: Vec<&'a Priority>,
+    pos: usize,
+}
+
+impl<'a> Iterator for ParityConditionRangeIter<'a> {
+    type Item = &'a Priority;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.priorities.get(self.pos).map(|p| {
+            self.pos += 1;
+            *p
+        })
+    }
+}
 
 impl<X> Mapping for ParityCondition<X>
 where
@@ -112,12 +126,16 @@ where
         Priority(self.complexity() as u32)
     }
 
-    fn universe(&self) -> Set<Priority> {
-        (0..self.0.len()).map(|i| Priority(i as u32)).collect()
-    }
+    type RangeIter<'me> = ParityConditionRangeIter<'me>
+    where
+        Self: 'me;
 
-    fn domain(&self) -> Set<Self::Domain> {
-        self.0.iter().flatten().cloned().collect()
+    fn range_iter(&self) -> Self::RangeIter<'_> {
+        let priorities: Vec<_> = (0..self.0.len()).map(|i| Priority(i as u32)).collect();
+        ParityConditionRangeIter {
+            priorities: priorities.iter().collect(),
+            pos: 0,
+        }
     }
 }
 
@@ -169,6 +187,8 @@ impl<X: Eq + Hash> SubAssign<X> for BuchiCondition<X> {
     }
 }
 
+pub struct BuchiConditionRangeIter<'a>(&'a std::ops::Range<usize>);
+
 impl<X> Mapping for BuchiCondition<X>
 where
     X: Eq + Hash + Clone,
@@ -184,12 +204,12 @@ where
         }
     }
 
-    fn universe(&self) -> Set<Self::Range> {
-        vec![false, true].into_iter().collect()
-    }
+    type RangeIter<'me> = std::slice::Iter<'me, bool>
+    where
+        Self: 'me;
 
-    fn domain(&self) -> Set<Self::Domain> {
-        self.0.clone()
+    fn range_iter(&self) -> Self::RangeIter<'_> {
+        [true, false].iter()
     }
 }
 

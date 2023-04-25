@@ -46,7 +46,7 @@ impl<Input: Symbol, Output: Symbol, T: Oracle<Input = Input, Output = Output>>
 
 #[cfg(test)]
 mod tests {
-    use automata::{words::IsFinite, Class, Pointed, WithOutput};
+    use automata::{words::IsFinite, Class, Pointed, TransitionOutput};
     use tracing_test::traced_test;
 
     use crate::active::Oracle;
@@ -69,7 +69,7 @@ mod tests {
             count_a % 2 == 0 && count_b % 2 == 0
         }
 
-        fn equivalence<M: Pointed + WithOutput<Sigma = Self::Input, Output = Self::Output>>(
+        fn equivalence<M: Pointed + TransitionOutput<Sigma = Self::Input, Gamma = Self::Output>>(
             &mut self,
             hypothesis: &M,
         ) -> Result<(), automata::Class<Self::Input>> {
@@ -93,7 +93,7 @@ mod tests {
             word.length() % 3
         }
 
-        fn equivalence<M: Pointed + WithOutput<Sigma = Self::Input, Output = Self::Output>>(
+        fn equivalence<M: Pointed + TransitionOutput<Sigma = Self::Input, Gamma = Self::Output>>(
             &mut self,
             hypothesis: &M,
         ) -> Result<(), Class<Self::Input>> {

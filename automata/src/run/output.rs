@@ -1,8 +1,8 @@
-use crate::{ts::StateOf, WithOutput};
+use crate::{ts::StateOf, TransitionOutput};
 
 use super::{EscapePrefix, Run};
 
-pub trait RunWithOutput<TS: WithOutput + ?Sized, K>: Run<TS, K> {
+pub trait RunWithOutput<TS: TransitionOutput + ?Sized, K>: Run<TS, K> {
     type Output: Clone + std::fmt::Debug + Eq;
 
     fn run_with_output(

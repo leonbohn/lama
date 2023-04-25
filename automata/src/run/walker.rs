@@ -43,7 +43,7 @@ impl<'t, 'w, W: Word, TS: TransitionSystem<Sigma = W::S>> Walker<'t, 'w, W, TS> 
     pub fn take_transition(&mut self) -> RunOutput<StateOf<TS>, TS::Sigma> {
         if let Some(state) = self.state.clone() {
             if let Some(symbol) = self.word.nth(self.position) {
-                if let Some(successor) = self.ts.succ(&state, &symbol) {
+                if let Some(successor) = self.ts.successor(&state, &symbol) {
                     self.position += 1;
                     self.state = Some(successor);
                     self.seq.push((state.clone(), symbol.clone()));

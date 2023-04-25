@@ -119,7 +119,7 @@ where
         for state in self.states().sorted() {
             let mut row = vec![state.to_string().blue().bold().to_string()];
             for sym in &alphabet {
-                if let Some(target) = self.ts().succ(state, sym) {
+                if let Some(target) = self.ts().successor(state, sym) {
                     row.push(
                         self.acceptance()
                             .annotate(&(state.clone(), sym.clone()), &target),
