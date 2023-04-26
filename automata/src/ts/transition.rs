@@ -90,6 +90,7 @@ impl<Q: StateIndex, S: Symbol> Transition for (Q, S, Q) {
     }
 }
 
+/// A reference to a [`Transition`]. This is useful for implementing [`TransitionSystem`] for types that do not own their transitions.
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct TransitionReference<'a, Q, S> {
     source: &'a Q,
@@ -98,6 +99,7 @@ pub struct TransitionReference<'a, Q, S> {
 }
 
 impl<'a, Q: StateIndex, S: Symbol> TransitionReference<'a, Q, S> {
+    /// Creates a new transition reference.
     pub fn new(source: &'a Q, sym: &'a S, target: &'a Q) -> Self {
         Self {
             source,

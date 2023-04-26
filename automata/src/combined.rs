@@ -12,7 +12,7 @@ use crate::{
         Shrinkable, Successor, SymbolOf, TransitionReference, TransitionSystem,
     },
     AnonymousGrowable, HasAlphabet, MealyMachine, OmegaAutomaton, RightCongruence, StateIndex,
-    Symbol, Transformer, Transition, Value,
+    Symbol, Transformer, Transition, Value, DBA, DFA,
 };
 
 /// Struct that represents the 'usual' automata, which is a combination of a transition system, a designated initial state and an acceptance condition.
@@ -143,6 +143,30 @@ impl<Q: StateIndex, S: Symbol, C: Value> MealyMachine<C, Q, S> {
             initial,
             acc: assignments,
         }
+    }
+}
+
+impl<Q: StateIndex, S: Symbol> DFA<Q, S> {
+    /// Creates a mealy machine from an iterator of transitions annotated with their output.
+    pub fn from_iters<
+        X: Transition<S = S, Q = Q>,
+        Y: Assignment<Left = Q, Right = bool>,
+        T: IntoIterator<Item = X>,
+        A: IntoIterator<Item = Y>,
+    >(
+        transition_iter: T,
+        assignment_iter: A,
+        initial: Q,
+    ) -> Self {
+        let ts = transition_iter
+            .into_iter()
+            .map(|x| (x.source().clone(), x.sym().clone(), x.target().clone()))
+            .collect();
+        let acc = assignment_iter
+            .into_iter()
+            .map(|x| (x.left(), x.right()))
+            .collect();
+        Self { ts, initial, acc }
     }
 }
 

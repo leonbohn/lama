@@ -198,20 +198,66 @@ pub type Automaton<Acc, Q = u32, S = char> = Combined<TransitionSystem<Q, S>, Ac
 pub type MealyMachine<C = usize, Q = u32, S = char> =
     Combined<TransitionSystem<Q, S>, Mapping<TriggerOf<TransitionSystem<Q, S>>, C>>;
 
+/// Represents a Buchi acceptance condition, which is in essence simply a mapping that assigns to each transition
+/// a boolean value. Here `true` means that the transition is accepting, `false` means that it is not.
+pub type BuchiAcceptance<Q, S> = Mapping<(Q, S), bool>;
+/// Represents a Parity acceptance condition, which assigns to each transition a priority.
+pub type ParityAcceptance<Q, S> = Mapping<(Q, S), usize>;
+/// Assigns to each state a boolean value, indicating whether it is accepting or not.
+pub type ReachabilityAcceptance<Q> = Mapping<Q, bool>;
+
+/// Represents a deterministic finite automaton.
+pub type DFA<Q = u32, S = char> = Combined<TransitionSystem<Q, S>, ReachabilityAcceptance<Q>>;
+/// Represents a deterministic Buchi automaton.
+pub type DBA<Q = u32, S = char> = Combined<TransitionSystem<Q, S>, BuchiAcceptance<Q, S>>;
+/// Represents a deterministic parity automaton.
+pub type DPA<Q = u32, S = char> = Combined<TransitionSystem<Q, S>, ParityAcceptance<Q, S>>;
+
 #[cfg(test)]
 mod tests {
-    use crate::{AnonymousGrowable, Growable, TransitionSystem};
+    use crate::{
+        acceptance::Accepts, AnonymousGrowable, Growable, PeriodicWord, TransitionSystem, DBA, DFA,
+    };
 
     pub fn simple_ts() -> TransitionSystem {
         let mut ts = TransitionSystem::new();
         let q0 = ts.add_new_state();
         let q1 = ts.add_new_state();
 
-        ts.add_transition(q0, 'a', &q1);
-        ts.add_transition(&q0, 'b', &q0);
-        ts.add_transition(&q1, 'a', &q0);
-        ts.add_transition(&q1, 'b', &q1);
+        ts.add_transition(q0, 'a', q1);
+        ts.add_transition(q0, 'b', q0);
+        ts.add_transition(q1, 'a', q0);
+        ts.add_transition(q1, 'b', q1);
 
         ts
+    }
+
+    #[test]
+    fn acceptor_test() {
+        let dfa = DFA::from_iters(
+            vec![(0, 'a', 1), (0, 'b', 0), (1, 'a', 0), (1, 'b', 1)],
+            [(0, false), (1, true)],
+            0,
+        );
+        println!("{}", dfa);
+
+        assert!(!dfa.accepts("aa"));
+        assert!(dfa.accepts("a"));
+
+        let dba = DBA::from_iter(
+            vec![
+                (0, 'a', 1, true),
+                (0, 'b', 0, false),
+                (1, 'a', 0, false),
+                (1, 'b', 0, false),
+            ],
+            0,
+        );
+        println!("{}", dba);
+
+        assert!(dba.accepts(PeriodicWord::from("a")));
+        assert!(dba.accepts(PeriodicWord::from("ab")));
+        assert!(dba.accepts(PeriodicWord::from("babbabab")));
+        assert!(!dba.accepts(PeriodicWord::from("b")));
     }
 }

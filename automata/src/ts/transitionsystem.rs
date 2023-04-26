@@ -106,6 +106,11 @@ impl<T: Transition> Extend<T> for TransitionSystem<T::Q, T::S> {
             iter.into_iter()
                 .map(|x| ((x.source().clone(), x.sym().clone()), x.target().clone())),
         );
+        self.states.extend(
+            self.edges
+                .iter()
+                .flat_map(|((x, _), y)| [x.clone(), y.clone()]),
+        );
     }
 }
 

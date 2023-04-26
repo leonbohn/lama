@@ -60,6 +60,7 @@ impl<A: Assignment> Extend<A> for Mapping<A::Left, A::Right> {
 /// A mapping from a type `X` to a [`Priority`].
 #[autoimpl(for<T: trait> &T)]
 pub trait Transformer {
+    /// The domain is the set of values that the mapping can be applied to.
     type Domain;
 
     /// The range is the set of values that the mapping can take.
@@ -75,6 +76,7 @@ pub trait MutableTransformer: Transformer {
     fn set_map<R: Borrow<Self::Domain>>(&mut self, of: R, to: Self::Range) -> Option<Self::Range>;
 }
 
+/// A reference to an [`Assignment`].
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct AssignmentReference<'a, X, Y> {
     left: &'a X,
@@ -82,14 +84,17 @@ pub struct AssignmentReference<'a, X, Y> {
 }
 
 impl<'a, X: Clone, Y: Clone> AssignmentReference<'a, X, Y> {
+    /// Creates a new assignment reference.
     pub fn new((left, right): (&'a X, &'a Y)) -> Self {
         Self { left, right }
     }
 
+    /// Gets the left part of the underlying assignment.
     pub fn left(&self) -> X {
         self.left.clone()
     }
 
+    /// Gets the right part of the underlying assignment.
     pub fn right(&self) -> Y {
         self.right.clone()
     }

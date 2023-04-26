@@ -6,8 +6,8 @@ use crate::{
         transitionsystem::{States, Transitions},
         IntoTransitions, TransitionReference, TriggerOf,
     },
-    Combined, MealyMachine, Pair, Pointed, StateIndex, Symbol, Transition, TransitionSystem,
-    Trigger, Value,
+    Acceptor, Combined, MealyMachine, Pair, Pointed, StateIndex, Symbol, Transition,
+    TransitionSystem, Trigger, Value, DBA, DFA, DPA,
 };
 
 pub type AssignmentProductMapping<X, Y, A> =
@@ -96,6 +96,8 @@ impl<'a, Q: StateIndex, S: Symbol, O: Value> IntoTransitions for &'a MealyMachin
 }
 
 impl<Q: StateIndex, S: Symbol, O: Value> MealyMachine<O, Q, S> {
+    /// Computes the product of two mealy machines. Uses a naive product construction for the transition structure
+    /// and obtains the outputs as the product of the outputs of the two machines.
     pub fn mealy_product<Rhs, Q2, O2>(
         &self,
         other: Rhs,
