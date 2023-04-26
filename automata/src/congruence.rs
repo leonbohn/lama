@@ -1,10 +1,13 @@
 use std::{borrow::Borrow, fmt::Display, ops::Add};
 
 use crate::{
-    ts::{HasStates, SymbolOf, Trivial, HasInput, transitionsystem::{TransitionSystemAlphabetIter}, StateOf},
+    ts::{
+        transitionsystem::TransitionSystemAlphabetIter, HasInput, HasStates, StateOf, SymbolOf,
+        Trivial,
+    },
     words::IsFinite,
-    TransitionSystem, FiniteKind, Growable, Map, Pointed, Shrinkable,
-     Str, Subword, Symbol, Successor, TriggerIterable, Word,
+    FiniteKind, Growable, Map, Pointed, Shrinkable, Str, Subword, Successor, Symbol,
+    TransitionSystem, TriggerIterable, Word,
 };
 use itertools::Itertools;
 
@@ -288,7 +291,7 @@ pub struct ProgressRightCongruence<S: Symbol>(Class<S>, RightCongruence<S>);
 impl<S: Symbol> HasStates for ProgressRightCongruence<S> {
     type Q = Class<S>;
 
-    type States<'me> = std::collections::hash_set::Iter<'me, Self::Q> 
+    type States<'me> = std::collections::hash_set::Iter<'me, Self::Q>
     where
         Self: 'me;
 
@@ -349,7 +352,10 @@ impl<S: Symbol> Display for Class<S> {
 mod tests {
     use itertools::Itertools;
 
-    use crate::{ts::{Trivial, HasStates}, Growable, Pointed};
+    use crate::{
+        ts::{HasStates, Trivial},
+        Growable, Pointed,
+    };
 
     use super::{Class, RightCongruence};
 

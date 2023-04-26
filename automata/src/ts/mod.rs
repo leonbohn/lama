@@ -2,7 +2,6 @@ use std::{borrow::Borrow, fmt::Display};
 
 use crate::{run::Configuration, Set, Symbol, Word};
 
-mod implementations;
 mod transition;
 mod visit;
 

@@ -1,7 +1,5 @@
 use crate::Priority;
 
-
-
 pub trait Union<Rhs = Self> {
     type Output;
 
