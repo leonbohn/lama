@@ -1,4 +1,8 @@
-use std::{fmt::Display, ops::Deref};
+use std::{
+    borrow::Borrow,
+    fmt::Display,
+    ops::{Deref, Rem},
+};
 
 use crate::Id;
 
@@ -18,13 +22,19 @@ impl StateConjunction {
             None
         }
     }
+
+    /// Creates a state conjunction containing a single id.
+    pub fn singleton(id: Id) -> Self {
+        Self(vec![id])
+    }
 }
 
 /// An atomic proposition is named by a string.
 pub type AtomicProposition = String;
 
 /// Aliases are also named by a string.
-pub type AliasName = String;
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct AliasName(pub(crate) String);
 
 /// An acceptance atom can be used to build an acceptance condition,
 /// each atom is either a positive or a negative acceptance set
@@ -53,6 +63,16 @@ impl AcceptanceSignature {
             None
         }
     }
+
+    /// Creates an acceptance signature containing a single id.
+    pub fn from_singleton(singleton: Id) -> Self {
+        Self(vec![singleton])
+    }
+
+    /// Creates an empty acceptance signature.
+    pub fn empty() -> Self {
+        Self(vec![])
+    }
 }
 
 impl Deref for AcceptanceSignature {
@@ -62,6 +82,10 @@ impl Deref for AcceptanceSignature {
         &self.0
     }
 }
+
+/// Represents a boolean value in the HOA format.
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Ord, PartialOrd)]
+pub struct HoaBool(pub bool);
 
 /// An acceptance condition is a positive boolean expression over
 /// [`AcceptanceAtom`]s.
@@ -76,7 +100,64 @@ pub enum AcceptanceCondition {
     /// Represents a disjunction of two acceptance conditions.
     Or(Box<AcceptanceCondition>, Box<AcceptanceCondition>),
     /// A constant boolean value.
-    Boolean(bool),
+    Boolean(HoaBool),
+}
+
+impl AcceptanceCondition {
+    fn parity_rec(current: u32, total: u32) -> Self {
+        if current + 1 >= total {
+            if current.rem(2) == 0 {
+                AcceptanceCondition::id_inf(current)
+            } else {
+                AcceptanceCondition::id_fin(current)
+            }
+        } else if current.rem(2) == 0 {
+            AcceptanceCondition::Or(
+                Box::new(AcceptanceCondition::Inf(AcceptanceAtom::Positive(current))),
+                Box::new(Self::parity_rec(current + 1, total)),
+            )
+        } else {
+            AcceptanceCondition::And(
+                Box::new(AcceptanceCondition::Fin(AcceptanceAtom::Positive(current))),
+                Box::new(Self::parity_rec(current + 1, total)),
+            )
+        }
+    }
+
+    /// Creates a parity acceptance condition with the given number of priorities.
+    pub fn parity(priorities: u32) -> Self {
+        Self::parity_rec(0, priorities)
+    }
+
+    /// Creates a Buchi acceptance condition.
+    pub fn buchi() -> Self {
+        AcceptanceCondition::Inf(AcceptanceAtom::Positive(0))
+    }
+
+    /// Creates a conjunction of two acceptance conditions.
+    pub fn and<C: Borrow<AcceptanceCondition>>(&self, other: C) -> Self {
+        AcceptanceCondition::And(Box::new(self.clone()), Box::new(other.borrow().clone()))
+    }
+
+    /// Creates a disjunction of two acceptance conditions.
+    pub fn or<C: Borrow<AcceptanceCondition>>(&self, other: C) -> Self {
+        AcceptanceCondition::Or(Box::new(self.clone()), Box::new(other.borrow().clone()))
+    }
+
+    /// Creates an acceptance condition containing the given atom.
+    pub fn atom<A: Borrow<AcceptanceAtom>>(atom: A) -> Self {
+        AcceptanceCondition::Fin(atom.borrow().clone())
+    }
+
+    /// Creates an acceptance condition consisting of a positive atodm.
+    pub fn id_fin(id: Id) -> Self {
+        Self::Fin(AcceptanceAtom::Positive(id))
+    }
+
+    /// Creates an acceptance condition consisting of a negative atom.
+    pub fn id_inf(id: Id) -> Self {
+        Self::Inf(AcceptanceAtom::Positive(id))
+    }
 }
 
 /// Represents the name of a type of acceptance condition.
@@ -210,23 +291,29 @@ pub enum AcceptanceInfo {
     Identifier(String),
 }
 
-impl Display for AcceptanceAtom {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AcceptanceAtom::Positive(id) => write!(f, "{}", id),
-            AcceptanceAtom::Negative(id) => write!(f, "!{}", id),
-        }
+impl AcceptanceInfo {
+    /// Creates an [`AcceptanceInfo`] from a [`Display`]able.
+    pub fn identifier<D: Display>(id: D) -> Self {
+        AcceptanceInfo::Identifier(id.to_string())
+    }
+
+    /// Creates an [`AcceptanceInfo`] from an [`Id`].
+    pub fn integer(id: Id) -> Self {
+        AcceptanceInfo::Int(id)
     }
 }
 
-impl Display for AcceptanceCondition {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AcceptanceCondition::Fin(id) => write!(f, "Fin({})", id),
-            AcceptanceCondition::Inf(id) => write!(f, "Inf({})", id),
-            AcceptanceCondition::And(left, right) => write!(f, "({} & {})", left, right),
-            AcceptanceCondition::Or(left, right) => write!(f, "({} | {})", left, right),
-            AcceptanceCondition::Boolean(val) => write!(f, "{}", if *val { "T" } else { "F" }),
-        }
+#[cfg(test)]
+mod tests {
+    use crate::AcceptanceCondition;
+
+    #[test]
+    fn parity_acceptance_creator() {
+        let parity_condition = super::AcceptanceCondition::parity(3);
+        assert_eq!(
+            parity_condition,
+            AcceptanceCondition::id_inf(0)
+                .or(AcceptanceCondition::id_fin(1).and(AcceptanceCondition::id_inf(2)))
+        );
     }
 }

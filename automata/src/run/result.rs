@@ -1,7 +1,7 @@
 use std::{collections::HashSet, fmt::Debug};
 
 use crate::{
-    ts::{StateOf, TransitionSystem},
+    ts::{StateOf, Successor},
     words::{IsFinite, IsInfinite, Subword},
     Boundedness, FiniteKind, InfiniteKind, Pointed, Set,
 };
@@ -9,31 +9,30 @@ use crate::{
 use super::{EscapePrefix, RunOutput, Walk, Walker};
 
 /// Abstracts the evaluation of a run.
-pub trait Run<TS: TransitionSystem + ?Sized, K>: Subword {
+pub trait Run<TS: Successor + ?Sized, K>: Subword {
     /// Type that is returned for successful runs. This is usually a state in the case of a finite input and a set of states (usually a [`HashSet`]) in the case of an infinite input.
     type Induces: Clone + Debug + Eq;
 
     /// Evaluates the run and returns the result.
-    fn run(&self, on: &TS, from: StateOf<TS>) -> Result<Self::Induces, EscapePrefix<TS::Q, Self>>
+    fn run(
+        &self,
+        on: &TS,
+        from: StateOf<TS>,
+    ) -> Result<Self::Induces, EscapePrefix<StateOf<TS>, Self>>
     where
         Self: Sized;
 }
 
 /// Abstracts the evaluation of an initial run, i.e. a [`Run`] that starts at the initial state of the transition system.
-pub trait InitialRun<TS: TransitionSystem + ?Sized, K>: Run<TS, K> {
+pub trait InitialRun<TS: Successor + ?Sized, K>: Run<TS, K> {
     /// Evaluates the run and returns the result.
-    fn initial_run(&self, on: &TS) -> Result<Self::Induces, EscapePrefix<TS::Q, Self>>
+    fn initial_run(&self, on: &TS) -> Result<Self::Induces, EscapePrefix<StateOf<TS>, Self>>
     where
         Self: Sized;
 }
 
-impl<TS: TransitionSystem + Pointed + ?Sized, K: Boundedness, R: Run<TS, K>> InitialRun<TS, K>
-    for R
-{
-    fn initial_run(
-        &self,
-        on: &TS,
-    ) -> Result<Self::Induces, EscapePrefix<<TS as TransitionSystem>::Q, Self>>
+impl<TS: Successor + Pointed + ?Sized, K: Boundedness, R: Run<TS, K>> InitialRun<TS, K> for R {
+    fn initial_run(&self, on: &TS) -> Result<Self::Induces, EscapePrefix<StateOf<TS>, Self>>
     where
         Self: Sized,
     {
@@ -41,10 +40,14 @@ impl<TS: TransitionSystem + Pointed + ?Sized, K: Boundedness, R: Run<TS, K>> Ini
     }
 }
 
-impl<W: IsFinite + Subword, TS: TransitionSystem<S = W::S>> Run<TS, FiniteKind> for W {
-    type Induces = TS::Q;
+impl<W: IsFinite + Subword, TS: Successor<Sigma = W::S>> Run<TS, FiniteKind> for W {
+    type Induces = StateOf<TS>;
 
-    fn run(&self, on: &TS, from: TS::Q) -> Result<Self::Induces, EscapePrefix<TS::Q, Self>> {
+    fn run(
+        &self,
+        on: &TS,
+        from: StateOf<TS>,
+    ) -> Result<Self::Induces, EscapePrefix<StateOf<TS>, Self>> {
         let mut walker = on.walk(from, self);
         let prefix = walker
             .by_ref()
@@ -59,13 +62,17 @@ impl<W: IsFinite + Subword, TS: TransitionSystem<S = W::S>> Run<TS, FiniteKind> 
     }
 }
 
-impl<W: IsInfinite + Subword, TS: TransitionSystem<S = W::S>> Run<TS, InfiniteKind> for W
+impl<W: IsInfinite + Subword, TS: Successor<Sigma = W::S>> Run<TS, InfiniteKind> for W
 where
-    <W as Subword>::PrefixType: IsFinite + Run<TS, FiniteKind, Induces = TS::Q>,
+    <W as Subword>::PrefixType: IsFinite + Run<TS, FiniteKind, Induces = StateOf<TS>>,
 {
-    type Induces = Set<(TS::Q, TS::S)>;
+    type Induces = Set<(StateOf<TS>, TS::Sigma)>;
 
-    fn run(&self, on: &TS, from: TS::Q) -> Result<Self::Induces, EscapePrefix<TS::Q, Self>> {
+    fn run(
+        &self,
+        on: &TS,
+        from: StateOf<TS>,
+    ) -> Result<Self::Induces, EscapePrefix<StateOf<TS>, Self>> {
         let prefix_length = self.base_length();
         let recur_length = self.recur_length();
         let prefix = self.prefix(prefix_length);
@@ -102,7 +109,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        ts::{deterministic::Deterministic, Growable},
+        ts::{transitionsystem::TransitionSystem, Growable},
         words::{PeriodicWord, Str},
         AnonymousGrowable,
     };
@@ -111,7 +118,7 @@ mod tests {
 
     #[test]
     fn omega_acceptance() {
-        let mut ts: Deterministic<u32> = Deterministic::new();
+        let mut ts: TransitionSystem<u32> = TransitionSystem::new();
         let q0 = ts.add_new_state();
         let q1 = ts.add_new_state();
         let q2 = ts.add_new_state();
@@ -126,7 +133,7 @@ mod tests {
         assert!(run.is_ok());
         assert_eq!(
             run.unwrap(),
-            vec![Deterministic::make_trigger(&q0, &'b')]
+            vec![TransitionSystem::make_trigger(&q0, &'b')]
                 .into_iter()
                 .collect()
         );
@@ -136,8 +143,8 @@ mod tests {
         assert_eq!(
             ab_run.unwrap(),
             vec![
-                Deterministic::make_trigger(&q0, &'a'),
-                Deterministic::make_trigger(&q1, &'b')
+                TransitionSystem::make_trigger(&q0, &'a'),
+                TransitionSystem::make_trigger(&q1, &'b')
             ]
             .into_iter()
             .collect()

@@ -1,13 +1,13 @@
 use std::{fmt::Display, ops::Deref};
 
-use crate::AliasName;
+use crate::{AliasName, HoaBool, Label};
 
 /// A label expression is a boolean expression over atomic propositions, aliases and boolean values.
 /// It is used to label transitions in an automaton.
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum LabelExpression {
     /// A constant boolean value.
-    Boolean(bool),
+    Boolean(HoaBool),
     /// An integer value representing the atomic proposition.
     Integer(u32),
     /// An alias for a label expression.
@@ -70,9 +70,19 @@ pub enum LabelConjunct {
     /// A conjunction of atomic propositions.
     Ap(u32),
     /// A conjunction of boolean values.
-    Bool(bool),
+    Bool(HoaBool),
     /// A negation of an atom
     Not(Box<LabelConjunct>),
+}
+
+impl LabelConjunct {
+    pub fn to_expression(&self) -> LabelExpression {
+        match self {
+            LabelConjunct::Ap(ap) => LabelExpression::Integer(*ap),
+            LabelConjunct::Bool(b) => LabelExpression::Boolean(b.clone()),
+            LabelConjunct::Not(n) => LabelExpression::Not(Box::new(n.to_expression())),
+        }
+    }
 }
 
 impl TryFrom<LabelExpression> for LabelConjunct {
@@ -103,7 +113,6 @@ impl PartialOrd for DnfLabelExpression {
         Some(self.cmp(other))
     }
 }
-
 impl Ord for DnfLabelExpression {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self.get_aps().min(), other.get_aps().min()) {
@@ -125,6 +134,16 @@ impl IntoIterator for DnfLabelExpression {
 }
 
 impl DnfLabelExpression {
+    pub fn to_label(&self) -> Label {
+        Label(
+            self.0
+                .iter()
+                .map(|x| x.to_expression())
+                .reduce(|l, r| LabelExpression::Or(Box::new(l), Box::new(r)))
+                .unwrap(),
+        )
+    }
+
     /// Returns an iterator over the atomic propositions in the disjunction.
     pub fn get_aps(&self) -> impl Iterator<Item = &u32> {
         self.0.iter().filter_map(|x| {
@@ -140,7 +159,7 @@ impl DnfLabelExpression {
     pub fn get_bools(&self) -> impl Iterator<Item = &bool> {
         self.0.iter().filter_map(|x| {
             if let LabelConjunct::Bool(b) = x {
-                Some(b)
+                Some(&b.0)
             } else {
                 None
             }
@@ -225,23 +244,10 @@ impl Ord for LabelExpression {
     }
 }
 
-impl Display for LabelExpression {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LabelExpression::Boolean(val) => write!(f, "{}", if *val { "T" } else { "F" }),
-            LabelExpression::Integer(val) => write!(f, "{}", val),
-            LabelExpression::Alias(val) => write!(f, "{}", val),
-            LabelExpression::Not(val) => write!(f, "!{}", val),
-            LabelExpression::And(lhs, rhs) => write!(f, "({} & {})", lhs, rhs),
-            LabelExpression::Or(lhs, rhs) => write!(f, "({} | {})", lhs, rhs),
-        }
-    }
-}
-
 impl Display for LabelConjunct {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LabelConjunct::Bool(val) => write!(f, "{}", if *val { "T" } else { "F" }),
+            LabelConjunct::Bool(val) => write!(f, "{}", val),
             LabelConjunct::Ap(val) => write!(f, "{}", val),
             LabelConjunct::Not(val) => write!(f, "!{}", val),
         }

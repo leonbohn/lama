@@ -6,7 +6,7 @@ pub enum AcceptanceError<'s, S, W> {
     /// Some miscellaneous problem occurred.
     Other(&'s S, &'s W),
     /// A problem when comping a Buchi condition was encountered.
-    BuchiProblem,
+    BuchiPositiveContained,
     /// Is returned when there was a problem with computing a reachability condition.
     ReachabilityProblem,
 }

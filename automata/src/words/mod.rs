@@ -29,6 +29,9 @@ pub trait Word: Debug + Eq + std::hash::Hash {
     fn nth(&self, index: usize) -> Option<Self::S>;
 }
 
+/// Alias to extract the kind of the word.
+pub type WordKind<W> = <W as Word>::Kind;
+
 /// A trait which indicates that a word is finite.
 #[autoimpl(for<T: trait> &T, &mut T)]
 pub trait IsFinite: Word {
@@ -106,6 +109,14 @@ impl<S: Symbol> Word for Vec<S> {
     fn nth(&self, index: usize) -> Option<Self::S> {
         self.get(index).cloned()
     }
+}
+
+/// A macro for constructing an ultimately periodic word from string(s).
+#[macro_export]
+macro_rules! upw {
+    ($cyc:expr) => {
+        $crate::words::UltimatelyPeriodicWord::from($crate::words::PeriodicWord::from($cyc))
+    };
 }
 
 #[cfg(test)]

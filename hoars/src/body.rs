@@ -6,11 +6,13 @@ use std::{
 pub use crate::label_expression::{DnfLabelExpression, LabelConjunct, LabelExpression};
 use chumsky::prelude::*;
 
-use crate::{lexer::Token, value, AcceptanceSignature, Aliases, Id, StateConjunction};
+use crate::{
+    lexer::Token, value, AcceptanceSignature, Aliases, AtomicProposition, Id, StateConjunction,
+};
 
 /// Newtype wrapper around a [`LabelExpression`], implements [`Deref`].
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Label(pub(crate) LabelExpression);
+pub struct Label(pub LabelExpression);
 
 impl Deref for Label {
     type Target = LabelExpression;
@@ -48,6 +50,9 @@ impl Label {
         }
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Alphabet(pub Vec<AtomicProposition>);
 
 /// Used as a symbol in a parsed HOA automaton.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -106,7 +111,11 @@ struct ImplicitEdge(StateConjunction, Option<AcceptanceSignature>);
 /// Represents an edge in a HOA automaton. It contains the [`LabelExpression`], the
 /// [`StateConjunction`] and the [`AcceptanceSignature`] of the edge.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Edge(Label, StateConjunction, AcceptanceSignature);
+pub struct Edge(
+    pub(crate) Label,
+    pub(crate) StateConjunction,
+    pub(crate) AcceptanceSignature,
+);
 
 impl Edge {
     /// Returns the label of the edge.
@@ -135,9 +144,8 @@ impl Edge {
         self.1.get_singleton()
     }
 
-    #[cfg(test)]
     /// Builds an edge from its parts.
-    pub(crate) fn from_parts(
+    pub fn from_parts(
         label_expression: Label,
         state_conjunction: StateConjunction,
         acceptance_signature: AcceptanceSignature,
@@ -149,12 +157,15 @@ impl Edge {
 /// Represents a state in a HOA automaton. It contains the [`Id`] of the state, an optional
 /// comment and a list of outgoing edges.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct State(Id, Option<String>, Vec<Edge>);
+pub struct State(
+    pub(crate) Id,
+    pub(crate) Option<String>,
+    pub(crate) Vec<Edge>,
+);
 
 impl State {
-    #[cfg(test)]
     /// Constructs a new state from its parts.
-    pub(crate) fn from_parts(id: Id, comment: Option<String>, edges: Vec<Edge>) -> Self {
+    pub fn from_parts(id: Id, comment: Option<String>, edges: Vec<Edge>) -> Self {
         Self(id, comment, edges)
     }
 
@@ -250,10 +261,15 @@ pub fn state() -> impl Parser<Token, State, Error = Simple<Token>> {
 }
 
 /// Represents the body of a HOA automaton. In essence, this is just a vector of [`State`]s.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Body(Vec<State>);
 
 impl Body {
+    /// Constructs a new empty body.
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
     pub(crate) fn parser() -> impl Parser<Token, Self, Error = Simple<Token>> {
         just(Token::BodyStart)
             .ignore_then(state().repeated())
@@ -286,7 +302,7 @@ impl DerefMut for Body {
 mod tests {
     use chumsky::{primitive::end, Parser, Stream};
 
-    use crate::{lexer, LabelExpression, StateConjunction};
+    use crate::{lexer, HoaBool, LabelExpression, StateConjunction};
 
     use super::{Edge, Label, State};
 
@@ -350,7 +366,7 @@ mod tests {
             [t] 1 {1}
         "#;
         let t0 = Edge::from_parts(
-            Label(LabelExpression::Boolean(true)),
+            Label(LabelExpression::Boolean(HoaBool(true))),
             StateConjunction(vec![1]),
             crate::AcceptanceSignature(vec![1]),
         );

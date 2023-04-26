@@ -1,10 +1,18 @@
-use crate::Set;
+mod acceptor;
+pub use acceptor::Acceptor;
 
 mod omega;
-pub use omega::{BuchiCondition, ParityCondition};
+pub use omega::{BuchiCondition, OmegaCondition, ParityCondition, ToOmega};
 mod reachability;
 
 pub use reachability::{ReachabilityCondition, SafetyAcceptance};
+
+use crate::{
+    run::{InitialRun, Run},
+    words::{IsFinite, IsInfinite},
+    BuchiAcceptance, FiniteKind, InfiniteKind, ParityAcceptance, Pointed, ReachabilityAcceptance,
+    Set, StateIndex, Symbol, Transformer, TransitionSystem, Word, DBA, DFA, DPA,
+};
 
 /// Abstracts the finiteness of the type `X`.
 pub trait Finite {
@@ -27,38 +35,6 @@ impl Finite for u32 {
     }
 }
 
-/// Holds the priority (i.e. label) of either a transition or of a state.
-/// The type C is the label, which by default is a u32.
-#[derive(Debug, Clone, Eq, Ord, PartialOrd, PartialEq, Hash)]
-pub struct Priority(pub u32);
-
-/// A trait for types that induce a parity, which is either true or false.
-pub trait Parity {
-    /// Returns true if the parity is even, false if it is odd.
-    fn parity(&self) -> bool;
-}
-
-impl Parity for Priority {
-    fn parity(&self) -> bool {
-        self.0 % 2 == 0
-    }
-}
-
-/// A mapping from a type `X` to a [`Priority`].
-pub trait PriorityMapping {
-    /// The domain of the mapping.
-    type X;
-
-    /// Obtains the priority of the given element.
-    fn priority(&self, of: &Self::X) -> Priority;
-
-    /// Returns the set of all priorities.
-    fn universe(&self) -> Set<Priority>;
-
-    /// Returns the number of distinct priorities.
-    fn complexity(&self) -> u32;
-}
-
 /// Can verify for a given induced object whether it satisfies the condition or not.
 pub trait AcceptanceCondition {
     /// The type of the induced object, depends on [`Self::Kind`].
@@ -66,4 +42,84 @@ pub trait AcceptanceCondition {
 
     /// Returns whether the given induced object satisfies the acceptance condition.
     fn is_accepting(&self, induced: &Self::Induced) -> bool;
+}
+
+pub trait Acceptance<I> {
+    fn is_accepting(&self, induced: &I) -> bool;
+}
+
+impl<Q: StateIndex> Acceptance<Q> for ReachabilityAcceptance<Q> {
+    fn is_accepting(&self, induced: &Q) -> bool {
+        self.apply(induced)
+    }
+}
+
+impl<Q: StateIndex, S: Symbol> Acceptance<Set<(Q, S)>> for BuchiAcceptance<Q, S> {
+    fn is_accepting(&self, induced: &Set<(Q, S)>) -> bool {
+        induced.iter().any(|q| self.apply(q))
+    }
+}
+
+impl<Q: StateIndex, S: Symbol> Acceptance<Set<(Q, S)>> for ParityAcceptance<Q, S> {
+    fn is_accepting(&self, induced: &Set<(Q, S)>) -> bool {
+        induced
+            .iter()
+            .map(|q| self.apply(q))
+            .min()
+            .map(|x| x % 2 == 0)
+            .unwrap_or(false)
+    }
+}
+
+pub trait Accepts<W> {
+    fn accepts(&self, word: W) -> bool;
+}
+
+impl<Q, W> Accepts<W> for DFA<Q, W::S>
+where
+    Q: StateIndex,
+    W: IsFinite + Run<TransitionSystem<Q, <W as Word>::S>, FiniteKind, Induces = Q>,
+{
+    fn accepts(&self, word: W) -> bool {
+        if let Ok(induced) = word.run(self.ts(), self.initial()) {
+            self.acceptance().apply(&induced)
+        } else {
+            false
+        }
+    }
+}
+
+impl<Q, W> Accepts<W> for DBA<Q, W::S>
+where
+    Q: StateIndex,
+    W: IsInfinite
+        + Run<TransitionSystem<Q, <W as Word>::S>, InfiniteKind, Induces = Set<(Q, <W as Word>::S)>>,
+{
+    fn accepts(&self, word: W) -> bool {
+        if let Ok(induced) = word.run(self.ts(), self.initial()) {
+            induced.into_iter().any(|q| self.acceptance().apply(&q))
+        } else {
+            false
+        }
+    }
+}
+
+impl<Q, W> Accepts<W> for DPA<Q, W::S>
+where
+    Q: StateIndex,
+    W: IsInfinite
+        + Run<TransitionSystem<Q, <W as Word>::S>, InfiniteKind, Induces = Set<(Q, <W as Word>::S)>>,
+{
+    fn accepts(&self, word: W) -> bool {
+        if let Ok(induced) = word.run(self.ts(), self.initial()) {
+            induced
+                .into_iter()
+                .map(|q| self.acceptance().apply(&q))
+                .min()
+                .map(|i| i % 2 == 0)
+                .unwrap_or(false)
+        } else {
+            false
+        }
+    }
 }

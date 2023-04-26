@@ -6,19 +6,54 @@ use std::{
 
 use itertools::Itertools;
 
-use crate::Set;
+use crate::{
+    output::{Parity, Priority, Transformer},
+    Set,
+};
 
-use super::{AcceptanceCondition, Finite, Parity, Priority, PriorityMapping};
+use super::AcceptanceCondition;
 
-/// Represents a parity condition as a vector of sets which encode a Zielonka path. The sets form an inclusion chain, where the first set contains the states with the lowest priority, the second set contains the states with the second lowest priority, and so on. The last set contains the states with the highest priority.
-/// Note that we are using min-even, meaning the first set contains the most significant even priority, the second set contains the second most significant even priority, and so on.
-pub struct ParityCondition<X>(pub Vec<Set<X>>);
+/// Represents an omega acceptance condition.
+pub enum OmegaCondition<X> {
+    /// This variant encapsulates a [`ParityCondition`].
+    Parity(ParityCondition<X>),
+    /// Encapsulates a [`BuchiCondition`].
+    Buchi(BuchiCondition<X>),
+}
 
-impl<X: Eq + Hash> AcceptanceCondition for ParityCondition<X> {
+impl<X: Clone + Hash + Eq> AcceptanceCondition for OmegaCondition<X> {
     type Induced = Set<X>;
 
     fn is_accepting(&self, induced: &Self::Induced) -> bool {
-        if let Some(minimum) = induced.iter().map(|x| self.priority(x)).min() {
+        match self {
+            Self::Parity(parity) => parity.is_accepting(induced),
+            Self::Buchi(buchi) => buchi.is_accepting(induced),
+        }
+    }
+}
+
+pub trait ToOmega {
+    type X: Hash + Eq + Clone;
+    fn to_omega(&self) -> OmegaCondition<Self::X>;
+}
+
+/// Represents a parity condition as a vector of sets which encode a Zielonka path. The sets form an inclusion chain, where the first set contains the states with the lowest priority, the second set contains the states with the second lowest priority, and so on. The last set contains the states with the highest priority.
+/// Note that we are using min-even, meaning the first set contains the most significant even priority, the second set contains the second most significant even priority, and so on.
+#[derive(Debug, Clone)]
+pub struct ParityCondition<X>(pub Vec<Set<X>>);
+
+impl<X: Hash + Eq + Clone> ToOmega for ParityCondition<X> {
+    type X = X;
+    fn to_omega(&self) -> OmegaCondition<Self::X> {
+        OmegaCondition::Parity(self.clone())
+    }
+}
+
+impl<X: Eq + Hash + Clone> AcceptanceCondition for ParityCondition<X> {
+    type Induced = Set<X>;
+
+    fn is_accepting(&self, induced: &Self::Induced) -> bool {
+        if let Some(minimum) = induced.iter().map(|x| self.apply(x)).min() {
             minimum.parity()
         } else {
             false
@@ -31,19 +66,10 @@ impl<X: Eq + Hash> ParityCondition<X> {
     pub fn new(parity: Vec<Set<X>>) -> Self {
         Self(parity)
     }
-}
 
-impl<X: Eq + Hash + Finite> ParityCondition<X> {
-    /// Creates a new `ParityCondition` from the given mapping. *EXPENSIVE*
-    pub fn from_mapping<C: PriorityMapping<X = X>>(condition: C) -> Self {
-        let mut out = (0..condition.complexity())
-            .map(|_| Set::new())
-            .collect::<Vec<_>>();
-        for x in X::universe() {
-            out[condition.priority(&x).0 as usize].insert(x);
-        }
-
-        Self(out)
+    /// Returns the number of priorities in the condition.
+    pub fn priorities(&self) -> usize {
+        self.0.len()
     }
 }
 
@@ -53,32 +79,54 @@ impl<X: Eq + Hash> Default for ParityCondition<X> {
     }
 }
 
-impl<X> PriorityMapping for ParityCondition<X>
+pub struct ParityConditionRangeIter<'a> {
+    priorities: Vec<&'a Priority>,
+    pos: usize,
+}
+
+impl<'a> Iterator for ParityConditionRangeIter<'a> {
+    type Item = &'a Priority;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.priorities.get(self.pos).map(|p| {
+            self.pos += 1;
+            *p
+        })
+    }
+}
+
+impl<X> Transformer for ParityCondition<X>
 where
-    X: Eq + std::hash::Hash,
+    X: Clone + Eq + std::hash::Hash,
 {
-    type X = X;
+    type Range = usize;
+    type Domain = X;
 
-    fn priority(&self, of: &Self::X) -> Priority {
-        for (i, set) in self.0.iter().enumerate() {
-            if set.contains(of) {
-                return Priority(i as u32);
-            }
-        }
-        Priority(self.complexity())
-    }
-
-    fn universe(&self) -> Set<Priority> {
-        (0..self.complexity()).map(Priority).collect()
-    }
-
-    fn complexity(&self) -> u32 {
-        self.0.len() as u32
+    fn apply<R: std::borrow::Borrow<X>>(&self, input: R) -> usize {
+        self.0
+            .iter()
+            .enumerate()
+            .find_map(|(i, set)| {
+                if set.contains(input.borrow()) {
+                    Some(i)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(self.0.len())
     }
 }
 
 /// Represents a Buchi condition which marks a set of transitions as accepting.
+#[derive(Debug, Clone)]
 pub struct BuchiCondition<X>(pub Set<X>);
+
+impl<X: Hash + Eq + Clone> ToOmega for BuchiCondition<X> {
+    type X = X;
+    fn to_omega(&self) -> OmegaCondition<Self::X> {
+        OmegaCondition::Buchi(self.clone())
+    }
+}
 
 impl<X: Eq + Hash> AcceptanceCondition for BuchiCondition<X> {
     type Induced = Set<X>;
@@ -117,26 +165,17 @@ impl<X: Eq + Hash> SubAssign<X> for BuchiCondition<X> {
     }
 }
 
-impl<X> PriorityMapping for BuchiCondition<X>
+pub struct BuchiConditionRangeIter<'a>(&'a std::ops::Range<usize>);
+
+impl<X> Transformer for BuchiCondition<X>
 where
-    X: Eq + Hash,
+    X: Eq + Hash + Clone,
 {
-    type X = X;
+    type Range = bool;
+    type Domain = X;
 
-    fn priority(&self, of: &Self::X) -> Priority {
-        if self.0.contains(of) {
-            Priority(0)
-        } else {
-            Priority(1)
-        }
-    }
-
-    fn universe(&self) -> Set<Priority> {
-        vec![Priority(0), Priority(1)].into_iter().collect()
-    }
-
-    fn complexity(&self) -> u32 {
-        2
+    fn apply<R: std::borrow::Borrow<X>>(&self, input: R) -> bool {
+        self.0.contains(input.borrow())
     }
 }
 
@@ -161,6 +200,31 @@ where
                 .sorted()
                 .map(|(x, y)| format!("({}, {})", x, y))
                 .join(", ")
+        )
+    }
+}
+
+impl<X, Y> Display for ParityCondition<(X, Y)>
+where
+    X: Display,
+    Y: Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Parity({})",
+            self.0
+                .iter()
+                .enumerate()
+                .map(|(i, set)| {
+                    format!(
+                        "[{i} => {}]",
+                        set.iter()
+                            .map(|(x, y)| format!("({}, {})", x, y))
+                            .join(", ")
+                    )
+                })
+                .join(" ")
         )
     }
 }

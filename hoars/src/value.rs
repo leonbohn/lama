@@ -1,8 +1,8 @@
 use chumsky::{prelude::*, select};
 
 use crate::{
-    AcceptanceAtom, AcceptanceCondition, AcceptanceInfo, AcceptanceSignature, Id, LabelExpression,
-    StateConjunction, Token,
+    AcceptanceAtom, AcceptanceCondition, AcceptanceInfo, AcceptanceSignature, AliasName, HoaBool,
+    Id, LabelExpression, StateConjunction, Token,
 };
 
 #[allow(unused)]
@@ -63,9 +63,10 @@ pub fn acceptance_info() -> impl Parser<Token, AcceptanceInfo, Error = Simple<To
 pub fn label_expression() -> impl Parser<Token, LabelExpression, Error = Simple<Token>> {
     recursive(|label_expression| {
         let value = boolean()
+            .map(HoaBool)
             .map(LabelExpression::Boolean)
             .or(integer().map(LabelExpression::Integer))
-            .or(alias_name().map(LabelExpression::Alias));
+            .or(alias_name().map(|aname| LabelExpression::Alias(AliasName(aname))));
 
         let atom = value
             .or(label_expression.delimited_by(just(Token::Paren('(')), just(Token::Paren(')'))));
@@ -124,6 +125,7 @@ pub fn acceptance_condition() -> impl Parser<Token, AcceptanceCondition, Error =
 
         let atom =
             boolean()
+                .map(HoaBool)
                 .map(AcceptanceCondition::Boolean)
                 .or(fin_inf_atom)
                 .or(acceptance_condition

@@ -1,5 +1,6 @@
 #[allow(dead_code)]
-mod constraint;
+/// This module contains the implementations of the individual constraint algorithms.
+pub mod constraint;
 #[allow(dead_code)]
 mod state;
 

@@ -4,11 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ahash = {version = "0.8.3", optional = true}
-impl-tools = "0.8.0"
-itertools = "0.10.5"
-tabled = "0.10"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+ahash = {version = "0.8", optional = true}
+impl-tools = "0.8"
+itertools = "0.10"
+tabled = {version = "0.12", features=["color"]}
+owo-colors = "3.5"
 hoars = {version = "0.1", path = "../hoars", optional = true}
+tracing-test = "0.2"
 
 [features]
 default = ["det", "ahash", "hoa"]
