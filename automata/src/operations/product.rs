@@ -1,13 +1,14 @@
-use std::sync::Arc;
+use std::{borrow::Borrow, sync::Arc};
 
 use crate::{
     output::{Assignment, AssignmentReference, IntoAssigments, Mapping},
     ts::{
         transitionsystem::{States, Transitions},
-        IntoTransitions, TransitionReference, TriggerOf,
+        HasStates, IntoTransitions, TransitionReference, TriggerOf,
     },
-    Acceptor, Combined, MealyMachine, Pair, Pointed, StateIndex, Symbol, Transition,
-    TransitionSystem, Trigger, Value, DBA, DFA, DPA,
+    Acceptor, Combined, IntoTransitionAnnotatedTransitions, MealyMachine, Pair, Pointed,
+    StateIndex, Successor, Symbol, Transformer, Transition, TransitionSystem, Trigger, Value, DBA,
+    DFA, DPA,
 };
 
 pub type AssignmentProductMapping<X, Y, A> =
@@ -132,12 +133,54 @@ impl<Q: StateIndex, S: Symbol, O: Value> MealyMachine<O, Q, S> {
     }
 }
 
+type Product<Q, P, S> =
+    Combined<TransitionSystem<Pair<Q, P>, S>, Mapping<Pair<Q, P>, Pair<bool, bool>>>;
+impl<Q: StateIndex, S: Symbol> DFA<Q, S> {
+    /// Computes the direct product of two DFAs, which is the product transition system, where the
+    /// acceptance mapping is also the product of the two input mappings, i.e. it associates each
+    /// state in the product transition system with a pair of booleans.
+    pub fn direct_product<P: StateIndex, D: Borrow<DFA<P, S>>>(
+        &self,
+        other: D,
+    ) -> Product<Q, P, S> {
+        let ts = self.ts().product_with_transitions(other.borrow().ts());
+        let acc = self
+            .acceptance()
+            .product_with_assignments(other.borrow().acceptance());
+        let initial = Pair::new(self.initial(), other.borrow().initial());
+        Combined::from_parts(ts, initial, acc)
+    }
+
+    pub fn union<P, D>(&self, other: &D) -> DFA<Pair<Q, P>, S>
+    where
+        P: StateIndex,
+        D: Borrow<DFA<P, S>>,
+    {
+        self.direct_product(other.borrow())
+            .map_acceptance(|x| x.left || x.right)
+    }
+
+    pub fn intersection<P, D>(&self, other: &D) -> DFA<Pair<Q, P>, S>
+    where
+        P: StateIndex,
+        D: Borrow<DFA<P, S>>,
+    {
+        self.direct_product(other.borrow())
+            .map_acceptance(|x| x.left && x.right)
+    }
+
+    pub fn negation(&self) -> DFA<Q, S> {
+        self.clone().map_acceptance(|x| !x)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
+        acceptance::Accepts,
         output::{IntoAssigments, Mapping},
         ts::IntoTransitions,
-        MealyMachine, Pair, Transformer, TransitionSystem,
+        MealyMachine, Pair, Transformer, TransitionSystem, DFA,
     };
 
     #[test]
@@ -184,5 +227,47 @@ mod tests {
 
         let prod = mm.mealy_product(&mm2);
         println!("{}", prod);
+    }
+
+    #[test]
+    fn dfa_operations() {
+        let left = DFA::from_parts_iters(
+            [
+                (0, 'a', 1),
+                (1, 'a', 2),
+                (2, 'a', 0),
+                (0, 'b', 0),
+                (1, 'b', 1),
+                (2, 'b', 2),
+            ],
+            [0],
+            0,
+        );
+        let right =
+            DFA::from_parts_iters([(0, 'a', 0), (1, 'a', 1), (0, 'b', 1), (1, 'b', 0)], [0], 0);
+
+        let union = left.union(&right);
+        for p in ["aaa", "bb", "abb", "b"] {
+            assert!(union.accepts(p));
+        }
+        for n in ["ab", "aba", "baa", "aababba"] {
+            assert!(!union.accepts(n));
+        }
+
+        let intersection = left.intersection(&right);
+        for p in ["", "aaabb", "bb", "aaa"] {
+            assert!(intersection.accepts(p));
+        }
+        for n in ["a", "b", "aba", "bba", "aaab", "baabab"] {
+            assert!(!intersection.accepts(n));
+        }
+
+        let negation = left.negation();
+        for p in ["a", "aa", "ba"] {
+            assert!(negation.accepts(p));
+        }
+        for n in ["", "aaa"] {
+            assert!(!negation.accepts(n));
+        }
     }
 }

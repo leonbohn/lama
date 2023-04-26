@@ -45,8 +45,12 @@ where
     }
 
     /// Returns an Iterator over the assignments in this mapping.
-    pub fn assigments(&self) -> impl Iterator<Item = (&X, &Y)> {
+    pub fn assignments(&self) -> impl Iterator<Item = (&X, &Y)> {
         self.map.iter()
+    }
+
+    pub fn assignments_mut(&mut self) -> impl Iterator<Item = (&X, &mut Y)> {
+        self.map.iter_mut()
     }
 }
 
@@ -97,6 +101,10 @@ impl<'a, X: Clone, Y: Clone> AssignmentReference<'a, X, Y> {
     /// Gets the right part of the underlying assignment.
     pub fn right(&self) -> Y {
         self.right.clone()
+    }
+
+    pub fn map_right<Z: Value, F: Fn(&Y) -> Z>(self, f: F) -> (X, Z) {
+        (self.left.clone(), f(self.right))
     }
 }
 
@@ -159,7 +167,7 @@ impl<'a, L: Value, R: Value> Assignment for AssignmentReference<'a, L, R> {
 /// [`Iterator`] over [`Assignment`]s.
 pub trait IntoAssigments: Transformer + Copy {
     /// THe type of the assignment reference, something like [`AssignmentReference`].
-    type AssignmentRef: Assignment;
+    type AssignmentRef: Assignment<Left = Self::Domain, Right = Self::Range>;
 
     /// The type of the iterator over the assignments.
     type Assignments: IntoIterator<Item = Self::AssignmentRef>;
@@ -253,13 +261,10 @@ where
     }
 }
 
-impl<X, Y> FromIterator<(X, Y)> for Mapping<X, Y>
-where
-    X: Eq + Hash,
-{
-    fn from_iter<T: IntoIterator<Item = (X, Y)>>(iter: T) -> Self {
+impl<A: Assignment> FromIterator<A> for Mapping<A::Left, A::Right> {
+    fn from_iter<T: IntoIterator<Item = A>>(iter: T) -> Self {
         Self {
-            map: Map::from_iter(iter),
+            map: iter.into_iter().map(|a| (a.left(), a.right())).collect(),
         }
     }
 }

@@ -23,12 +23,12 @@
 /// This module also contains a concrete implementation of a transition system, [`ts::Deterministic`], which stores the transition system as a vector of states, and a vector of transitions. Is only available when the `det` feature is enabled.
 pub mod ts;
 use itertools::Itertools;
-use output::Mapping;
+use output::{IntoAssigments, Mapping};
 pub use ts::{
     AnonymousGrowable, Growable, IntoStateReferences, Pointed, Shrinkable, StateIndex, Successor,
     Transition, TransitionIterable, TransitionSystem, Trigger, TriggerIterable,
 };
-use ts::{SymbolOf, TriggerOf};
+use ts::{IntoTransitions, SymbolOf, TriggerOf};
 
 mod display;
 
@@ -187,31 +187,81 @@ impl<TS: TriggerIterable> HasAlphabet for TS {
     }
 }
 
-/// Represents an automaton with an omega acceptance condition.
-pub type OmegaAutomaton<Q = u32, S = char> =
-    Combined<TransitionSystem<Q, S>, OmegaCondition<(Q, S)>>;
+mod helpers {
+    use crate::{
+        output::{IntoAssigments, Mapping},
+        ts::{HasStates, IntoTransitions, StateOf, SymbolOf, TriggerOf},
+        Combined, OmegaCondition, OutputOf, StateIndex, Symbol, Transformer, TransitionSystem,
+        Value,
+    };
 
-/// Type alias for a (deterministic) automaton.
-pub type Automaton<Acc, Q = u32, S = char> = Combined<TransitionSystem<Q, S>, Acc>;
+    pub trait IntoStateAnnotatedTransitions {
+        type State: StateIndex;
+        type Symbol: Symbol;
+        type Output: Value;
+    }
 
-/// Type alias for a (deterministic) mealy machine.
-pub type MealyMachine<C = usize, Q = u32, S = char> =
-    Combined<TransitionSystem<Q, S>, Mapping<TriggerOf<TransitionSystem<Q, S>>, C>>;
+    impl<X> IntoStateAnnotatedTransitions for X
+    where
+        X: IntoTransitions + IntoAssigments<Domain = SymbolOf<X>>,
+    {
+        type State = StateOf<X>;
 
-/// Represents a Buchi acceptance condition, which is in essence simply a mapping that assigns to each transition
-/// a boolean value. Here `true` means that the transition is accepting, `false` means that it is not.
-pub type BuchiAcceptance<Q, S> = Mapping<(Q, S), bool>;
-/// Represents a Parity acceptance condition, which assigns to each transition a priority.
-pub type ParityAcceptance<Q, S> = Mapping<(Q, S), usize>;
-/// Assigns to each state a boolean value, indicating whether it is accepting or not.
-pub type ReachabilityAcceptance<Q> = Mapping<Q, bool>;
+        type Symbol = SymbolOf<X>;
 
-/// Represents a deterministic finite automaton.
-pub type DFA<Q = u32, S = char> = Combined<TransitionSystem<Q, S>, ReachabilityAcceptance<Q>>;
-/// Represents a deterministic Buchi automaton.
-pub type DBA<Q = u32, S = char> = Combined<TransitionSystem<Q, S>, BuchiAcceptance<Q, S>>;
-/// Represents a deterministic parity automaton.
-pub type DPA<Q = u32, S = char> = Combined<TransitionSystem<Q, S>, ParityAcceptance<Q, S>>;
+        type Output = <X as Transformer>::Domain;
+    }
+
+    pub trait IntoTransitionAnnotatedTransitions:
+        IntoTransitions + IntoAssigments<Domain = (StateOf<Self>, SymbolOf<Self>)>
+    {
+        type State: StateIndex;
+        type Symbol: Symbol;
+        type Output: Value;
+    }
+
+    impl<X> IntoTransitionAnnotatedTransitions for X
+    where
+        X: IntoTransitions + IntoAssigments<Domain = (StateOf<X>, SymbolOf<X>)>,
+    {
+        type State = StateOf<X>;
+
+        type Symbol = SymbolOf<X>;
+
+        type Output = <X as Transformer>::Domain;
+    }
+
+    /// Represents an automaton with an omega acceptance condition.
+    pub type OmegaAutomaton<Q = u32, S = char> =
+        Combined<TransitionSystem<Q, S>, OmegaCondition<(Q, S)>>;
+
+    /// Type alias for a (deterministic) automaton.
+    pub type Automaton<Acc, Q = u32, S = char> = Combined<TransitionSystem<Q, S>, Acc>;
+
+    /// Type alias for a (deterministic) mealy machine.
+    pub type MealyMachine<C = usize, Q = u32, S = char> =
+        Combined<TransitionSystem<Q, S>, Mapping<TriggerOf<TransitionSystem<Q, S>>, C>>;
+
+    /// Represents a Buchi acceptance condition, which is in essence simply a mapping that assigns to each transition
+    /// a boolean value. Here `true` means that the transition is accepting, `false` means that it is not.
+    pub type BuchiAcceptance<Q, S> = Mapping<(Q, S), bool>;
+    /// Represents a Parity acceptance condition, which assigns to each transition a priority.
+    pub type ParityAcceptance<Q, S> = Mapping<(Q, S), usize>;
+    /// Assigns to each state a boolean value, indicating whether it is accepting or not.
+    pub type ReachabilityAcceptance<Q> = Mapping<Q, bool>;
+
+    /// Represents a deterministic finite automaton.
+    pub type DFA<Q = u32, S = char> = Combined<TransitionSystem<Q, S>, ReachabilityAcceptance<Q>>;
+    /// Represents a deterministic Buchi automaton.
+    pub type DBA<Q = u32, S = char> = Combined<TransitionSystem<Q, S>, BuchiAcceptance<Q, S>>;
+    /// Represents a deterministic parity automaton.
+    pub type DPA<Q = u32, S = char> = Combined<TransitionSystem<Q, S>, ParityAcceptance<Q, S>>;
+}
+
+pub use helpers::{
+    BuchiAcceptance, IntoStateAnnotatedTransitions, IntoTransitionAnnotatedTransitions,
+    MealyMachine, OmegaAutomaton, ParityAcceptance, ReachabilityAcceptance, DBA, DFA, DPA,
+};
 
 #[cfg(test)]
 mod tests {
@@ -234,9 +284,9 @@ mod tests {
 
     #[test]
     fn acceptor_test() {
-        let dfa = DFA::from_iters(
+        let dfa = DFA::from_parts_iters(
             vec![(0, 'a', 1), (0, 'b', 0), (1, 'a', 0), (1, 'b', 1)],
-            [(0, false), (1, true)],
+            [0],
             0,
         );
         println!("{}", dfa);

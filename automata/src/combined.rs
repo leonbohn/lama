@@ -11,16 +11,16 @@ use crate::{
         transitionsystem::Transitions, Growable, HasInput, HasStates, IntoTransitions, Pointed,
         Shrinkable, Successor, SymbolOf, TransitionReference, TransitionSystem,
     },
-    AnonymousGrowable, HasAlphabet, MealyMachine, OmegaAutomaton, RightCongruence, StateIndex,
+    AnonymousGrowable, HasAlphabet, MealyMachine, OmegaAutomaton, RightCongruence, Set, StateIndex,
     Symbol, Transformer, Transition, Value, DBA, DFA,
 };
 
 /// Struct that represents the 'usual' automata, which is a combination of a transition system, a designated initial state and an acceptance condition.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Combined<TS: Successor, Acc> {
-    ts: TS,
-    initial: TS::Q,
-    acc: Acc,
+    pub(crate) ts: TS,
+    pub(crate) initial: TS::Q,
+    pub(crate) acc: Acc,
 }
 
 impl<'a, TS: Successor + IntoTransitions, Acc> IntoTransitions for &'a Combined<TS, Acc> {
@@ -148,23 +148,24 @@ impl<Q: StateIndex, S: Symbol, C: Value> MealyMachine<C, Q, S> {
 
 impl<Q: StateIndex, S: Symbol> DFA<Q, S> {
     /// Creates a mealy machine from an iterator of transitions annotated with their output.
-    pub fn from_iters<
+    pub fn from_parts_iters<
         X: Transition<S = S, Q = Q>,
-        Y: Assignment<Left = Q, Right = bool>,
         T: IntoIterator<Item = X>,
-        A: IntoIterator<Item = Y>,
+        A: IntoIterator<Item = Q>,
     >(
         transition_iter: T,
-        assignment_iter: A,
+        accepting_iter: A,
         initial: Q,
     ) -> Self {
-        let ts = transition_iter
+        let ts: TransitionSystem<Q, S> = transition_iter
             .into_iter()
             .map(|x| (x.source().clone(), x.sym().clone(), x.target().clone()))
             .collect();
-        let acc = assignment_iter
-            .into_iter()
-            .map(|x| (x.left(), x.right()))
+        let accepting: Set<_> = accepting_iter.into_iter().collect();
+
+        let acc = ts
+            .states()
+            .map(|x| (x.clone(), accepting.contains(x)))
             .collect();
         Self { ts, initial, acc }
     }
