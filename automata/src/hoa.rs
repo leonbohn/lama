@@ -144,7 +144,7 @@ where
         for (i, state) in &idx {
             let mut edges = Vec::new();
             for sym in &alphabet {
-                if let Some(target) = self.successor(state, sym) {
+                if let Some(target) = self.successor(*state, *sym) {
                     let target_id = idx.iter().find(|(_, s)| *s == &target).unwrap().0;
                     let edge = Edge::from_parts(
                         sym.to_hoa_symbol(max_ap),

@@ -8,11 +8,11 @@ use crate::{Map, StateIndex, Symbol, Value};
 use super::with_output::HasOutput;
 
 pub mod types {
-    use super::{Assignment, IntoAssigments};
+    use super::{Assignment, IntoAssignments};
 
     /// Helper type to access the left and right type of an assignment.
-    pub type AssignmentRefLeft<A> = <<A as IntoAssigments>::AssignmentRef as Assignment>::Left;
-    pub type AssignmentRefRight<A> = <<A as IntoAssigments>::AssignmentRef as Assignment>::Right;
+    pub type AssignmentRefLeft<A> = <<A as IntoAssignments>::AssignmentRef as Assignment>::Left;
+    pub type AssignmentRefRight<A> = <<A as IntoAssignments>::AssignmentRef as Assignment>::Right;
 }
 
 /// Captures the mapping from a type `X` to a type `Y`.
@@ -49,6 +49,8 @@ where
         self.map.iter()
     }
 
+    /// Obtains an iterator over mutable references to the assignments. Here, only the
+    /// right side (i.e. assigned values) are mutable.
     pub fn assignments_mut(&mut self) -> impl Iterator<Item = (&X, &mut Y)> {
         self.map.iter_mut()
     }
@@ -65,14 +67,19 @@ impl<A: Assignment> Extend<A> for Mapping<A::Left, A::Right> {
 #[autoimpl(for<T: trait> &T)]
 pub trait Transformer {
     /// The domain is the set of values that the mapping can be applied to.
-    type Domain;
+    type Domain: Value;
 
     /// The range is the set of values that the mapping can take.
-    type Range;
+    type Range: Value;
 
     /// Applies the mapping to the given input.
     fn apply<R: Borrow<Self::Domain>>(&self, input: R) -> Self::Range;
 }
+
+/// Type alias to help extract the input of something that implements [`Transformer`].
+pub type TransformerInput<T> = <T as Transformer>::Domain;
+/// Type alias to help extract the output of something that implements [`Transformer`].
+pub type TransformerOutput<T> = <T as Transformer>::Range;
 
 /// A mutable mapping from a type `X` to a [`Priority`].
 pub trait MutableTransformer: Transformer {
@@ -103,6 +110,7 @@ impl<'a, X: Clone, Y: Clone> AssignmentReference<'a, X, Y> {
         self.right.clone()
     }
 
+    /// Maps the right part of the assignment.
     pub fn map_right<Z: Value, F: Fn(&Y) -> Z>(self, f: F) -> (X, Z) {
         (self.left.clone(), f(self.right))
     }
@@ -165,7 +173,7 @@ impl<'a, L: Value, R: Value> Assignment for AssignmentReference<'a, L, R> {
 
 /// Converter trait that allows conversion of a reference to a [`Mapping`] into an
 /// [`Iterator`] over [`Assignment`]s.
-pub trait IntoAssigments: Transformer + Copy {
+pub trait IntoAssignments: Transformer + Copy {
     /// THe type of the assignment reference, something like [`AssignmentReference`].
     type AssignmentRef: Assignment<Left = Self::Domain, Right = Self::Range>;
 
@@ -176,7 +184,7 @@ pub trait IntoAssigments: Transformer + Copy {
     fn into_assignments(self) -> Self::Assignments;
 }
 
-impl<'a, X, Y> IntoAssigments for &'a Mapping<X, Y>
+impl<'a, X, Y> IntoAssignments for &'a Mapping<X, Y>
 where
     X: Value,
     Y: Value,
@@ -192,7 +200,7 @@ where
     }
 }
 
-impl<'a, W: IntoAssigments> IntoAssigments for &'a W {
+impl<'a, W: IntoAssignments> IntoAssignments for &'a W {
     type AssignmentRef = W::AssignmentRef;
 
     type Assignments = W::Assignments;
@@ -214,8 +222,8 @@ impl<I, O: Symbol> HasOutput for Map<I, O> {
 
 impl<X, Y> Transformer for Map<X, Y>
 where
-    X: Eq + Hash,
-    Y: Clone,
+    X: Value,
+    Y: Value,
 {
     type Range = Y;
     type Domain = X;
@@ -229,8 +237,8 @@ where
 
 impl<X, Y> MutableTransformer for Map<X, Y>
 where
-    X: Eq + Hash + Clone,
-    Y: Clone,
+    X: Value,
+    Y: Value,
 {
     fn set_map<R: Borrow<X>>(&mut self, of: R, to: Self::Range) -> Option<Self::Range> {
         self.insert(of.borrow().clone(), to)
@@ -239,8 +247,8 @@ where
 
 impl<X, Y> Transformer for Mapping<X, Y>
 where
-    X: Eq + Hash,
-    Y: Clone,
+    X: Value,
+    Y: Value,
 {
     type Range = Y;
 
@@ -253,8 +261,8 @@ where
 
 impl<X, Y> MutableTransformer for Mapping<X, Y>
 where
-    X: Eq + Hash + Clone,
-    Y: Clone,
+    X: Value,
+    Y: Value,
 {
     fn set_map<R: Borrow<X>>(&mut self, of: R, to: Self::Range) -> Option<Self::Range> {
         self.map.set_map(of, to)

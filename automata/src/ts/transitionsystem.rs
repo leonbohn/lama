@@ -148,10 +148,14 @@ where
     S: Symbol,
     Q: StateIndex,
 {
-    fn successor(&self, from: &StateOf<Self>, on: &Self::Sigma) -> Option<StateOf<Self>> {
+    fn successor<X: Borrow<Self::Q>, Y: Borrow<Self::Sigma>>(
+        &self,
+        from: X,
+        on: Y,
+    ) -> Option<Self::Q> {
         self.edges
             .iter()
-            .find(|((f, s), _)| f == from && s == on)
+            .find(|((f, s), _)| f == from.borrow() && s == on.borrow())
             .map(|((_, _), t)| t.clone())
     }
 }
@@ -250,7 +254,7 @@ impl<S: Symbol, Q: StateIndex + Display> Display for TransitionSystem<Q, S> {
         for state in self.states().sorted() {
             let mut row = vec![state.to_string()];
             for sym in &alphabet {
-                row.push(if let Some(successor) = self.successor(state, sym) {
+                row.push(if let Some(successor) = self.successor(state, *sym) {
                     successor.to_string()
                 } else {
                     "-".to_string()

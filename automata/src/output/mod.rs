@@ -4,7 +4,8 @@ mod mapping;
 mod with_output;
 
 pub use mapping::{
-    Assignment, AssignmentReference, IntoAssigments, Mapping, MutableTransformer, Transformer,
+    Assignment, AssignmentReference, IntoAssignments, Mapping, MutableTransformer, Transformer,
+    TransformerInput, TransformerOutput,
 };
 pub use with_output::TransitionOutput;
 

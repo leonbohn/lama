@@ -81,7 +81,11 @@ pub trait HasInput {
 #[autoimpl(for<T: trait> &T, &mut T)]
 pub trait Successor: HasStates + HasInput {
     /// Returns the successor state of the given state on the given symbol. The transition function is deterministic, meaning that if a transition exists, it is unique. On the other hand there may not be a transition for a given state and symbol, in which case `succ` returns `None`.
-    fn successor(&self, from: &Self::Q, on: &Self::Sigma) -> Option<Self::Q>;
+    fn successor<X: Borrow<Self::Q>, Y: Borrow<Self::Sigma>>(
+        &self,
+        from: X,
+        on: Y,
+    ) -> Option<Self::Q>;
 
     /// Returns the successor state for the given trigger through calling [`Self::succ`].
     fn apply_trigger(&self, trigger: &(Self::Q, Self::Sigma)) -> Option<Self::Q> {

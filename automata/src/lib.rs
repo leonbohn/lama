@@ -23,7 +23,7 @@
 /// This module also contains a concrete implementation of a transition system, [`ts::Deterministic`], which stores the transition system as a vector of states, and a vector of transitions. Is only available when the `det` feature is enabled.
 pub mod ts;
 use itertools::Itertools;
-use output::{IntoAssigments, Mapping};
+use output::{IntoAssignments, Mapping};
 pub use ts::{
     AnonymousGrowable, Growable, IntoStateReferences, Pointed, Shrinkable, StateIndex, Successor,
     Transition, TransitionIterable, TransitionSystem, Trigger, TriggerIterable,
@@ -189,46 +189,58 @@ impl<TS: TriggerIterable> HasAlphabet for TS {
 
 mod helpers {
     use crate::{
-        output::{IntoAssigments, Mapping},
+        output::{IntoAssignments, Mapping, TransformerOutput},
         ts::{HasStates, IntoTransitions, StateOf, SymbolOf, TriggerOf},
         Combined, OmegaCondition, OutputOf, StateIndex, Symbol, Transformer, TransitionSystem,
         Value,
     };
 
-    pub trait IntoStateAnnotatedTransitions {
+    /// Trait that is implemented by objects which can be turned into the components that
+    /// make up a [`MooreMachine`].
+    pub trait IntoMooreTransitions:
+        IntoTransitions + IntoAssignments<Domain = StateOf<Self>>
+    {
+        /// The typ of state.
         type State: StateIndex;
+        /// The input symbol type.
         type Symbol: Symbol;
+        /// The output symbol type.
         type Output: Value;
     }
 
-    impl<X> IntoStateAnnotatedTransitions for X
+    impl<X> IntoMooreTransitions for X
     where
-        X: IntoTransitions + IntoAssigments<Domain = SymbolOf<X>>,
+        X: IntoTransitions + IntoAssignments<Domain = StateOf<X>>,
     {
         type State = StateOf<X>;
 
         type Symbol = SymbolOf<X>;
 
-        type Output = <X as Transformer>::Domain;
+        type Output = TransformerOutput<Self>;
     }
 
-    pub trait IntoTransitionAnnotatedTransitions:
-        IntoTransitions + IntoAssigments<Domain = (StateOf<Self>, SymbolOf<Self>)>
+    /// Trait that is implemented by objects which can be turned into the components that
+    /// make up a [`MealyMachine`].
+    pub trait IntoMealyTransitions:
+        IntoTransitions + IntoAssignments<Domain = (StateOf<Self>, SymbolOf<Self>)>
     {
+        /// The typ of state.
         type State: StateIndex;
+        /// The input symbol type.
         type Symbol: Symbol;
+        /// The output symbol type.
         type Output: Value;
     }
 
-    impl<X> IntoTransitionAnnotatedTransitions for X
+    impl<X> IntoMealyTransitions for X
     where
-        X: IntoTransitions + IntoAssigments<Domain = (StateOf<X>, SymbolOf<X>)>,
+        X: IntoTransitions + IntoAssignments<Domain = (StateOf<X>, SymbolOf<X>)>,
     {
         type State = StateOf<X>;
 
         type Symbol = SymbolOf<X>;
 
-        type Output = <X as Transformer>::Domain;
+        type Output = TransformerOutput<Self>;
     }
 
     /// Represents an automaton with an omega acceptance condition.
@@ -242,6 +254,9 @@ mod helpers {
     pub type MealyMachine<C = usize, Q = u32, S = char> =
         Combined<TransitionSystem<Q, S>, Mapping<TriggerOf<TransitionSystem<Q, S>>, C>>;
 
+    pub type MooreMachine<C = usize, Q = u32, S = char> =
+        Combined<TransitionSystem<Q, S>, Mapping<StateOf<TransitionSystem<Q, S>>, C>>;
+
     /// Represents a Buchi acceptance condition, which is in essence simply a mapping that assigns to each transition
     /// a boolean value. Here `true` means that the transition is accepting, `false` means that it is not.
     pub type BuchiAcceptance<Q, S> = Mapping<(Q, S), bool>;
@@ -251,16 +266,16 @@ mod helpers {
     pub type ReachabilityAcceptance<Q> = Mapping<Q, bool>;
 
     /// Represents a deterministic finite automaton.
-    pub type DFA<Q = u32, S = char> = Combined<TransitionSystem<Q, S>, ReachabilityAcceptance<Q>>;
+    pub type DFA<Q = u32, S = char> = MooreMachine<bool, Q, S>;
     /// Represents a deterministic Buchi automaton.
-    pub type DBA<Q = u32, S = char> = Combined<TransitionSystem<Q, S>, BuchiAcceptance<Q, S>>;
+    pub type DBA<Q = u32, S = char> = MealyMachine<bool, Q, S>;
     /// Represents a deterministic parity automaton.
-    pub type DPA<Q = u32, S = char> = Combined<TransitionSystem<Q, S>, ParityAcceptance<Q, S>>;
+    pub type DPA<Q = u32, S = char> = MealyMachine<usize, Q, S>;
 }
 
 pub use helpers::{
-    BuchiAcceptance, IntoStateAnnotatedTransitions, IntoTransitionAnnotatedTransitions,
-    MealyMachine, OmegaAutomaton, ParityAcceptance, ReachabilityAcceptance, DBA, DFA, DPA,
+    BuchiAcceptance, IntoMealyTransitions, IntoMooreTransitions, MealyMachine, OmegaAutomaton,
+    ParityAcceptance, ReachabilityAcceptance, DBA, DFA, DPA,
 };
 
 #[cfg(test)]

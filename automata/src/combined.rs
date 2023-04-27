@@ -1,3 +1,5 @@
+use std::borrow::Borrow;
+
 use hoars::HoaSymbol;
 use itertools::Itertools;
 
@@ -6,7 +8,8 @@ use crate::{
         AcceptanceCondition, BuchiCondition, ParityCondition, ReachabilityCondition, ToOmega,
     },
     congruence::CongruenceTrigger,
-    output::{Assignment, IntoAssigments, Mapping},
+    helpers::MooreMachine,
+    output::{Assignment, IntoAssignments, Mapping},
     ts::{
         transitionsystem::Transitions, Growable, HasInput, HasStates, IntoTransitions, Pointed,
         Shrinkable, Successor, SymbolOf, TransitionReference, TransitionSystem,
@@ -23,6 +26,47 @@ pub struct Combined<TS: Successor, Acc> {
     pub(crate) acc: Acc,
 }
 
+impl<TS: Successor, Acc> Combined<TS, Acc> {
+    /// Returns a mutable reference to the underlying acceptance condition.
+    pub fn acceptance_mut(&mut self) -> &mut Acc {
+        &mut self.acc
+    }
+
+    /// Returns a reference to the underlying acceptance condition.
+    pub fn acceptance(&self) -> &Acc {
+        &self.acc
+    }
+
+    /// Returns a new [`Combined`] instance with the same transition system in which
+    /// the acceptance condition is replaced by `acc`.
+    pub fn with_acceptance<Bdd>(&self, acc: Bdd) -> Combined<TS, Bdd>
+    where
+        Bdd: AcceptanceCondition,
+        TS: Clone,
+    {
+        Combined {
+            ts: self.ts.clone(),
+            initial: self.initial.clone(),
+            acc,
+        }
+    }
+
+    /// Constructs a new instance from the given transition system, initial state and acceptance condition.
+    pub fn from_parts(ts: TS, initial: TS::Q, acc: Acc) -> Self {
+        Self { ts, initial, acc }
+    }
+
+    /// Returns a reference to the underlying transition system.
+    pub fn ts(&self) -> &TS {
+        &self.ts
+    }
+
+    /// Returns a mutable reference to the underlying transition system.
+    pub fn ts_mut(&mut self) -> &mut TS {
+        &mut self.ts
+    }
+}
+
 impl<'a, TS: Successor + IntoTransitions, Acc> IntoTransitions for &'a Combined<TS, Acc> {
     type TransitionRef = TS::TransitionRef;
 
@@ -33,7 +77,7 @@ impl<'a, TS: Successor + IntoTransitions, Acc> IntoTransitions for &'a Combined<
     }
 }
 
-impl<'a, TS: Successor, M: IntoAssigments> IntoAssigments for &'a Combined<TS, M> {
+impl<'a, TS: Successor, M: IntoAssignments> IntoAssignments for &'a Combined<TS, M> {
     type AssignmentRef = M::AssignmentRef;
 
     type Assignments = M::Assignments;
@@ -84,29 +128,37 @@ where
     }
 }
 
-impl<TS: Successor, Acc> Combined<TS, Acc> {
-    /// Returns a mutable reference to the underlying acceptance condition.
-    pub fn acceptance_mut(&mut self) -> &mut Acc {
-        &mut self.acc
-    }
-
-    /// Returns a reference to the underlying acceptance condition.
-    pub fn acceptance(&self) -> &Acc {
-        &self.acc
-    }
-
-    /// Returns a new [`Combined`] instance with the same transition system in which
-    /// the acceptance condition is replaced by `acc`.
-    pub fn with_acceptance<Bdd>(&self, acc: Bdd) -> Combined<TS, Bdd>
+impl<Q: StateIndex, S: Symbol, X: Value> MooreMachine<X, Q, S> {
+    /// Function which maps the acceptance condition of a Moore machine to a new acceptance condition.
+    /// It gets as parameter a function which is applied to every element of the acceptance mapping.
+    pub fn map_acceptance<Y, F>(self, f: F) -> MooreMachine<Y, Q, S>
     where
-        Bdd: AcceptanceCondition,
-        TS: Clone,
+        Y: Value,
+        F: Fn(&X) -> Y + Copy,
     {
-        Combined {
-            ts: self.ts.clone(),
-            initial: self.initial.clone(),
-            acc,
-        }
+        let acc = self
+            .acceptance()
+            .into_assignments()
+            .map(|x| x.map_right(f))
+            .collect();
+        Combined::from_parts(self.ts, self.initial, acc)
+    }
+}
+
+impl<Q: StateIndex, S: Symbol, X: Value> MealyMachine<X, Q, S> {
+    /// Function which maps the acceptance condition of a Mealy machine to a new acceptance condition.
+    /// It gets as parameter a function which is applied to every element of the acceptance mapping.
+    pub fn map_acceptance<Y, F>(self, f: F) -> MealyMachine<Y, Q, S>
+    where
+        Y: Value,
+        F: Fn(&X) -> Y + Copy,
+    {
+        let acc = self
+            .acceptance()
+            .into_assignments()
+            .map(|x| x.map_right(f))
+            .collect();
+        Combined::from_parts(self.ts, self.initial, acc)
     }
 }
 
@@ -185,18 +237,6 @@ impl<TS: Successor + Default + AnonymousGrowable, Acc: AcceptanceCondition + Def
     }
 }
 
-impl<TS: Successor, Acc> Combined<TS, Acc> {
-    /// Constructs a new instance from the given transition system, initial state and acceptance condition.
-    pub fn from_parts(ts: TS, initial: TS::Q, acc: Acc) -> Self {
-        Self { ts, initial, acc }
-    }
-
-    /// Returns a reference to the underlying transition system.
-    pub fn ts(&self) -> &TS {
-        &self.ts
-    }
-}
-
 impl<TS, Acc> HasStates for Combined<TS, Acc>
 where
     TS: Successor,
@@ -211,11 +251,11 @@ where
 }
 
 impl<TS: Successor, Acc> Successor for Combined<TS, Acc> {
-    fn successor(
+    fn successor<X: Borrow<Self::Q>, Y: Borrow<Self::Sigma>>(
         &self,
-        from: &Self::Q,
-        on: &crate::ts::SymbolOf<Self>,
-    ) -> Option<crate::ts::StateOf<Self>> {
+        from: X,
+        on: Y,
+    ) -> Option<Self::Q> {
         self.ts.successor(from, on)
     }
 }

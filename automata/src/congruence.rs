@@ -231,7 +231,11 @@ impl<S: Symbol> HasInput for RightCongruence<S> {
 }
 
 impl<S: Symbol> Successor for RightCongruence<S> {
-    fn successor(&self, from: &Self::Q, on: &Self::Sigma) -> Option<Self::Q> {
+    fn successor<X: Borrow<Self::Q>, Y: Borrow<Self::Sigma>>(
+        &self,
+        from: X,
+        on: Y,
+    ) -> Option<Self::Q> {
         self.0.successor(from, on)
     }
 }
@@ -312,7 +316,11 @@ impl<S: Symbol> HasInput for ProgressRightCongruence<S> {
 }
 
 impl<S: Symbol> Successor for ProgressRightCongruence<S> {
-    fn successor(&self, from: &Self::Q, on: &Self::Sigma) -> Option<Self::Q> {
+    fn successor<X: Borrow<Self::Q>, Y: Borrow<Self::Sigma>>(
+        &self,
+        from: X,
+        on: Y,
+    ) -> Option<Self::Q> {
         self.1.successor(from, on)
     }
 }
