@@ -51,13 +51,6 @@ impl<Q: StateIndex, S: Symbol> TransitionSystem<Q, S> {
 
 impl<Q: StateIndex, S: Symbol> HasStates for TransitionSystem<Q, S> {
     type Q = Q;
-
-    type States<'me> = std::collections::hash_set::Iter<'me, Q>
-    where Self:'me;
-
-    fn raw_states_iter(&self) -> Self::States<'_> {
-        self.states.iter()
-    }
 }
 
 /// An iterator over the alphabet of a [`Deterministic`] transition system.

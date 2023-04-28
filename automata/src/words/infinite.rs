@@ -1,5 +1,5 @@
 use super::{IsInfinite, Str, SymbolIterable, Word};
-use crate::{InfiniteKind, Symbol};
+use crate::{InfiniteKind, Subword, Symbol};
 
 pub trait InfiniteWord {
     type Symbol: Symbol;
@@ -99,5 +99,20 @@ impl<S: Symbol> SymbolIterable for UltimatelyPeriodicWord<S> {
 
     fn iter(&self) -> Self::Iter {
         self.0.iter().chain(self.1.iter())
+    }
+}
+
+impl<S: Symbol> UltimatelyPeriodicWord<S> {
+    pub fn base(&self) -> &Str<S> {
+        &self.0
+    }
+
+    pub fn recur(&self) -> &PeriodicWord<S> {
+        &self.1
+    }
+
+    pub fn unroll_one(&mut self) {
+        self.0.symbols.push(self.1 .0.symbols[0].clone());
+        self.1 .0.symbols.rotate_left(1);
     }
 }

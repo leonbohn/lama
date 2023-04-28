@@ -304,7 +304,7 @@ mod tests {
             [0],
             0,
         );
-        println!("{}", dfa);
+        println!("{}", &dfa);
 
         assert!(!dfa.accepts("aa"));
         assert!(dfa.accepts("a"));

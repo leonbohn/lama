@@ -7,14 +7,14 @@ use crate::{StateIndex, Symbol, Value};
 pub trait StateReference {
     type Q: StateIndex;
 
-    fn state(&self) -> &Self::Q;
+    fn state(&self) -> Self::Q;
 }
 
 impl<'a, Q: StateIndex> StateReference for &'a Q {
     type Q = Q;
 
-    fn state(&self) -> &Self::Q {
-        self
+    fn state(&self) -> Self::Q {
+        (*self).clone()
     }
 }
 

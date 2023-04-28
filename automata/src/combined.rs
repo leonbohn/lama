@@ -11,8 +11,8 @@ use crate::{
     helpers::MooreMachine,
     output::{Assignment, IntoAssignments, Mapping},
     ts::{
-        transitionsystem::Transitions, Growable, HasInput, HasStates, IntoTransitions, Pointed,
-        Shrinkable, Successor, SymbolOf, TransitionReference, TransitionSystem,
+        transitionsystem::Transitions, Growable, HasInput, HasStates, IntoStates, IntoTransitions,
+        Pointed, Shrinkable, Successor, SymbolOf, TransitionReference, TransitionSystem,
     },
     AnonymousGrowable, HasAlphabet, MealyMachine, OmegaAutomaton, RightCongruence, Set, StateIndex,
     Symbol, Transformer, Transition, Value, DBA, DFA,
@@ -64,6 +64,14 @@ impl<TS: Successor, Acc> Combined<TS, Acc> {
     /// Returns a mutable reference to the underlying transition system.
     pub fn ts_mut(&mut self) -> &mut TS {
         &mut self.ts
+    }
+
+    /// Counts the number of unique states in the transition system.
+    pub fn size(&self) -> usize
+    where
+        Self: IntoStates,
+    {
+        self.into_states().count()
     }
 }
 
@@ -242,12 +250,6 @@ where
     TS: Successor,
 {
     type Q = TS::Q;
-
-    type States<'me> = TS::States<'me> where Self:'me;
-
-    fn raw_states_iter(&self) -> Self::States<'_> {
-        self.ts.raw_states_iter()
-    }
 }
 
 impl<TS: Successor, Acc> Successor for Combined<TS, Acc> {

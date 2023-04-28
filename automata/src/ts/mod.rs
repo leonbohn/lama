@@ -9,7 +9,7 @@ use impl_tools::autoimpl;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 use tabled::{builder::Builder, settings::Style};
-pub use transition::{Transition, TransitionReference, Trigger};
+pub use transition::{StateReference, Transition, TransitionReference, Trigger};
 
 /// An implementation of a deterministic `TransitionSystem` in form of an edge list. The edge list is represented by a vector of tuples `(from, to, symbol)`. Is only available if the `det` feature is enabled.
 #[cfg(feature = "det")]
@@ -18,8 +18,6 @@ pub mod transitionsystem;
 pub use transitionsystem::TransitionSystem;
 
 pub use visit::{LengthLexicographic, LengthLexicographicEdges, Visitor, VisitorIter};
-
-use self::transition::StateReference;
 
 /// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`
 pub trait StateIndex: Clone + PartialEq + Eq + std::hash::Hash + std::fmt::Debug + Ord {}
@@ -41,18 +39,6 @@ pub type TransitionOf<TS> = (StateOf<TS>, SymbolOf<TS>, StateOf<TS>);
 pub trait HasStates {
     /// The type of states of the object.
     type Q: StateIndex;
-    /// An iterator over the states of the object.
-    type States<'me>: Iterator<Item = &'me Self::Q>
-    where
-        Self: 'me;
-
-    /// Produces an iterator over the states of the object, may contain duplicates and should rarely be used. Instead take [`Self::states()`] to get an iterator over the states without duplicates.
-    fn raw_states_iter(&self) -> Self::States<'_>;
-
-    /// Returns an iterator over the states of the object without duplicates.
-    fn states(&self) -> itertools::Unique<Self::States<'_>> {
-        self.raw_states_iter().unique()
-    }
 }
 
 /// Trait that encapsulates things which have a set of input symbols, such as a transition system or transducer. The symbols can be generic, as long as they implement the [`Symbol`] trait.
@@ -123,6 +109,7 @@ pub trait Successor: HasStates + HasInput {
     fn display_transition_table(&self) -> String
     where
         Self::Q: Display,
+        Self: IntoStates,
     {
         let mut builder = Builder::default();
         builder.set_header(
@@ -132,14 +119,16 @@ pub trait Successor: HasStates + HasInput {
                     .collect::<Vec<String>>(),
             ),
         );
-        for state in self.states() {
-            let mut row = vec![state.to_string()];
+        for state in self.into_states() {
+            let mut row = vec![state.state().to_string()];
             for sym in self.input_alphabet() {
-                row.push(if let Some(successor) = self.successor(state, sym) {
-                    successor.to_string()
-                } else {
-                    "-".to_string()
-                });
+                row.push(
+                    if let Some(successor) = self.successor(state.state(), sym) {
+                        successor.to_string()
+                    } else {
+                        "-".to_string()
+                    },
+                );
             }
             builder.push_record(row);
         }
@@ -328,7 +317,8 @@ pub trait Shrinkable: Successor {
 }
 
 /// A trait implemented by a [`TransitionSystem`] which can be trimmed. This means that all unreachable states are removed from the transition system. Further, all transitions which point to or originate from unreachable states are removed. Note that this operation is only applicable to a [`TransitionSystem`] which is [`Pointed`], as the concept of reachability is only defined if a designated initial state is given.
-pub trait Trimable: Successor + Pointed {
+pub trait Trimmable: Successor + Pointed {
+    type Trimmed: Successor<Q = Self::Q, Sigma = Self::Sigma> + Pointed;
     /// Removes all unreachable states from the transition system. Additionally removes any transitions which point to or originate from unreachable states.
-    fn trim(&mut self);
+    fn trim(&self) -> Self::Trimmed;
 }

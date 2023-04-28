@@ -1,6 +1,12 @@
-use std::hash::Hash;
+use std::{collections::BTreeSet, hash::Hash};
 
-use automata::{words::IsInfinite, FiniteKind, Set, Word};
+use automata::{
+    ts::{HasStates, IntoTransitions, Trivial},
+    words::IsInfinite,
+    Class, FiniteKind, RightCongruence, Set, Subword, Successor, Symbol, TransitionSystem,
+    UltimatelyPeriodicWord, Word, DFA,
+};
+use itertools::Itertools;
 
 /// Represents a finite sample, which is a pair of positive and negative instances.
 #[derive(Debug, Clone)]
@@ -72,6 +78,68 @@ impl<W: Eq + Hash> Sample<W> {
     pub fn negative_iter(&self) -> impl Iterator<Item = &W> {
         self.negative.iter()
     }
+
+    /// Iterates over all elements in the sample.
+    pub fn annotated_iter(&self) -> impl Iterator<Item = (bool, &W)> {
+        self.positive
+            .iter()
+            .map(|w| (true, w))
+            .chain(self.negative.iter().map(|w| (false, w)))
+    }
 }
 
 impl<W: Word<Kind = FiniteKind>> Sample<W> {}
+
+fn build_prefix_acceptor<S: Symbol>(set: &Set<W>) -> DFA<Class<W::S>, W::S> {
+    let mut ts = TransitionSystem::trivial();
+    let mut words = set.iter().collect::<Vec<_>>();
+}
+
+pub struct Prefixes<'a, S: Symbol> {
+    set: &'a Set<UltimatelyPeriodicWord<S>>,
+}
+
+impl<'a, S: Symbol> HasStates for Prefixes<'a, S> {
+    type Q = Class<S>;
+
+    type States<'me> = std::iter::Map<
+        std::collections::btree_set::Iter<'me, UltimatelyPeriodicWord<S>>,
+        fn(&'me UltimatelyPeriodicWord<S>) -> &'me Class<S>>
+    where
+        Self: 'me;
+
+    fn states(&self) -> Self::States<'_> {
+        todo!()
+    }
+}
+
+impl<S: Symbol> Sample<UltimatelyPeriodicWord<S>> {
+    pub fn build_separated(&self) -> Self {
+        let mut pos = Set::new();
+        let mut neg = Set::new();
+
+        let mut queue = self.annotated_iter().collect_vec();
+        while let Some((is_positive, word)) = queue.pop() {
+            while queue.iter().any(|(_, w)| w.base() == word.base()) {
+                word.unroll_one();
+            }
+            if is_positive {
+                pos.insert(word.clone());
+            } else {
+                neg.insert(word.clone());
+            }
+        }
+
+        Sample::from_parts(pos, neg)
+    }
+}
+
+impl<S: Symbol> Sample<UltimatelyPeriodicWord<S>> {
+    pub fn positive_prefixes(&self) -> DFA<Class<S>, S> {
+        build_prefix_acceptor(&self.positive)
+    }
+
+    pub fn negative_prefixes(&self) -> DFA<Class<S>, S> {
+        build_prefix_acceptor(&self.negative)
+    }
+}

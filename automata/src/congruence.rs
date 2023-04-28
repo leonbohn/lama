@@ -2,8 +2,8 @@ use std::{borrow::Borrow, fmt::Display, ops::Add};
 
 use crate::{
     ts::{
-        transitionsystem::TransitionSystemAlphabetIter, HasInput, HasStates, StateOf, SymbolOf,
-        Trivial,
+        transitionsystem::TransitionSystemAlphabetIter, HasInput, HasStates, IntoStates, StateOf,
+        SymbolOf, Trivial,
     },
     words::IsFinite,
     FiniteKind, Growable, Map, Pointed, Shrinkable, Str, Subword, Successor, Symbol,
@@ -196,12 +196,6 @@ pub struct RightCongruence<S: Symbol = char>(TransitionSystem<Class<S>, S>, Clas
 
 impl<S: Symbol> HasStates for RightCongruence<S> {
     type Q = Class<S>;
-
-    type States<'me> = std::collections::hash_set::Iter<'me, Self::Q> where S: 'me;
-
-    fn raw_states_iter(&self) -> Self::States<'_> {
-        self.0.raw_states_iter()
-    }
 }
 
 impl<S: Symbol> RightCongruence<S> {
@@ -216,7 +210,7 @@ impl<S: Symbol> RightCongruence<S> {
 
     /// Iterates over the classes/states of a right congruence in canonical order (i.e. in the order that they were created/inserted).
     pub fn states_canonical(&self) -> impl Iterator<Item = &Class<S>> + '_ {
-        self.states().sorted()
+        self.0.into_states().sorted()
     }
 }
 
@@ -294,14 +288,6 @@ pub struct ProgressRightCongruence<S: Symbol>(Class<S>, RightCongruence<S>);
 
 impl<S: Symbol> HasStates for ProgressRightCongruence<S> {
     type Q = Class<S>;
-
-    type States<'me> = std::collections::hash_set::Iter<'me, Self::Q>
-    where
-        Self: 'me;
-
-    fn raw_states_iter(&self) -> Self::States<'_> {
-        self.1.raw_states_iter()
-    }
 }
 
 impl<S: Symbol> HasInput for ProgressRightCongruence<S> {
@@ -382,7 +368,7 @@ mod tests {
     #[test]
     fn state_ordering_test() {
         let cong = easy_cong();
-        let states: Vec<_> = cong.states().sorted().collect();
+        let states: Vec<_> = cong.0.states().sorted().collect();
         assert_eq!(states, vec![&Class::epsilon(), &Class::from("b")])
     }
 }

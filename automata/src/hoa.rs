@@ -8,7 +8,7 @@ use hoars::{
 use tracing::{debug, info, trace};
 
 use crate::{
-    ts::{HasInput, HasStates},
+    ts::{HasInput, HasStates, IntoStates, StateReference},
     BuchiCondition, Combined, Dba, Dpa, Growable, HasAlphabet, OmegaAutomaton, OmegaCondition,
     ParityCondition, Pointed, Set, Successor, Symbol, Transformer, TransitionSystem,
 };
@@ -112,12 +112,16 @@ where
 impl<I, TS, Acc> ToHoa for Combined<TS, Acc>
 where
     I: ToHoaLabel + Clone + Eq + Hash,
-    TS: Successor<Sigma = I> + HasAlphabet,
+    TS: Successor<Sigma = I> + HasAlphabet + IntoStates,
     Acc: ToHoaAcceptance<Trigger = (TS::Q, TS::Sigma)>,
 {
     fn to_hoa(&self) -> HoaAutomaton {
         let mut hoa = HoaAutomaton::default();
-        let mut states = self.states().collect::<Vec<_>>();
+        let mut states = self
+            .ts()
+            .into_states()
+            .map(|r| r.state())
+            .collect::<Vec<_>>();
         states.sort();
 
         let alphabet = self.input_alphabet().collect::<Set<_>>();
