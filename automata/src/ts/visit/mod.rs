@@ -1,5 +1,7 @@
 use std::collections::{BTreeSet, VecDeque};
 
+use tracing::trace;
+
 use crate::{Pointed, Set, Successor};
 
 use super::{StateOf, TransitionOf};
@@ -150,22 +152,28 @@ where
     type Place = TransitionOf<TS>;
 
     fn visit_next(&mut self) -> Option<Self::Place> {
-        if let Some((q, sym)) = self.queue.pop_front() {
+        while let Some((q, sym)) = self.queue.pop_front() {
+            trace!("Examining {:?} on {:?}", q, sym);
             if let Some(successor) = self.ts.successor(&q, &sym) {
+                trace!("Found successor {:?}", successor);
                 if self.seen.insert(successor.clone()) {
                     self.queue.extend(
                         self.alphabet
                             .iter()
                             .map(|sym| (successor.clone(), sym.clone())),
                     );
+                    trace!("Which is new, so we add all its outgoing edges to the queue");
+                } else {
+                    trace!("Which was already seen");
                 }
-                Some((q, sym, successor))
+                return Some((q, sym, successor));
             } else {
-                None
+                trace!("Which has no successor");
+                continue;
             }
-        } else {
-            None
         }
+        trace!("Queue is empty");
+        None
     }
 }
 

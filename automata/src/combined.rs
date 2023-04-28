@@ -229,6 +229,19 @@ impl<Q: StateIndex, S: Symbol> DFA<Q, S> {
             .collect();
         Self { ts, initial, acc }
     }
+
+    pub fn all_accepting_iters<X: Transition<S = S, Q = Q>, T: IntoIterator<Item = X>>(
+        transition_iter: T,
+        initial: Q,
+    ) -> Self {
+        let ts: TransitionSystem<Q, S> = transition_iter
+            .into_iter()
+            .map(|x| (x.source().clone(), x.sym().clone(), x.target().clone()))
+            .collect();
+        let acc = ts.states().map(|q| (q.clone(), true)).collect();
+
+        Self { ts, initial, acc }
+    }
 }
 
 #[allow(unused)]

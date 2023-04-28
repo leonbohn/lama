@@ -36,7 +36,7 @@ impl<Q: StateIndex, S: Symbol> TransitionSystem<Q, S> {
         }
     }
 
-    /// Returns an iterator over all transitions of `self` that start in `state`.
+    /// Returns an iterator over all states of `self`.
     pub fn states(&self) -> States<'_, Q> {
         States {
             iter: self.states.iter(),

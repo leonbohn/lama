@@ -184,9 +184,9 @@ where
 {
     fn annotate_state(&self, x: &X) -> String {
         if self.apply(x) {
-            format!("{}", x.to_string().green().bold())
+            x.to_string().bright_green().underline().bold().to_string()
         } else {
-            format!("{}", x.to_string().red().bold())
+            x.to_string().bright_red().bold().to_string()
         }
     }
 }

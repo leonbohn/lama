@@ -1,12 +1,13 @@
 use std::{collections::BTreeSet, hash::Hash};
 
 use automata::{
-    ts::{HasInput, HasStates, IntoTransitions, Trivial},
+    ts::{HasInput, HasStates, IntoTransitions, LengthLexicographicEdges, Trivial, Visitor},
     words::{IsFinite, IsInfinite},
     Class, FiniteKind, Pointed, RightCongruence, Set, Subword, Successor, Symbol, TransitionSystem,
     UltimatelyPeriodicWord, Word, DFA,
 };
 use itertools::Itertools;
+use tracing::trace;
 
 /// Represents a finite sample, which is a pair of positive and negative instances.
 #[derive(Debug, Clone)]
@@ -93,20 +94,13 @@ impl<W: Word<Kind = FiniteKind>> Sample<W> {}
 pub struct Prefixes<'a, S: Symbol> {
     alphabet: Set<S>,
     set: &'a Set<UltimatelyPeriodicWord<S>>,
-    sink: Option<Class<S>>,
 }
 
 impl<'a, S: Symbol> Prefixes<'a, S> {
     pub fn new(set: &'a Set<UltimatelyPeriodicWord<S>>) -> Self {
         let alphabet = set.iter().flat_map(|w| w.alphabet()).cloned().collect();
 
-        let sink = None;
-
-        Self {
-            alphabet,
-            set,
-            sink,
-        }
+        Self { alphabet, set }
     }
 
     fn find_words_with_prefix(&self, class: &Class<S>) -> Vec<&UltimatelyPeriodicWord<S>> {
@@ -137,33 +131,42 @@ impl<'a, S: Symbol> Successor for Prefixes<'a, S> {
     ) -> Option<Self::Q> {
         let source = from.borrow();
         let sym = on.borrow();
+        let successor = source + sym;
+        trace!(
+            "Computing successor of {} on {}, candidate is {}",
+            source,
+            sym,
+            successor
+        );
 
-        if let Some(sink) = &self.sink {
-            if source == sink {
-                return Some(sink.clone());
-            }
-        }
-
-        let words_with_prefix = self.find_words_with_prefix(source);
+        let words_with_prefix = self.find_words_with_prefix(&successor);
         if words_with_prefix.is_empty() {
-            println!("No words with prefix {}!", source);
+            trace!("No words with prefix {}!", successor);
             return None;
         }
+        let count_words_with_prefix = words_with_prefix.len();
+        trace!(
+            "Found {} words with prefix {}",
+            count_words_with_prefix,
+            successor
+        );
 
         if words_with_prefix.len() > 1 {
-            Some(source + sym)
+            Some(successor)
         } else {
             assert!(words_with_prefix.len() == 1);
             let word = words_with_prefix[0];
-            let base = source.prefix(source.length() - word.recur_length());
+            let base = successor.prefix(successor.length() - word.recur_length());
 
             let words_with_prefix_for_base = self.find_words_with_prefix(&base);
             debug_assert!(!words_with_prefix_for_base.is_empty(), "Cannot happen!");
 
             if words_with_prefix_for_base.len() == 1 {
                 Some(base)
+            } else if !words_with_prefix_for_base.is_empty() {
+                Some(successor)
             } else {
-                Some(source + sym)
+                None
             }
         }
     }
@@ -173,6 +176,14 @@ impl<'a, S: Symbol> Pointed for Prefixes<'a, S> {
     fn initial(&self) -> Self::Q {
         Class::epsilon()
     }
+}
+
+pub fn prefix_acceptor<S: Symbol>(set: &Set<UltimatelyPeriodicWord<S>>) -> DFA<Class<S>, S> {
+    let prefixes = Prefixes::new(set);
+    DFA::all_accepting_iters(
+        LengthLexicographicEdges::new(&prefixes).iter(),
+        Class::epsilon(),
+    )
 }
 
 impl<S: Symbol> Sample<UltimatelyPeriodicWord<S>> {
@@ -211,25 +222,33 @@ impl<S: Symbol> Sample<UltimatelyPeriodicWord<S>> {
 mod tests {
     use automata::{
         ts::{LengthLexicographicEdges, Visitor},
-        upw, Class, Set, UltimatelyPeriodicWord, DFA,
+        upw, Accepts, Class, Set, UltimatelyPeriodicWord, DFA,
     };
+    use tracing::trace;
 
     use super::Prefixes;
 
     #[test]
+    #[tracing_test::traced_test]
     fn set_prefixes_automaton() {
+        trace!("set_prefixes_automaton");
         let words = Set::from_iter([upw!("a"), upw!("b"), upw!("ab")]);
-        let prefixes = Prefixes::new(&words);
 
-        let bfs_edges = LengthLexicographicEdges::new(&prefixes);
-        let mut visitor = bfs_edges.clone().iter();
+        let prefix_dfa = super::prefix_acceptor(&words);
 
-        for (from, on, to) in visitor.by_ref() {
-            println!("{} -{}-> {}", from, on, to);
+        for p in [
+            "",
+            "a",
+            "b",
+            "ab",
+            "aaaaaaaaaa",
+            "abababababab",
+            "abababababababa",
+        ] {
+            assert!(prefix_dfa.accepts(p));
         }
-
-        let dfa = DFA::from_parts_iters(bfs_edges.iter(), [], Class::epsilon());
-
-        println!("{}", dfa);
+        for n in ["bba", "aab", "abb", "abababbabababaa"] {
+            assert!(!prefix_dfa.accepts(n));
+        }
     }
 }
