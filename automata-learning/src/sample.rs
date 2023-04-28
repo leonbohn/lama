@@ -1,9 +1,9 @@
 use std::{collections::BTreeSet, hash::Hash};
 
 use automata::{
-    ts::{HasStates, IntoTransitions, Trivial},
-    words::IsInfinite,
-    Class, FiniteKind, RightCongruence, Set, Subword, Successor, Symbol, TransitionSystem,
+    ts::{HasInput, HasStates, IntoTransitions, Trivial},
+    words::{IsFinite, IsInfinite},
+    Class, FiniteKind, Pointed, RightCongruence, Set, Subword, Successor, Symbol, TransitionSystem,
     UltimatelyPeriodicWord, Word, DFA,
 };
 use itertools::Itertools;
@@ -90,26 +90,88 @@ impl<W: Eq + Hash> Sample<W> {
 
 impl<W: Word<Kind = FiniteKind>> Sample<W> {}
 
-fn build_prefix_acceptor<S: Symbol>(set: &Set<W>) -> DFA<Class<W::S>, W::S> {
-    let mut ts = TransitionSystem::trivial();
-    let mut words = set.iter().collect::<Vec<_>>();
+pub struct Prefixes<'a, S: Symbol> {
+    alphabet: Set<S>,
+    set: &'a Set<UltimatelyPeriodicWord<S>>,
+    sink: Option<Class<S>>,
 }
 
-pub struct Prefixes<'a, S: Symbol> {
-    set: &'a Set<UltimatelyPeriodicWord<S>>,
+impl<'a, S: Symbol> Prefixes<'a, S> {
+    pub fn new(set: &'a Set<UltimatelyPeriodicWord<S>>) -> Self {
+        let alphabet = set.iter().flat_map(|w| w.alphabet()).cloned().collect();
+
+        let sink = None;
+
+        Self {
+            alphabet,
+            set,
+            sink,
+        }
+    }
+
+    fn find_words_with_prefix(&self, class: &Class<S>) -> Vec<&UltimatelyPeriodicWord<S>> {
+        self.set.iter().filter(|w| w.has_prefix(&class.0)).collect()
+    }
 }
 
 impl<'a, S: Symbol> HasStates for Prefixes<'a, S> {
     type Q = Class<S>;
+}
 
-    type States<'me> = std::iter::Map<
-        std::collections::btree_set::Iter<'me, UltimatelyPeriodicWord<S>>,
-        fn(&'me UltimatelyPeriodicWord<S>) -> &'me Class<S>>
-    where
-        Self: 'me;
+impl<'a, S: Symbol> HasInput for Prefixes<'a, S> {
+    type Sigma = S;
 
-    fn states(&self) -> Self::States<'_> {
-        todo!()
+    type Input<'me> = std::collections::hash_set::Iter<'me, S>
+    where Self:'me;
+
+    fn raw_input_alphabet_iter(&self) -> Self::Input<'_> {
+        self.alphabet.iter()
+    }
+}
+
+impl<'a, S: Symbol> Successor for Prefixes<'a, S> {
+    fn successor<X: std::borrow::Borrow<Self::Q>, Y: std::borrow::Borrow<Self::Sigma>>(
+        &self,
+        from: X,
+        on: Y,
+    ) -> Option<Self::Q> {
+        let source = from.borrow();
+        let sym = on.borrow();
+
+        if let Some(sink) = &self.sink {
+            if source == sink {
+                return Some(sink.clone());
+            }
+        }
+
+        let words_with_prefix = self.find_words_with_prefix(source);
+        if words_with_prefix.is_empty() {
+            println!("No words with prefix {}!", source);
+            return None;
+        }
+
+        if words_with_prefix.len() > 1 {
+            Some(source + sym)
+        } else {
+            assert!(words_with_prefix.len() == 1);
+            let word = words_with_prefix[0];
+            let base = source.prefix(source.length() - word.recur_length());
+
+            let words_with_prefix_for_base = self.find_words_with_prefix(&base);
+            debug_assert!(!words_with_prefix_for_base.is_empty(), "Cannot happen!");
+
+            if words_with_prefix_for_base.len() == 1 {
+                Some(base)
+            } else {
+                Some(source + sym)
+            }
+        }
+    }
+}
+
+impl<'a, S: Symbol> Pointed for Prefixes<'a, S> {
+    fn initial(&self) -> Self::Q {
+        Class::epsilon()
     }
 }
 
@@ -120,6 +182,7 @@ impl<S: Symbol> Sample<UltimatelyPeriodicWord<S>> {
 
         let mut queue = self.annotated_iter().collect_vec();
         while let Some((is_positive, word)) = queue.pop() {
+            let mut word = word.clone();
             while queue.iter().any(|(_, w)| w.base() == word.base()) {
                 word.unroll_one();
             }
@@ -136,10 +199,37 @@ impl<S: Symbol> Sample<UltimatelyPeriodicWord<S>> {
 
 impl<S: Symbol> Sample<UltimatelyPeriodicWord<S>> {
     pub fn positive_prefixes(&self) -> DFA<Class<S>, S> {
-        build_prefix_acceptor(&self.positive)
+        todo!()
     }
 
     pub fn negative_prefixes(&self) -> DFA<Class<S>, S> {
-        build_prefix_acceptor(&self.negative)
+        todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use automata::{
+        ts::{LengthLexicographicEdges, Visitor},
+        upw, Class, Set, UltimatelyPeriodicWord, DFA,
+    };
+
+    use super::Prefixes;
+
+    #[test]
+    fn set_prefixes_automaton() {
+        let words = Set::from_iter([upw!("a"), upw!("b"), upw!("ab")]);
+        let prefixes = Prefixes::new(&words);
+
+        let bfs_edges = LengthLexicographicEdges::new(&prefixes);
+        let mut visitor = bfs_edges.clone().iter();
+
+        for (from, on, to) in visitor.by_ref() {
+            println!("{} -{}-> {}", from, on, to);
+        }
+
+        let dfa = DFA::from_parts_iters(bfs_edges.iter(), [], Class::epsilon());
+
+        println!("{}", dfa);
     }
 }

@@ -69,9 +69,9 @@ impl<TS: Successor, Acc> Combined<TS, Acc> {
     /// Counts the number of unique states in the transition system.
     pub fn size(&self) -> usize
     where
-        Self: IntoStates,
+        for<'a> &'a TS: IntoStates<Q = TS::Q>,
     {
-        self.into_states().count()
+        self.ts.into_states().count()
     }
 }
 

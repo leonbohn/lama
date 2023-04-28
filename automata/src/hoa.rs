@@ -112,7 +112,8 @@ where
 impl<I, TS, Acc> ToHoa for Combined<TS, Acc>
 where
     I: ToHoaLabel + Clone + Eq + Hash,
-    TS: Successor<Sigma = I> + HasAlphabet + IntoStates,
+    TS: Successor<Sigma = I> + HasAlphabet,
+    for<'a> &'a TS: IntoStates<Q = TS::Q>,
     Acc: ToHoaAcceptance<Trigger = (TS::Q, TS::Sigma)>,
 {
     fn to_hoa(&self) -> HoaAutomaton {
@@ -148,8 +149,8 @@ where
         for (i, state) in &idx {
             let mut edges = Vec::new();
             for sym in &alphabet {
-                if let Some(target) = self.successor(*state, *sym) {
-                    let target_id = idx.iter().find(|(_, s)| *s == &target).unwrap().0;
+                if let Some(target) = self.successor(state, *sym) {
+                    let target_id = idx.iter().find(|(_, s)| s == &target).unwrap().0;
                     let edge = Edge::from_parts(
                         sym.to_hoa_symbol(max_ap),
                         StateConjunction::singleton(target_id as Id),
@@ -163,7 +164,7 @@ where
             hoa.add_state(state);
         }
 
-        let initial_id = idx.iter().find(|(_, s)| *s == &self.initial()).unwrap().0;
+        let initial_id = idx.iter().find(|(_, s)| s == &self.initial()).unwrap().0;
         hoa.add_header_item(HeaderItem::Start(StateConjunction::singleton(
             initial_id as u32,
         )));

@@ -2,8 +2,8 @@ use std::{borrow::Borrow, fmt::Display, ops::Add};
 
 use crate::{
     ts::{
-        transitionsystem::TransitionSystemAlphabetIter, HasInput, HasStates, IntoStates, StateOf,
-        SymbolOf, Trivial,
+        transitionsystem::{States, TransitionSystemAlphabetIter},
+        HasInput, HasStates, IntoStates, StateOf, StateReference, SymbolOf, Trivial,
     },
     words::IsFinite,
     FiniteKind, Growable, Map, Pointed, Shrinkable, Str, Subword, Successor, Symbol,
@@ -245,6 +245,16 @@ impl<S: Symbol> Trivial for RightCongruence<S> {
         let mut det = TransitionSystem::new();
         det.add_state(&Class::epsilon());
         Self(det, Class::epsilon())
+    }
+}
+
+impl<'a, S: Symbol> IntoStates for &'a RightCongruence<S> {
+    type StateRef = &'a Class<S>;
+
+    type IntoStates = States<'a, Class<S>>;
+
+    fn into_states(self) -> Self::IntoStates {
+        self.0.into_states()
     }
 }
 

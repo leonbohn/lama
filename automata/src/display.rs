@@ -193,10 +193,11 @@ where
 
 impl<
         Acc: AnnotatesTransition<TS::Q, TS::Sigma> + AnnotatesState<TS::Q>,
-        TS: Successor + DisplayState + DisplaySymbol + IntoStates,
+        TS: Successor + DisplayState + DisplaySymbol,
     > Display for Combined<TS, Acc>
 where
     StateOf<TS>: Display + Ord,
+    for<'a> &'a TS: IntoStates<Q = StateOf<TS>>,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = Builder::default();
@@ -212,7 +213,7 @@ where
         for state in self.ts().into_states().map(|s| s.state()).sorted() {
             let mut row = vec![self.acceptance().annotate_state(&state)];
             for sym in &alphabet {
-                if let Some(target) = self.ts().successor(state, sym) {
+                if let Some(target) = self.ts().successor(&state, sym) {
                     row.push(
                         self.acceptance()
                             .annotate_transition(&(state.clone(), sym.clone()), &target),

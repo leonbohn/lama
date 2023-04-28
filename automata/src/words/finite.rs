@@ -99,6 +99,13 @@ impl<S: Symbol> Word for Str<S> {
 }
 
 impl<S> Str<S> {
+    pub fn alphabet(&self) -> impl Iterator<Item = &S>
+    where
+        S: Symbol,
+    {
+        self.symbols.iter().unique()
+    }
+
     /// Returns the length of the word.
     pub fn len(&self) -> usize {
         self.symbols.len()
@@ -112,6 +119,13 @@ impl<S> Str<S> {
     /// Creates an empty instance.
     pub fn empty() -> Self {
         Self { symbols: vec![] }
+    }
+
+    pub fn has_prefix(&self, prefix: &Self) -> bool
+    where
+        S: Eq,
+    {
+        self.symbols.starts_with(&prefix.symbols)
     }
 }
 

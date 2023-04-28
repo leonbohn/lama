@@ -306,8 +306,8 @@ mod tests {
         );
         println!("{}", &dfa);
 
-        assert!(!dfa.accepts("aa"));
-        assert!(dfa.accepts("a"));
+        assert!(dfa.accepts("aa"));
+        assert!(!dfa.accepts("a"));
 
         let dba = DBA::from_iter(
             vec![

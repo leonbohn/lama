@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use super::{IsInfinite, Str, SymbolIterable, Word};
 use crate::{InfiniteKind, Subword, Symbol};
 
@@ -54,6 +56,12 @@ impl<S: Symbol> SymbolIterable for PeriodicWord<S> {
     }
 }
 
+impl<S: Symbol> PeriodicWord<S> {
+    pub fn alphabet(&self) -> impl Iterator<Item = &S> {
+        self.0.alphabet().unique()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// In an `UltimatelyPeriodicWord`, the first part is a finite prefix, after which a periodic part follows. The prefix can be empty.
 pub struct UltimatelyPeriodicWord<S>(pub(crate) Str<S>, pub(crate) PeriodicWord<S>);
@@ -103,6 +111,10 @@ impl<S: Symbol> SymbolIterable for UltimatelyPeriodicWord<S> {
 }
 
 impl<S: Symbol> UltimatelyPeriodicWord<S> {
+    pub fn alphabet(&self) -> impl Iterator<Item = &S> {
+        self.0.alphabet().chain(self.1.alphabet()).unique()
+    }
+
     pub fn base(&self) -> &Str<S> {
         &self.0
     }
@@ -114,5 +126,9 @@ impl<S: Symbol> UltimatelyPeriodicWord<S> {
     pub fn unroll_one(&mut self) {
         self.0.symbols.push(self.1 .0.symbols[0].clone());
         self.1 .0.symbols.rotate_left(1);
+    }
+
+    pub fn has_prefix(&self, prefix: &Str<S>) -> bool {
+        self.iter().zip(prefix.iter()).all(|(x, y)| x == y)
     }
 }
