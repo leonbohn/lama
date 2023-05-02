@@ -1,21 +1,24 @@
 use automata::{
     run::{EscapePrefix, Run},
+    words::WordKind,
     Class, Equivalent, RightCongruence, Subword, Symbol, Word,
 };
 use itertools::Itertools;
 
-use crate::glerc::state::GlercInfo;
+use crate::glerc::info::GlercInfo;
 
 use super::{
     Constraint, ConstraintError, EscapeSeparabilityConstraint, InducedSeparabilityConstraint,
 };
 
-fn escape_consistent<'s, S: Symbol, W: Subword<S = S> + Eq>(
+fn escape_consistent<'s, S, W>(
     set_x: &'s [(&'s W, EscapePrefix<Class<S>, W>)],
     set_y: &'s [(&'s W, EscapePrefix<Class<S>, W>)],
 ) -> Result<(), ConstraintError<'s, S, W>>
 where
     W::SuffixType: PartialEq,
+    S: Symbol,
+    W: Subword<S = S> + Eq + Clone,
 {
     if let Some(((positive_word, positive_prefix), (negative_word, negative_prefix))) = set_x
         .iter()
@@ -51,16 +54,13 @@ fn induced_consistent<'s, S: Symbol, W: Subword<S = S> + Eq>(
 impl<S: Symbol, X> Constraint<S, X> for EscapeSeparabilityConstraint {
     type Output = ();
 
-    fn satisfied<
-        's,
-        W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind, Induces = X>,
-    >(
+    fn satisfied<'s, W: Subword<S = S> + Run<RightCongruence<S>, WordKind<W>, Induces = X>>(
         &self,
         info: &'s GlercInfo<'s, S, W>,
-    ) -> Result<(), ConstraintError<'s, S, W>> {
+    ) -> Result<Self::Output, ConstraintError<'s, S, W>> {
         for (lword, lesc) in &info.escaping.0 {
             for (rword, resc) in &info.escaping.1 {
-                if lesc.equivalent(resc) {
+                if lesc.equivalent(&resc) {
                     return Err(ConstraintError::SameEscape(*lword, lesc, *rword, resc));
                 }
             }
@@ -72,17 +72,14 @@ impl<S: Symbol, X> Constraint<S, X> for EscapeSeparabilityConstraint {
 impl<S: Symbol, X: Eq> Constraint<S, X> for InducedSeparabilityConstraint {
     type Output = ();
 
-    fn satisfied<
-        's,
-        W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind, Induces = X>,
-    >(
+    fn satisfied<'s, W: Subword<S = S> + Run<RightCongruence<S>, WordKind<W>, Induces = X>>(
         &self,
         info: &'s GlercInfo<'s, S, W>,
-    ) -> Result<(), ConstraintError<'s, S, W>> {
+    ) -> Result<Self::Output, ConstraintError<'s, S, W>> {
         for (lword, lind) in &info.induced.0 {
             for (rword, rind) in &info.induced.1 {
                 if lind == rind {
-                    return Err(ConstraintError::SameInduced(*lword, *rword));
+                    return Err(ConstraintError::SameInduced(lword, rword));
                 }
             }
         }

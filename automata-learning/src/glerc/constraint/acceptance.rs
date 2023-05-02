@@ -1,10 +1,13 @@
 use automata::{
-    congruence::CongruenceTrigger, run::Run, BuchiCondition, RightCongruence, Set, Subword, Symbol,
-    TriggerIterable, Word,
+    congruence::CongruenceTrigger, run::Run, words::WordKind, BuchiCondition, RightCongruence, Set,
+    Subword, Symbol, TriggerIterable, Word,
 };
 use tracing::trace;
 
-use crate::{acceptance::AcceptanceError, glerc::state::GlercInfo};
+use crate::{
+    acceptance::AcceptanceError,
+    glerc::info::{GlercInfo, ProvidesGlercInfo},
+};
 
 use super::{
     BuchiConstraint, Constraint, ConstraintError, EscapeSeparabilityConstraint,
@@ -14,13 +17,10 @@ use super::{
 impl<S: Symbol, X: Eq> Constraint<S, X> for ReachabilityConstraint {
     type Output = ();
 
-    fn satisfied<
-        's,
-        W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind, Induces = X>,
-    >(
+    fn satisfied<'s, W: Subword<S = S> + Run<RightCongruence<S>, WordKind<W>, Induces = X>>(
         &self,
         info: &'s GlercInfo<'s, S, W>,
-    ) -> Result<(), ConstraintError<'s, S, W>> {
+    ) -> Result<Self::Output, ConstraintError<'s, S, W>> {
         EscapeSeparabilityConstraint.satisfied(info)?;
         trace!("Escape separability constraint satisfied");
         InducedSeparabilityConstraint.satisfied(info)
@@ -32,8 +32,7 @@ impl<S: Symbol> Constraint<S, Set<CongruenceTrigger<S>>> for BuchiConstraint {
 
     fn satisfied<
         's,
-        W: Subword<S = S>
-            + Run<RightCongruence<S>, <W as Word>::Kind, Induces = Set<CongruenceTrigger<S>>>,
+        W: Subword<S = S> + Run<RightCongruence<S>, WordKind<W>, Induces = Set<CongruenceTrigger<S>>>,
     >(
         &self,
         info: &'s GlercInfo<'s, S, W>,
