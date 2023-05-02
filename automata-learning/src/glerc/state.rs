@@ -276,14 +276,15 @@ where
     }
 }
 
-impl<'s, S, W, C> From<GlercState<'s, S, W, C, &'s Sample<W>>> for RightCongruence<S>
+impl<'s, S, W, C, P> From<GlercState<'s, S, W, C, P>> for RightCongruence<S>
 where
     S: Symbol + 's,
     W: Subword<S = S> + Clone + 's + Hash,
     W: InitialRun<RightCongruence<S>, <W as Word>::Kind>,
     C: Constraint<S, <W as Run<RightCongruence<S>, <W as Word>::Kind>>::Induces, Output = ()>,
+    P: ProvidesMissing<S> + ProvidesGlercInfo<S, W>,
 {
-    fn from(value: GlercState<'s, S, W, C, &'s Sample<W>>) -> Self {
+    fn from(value: GlercState<'s, S, W, C, P>) -> Self {
         let mut gs = value;
         let result = gs.execute();
         result.learned_congruence

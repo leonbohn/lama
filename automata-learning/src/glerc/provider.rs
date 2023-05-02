@@ -1,15 +1,29 @@
 use std::hash::Hash;
 
-use automata::{run::InitialRun, Class, RightCongruence, Set, Subword, Successor, Symbol, Word};
+use automata::{
+    run::{InitialRun, Run},
+    Class, RightCongruence, Set, Subword, Successor, Symbol, Word,
+};
 
 use crate::sample::Sample;
+
+use super::info::{GlercInfo, ProvidesGlercInfo};
 
 pub trait ProvidesMissing<S: Symbol> {
     fn next_missing(&self, congruence: &RightCongruence<S>) -> Option<(Class<S>, S)>;
 }
 
+#[derive(Debug, Clone)]
 pub struct LengthLexicographicMissing<S> {
     alphabet: Set<S>,
+}
+
+impl<S: Symbol> LengthLexicographicMissing<S> {
+    pub fn from_iter<I: IntoIterator<Item = S>>(iter: I) -> Self {
+        Self {
+            alphabet: Set::from_iter(iter),
+        }
+    }
 }
 
 impl<'a, W> ProvidesMissing<W::S> for &'a Sample<W>
@@ -36,5 +50,21 @@ impl<S: Symbol> ProvidesMissing<S> for LengthLexicographicMissing<S> {
                 }
             })
         })
+    }
+}
+
+impl<W> ProvidesGlercInfo<<W as Word>::S, W> for LengthLexicographicMissing<<W as Word>::S>
+where
+    W: Subword + Run<RightCongruence<<W as Word>::S>, <W as Word>::Kind> + Clone,
+{
+    fn build_for<'s>(
+        &'s self,
+        cong: &'s RightCongruence<<W as Word>::S>,
+    ) -> super::info::GlercInfo<'s, <W as Word>::S, W> {
+        GlercInfo {
+            cong,
+            induced: Default::default(),
+            escaping: Default::default(),
+        }
     }
 }

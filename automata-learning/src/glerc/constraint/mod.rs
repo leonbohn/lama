@@ -129,11 +129,14 @@ impl<S: Symbol, X> Constraint<S, X> for EmptyConstraint {
 #[cfg(test)]
 mod tests {
 
-    use automata::{ts::Trivial, upw, Class, Growable, Pointed, RightCongruence};
+    use automata::{ts::Trivial, upw, Class, Growable, Pointed, RightCongruence, Str};
     use tracing_test::traced_test;
 
     use crate::{
-        glerc::{constraint::ReachabilityConstraint, state::GlercState, GlercSignal},
+        glerc::{
+            constraint::ReachabilityConstraint, provider::LengthLexicographicMissing,
+            state::GlercState, GlercSignal,
+        },
         sample::Sample,
     };
 
@@ -142,10 +145,15 @@ mod tests {
     #[test]
     fn random_ts() {
         let sample = Sample::from_iters(["a", "ab"], ["", "b", "aa"]);
-        let mut glerc = GlercState::new(
-            &sample,
+        let mut glerc: GlercState<
+            char,
+            Str<_>,
+            RandomConstraint,
+            LengthLexicographicMissing<char>,
+        > = GlercState::new(
+            LengthLexicographicMissing::from_iter(['a', 'b']),
             RightCongruence::trivial(),
-            RandomConstraint(0.01, 10),
+            RandomConstraint(0.2, 10),
         );
         let ts: RightCongruence<_> = glerc.into();
         println!("{}", ts);
