@@ -14,3 +14,4 @@ itertools = "0.10"
 impl-tools = "0.8"
 tabled = {version = "0.12", features=["color"]}
 owo-colors = "3.5"
+alea = "0.2"

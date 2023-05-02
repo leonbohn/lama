@@ -3,8 +3,6 @@ use automata::{
     StateIndex, Subword, Symbol,
 };
 
-use crate::glerc::state::GlercInfo;
-
 use super::Constraint;
 
 /// A constraint which ensures that the constructed right congruence is Myhill-Nerode consistent. A more
@@ -27,11 +25,8 @@ impl<Q: StateIndex, S: Symbol> Constraint<S, Set<CongruenceTrigger<S>>>
         W: Subword<S = S> + Run<RightCongruence<S>, WordKind<W>, Induces = Set<CongruenceTrigger<S>>>,
     >(
         &self,
-        _info: &'s GlercInfo<'s, S, W>,
+        info: &'s crate::glerc::info::GlercInfo<'s, S, W>,
     ) -> Result<Self::Output, super::ConstraintError<'s, S, W>> {
-        // let lp = info.cong.direct_product(&self.positive);
-        // let rp = info.cong.direct_product(&self.negative);
-
-        Ok(())
+        todo!()
     }
 }

@@ -15,6 +15,12 @@ pub trait Subword: Word {
 
     /// Returns a word which is the same kind as the original word, but with the first `number` symbols removed.
     fn skip(&self, number: usize) -> Self::SuffixType;
+
+    /// Returns whether the word has a finite prefix which is equal to the given word.
+    fn has_finite_prefix<F: IsFinite + PartialEq<Self::PrefixType>>(&self, prefix: F) -> bool {
+        let prefix_length = prefix.length();
+        prefix.eq(&self.prefix(prefix_length))
+    }
 }
 
 impl<S: Symbol> Subword for Str<S> {

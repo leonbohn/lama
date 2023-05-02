@@ -10,9 +10,9 @@ use automata::{
 
 use crate::acceptance::AcceptanceError;
 
-use super::state::GlercInfo;
-
 pub use myhillnerode::MyhillNerodeConstraint;
+
+use super::info::{GlercInfo, ProvidesGlercInfo};
 
 /// Represents a constraint that can be verified during the execution of the GLERC algorithm.
 ///
@@ -49,11 +49,22 @@ pub enum ConstraintError<'s, S: Symbol, W: Subword> {
     SameInduced(&'s W, &'s W),
     /// The Computation of acceptance was unsuccessful, refer to [`AcceptanceError`] for details.
     Acceptance(AcceptanceError<'s, S, W>),
+    /// Used for the [`RandomConstraint`], if the generated number prevents the insertion.
+    Random,
 }
 
 /// A constraint that is always satisfied.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EmptyConstraint;
+
+/// A constraint that can be used for the generation of random transition systems.
+/// The given number is the number of states that the generated transition system should have,
+/// it must be greater than 0.
+/// The second given number presents a limit on the number of states that the generated
+/// transition system may have. If the number of states of the generated transition system
+/// exceeds this limit, then the constraint is immediately satisfied.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RandomConstraint(pub f64, pub usize);
 
 /// A constraint that checks whether the sample words are all separated, meaning that
 /// positive and negative words never end up in the same state.
@@ -86,16 +97,31 @@ pub struct ParityConstraint;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IterationConstraint;
 
+impl<S: Symbol, X> Constraint<S, X> for RandomConstraint {
+    type Output = ();
+
+    fn satisfied<'s, W: Subword<S = S> + Run<RightCongruence<S>, WordKind<W>, Induces = X>>(
+        &self,
+        info: &'s GlercInfo<'s, S, W>,
+    ) -> Result<Self::Output, ConstraintError<'s, S, W>> {
+        if info.cong.size() > self.1 {
+            return Ok(());
+        }
+        if self.0 >= alea::f64_in_range(0.0, 1.0) {
+            Ok(())
+        } else {
+            Err(ConstraintError::Random)
+        }
+    }
+}
+
 impl<S: Symbol, X> Constraint<S, X> for EmptyConstraint {
     type Output = ();
 
-    fn satisfied<
-        's,
-        W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind, Induces = X>,
-    >(
+    fn satisfied<'s, W: Subword<S = S> + Run<RightCongruence<S>, WordKind<W>, Induces = X>>(
         &self,
-        _: &'s GlercInfo<'s, S, W>,
-    ) -> Result<(), ConstraintError<'s, S, W>> {
+        info: &'s GlercInfo<'s, S, W>,
+    ) -> Result<Self::Output, ConstraintError<'s, S, W>> {
         Ok(())
     }
 }
@@ -103,15 +129,35 @@ impl<S: Symbol, X> Constraint<S, X> for EmptyConstraint {
 #[cfg(test)]
 mod tests {
 
-    use automata::{ts::Trivial, upw, Class, Growable, Pointed, RightCongruence};
+    use automata::{ts::Trivial, upw, Class, Growable, Pointed, RightCongruence, Str};
     use tracing_test::traced_test;
 
     use crate::{
-        glerc::{constraint::ReachabilityConstraint, state::GlercState, GlercSignal},
+        glerc::{
+            constraint::ReachabilityConstraint, provider::LengthLexicographicMissing,
+            state::GlercState, GlercSignal,
+        },
         sample::Sample,
     };
 
-    use super::BuchiConstraint;
+    use super::{BuchiConstraint, RandomConstraint};
+
+    #[test]
+    fn random_ts() {
+        let sample = Sample::from_iters(["a", "ab"], ["", "b", "aa"]);
+        let mut glerc: GlercState<
+            char,
+            Str<_>,
+            RandomConstraint,
+            LengthLexicographicMissing<char>,
+        > = GlercState::new(
+            LengthLexicographicMissing::from_iter(['a', 'b']),
+            RightCongruence::trivial(),
+            RandomConstraint(0.2, 10),
+        );
+        let ts: RightCongruence<_> = glerc.into();
+        println!("{}", ts);
+    }
 
     #[test]
     fn reachability_from_induced() {

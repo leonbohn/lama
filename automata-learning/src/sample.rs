@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, hash::Hash};
+use std::{cell::RefCell, collections::BTreeSet, hash::Hash};
 
 use automata::{
     ts::{HasInput, HasStates, IntoTransitions, LengthLexicographicEdges, Trivial, Visitor},
@@ -94,17 +94,33 @@ impl<W: Word<Kind = FiniteKind>> Sample<W> {}
 pub struct Prefixes<'a, S: Symbol> {
     alphabet: Set<S>,
     set: &'a Set<UltimatelyPeriodicWord<S>>,
+    sink: RefCell<Option<Class<S>>>,
 }
 
 impl<'a, S: Symbol> Prefixes<'a, S> {
     pub fn new(set: &'a Set<UltimatelyPeriodicWord<S>>) -> Self {
         let alphabet = set.iter().flat_map(|w| w.alphabet()).cloned().collect();
 
-        Self { alphabet, set }
+        Self {
+            alphabet,
+            set,
+            sink: RefCell::new(None),
+        }
     }
 
     fn find_words_with_prefix(&self, class: &Class<S>) -> Vec<&UltimatelyPeriodicWord<S>> {
         self.set.iter().filter(|w| w.has_prefix(&class.0)).collect()
+    }
+
+    fn sink_or(&self, class: &Class<S>) -> Class<S> {
+        self.sink
+            .borrow_mut()
+            .get_or_insert_with(|| class.clone())
+            .clone()
+    }
+
+    fn is_sink(&self, class: &Class<S>) -> bool {
+        self.sink.borrow().as_ref() == Some(class)
     }
 }
 
@@ -142,7 +158,7 @@ impl<'a, S: Symbol> Successor for Prefixes<'a, S> {
         let words_with_prefix = self.find_words_with_prefix(&successor);
         if words_with_prefix.is_empty() {
             trace!("No words with prefix {}!", successor);
-            return None;
+            return Some(self.sink_or(&successor));
         }
         let count_words_with_prefix = words_with_prefix.len();
         trace!(
@@ -178,43 +194,24 @@ impl<'a, S: Symbol> Pointed for Prefixes<'a, S> {
     }
 }
 
-pub fn prefix_acceptor<S: Symbol>(set: &Set<UltimatelyPeriodicWord<S>>) -> DFA<Class<S>, S> {
-    let prefixes = Prefixes::new(set);
-    DFA::all_accepting_iters(
-        LengthLexicographicEdges::new(&prefixes).iter(),
-        Class::epsilon(),
-    )
+fn build_prefix_dfa<S: Symbol>(source: &Set<UltimatelyPeriodicWord<S>>) -> DFA<Class<S>, S> {
+    let pref = Prefixes::new(source);
+    let ts: TransitionSystem<_, S> = LengthLexicographicEdges::new(&pref).iter().collect();
+    let accepting: automata::output::Mapping<Class<S>, bool> =
+        ts.states().map(|q| (q.clone(), !pref.is_sink(q))).collect();
+    DFA::from_parts(ts, Class::epsilon(), accepting)
 }
 
 impl<S: Symbol> Sample<UltimatelyPeriodicWord<S>> {
-    pub fn build_separated(&self) -> Self {
-        let mut pos = Set::new();
-        let mut neg = Set::new();
-
-        let mut queue = self.annotated_iter().collect_vec();
-        while let Some((is_positive, word)) = queue.pop() {
-            let mut word = word.clone();
-            while queue.iter().any(|(_, w)| w.base() == word.base()) {
-                word.unroll_one();
-            }
-            if is_positive {
-                pos.insert(word.clone());
-            } else {
-                neg.insert(word.clone());
-            }
-        }
-
-        Sample::from_parts(pos, neg)
-    }
-}
-
-impl<S: Symbol> Sample<UltimatelyPeriodicWord<S>> {
+    /// Builds a [`DFA`] that accepts all finite words which are a prefix of some positive
+    /// sample word.
     pub fn positive_prefixes(&self) -> DFA<Class<S>, S> {
-        todo!()
+        build_prefix_dfa(&self.positive)
     }
 
+    /// Does the same as [`positive_prefixes`], but for negative sample words.
     pub fn negative_prefixes(&self) -> DFA<Class<S>, S> {
-        todo!()
+        build_prefix_dfa(&self.negative)
     }
 }
 
@@ -226,29 +223,25 @@ mod tests {
     };
     use tracing::trace;
 
-    use super::Prefixes;
+    use super::{build_prefix_dfa, Prefixes};
 
     #[test]
     #[tracing_test::traced_test]
     fn set_prefixes_automaton() {
         trace!("set_prefixes_automaton");
         let words = Set::from_iter([upw!("a"), upw!("b"), upw!("ab")]);
+        let prefixes = build_prefix_dfa(&words);
 
-        let prefix_dfa = super::prefix_acceptor(&words);
-
-        for p in [
-            "",
-            "a",
-            "b",
-            "ab",
-            "aaaaaaaaaa",
-            "abababababab",
-            "abababababababa",
-        ] {
-            assert!(prefix_dfa.accepts(p));
+        for p in ["", "a", "aaaaaa", "b", "bbbbb", "ababababa"] {
+            assert!(prefixes.accepts(p));
         }
-        for n in ["bba", "aab", "abb", "abababbabababaa"] {
-            assert!(!prefix_dfa.accepts(n));
+        for n in [
+            "ba",
+            "aaaaaaaaabaaaaaa",
+            "aaaaaaaaaaaab",
+            "bbbbbababababaababa",
+        ] {
+            assert!(!prefixes.accepts(n));
         }
     }
 }
