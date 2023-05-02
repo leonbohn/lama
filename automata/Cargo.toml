@@ -13,6 +13,7 @@ tabled = {version = "0.12", features=["color"]}
 owo-colors = "3.5"
 hoars = {version = "0.1", path = "../hoars", optional = true}
 tracing-test = "0.2"
+delegate = "0.9"
 
 [features]
 default = ["det", "ahash", "hoa"]

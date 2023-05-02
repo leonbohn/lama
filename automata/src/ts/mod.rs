@@ -2,8 +2,14 @@ use std::{borrow::Borrow, fmt::Display};
 
 use crate::{run::Configuration, Set, Symbol, Word};
 
+mod restricted;
+mod successor;
 mod transition;
 mod visit;
+
+pub use restricted::Restricted;
+
+pub use successor::Successor;
 
 use impl_tools::autoimpl;
 use itertools::Itertools;
@@ -57,116 +63,6 @@ pub trait HasInput {
     /// Returns an iterator over the input symbols without duplicates.
     fn input_alphabet(&self) -> itertools::Unique<Self::Input<'_>> {
         self.raw_input_alphabet_iter().unique()
-    }
-}
-
-/// The base trait implemented by a deterministic transition system. A transition system is a tuple `(Q, S, δ)`, where `Q` is a finite set of states, `S` is a finite set of symbols and `δ: Q × S → Q` is a transition function. Note that the transition function is not necessarily complete and some transitions may be missing.
-/// States of a transition system are generic, and can be any type that implements the [`StateIndex`] trait.
-/// Also the symbols of a transition system are generic, and can be any type that implements the [`Alphabet`] trait.
-/// The [`TransitionTrigger`] trait is used to represent an outgoing transition. Note, that such a trigger is a pair consisting of a state and a symbol, meaning the target state is not included in a trigger.
-#[autoimpl(for<T: trait> &T, &mut T)]
-pub trait Successor: HasStates + HasInput {
-    /// Returns the successor state of the given state on the given symbol. The transition function is deterministic, meaning that if a transition exists, it is unique. On the other hand there may not be a transition for a given state and symbol, in which case `succ` returns `None`.
-    fn successor<X: Borrow<Self::Q>, Y: Borrow<Self::Sigma>>(
-        &self,
-        from: X,
-        on: Y,
-    ) -> Option<Self::Q>;
-
-    /// Returns the successor state for the given trigger through calling [`Self::succ`].
-    fn apply_trigger(&self, trigger: &(Self::Q, Self::Sigma)) -> Option<Self::Q> {
-        self.successor(trigger.source(), trigger.sym())
-    }
-
-    /// Creates a new trigger from the given state and symbol.
-    fn make_trigger(from: &Self::Q, on: &Self::Sigma) -> (Self::Q, Self::Sigma) {
-        (from.clone(), on.clone())
-    }
-
-    /// Starts a run from the given state. A run is given by a [`Configuration`] object, which keeps track
-    /// of the current state.
-    fn run_word_from<W: Word<S = Self::Sigma>>(
-        &self,
-        on: W,
-        from: Self::Q,
-    ) -> Configuration<&Self, W>
-    where
-        Self: Sized,
-    {
-        Configuration::from_state(self, from, on)
-    }
-
-    /// Creates a copy of the current TS which has its initial state set.
-    fn start(&self, start: Self::Q) -> (Self, Self::Q)
-    where
-        Self: Sized + Clone,
-    {
-        (self.clone(), start)
-    }
-
-    /// Builds a string representation of the transition table of the transition system.
-    /// For this, the [`tabled`] crate is used.
-    fn display_transition_table(&self) -> String
-    where
-        Self::Q: Display,
-        Self: IntoStates,
-    {
-        let mut builder = Builder::default();
-        builder.set_header(
-            vec!["Deterministic".to_string()].into_iter().chain(
-                self.input_alphabet()
-                    .map(|s| s.purple().to_string())
-                    .collect::<Vec<String>>(),
-            ),
-        );
-        for state in self.into_states() {
-            let mut row = vec![state.state().to_string()];
-            for sym in self.input_alphabet() {
-                row.push(
-                    if let Some(successor) = self.successor(state.state(), sym) {
-                        successor.to_string()
-                    } else {
-                        "-".to_string()
-                    },
-                );
-            }
-            builder.push_record(row);
-        }
-        let mut transition_table = builder.build();
-        transition_table.with(Style::psql());
-        transition_table.to_string()
-    }
-
-    /// Performs a breadth-first search on the transition system, starting from the given state.
-    fn bfs_from(&self, start: Self::Q) -> LengthLexicographic<&Self>
-    where
-        Self: Sized,
-    {
-        LengthLexicographic::new_from(self, start)
-    }
-
-    /// Performs a breadth-first search on the transition system, starting from the initial state.
-    fn bfs(&self) -> LengthLexicographic<&Self>
-    where
-        Self: Sized + Pointed,
-    {
-        LengthLexicographic::new(self)
-    }
-
-    /// Performs a breadth-first search on the transition system, starting from the given state, emitting each visited edge.
-    fn bfs_edges_from(&self, start: Self::Q) -> LengthLexicographicEdges<&Self>
-    where
-        Self: Sized,
-    {
-        LengthLexicographicEdges::new_from(self, start)
-    }
-
-    /// Performs a breadth-first search on the transition system, starting from the initial state, emitting each visited edge.
-    fn bfs_edges(&self) -> LengthLexicographicEdges<&Self>
-    where
-        Self: Sized + Pointed,
-    {
-        LengthLexicographicEdges::new(self)
     }
 }
 
@@ -321,4 +217,31 @@ pub trait Trimmable: Successor + Pointed {
     type Trimmed: Successor<Q = Self::Q, Sigma = Self::Sigma> + Pointed;
     /// Removes all unreachable states from the transition system. Additionally removes any transitions which point to or originate from unreachable states.
     fn trim(&self) -> Self::Trimmed;
+}
+
+impl<TS: Successor> HasInput for (TS, TS::Q) {
+    type Sigma = TS::Sigma;
+
+    type Input<'me> =  TS::Input<'me> where Self:'me;
+
+    fn raw_input_alphabet_iter(&self) -> Self::Input<'_> {
+        self.0.raw_input_alphabet_iter()
+    }
+}
+impl<TS: Successor> HasStates for (TS, TS::Q) {
+    type Q = TS::Q;
+}
+impl<TS: Successor> Successor for (TS, TS::Q) {
+    fn successor<X: Borrow<Self::Q>, Y: Borrow<Self::Sigma>>(
+        &self,
+        from: X,
+        on: Y,
+    ) -> Option<Self::Q> {
+        self.0.successor(from, on)
+    }
+}
+impl<TS: Successor> Pointed for (TS, TS::Q) {
+    fn initial(&self) -> Self::Q {
+        self.1.clone()
+    }
 }

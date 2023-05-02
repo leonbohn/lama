@@ -5,7 +5,7 @@ use crate::{
     output::{Assignment, AssignmentReference, IntoAssignments, Mapping},
     ts::{
         transitionsystem::{States, Transitions},
-        HasStates, IntoTransitions, TransitionReference, TriggerOf,
+        HasInput, HasStates, IntoTransitions, TransitionReference, TriggerOf,
     },
     Acceptor, Combined, IntoMealyTransitions, MealyMachine, Pair, Pointed, StateIndex, Successor,
     Symbol, Transformer, Transition, TransitionSystem, Trigger, Value, DBA, DFA, DPA,
@@ -42,6 +42,87 @@ where
             .collect()
     }
 }
+
+pub struct Product<L, R> {
+    left: L,
+    right: R,
+}
+
+impl<L, R> HasInput for Product<L, R>
+where
+    L: HasInput,
+    R: HasInput<Sigma = L::Sigma>,
+{
+    type Sigma = L::Sigma;
+
+    type Input<'me> = L::Input<'me> 
+    where Self:'me;
+
+    fn raw_input_alphabet_iter(&self) -> Self::Input<'_> {
+        self.left.raw_input_alphabet_iter()
+    }
+}
+
+impl<L, R> HasStates for Product<L, R>
+where
+    L: HasStates,
+    R: HasStates,
+{
+    type Q = Pair<L::Q, R::Q>;
+}
+
+impl<L, R> Successor for Product<L, R>
+where
+    L: Successor,
+    R: Successor<Sigma = L::Sigma>,
+{
+    fn successor<X:Borrow<Self::Q>,Y:Borrow<Self::Sigma>>(&self,from:X,on:Y,) -> Option<Self::Q> {
+        let Pair { left, right } = from.borrow();
+        let sym = on.borrow();
+        self.left
+            .successor(left, sym)
+            .and_then(|l| self.right.successor(right, sym).map(|r| Pair::new(l, r)))
+    }
+}
+
+
+
+// impl<S, U> ProductWithTransitions<S> for U
+// where
+//     S: Symbol,
+//     U: Pointed,
+//     for<'a> &'a U: IntoTransitions<Sigma = S>,
+// {
+//     fn product_with<T: Pointed + IntoTransitions<Sigma = S>>(
+//         &self,
+//         transitions: T,
+//     ) -> (TransitionSystem<Pair<U::Q, T::Q>, S>, Pair<Self::Q, T::Q>) {
+//         let initial_pair = Pair::new(self.initial(), transitions.initial());
+//         let product_ts = self
+//             .into_transitions()
+//             .flat_map(|t| {
+//                 transitions.into_transitions().filter_map(move |t2| {
+//                     if t.sym() == t2.sym() {
+//                         Some((
+//                             Pair {
+//                                 left: t.source().clone(),
+//                                 right: t2.source().clone(),
+//                             },
+//                             t.sym().clone(),
+//                             Pair {
+//                                 left: t.target().clone(),
+//                                 right: t2.target().clone(),
+//                             },
+//                         ))
+//                     } else {
+//                         None
+//                     }
+//                 })
+//             })
+//             .collect();
+//         (product_ts, initial_pair)
+//     }
+// }
 
 impl<Q: StateIndex, S: Symbol> TransitionSystem<Q, S> {
     /// Builds the product transition system with the given one.

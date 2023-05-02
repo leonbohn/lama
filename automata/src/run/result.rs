@@ -131,23 +131,13 @@ mod tests {
         let word = PeriodicWord::from(Str::from("b"));
         let run = word.run(&ts, q0);
         assert!(run.is_ok());
-        assert_eq!(
-            run.unwrap(),
-            vec![TransitionSystem::make_trigger(&q0, &'b')]
-                .into_iter()
-                .collect()
-        );
+        assert_eq!(run.unwrap(), vec![(q0, 'b')].into_iter().collect());
 
         let ab_run = PeriodicWord::from(Str::from("ab")).run(&ts, q0);
         assert!(ab_run.is_ok());
         assert_eq!(
             ab_run.unwrap(),
-            vec![
-                TransitionSystem::make_trigger(&q0, &'a'),
-                TransitionSystem::make_trigger(&q1, &'b')
-            ]
-            .into_iter()
-            .collect()
+            vec![(q0, 'a'), (q1, 'b')].into_iter().collect()
         )
     }
 }

@@ -21,6 +21,7 @@
 
 /// Module in which traits for working with transition systems are defined. See [`ts::TransitionSystem`] and the crate level documentation for an overview of the trait hierarchy.
 /// This module also contains a concrete implementation of a transition system, [`ts::Deterministic`], which stores the transition system as a vector of states, and a vector of transitions. Is only available when the `det` feature is enabled.
+#[macro_use]
 pub mod ts;
 use itertools::Itertools;
 use output::{IntoAssignments, Mapping};
@@ -119,6 +120,22 @@ impl<L, R> Pair<L, R> {
     /// Creates a new pair.
     pub fn new(left: L, right: R) -> Self {
         Self { left, right }
+    }
+
+    pub fn left(&self) -> &L {
+        &self.left
+    }
+
+    pub fn right(&self) -> &R {
+        &self.right
+    }
+
+    pub fn raw(&self) -> (L, R)
+    where
+        L: Clone,
+        R: Clone,
+    {
+        (self.left.clone(), self.right.clone())
     }
 }
 

@@ -1,11 +1,12 @@
 use itertools::Itertools;
 use tabled::{builder::Builder, settings::Style};
 
-use crate::{AnonymousGrowable, HasAlphabet, Map, Pair, Set, Symbol, Transition};
+use crate::{AnonymousGrowable, HasAlphabet, Map, Pair, Pointed, Set, Symbol, Transition};
 
 use super::{
     transition::TransitionReference, Growable, HasInput, HasStates, IntoStates, IntoTransitions,
-    Shrinkable, StateIndex, StateOf, Successor, SymbolOf, TransitionOf, TriggerIterable, Trivial,
+    LengthLexicographic, Shrinkable, StateIndex, StateOf, Successor, SymbolOf, TransitionOf,
+    TriggerIterable, Trivial, Visitor,
 };
 
 use std::{
@@ -46,6 +47,21 @@ impl<Q: StateIndex, S: Symbol> TransitionSystem<Q, S> {
     /// Returns the size of `self`, i.e. the number of states.
     pub fn size(&self) -> usize {
         self.states.len()
+    }
+
+    /// Computes the set of all reachable states starting in `origin`.
+    pub fn reachable_states_from<X: Borrow<Q>>(&self, origin: X) -> Set<Q> {
+        LengthLexicographic::new_from(self, origin.borrow().clone())
+            .iter()
+            .collect()
+    }
+
+    /// Computes the set of all reachable states from the initial state.
+    pub fn reachable_states(&self) -> Set<Q>
+    where
+        Self: Pointed<Q = Q>,
+    {
+        self.reachable_states_from(self.initial())
     }
 }
 
@@ -264,7 +280,13 @@ impl<S: Symbol, Q: StateIndex + Display> Display for TransitionSystem<Q, S> {
 /// Helper struct for iterating over the transitions of a transition system.
 #[derive(Clone, Debug)]
 pub struct Transitions<'a, Q, S> {
-    iter: std::collections::hash_map::Iter<'a, (Q, S), Q>,
+    pub iter: std::collections::hash_map::Iter<'a, (Q, S), Q>,
+}
+
+impl<'a, Q, S> Transitions<'a, Q, S> {
+    pub fn new(iter: std::collections::hash_map::Iter<'a, (Q, S), Q>) -> Self {
+        Self { iter }
+    }
 }
 
 impl<'a, Q: StateIndex, S: Symbol> Iterator for Transitions<'a, Q, S> {

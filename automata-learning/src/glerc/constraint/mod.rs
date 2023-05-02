@@ -51,6 +51,9 @@ pub enum ConstraintError<'s, S: Symbol, W: Subword> {
     Acceptance(AcceptanceError<'s, S, W>),
     /// Used for the [`RandomConstraint`], if the generated number prevents the insertion.
     Random,
+    /// Is emitted when the Myhill-Nerode constraint is violated.
+    // TODO: Add more information about the violation.
+    MyhillNerodeInconsistent,
 }
 
 /// A constraint that is always satisfied.

@@ -2,8 +2,9 @@ use std::{borrow::Borrow, fmt::Display, ops::Add};
 
 use crate::{
     ts::{
-        transitionsystem::{States, TransitionSystemAlphabetIter},
-        HasInput, HasStates, IntoStates, StateOf, StateReference, SymbolOf, Trivial,
+        transitionsystem::{States, TransitionSystemAlphabetIter, Transitions},
+        HasInput, HasStates, IntoStates, IntoTransitions, StateOf, StateReference, SymbolOf,
+        TransitionReference, Trivial,
     },
     words::IsFinite,
     FiniteKind, Growable, Map, Pointed, Shrinkable, Str, Subword, Successor, Symbol,
@@ -260,6 +261,16 @@ impl<'a, S: Symbol> IntoStates for &'a RightCongruence<S> {
 
     fn into_states(self) -> Self::IntoStates {
         self.0.into_states()
+    }
+}
+
+impl<'a, S: Symbol> IntoTransitions for &'a RightCongruence<S> {
+    type TransitionRef = TransitionReference<'a, Class<S>, S>;
+
+    type IntoTransitions = Transitions<'a, Class<S>, S>;
+
+    fn into_transitions(self) -> Self::IntoTransitions {
+        self.0.into_transitions()
     }
 }
 
