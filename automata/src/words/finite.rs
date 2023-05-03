@@ -1,9 +1,12 @@
-use std::fmt::Display;
+use std::{borrow::Borrow, fmt::Display, ops::Add};
 
 use itertools::Itertools;
 
 use super::{IsFinite, SymbolIterable, Word};
-use crate::{FiniteKind, Symbol};
+use crate::{
+    ts::{HasInput, HasStates, IntoTransitions},
+    Class, FiniteKind, Successor, Symbol,
+};
 
 pub trait FiniteWord {
     type Symbol: Symbol;
@@ -14,6 +17,53 @@ pub trait FiniteWord {
 pub struct Str<S> {
     /// The symbols making up the object.
     pub symbols: Vec<S>,
+}
+
+impl<S> Str<S> {
+    /// Gets the last symbol of the word.
+    pub fn last(&self) -> Option<&S> {
+        self.symbols.last()
+    }
+
+    /// Appends the given symbol to the end of the word.
+    pub fn push_back<X: Borrow<S>>(&mut self, sym: X)
+    where
+        S: Clone,
+    {
+        self.symbols.push(sym.borrow().clone())
+    }
+
+    /// Returns an iterator over the alphabet of the word.
+    pub fn alphabet(&self) -> impl Iterator<Item = &S>
+    where
+        S: Symbol,
+    {
+        self.symbols.iter().unique()
+    }
+
+    /// Returns the length of the word.
+    pub fn len(&self) -> usize {
+        self.symbols.len()
+    }
+
+    /// Returns true iff the word is empty
+    pub fn is_empty(&self) -> bool {
+        self.symbols.is_empty()
+    }
+
+    /// Creates an empty instance.
+    pub fn empty() -> Self {
+        Self { symbols: vec![] }
+    }
+
+    /// Returns true if and only if `prefix` is a prefix of `self`, meaning all symbols
+    /// of `prefix` are contained in `self` in the same order.
+    pub fn has_prefix<X: Borrow<Self>>(&self, prefix: X) -> bool
+    where
+        S: Eq,
+    {
+        self.symbols.starts_with(&prefix.borrow().symbols)
+    }
 }
 
 impl<S: Symbol> Display for Str<S> {
@@ -82,6 +132,16 @@ impl From<&str> for Str<char> {
     }
 }
 
+impl<S: Symbol> Add<&S> for &Str<S> {
+    type Output = Str<S>;
+
+    fn add(self, rhs: &S) -> Self::Output {
+        let mut v = self.symbols.clone();
+        v.push(rhs.clone());
+        Str { symbols: v }
+    }
+}
+
 impl<C: Symbol> SymbolIterable for Str<C> {
     type Iter = std::vec::IntoIter<C>;
 
@@ -98,39 +158,42 @@ impl<S: Symbol> Word for Str<S> {
     }
 }
 
-impl<S> Str<S> {
-    /// Returns an iterator over the alphabet of the word.
-    pub fn alphabet(&self) -> impl Iterator<Item = &S>
-    where
-        S: Symbol,
-    {
+impl<S: Symbol> HasInput for Str<S> {
+    type Sigma = S;
+
+    type Input<'me> = itertools::Unique<std::slice::Iter<'me, S>>
+    where Self:'me;
+
+    fn raw_input_alphabet_iter(&self) -> Self::Input<'_> {
         self.symbols.iter().unique()
     }
-
-    /// Returns the length of the word.
-    pub fn len(&self) -> usize {
-        self.symbols.len()
-    }
-
-    /// Returns true iff the word is empty
-    pub fn is_empty(&self) -> bool {
-        self.symbols.is_empty()
-    }
-
-    /// Creates an empty instance.
-    pub fn empty() -> Self {
-        Self { symbols: vec![] }
-    }
-
-    /// Returns true if and only if `prefix` is a prefix of `self`, meaning all symbols
-    /// of `prefix` are contained in `self` in the same order.
-    pub fn has_prefix(&self, prefix: &Self) -> bool
-    where
-        S: Eq,
-    {
-        self.symbols.starts_with(&prefix.symbols)
+}
+impl<S: Symbol> HasStates for Str<S> {
+    type Q = Str<S>;
+}
+impl<S: Symbol> Successor for Str<S> {
+    fn successor<X: Borrow<Self::Q>, Y: Borrow<Self::Sigma>>(
+        &self,
+        from: X,
+        on: Y,
+    ) -> Option<Self::Q> {
+        if self.has_prefix(from.borrow() + on.borrow()) {
+            let mut new = from.borrow().clone();
+            new.push_back(on.borrow());
+            Some(new)
+        } else {
+            None
+        }
     }
 }
+
+// impl<'a, S: Symbol> IntoTransitions for &'a Str<S> {
+//     type TransitionRef = (Str<S>, S, Str<S>);
+
+//     fn into_transitions(self) -> Self::IntoTransitions {
+//         todo!()
+//     }
+// }
 
 #[cfg(test)]
 mod tests {

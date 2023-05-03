@@ -1,3 +1,6 @@
+mod paths;
+pub use paths::{LLexPaths, Path};
+
 use std::collections::{BTreeSet, VecDeque};
 
 use tracing::trace;
@@ -54,15 +57,6 @@ pub struct LengthLexicographic<TS: Successor> {
     queue: VecDeque<StateOf<TS>>,
     seen: Set<StateOf<TS>>,
 }
-/// A [`Visitor`] that visits edges (i.e. state-symbol-state triples) of a transition
-/// system in length-lexicographic order.
-#[derive(Debug, Clone)]
-pub struct LengthLexicographicEdges<TS: Successor> {
-    ts: TS,
-    alphabet: BTreeSet<TS::Sigma>,
-    queue: VecDeque<(StateOf<TS>, TS::Sigma)>,
-    seen: Set<StateOf<TS>>,
-}
 
 impl<TS> LengthLexicographic<TS>
 where
@@ -90,6 +84,38 @@ where
         let start = ts.initial();
         Self::new_from(ts, start)
     }
+}
+
+impl<TS> Visitor for LengthLexicographic<TS>
+where
+    TS: Successor,
+{
+    type Place = StateOf<TS>;
+
+    fn visit_next(&mut self) -> Option<Self::Place> {
+        if let Some(q) = self.queue.pop_front() {
+            for sym in &self.alphabet {
+                if let Some(successor) = self.ts.successor(&q, sym) {
+                    if self.seen.insert(successor.clone()) {
+                        self.queue.push_back(successor);
+                    }
+                }
+            }
+            Some(q)
+        } else {
+            None
+        }
+    }
+}
+
+/// A [`Visitor`] that visits edges (i.e. state-symbol-state triples) of a transition
+/// system in length-lexicographic order.
+#[derive(Debug, Clone)]
+pub struct LengthLexicographicEdges<TS: Successor> {
+    ts: TS,
+    alphabet: BTreeSet<TS::Sigma>,
+    queue: VecDeque<(StateOf<TS>, TS::Sigma)>,
+    seen: Set<StateOf<TS>>,
 }
 
 impl<TS> LengthLexicographicEdges<TS>
@@ -120,28 +146,6 @@ where
     {
         let start = ts.initial();
         Self::new_from(ts, start)
-    }
-}
-
-impl<TS> Visitor for LengthLexicographic<TS>
-where
-    TS: Successor,
-{
-    type Place = StateOf<TS>;
-
-    fn visit_next(&mut self) -> Option<Self::Place> {
-        if let Some(q) = self.queue.pop_front() {
-            for sym in &self.alphabet {
-                if let Some(successor) = self.ts.successor(&q, sym) {
-                    if self.seen.insert(successor.clone()) {
-                        self.queue.push_back(successor);
-                    }
-                }
-            }
-            Some(q)
-        } else {
-            None
-        }
     }
 }
 
@@ -179,12 +183,30 @@ where
 
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools;
+
     use crate::{ts::Visitor, Successor, TransitionSystem};
 
     #[test]
     fn bfs_search() {
         let ts = TransitionSystem::from_iter([(0, 'a', 1), (0, 'b', 0), (1, 'a', 0), (1, 'b', 1)]);
         assert_eq!(ts.bfs_from(0).iter().collect::<Vec<_>>(), vec![0, 1]);
+        assert_eq!(
+            ts.bfs_edges_from(0).iter().collect::<TransitionSystem<_>>(),
+            ts
+        );
+    }
+
+    #[test]
+    fn not_self_reaching() {
+        let ts = TransitionSystem::from_iter([
+            (0, 'a', 1),
+            (0, 'b', 2),
+            (1, 'a', 2),
+            (2, 'a', 1),
+            (2, 'b', 2),
+        ]);
+        assert_eq!(ts.reachable_states_from(0).collect_vec(), vec![1, 2]);
         assert_eq!(
             ts.bfs_edges_from(0).iter().collect::<TransitionSystem<_>>(),
             ts

@@ -4,6 +4,7 @@ mod separability;
 
 use automata::{
     run::{EscapePrefix, Run},
+    ts::IntoTransitions,
     words::WordKind,
     Class, RightCongruence, Subword, Symbol, Word,
 };

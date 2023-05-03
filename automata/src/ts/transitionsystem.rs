@@ -43,26 +43,6 @@ impl<Q: StateIndex, S: Symbol> TransitionSystem<Q, S> {
             iter: self.states.iter(),
         }
     }
-
-    /// Returns the size of `self`, i.e. the number of states.
-    pub fn size(&self) -> usize {
-        self.states.len()
-    }
-
-    /// Computes the set of all reachable states starting in `origin`.
-    pub fn reachable_states_from<X: Borrow<Q>>(&self, origin: X) -> Set<Q> {
-        LengthLexicographic::new_from(self, origin.borrow().clone())
-            .iter()
-            .collect()
-    }
-
-    /// Computes the set of all reachable states from the initial state.
-    pub fn reachable_states(&self) -> Set<Q>
-    where
-        Self: Pointed<Q = Q>,
-    {
-        self.reachable_states_from(self.initial())
-    }
 }
 
 impl<Q: StateIndex, S: Symbol> HasStates for TransitionSystem<Q, S> {

@@ -1,5 +1,8 @@
 use std::{borrow::Borrow, sync::Arc};
 
+use owo_colors::OwoColorize;
+use tracing::trace;
+
 use crate::{
     helpers::MooreMachine,
     output::{Assignment, AssignmentReference, IntoAssignments, Mapping},
@@ -114,25 +117,31 @@ impl<L, R> Iterator for ProductTransitions<L, R> where
 L: Iterator,
 R: Iterator + Clone,
 L::Item: Clone + Transition,
-R::Item: Transition,
+R::Item: Transition<S = <L::Item as Trigger>::S>,
 {
     type Item = (Pair<<L::Item as Trigger>::Q, <R::Item as Trigger>::Q>, <L::Item as Trigger>::S, Pair<<L::Item as Trigger>::Q, <R::Item as Trigger>::Q>); 
 
     fn next(&mut self) -> Option<Self::Item> {
-        let right_element = match self.right.next() {
-            None => {
-                self.right = self.right_backup.clone();
-                match self.right.next() {
-                    None => return None,
-                    Some(t) => {
-                        self.left_element = self.left.next();
-                        t
-                    }
+        if let Some(left_element) = self.left_element.clone() {
+            trace!("left_element: {:?} -{:?}-> ", left_element.source(), left_element.sym());
+            let right_element = match self.right.find(|x| x.sym() == left_element.sym()) {
+                None => {
+                    trace!("\tno right element found, resetting right iterator and advancing left");
+                    self.right = self.right_backup.clone();
+                    self.left_element = self.left.next();
+                    return self.next();
                 }
-            }
-            Some(t) => t
-        };
-        self.left_element.as_ref().map(|t| (Pair::new(t.source().clone(), right_element.source().clone()), t.sym().clone(), Pair::new(t.target().clone(), right_element.target().clone())))
+                Some(t) => {
+                    trace!("\tfound right element: {:?}, {}", t.target(), "left not advanced".green());
+                    t
+                }
+            };
+            trace!("\tEmitting: <{:?},{:?}> -{:?}-> <{:?},{:?}>", left_element.source(), right_element.source(), left_element.sym(), left_element.target(), right_element.target());
+            Some((Pair::new(left_element.source().clone(), right_element.source().clone()), left_element.sym().clone(), Pair::new(left_element.target().clone(), right_element.target().clone())))
+        } else {
+            trace!("left_element is None");
+            None
+        }
     }
 }
 

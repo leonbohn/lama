@@ -172,6 +172,14 @@ pub trait IntoTransitions: Successor + Copy {
     {
         MealyMachine::from_parts(self.collect_ts(), self.initial(), self.collect_mapping())
     }
+
+    /// Computes the size of the transition system
+    fn size(self) -> usize {
+        self.into_transitions()
+            .flat_map(|t| [t.source().clone(), t.target().clone()])
+            .unique()
+            .count()
+    }
 }
 
 impl<'a, T> IntoTransitions for &'a T

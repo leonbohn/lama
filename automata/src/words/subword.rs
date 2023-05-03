@@ -21,6 +21,10 @@ pub trait Subword: Word {
         let prefix_length = prefix.length();
         prefix.eq(&self.prefix(prefix_length))
     }
+
+    fn split_at(&self, position: usize) -> (Self::PrefixType, Self::SuffixType) {
+        (self.prefix(position), self.skip(position))
+    }
 }
 
 impl<S: Symbol> Subword for Str<S> {

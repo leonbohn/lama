@@ -213,11 +213,6 @@ impl<S: Symbol> RightCongruence<S> {
     pub fn states_canonical(&self) -> impl Iterator<Item = &Class<S>> + '_ {
         self.0.into_states().sorted()
     }
-
-    /// Returns the number of states in the right congurence.
-    pub fn size(&self) -> usize {
-        self.0.size()
-    }
 }
 
 impl<S: Symbol> HasInput for RightCongruence<S> {

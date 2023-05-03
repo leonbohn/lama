@@ -3,7 +3,7 @@ use std::borrow::Borrow;
 pub use crate::TransitionOutput;
 use crate::{ts::IntoTransitions, Equivalent, Pair, StateIndex, Successor, Symbol, DFA};
 
-mod mapping;
+mod chain;
 
 mod product;
 pub(crate) use product::product_transitions;
@@ -31,7 +31,8 @@ impl<Q: StateIndex, S: Symbol> DFA<Q, S> {
         P: StateIndex,
         D: Borrow<DFA<P, S>>,
     {
-        self.direct_product(other.borrow())
+        self.product(other.borrow())
+            .collect_moore()
             .map_acceptance(|x| x.left && x.right)
     }
 
@@ -49,9 +50,12 @@ impl<T: TransitionOutput> Equivalent for T {
 
 #[cfg(test)]
 mod tests {
+    use tracing_test::traced_test;
+
     use crate::{acceptance::Accepts, DFA};
 
     #[test]
+    #[traced_test]
     fn dfa_operations() {
         let left = DFA::from_parts_iters(
             [

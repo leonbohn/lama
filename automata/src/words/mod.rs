@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::{Boundedness, FiniteKind, Symbol};
+use crate::{Boundedness, FiniteKind, Set, Symbol};
 mod append;
 pub use append::Append;
 
@@ -108,6 +108,31 @@ impl<S: Symbol> Word for Vec<S> {
 
     fn nth(&self, index: usize) -> Option<Self::S> {
         self.get(index).cloned()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct WordTransitions<W: Subword> {
+    word: W,
+    pos: usize,
+    seen: Set<W::SuffixType>,
+}
+
+impl<W: Subword> WordTransitions<W> {
+    pub fn new(word: W) -> Self {
+        Self {
+            word,
+            pos: 0,
+            seen: Set::new(),
+        }
+    }
+}
+
+impl<W: Subword> Iterator for WordTransitions<W> {
+    type Item = (W::PrefixType, <W as Word>::S, W::PrefixType);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        todo!()
     }
 }
 

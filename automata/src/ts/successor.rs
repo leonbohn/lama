@@ -4,11 +4,11 @@ use impl_tools::autoimpl;
 use owo_colors::OwoColorize;
 use tabled::{builder::Builder, settings::Style};
 
-use crate::{run::Configuration, Pointed, TransitionSystem, Trigger, Word};
+use crate::{run::Configuration, Pointed, Set, TransitionSystem, Trigger, Word};
 
 use super::{
-    HasInput, HasStates, IntoStates, IntoTransitions, LengthLexicographic,
-    LengthLexicographicEdges, Restricted, StateReference,
+    visit::LLexPaths, HasInput, HasStates, IntoStates, IntoTransitions, LengthLexicographic,
+    LengthLexicographicEdges, Restricted, StateReference, Visitor, VisitorIter,
 };
 
 /// The base trait implemented by a deterministic transition system. A transition system is a tuple `(Q, S, δ)`, where `Q` is a finite set of states, `S` is a finite set of symbols and `δ: Q × S → Q` is a transition function. Note that the transition function is not necessarily complete and some transitions may be missing.
@@ -140,5 +140,48 @@ pub trait Successor: HasStates + HasInput {
         Self: Sized + Pointed,
     {
         LengthLexicographicEdges::new(self)
+    }
+
+    /// Performs a breadth-first search on the transition system, starting from the given state, emitting each visited [`Path`].
+    fn all_paths_from<X>(&self, origin: X) -> LLexPaths<&Self>
+    where
+        Self: Sized,
+        X: Borrow<Self::Q>,
+    {
+        LLexPaths::new_from(self, origin)
+    }
+
+    /// Computes the set of all reachable states starting in `origin`. Note, that this does not necessarily include
+    /// the state `origin` itself.
+    fn reachable_states_from<X>(
+        &self,
+        origin: X,
+    ) -> std::iter::Skip<VisitorIter<LengthLexicographic<&Self>>>
+    where
+        Self: Sized,
+        X: Borrow<Self::Q>,
+    {
+        LengthLexicographic::new_from(self, origin.borrow().clone())
+            .iter()
+            .skip(1)
+    }
+
+    /// Computes the set of all reachable states from the initial state. This does not include the initial state itself,
+    /// only if it can reach itself via a cycle.
+    fn reachable_states(&self) -> std::iter::Skip<VisitorIter<LengthLexicographic<&Self>>>
+    where
+        Self: Pointed + Sized,
+    {
+        self.reachable_states_from(self.initial())
+    }
+
+    /// Checks whether `source` lies on a non-trivial cycle. This is done by calling [`Self::reachable_states_from`] and
+    /// checking whether `source` is contained in the result.
+    fn is_on_cycle<X: Borrow<Self::Q>>(&self, source: X) -> bool
+    where
+        Self: Sized,
+    {
+        self.reachable_states_from(source.borrow())
+            .any(|state| &state == source.borrow())
     }
 }
