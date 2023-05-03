@@ -17,10 +17,12 @@ pub struct MyhillNerodeConstraint<Q: StateIndex, P: StateIndex, S: Symbol> {
 }
 
 impl<Q: StateIndex, P: StateIndex, S: Symbol> MyhillNerodeConstraint<Q, P, S> {
+    /// Creates a new Myhill-Nerode constraint, which ensures that if two words
+    /// lead to the same state, they are equivalent under the right congruence.
     pub fn new(sample: &Sample<UltimatelyPeriodicWord<S>>) -> Self {
-        let positive = sample.positive_prefixes();
-        let negative = sample.negative_prefixes();
-        let product = positive.ts().product_with_transitions(&negative);
+        // let positive = sample.positive_prefixes();
+        // let negative = sample.negative_prefixes();
+        // let product = positive.ts().product_with_transitions(&negative);
         todo!()
     }
 }
@@ -38,16 +40,16 @@ impl<Q: StateIndex, P: StateIndex, S: Symbol> Constraint<S, Set<CongruenceTrigge
         info: &'s crate::glerc::info::GlercInfo<'s, S, W>,
     ) -> Result<Self::Output, super::ConstraintError<'s, S, W>> {
         todo!();
-        let product = self.product.0.product_with_transitions(info.cong);
-        let initial = Pair::new(self.product.1, Class::epsilon());
-        let reachable = product.reachable_states_from(initial);
-        if reachable
-            .iter()
-            .any(|state| self.conflicts.contains(&state.left().raw()))
-        {
-            Err(super::ConstraintError::MyhillNerodeInconsistent)
-        } else {
-            Ok(())
-        }
+        // let product = self.product.0.product_with_transitions(info.cong);
+        // let initial = Pair::new(self.product.1, Class::epsilon());
+        // let reachable = product.reachable_states_from(initial);
+        // if reachable
+        //     .iter()
+        //     .any(|state| self.conflicts.contains(&state.left().raw()))
+        // {
+        //     Err(super::ConstraintError::MyhillNerodeInconsistent)
+        // } else {
+        //     Ok(())
+        // }
     }
 }

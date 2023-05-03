@@ -181,7 +181,7 @@ where
     /// Creates a new state for the given sample and default congruence
     pub fn new(provider: P, default: RightCongruence<S>, constraint: C) -> Self {
         let cong = RightCongruence::empty_trivial();
-        let mut out = Self {
+        Self {
             timer: Err(std::time::Instant::now()),
             cong,
             default,
@@ -191,8 +191,7 @@ where
             escaping: (Vec::new(), Vec::new()),
             constraint,
             provider,
-        };
-        out
+        }
     }
 
     pub fn new_from_congruence(
@@ -201,7 +200,7 @@ where
         default: RightCongruence<S>,
         constraint: C,
     ) -> Self {
-        let mut out = Self {
+        Self {
             timer: Err(std::time::Instant::now()),
             cong,
             default,
@@ -211,8 +210,7 @@ where
             escaping: (Vec::new(), Vec::new()),
             constraint,
             provider,
-        };
-        out
+        }
     }
 
     fn get_info(&'s self) -> GlercInfo<'s, S, W> {

@@ -1,12 +1,13 @@
 use std::borrow::Borrow;
 
 pub use crate::TransitionOutput;
-use crate::{Equivalent, Pair, StateIndex, Symbol, DFA};
+use crate::{ts::IntoTransitions, Equivalent, Pair, StateIndex, Successor, Symbol, DFA};
 
 mod mapping;
 
 mod product;
-pub use product::{product_transitions, Product};
+pub(crate) use product::product_transitions;
+pub use product::Product;
 
 mod trimming;
 
@@ -18,7 +19,8 @@ impl<Q: StateIndex, S: Symbol> DFA<Q, S> {
         P: StateIndex,
         D: Borrow<DFA<P, S>>,
     {
-        self.direct_product(other.borrow())
+        self.product(other.borrow())
+            .collect_moore()
             .map_acceptance(|x| x.left || x.right)
     }
 
@@ -67,11 +69,17 @@ mod tests {
             DFA::from_parts_iters([(0, 'a', 0), (1, 'a', 1), (0, 'b', 1), (1, 'b', 0)], [0], 0);
 
         let union = left.union(&right);
+
+        println!(
+            "{}\n{}\n==============================\n{:}",
+            left, right, union
+        );
+
         for p in ["aaa", "bb", "abb", "b"] {
-            assert!(union.accepts(p));
+            assert!(union.accepts(p), "Should accept {}", p);
         }
         for n in ["ab", "aba", "baa", "aababba"] {
-            assert!(!union.accepts(n));
+            assert!(!union.accepts(n), "Should reject {}", n);
         }
 
         let intersection = left.intersection(&right);

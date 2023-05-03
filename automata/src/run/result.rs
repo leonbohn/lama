@@ -1,4 +1,4 @@
-use std::{collections::HashSet, fmt::Debug};
+use std::{borrow::Borrow, collections::HashSet, fmt::Debug};
 
 use crate::{
     ts::{StateOf, Successor},
@@ -14,10 +14,10 @@ pub trait Run<TS: Successor + ?Sized, K>: Subword {
     type Induces: Clone + Debug + Eq;
 
     /// Evaluates the run and returns the result.
-    fn run(
+    fn run<X: Borrow<StateOf<TS>>>(
         &self,
         on: &TS,
-        from: StateOf<TS>,
+        from: X,
     ) -> Result<Self::Induces, EscapePrefix<StateOf<TS>, Self>>
     where
         Self: Sized;
@@ -43,12 +43,12 @@ impl<TS: Successor + Pointed + ?Sized, K: Boundedness, R: Run<TS, K>> InitialRun
 impl<W: IsFinite + Subword, TS: Successor<Sigma = W::S>> Run<TS, FiniteKind> for W {
     type Induces = StateOf<TS>;
 
-    fn run(
+    fn run<X: Borrow<StateOf<TS>>>(
         &self,
         on: &TS,
-        from: StateOf<TS>,
+        from: X,
     ) -> Result<Self::Induces, EscapePrefix<StateOf<TS>, Self>> {
-        let mut walker = on.walk(from, self);
+        let mut walker = on.walk(from.borrow().clone(), self);
         let prefix = walker
             .by_ref()
             .take_while(RunOutput::is_trigger)
@@ -68,10 +68,10 @@ where
 {
     type Induces = Set<(StateOf<TS>, TS::Sigma)>;
 
-    fn run(
+    fn run<X: Borrow<StateOf<TS>>>(
         &self,
         on: &TS,
-        from: StateOf<TS>,
+        from: X,
     ) -> Result<Self::Induces, EscapePrefix<StateOf<TS>, Self>> {
         let prefix_length = self.base_length();
         let recur_length = self.recur_length();

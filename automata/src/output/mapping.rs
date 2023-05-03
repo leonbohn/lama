@@ -183,6 +183,7 @@ pub trait IntoAssignments: Transformer + Copy {
     /// Converts the reference into an iterator over the individual assignments.
     fn into_assignments(self) -> Self::Assignments;
 
+    /// Collects into a mapping.
     fn collect_mapping(self) -> Mapping<Self::Domain, Self::Range> {
         self.into_assignments().collect()
     }

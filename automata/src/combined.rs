@@ -230,6 +230,8 @@ impl<Q: StateIndex, S: Symbol> DFA<Q, S> {
         Self { ts, initial, acc }
     }
 
+    /// Creates a [`DFA`] from an iterator of transitions and a given initial state.
+    /// In the resulting automaton, all states are accepting.
     pub fn all_accepting_iters<X: Transition<S = S, Q = Q>, T: IntoIterator<Item = X>>(
         transition_iter: T,
         initial: Q,
@@ -350,10 +352,10 @@ mod tests {
         let q0 = dfa.initial();
         let q1 = 1u32;
         assert!(dfa.add_state(&q1));
-        dfa.add_transition(&q0, 'a', &q1);
-        dfa.add_transition(&q1, 'a', &q0);
-        dfa.add_transition(&q0, 'b', &q0);
-        dfa.add_transition(&q1, 'b', &q1);
+        dfa.add_transition(q0, 'a', q1);
+        dfa.add_transition(q1, 'a', q0);
+        dfa.add_transition(q0, 'b', q0);
+        dfa.add_transition(q1, 'b', q1);
         *dfa.acceptance_mut() += q1;
         assert!(dfa.accepts("a"));
         *dfa.acceptance_mut() -= q1;
@@ -367,10 +369,10 @@ mod tests {
         let q0 = dba.initial();
         let q1 = 1u32;
         assert!(dba.add_state(&q1));
-        dba.add_transition(&q0, 'a', &q1);
-        dba.add_transition(&q1, 'a', &q0);
-        dba.add_transition(&q0, 'b', &q0);
-        dba.add_transition(&q1, 'b', &q1);
+        dba.add_transition(q0, 'a', q1);
+        dba.add_transition(q1, 'a', q0);
+        dba.add_transition(q0, 'b', q0);
+        dba.add_transition(q1, 'b', q1);
         *dba.acceptance_mut() += (q1, 'a');
         assert!(dba.accepts(PeriodicWord::from("a")));
     }

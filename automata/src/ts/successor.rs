@@ -29,6 +29,11 @@ pub trait Successor: HasStates + HasInput {
         self.successor(trigger.source(), trigger.sym())
     }
 
+    /// Computes the product with `other` by creating a [`Product`] object. Note that this
+    /// is the direct product, where states are pairs of states. This operation is only
+    /// possible if `self` and `other` operate on the same symbol.
+    /// Additionally, if `self` and `other` both implement [`IntoAssignments`], then the
+    /// resulting product does so as well.
     fn product<O>(&self, other: O) -> crate::operations::Product<&Self, O>
     where
         Self: Sized,
@@ -38,9 +43,10 @@ pub trait Successor: HasStates + HasInput {
     }
 
     /// Restrict the transition system to only those transitions that satisfy the given predicate.
-    fn restrict<F: Fn(&Self::Q) -> bool>(&self, filter: F) -> Restricted<&Self, F>
+    fn restrict<F>(&self, filter: F) -> Restricted<&Self, F>
     where
         Self: Sized,
+        F: Fn(&Self::Q) -> bool,
     {
         Restricted::new(self, filter)
     }
@@ -52,15 +58,15 @@ pub trait Successor: HasStates + HasInput {
 
     /// Starts a run from the given state. A run is given by a [`Configuration`] object, which keeps track
     /// of the current state.
-    fn run_word_from<W: Word<S = Self::Sigma>>(
+    fn run_word_from<W: Word<S = Self::Sigma>, X: Borrow<Self::Q>>(
         &self,
         on: W,
-        from: Self::Q,
+        from: X,
     ) -> Configuration<&Self, W>
     where
         Self: Sized,
     {
-        Configuration::from_state(self, from, on)
+        Configuration::from_state(self, from.borrow().clone(), on)
     }
 
     /// Creates a copy of the current TS which has its initial state set.

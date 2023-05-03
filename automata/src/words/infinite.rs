@@ -57,6 +57,7 @@ impl<S: Symbol> SymbolIterable for PeriodicWord<S> {
 }
 
 impl<S: Symbol> PeriodicWord<S> {
+    /// Returns an iterator over the alphabet of the word, i.e all symbols that appear in it.
     pub fn alphabet(&self) -> impl Iterator<Item = &S> {
         self.0.alphabet().unique()
     }
@@ -111,23 +112,33 @@ impl<S: Symbol> SymbolIterable for UltimatelyPeriodicWord<S> {
 }
 
 impl<S: Symbol> UltimatelyPeriodicWord<S> {
+    /// Returns an iterator over the alphabet of the word, i.e all symbols that appear in it.
     pub fn alphabet(&self) -> impl Iterator<Item = &S> {
         self.0.alphabet().chain(self.1.alphabet()).unique()
     }
 
+    /// Returns a reference to the base part of the word.
     pub fn base(&self) -> &Str<S> {
         &self.0
     }
 
+    /// Returns a reference to the looping part of the word.
     pub fn recur(&self) -> &PeriodicWord<S> {
         &self.1
     }
 
+    /// Unrolls the word by one step, i.e. it appends the first symbol of the looping part
+    /// to the base part and rotates the looping part by one.
+    ///
+    /// # Example
+    /// If we consider a word like (aba,baa), then unrolling it once will result in
+    /// the word (abab,aab).
     pub fn unroll_one(&mut self) {
         self.0.symbols.push(self.1 .0.symbols[0].clone());
         self.1 .0.symbols.rotate_left(1);
     }
 
+    /// Returns true if and only if the word has the given prefix.
     pub fn has_prefix(&self, prefix: &Str<S>) -> bool {
         self.iter().zip(prefix.iter()).all(|(x, y)| x == y)
     }

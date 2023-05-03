@@ -32,7 +32,7 @@ where
     {
         self.into_assignments()
             .flat_map(|a| {
-                assignments.into_assignments().into_iter().map(move |b| {
+                assignments.into_assignments().map(move |b| {
                     (
                         Pair::new(a.left(), b.left()),
                         Pair::new(a.right(), b.right()),
@@ -43,12 +43,18 @@ where
     }
 }
 
+/// This can be used to build the product of two objects. If both implement [`Successor`]
+/// then the product also implements [`Successor`]. The same holds for [`Transformer`] and
+/// [`Pointed`]. Moreover, if both are [`IntoTransitions`] or [`IntoAssignments`] then the
+/// product implements the respective trait as well.
+#[derive(Clone, Debug)]
 pub struct Product<L, R> {
     left: L,
     right: R,
 }
 
 impl<L, R> Product<L, R> where L: Successor, R: Successor<Sigma = L::Sigma> {
+    /// Creates a new [`Product`] from the given elements.
     pub fn new(left: L, right: R) -> Self {
         Self { left, right }
     }

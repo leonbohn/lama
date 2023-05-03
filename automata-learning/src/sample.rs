@@ -91,6 +91,9 @@ impl<W: Eq + Hash> Sample<W> {
 
 impl<W: Word<Kind = FiniteKind>> Sample<W> {}
 
+/// A helper struct which can be used to construct an acceptor for the prefixes of a
+/// set of ultimately periodic words.
+#[derive(Debug, Clone)]
 pub struct Prefixes<'a, S: Symbol> {
     alphabet: Set<S>,
     set: &'a Set<UltimatelyPeriodicWord<S>>,
@@ -98,6 +101,7 @@ pub struct Prefixes<'a, S: Symbol> {
 }
 
 impl<'a, S: Symbol> Prefixes<'a, S> {
+    /// Creates a new instance of [`Prefixes`] for the given set of ultimately periodic words.
     pub fn new(set: &'a Set<UltimatelyPeriodicWord<S>>) -> Self {
         let alphabet = set.iter().flat_map(|w| w.alphabet()).cloned().collect();
 

@@ -4,9 +4,12 @@ use impl_tools::autoimpl;
 
 use crate::{StateIndex, Symbol, Value};
 
+/// Abstracts a reference to a state.
 pub trait StateReference {
+    /// The type of the state index.
     type Q: StateIndex;
 
+    /// Returns a reference to the state.
     fn state(&self) -> Self::Q;
 }
 

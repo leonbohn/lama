@@ -71,7 +71,10 @@ impl<Q: StateIndex, S: Symbol> Acceptance<Set<(Q, S)>> for ParityAcceptance<Q, S
     }
 }
 
+/// Is implemented by acceptors that can be used to decide whether an object of type
+/// `W` is accepted or not. Examples of implementors would be DFAs, DBAs, and DPAs.
 pub trait Accepts<W> {
+    /// Returns true if and only if the given object of type `W` is accepted.
     fn accepts(&self, word: W) -> bool;
 }
 

@@ -1,6 +1,9 @@
 use std::{borrow::Borrow, fmt::Display};
 
-use crate::{run::Configuration, Set, Symbol, Word};
+use crate::{
+    helpers::MooreMachine, output::IntoAssignments, run::Configuration, Combined, MealyMachine,
+    Set, Symbol, Word,
+};
 
 mod restricted;
 mod successor;
@@ -138,8 +141,36 @@ pub trait IntoTransitions: Successor + Copy {
     /// Converts the transition system into an iterator over its transitions.
     fn into_transitions(self) -> Self::IntoTransitions;
 
+    /// Collect the produced sequence of transitions into a [`TransitionSystem`].
     fn collect_ts(self) -> TransitionSystem<Self::Q, Self::Sigma> {
         self.into_transitions().collect()
+    }
+
+    /// Collect into a pair of [`TransitionSystem`] and initial state.
+    fn collect_pointed(self) -> (TransitionSystem<Self::Q, Self::Sigma>, Self::Q)
+    where
+        Self: Pointed,
+    {
+        let ts = self.collect_ts();
+        (ts, self.initial())
+    }
+
+    /// Collect into a [`MooreMachine`]. This is only possible if the object is
+    /// [`Pointed`] and implements [`IntoAssignments`] where the domain is the state type.
+    fn collect_moore(self) -> MooreMachine<Self::Range, Self::Q, Self::Sigma>
+    where
+        Self: IntoAssignments<Domain = Self::Q> + Pointed,
+    {
+        MooreMachine::from_parts(self.collect_ts(), self.initial(), self.collect_mapping())
+    }
+
+    /// Collect into a [`MealyMachine`]. This is only possible if the object is
+    /// [`Pointed`] and implements [`IntoAssignments`] where the domain is the trigger type.
+    fn collect_mealy(self) -> MealyMachine<Self::Range, Self::Q, Self::Sigma>
+    where
+        Self: IntoAssignments<Domain = TriggerOf<Self>> + Pointed,
+    {
+        MealyMachine::from_parts(self.collect_ts(), self.initial(), self.collect_mapping())
     }
 }
 
@@ -218,6 +249,7 @@ pub trait Shrinkable: Successor {
 
 /// A trait implemented by a [`TransitionSystem`] which can be trimmed. This means that all unreachable states are removed from the transition system. Further, all transitions which point to or originate from unreachable states are removed. Note that this operation is only applicable to a [`TransitionSystem`] which is [`Pointed`], as the concept of reachability is only defined if a designated initial state is given.
 pub trait Trimmable: Successor + Pointed {
+    /// The type of the trimmed transition system.
     type Trimmed: Successor<Q = Self::Q, Sigma = Self::Sigma> + Pointed;
     /// Removes all unreachable states from the transition system. Additionally removes any transitions which point to or originate from unreachable states.
     fn trim(&self) -> Self::Trimmed;

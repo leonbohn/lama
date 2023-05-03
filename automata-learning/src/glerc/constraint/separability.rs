@@ -60,7 +60,7 @@ impl<S: Symbol, X> Constraint<S, X> for EscapeSeparabilityConstraint {
     ) -> Result<Self::Output, ConstraintError<'s, S, W>> {
         for (lword, lesc) in &info.escaping.0 {
             for (rword, resc) in &info.escaping.1 {
-                if lesc.equivalent(&resc) {
+                if lesc.equivalent(resc) {
                     return Err(ConstraintError::SameEscape(*lword, lesc, *rword, resc));
                 }
             }

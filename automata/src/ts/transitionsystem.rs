@@ -280,10 +280,11 @@ where
 /// Helper struct for iterating over the transitions of a transition system.
 #[derive(Clone, Debug)]
 pub struct Transitions<'a, Q, S> {
-    pub iter: std::collections::hash_map::Iter<'a, (Q, S), Q>,
+    pub(crate) iter: std::collections::hash_map::Iter<'a, (Q, S), Q>,
 }
 
 impl<'a, Q, S> Transitions<'a, Q, S> {
+    /// Creates a new [`Transitions`] object from the given iterator.
     pub fn new(iter: std::collections::hash_map::Iter<'a, (Q, S), Q>) -> Self {
         Self { iter }
     }

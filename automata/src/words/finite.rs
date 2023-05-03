@@ -99,6 +99,7 @@ impl<S: Symbol> Word for Str<S> {
 }
 
 impl<S> Str<S> {
+    /// Returns an iterator over the alphabet of the word.
     pub fn alphabet(&self) -> impl Iterator<Item = &S>
     where
         S: Symbol,
@@ -121,6 +122,8 @@ impl<S> Str<S> {
         Self { symbols: vec![] }
     }
 
+    /// Returns true if and only if `prefix` is a prefix of `self`, meaning all symbols
+    /// of `prefix` are contained in `self` in the same order.
     pub fn has_prefix(&self, prefix: &Self) -> bool
     where
         S: Eq,
