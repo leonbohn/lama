@@ -4,7 +4,10 @@ pub use crate::TransitionOutput;
 use crate::{Equivalent, Pair, StateIndex, Symbol, DFA};
 
 mod mapping;
+
 mod product;
+pub use product::{product_transitions, Product};
+
 mod trimming;
 
 impl<Q: StateIndex, S: Symbol> DFA<Q, S> {

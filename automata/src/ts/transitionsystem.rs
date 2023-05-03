@@ -248,34 +248,34 @@ where
     }
 }
 
-impl<S: Symbol, Q: StateIndex + Display> Display for TransitionSystem<Q, S> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut builder = Builder::default();
-        let alphabet = self.input_alphabet().sorted().collect_vec();
-        builder.set_header(
-            vec!["Deterministic".to_string()].into_iter().chain(
-                alphabet
-                    .iter()
-                    .map(|s| s.to_string())
-                    .collect::<Vec<String>>(),
-            ),
-        );
-        for state in self.states().sorted() {
-            let mut row = vec![state.to_string()];
-            for sym in &alphabet {
-                row.push(if let Some(successor) = self.successor(state, *sym) {
-                    successor.to_string()
-                } else {
-                    "-".to_string()
-                });
-            }
-            builder.push_record(row);
-        }
-        let mut transition_table = builder.build();
-        transition_table.with(Style::psql());
-        write!(f, "{}", transition_table)
-    }
-}
+// impl<S: Symbol, Q: StateIndex + Display> Display for TransitionSystem<Q, S> {
+//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+//         let mut builder = Builder::default();
+//         let alphabet = self.input_alphabet().sorted().collect_vec();
+//         builder.set_header(
+//             vec!["Deterministic".to_string()].into_iter().chain(
+//                 alphabet
+//                     .iter()
+//                     .map(|s| s.to_string())
+//                     .collect::<Vec<String>>(),
+//             ),
+//         );
+//         for state in self.states().sorted() {
+//             let mut row = vec![state.to_string()];
+//             for sym in &alphabet {
+//                 row.push(if let Some(successor) = self.successor(state, *sym) {
+//                     successor.to_string()
+//                 } else {
+//                     "-".to_string()
+//                 });
+//             }
+//             builder.push_record(row);
+//         }
+//         let mut transition_table = builder.build();
+//         transition_table.with(Style::psql());
+//         write!(f, "{}", transition_table)
+//     }
+// }
 
 /// Helper struct for iterating over the transitions of a transition system.
 #[derive(Clone, Debug)]

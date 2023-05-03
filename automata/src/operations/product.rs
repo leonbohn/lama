@@ -5,7 +5,7 @@ use crate::{
     output::{Assignment, AssignmentReference, IntoAssignments, Mapping},
     ts::{
         transitionsystem::{States, Transitions},
-        HasInput, HasStates, IntoTransitions, TransitionReference, TriggerOf,
+        HasInput, HasStates, IntoTransitions, TransitionReference, TriggerOf, StateOf, SymbolOf,
     },
     Acceptor, Combined, IntoMealyTransitions, MealyMachine, Pair, Pointed, StateIndex, Successor,
     Symbol, Transformer, Transition, TransitionSystem, Trigger, Value, DBA, DFA, DPA,
@@ -48,6 +48,12 @@ pub struct Product<L, R> {
     right: R,
 }
 
+impl<L, R> Product<L, R> where L: Successor, R: Successor<Sigma = L::Sigma> {
+    pub fn new(left: L, right: R) -> Self {
+        Self { left, right }
+    }
+}
+
 impl<L, R> HasInput for Product<L, R>
 where
     L: HasInput,
@@ -85,72 +91,133 @@ where
     }
 }
 
+impl<L, R> Pointed for Product<L, R> where L: Pointed, R: Pointed<Sigma = L::Sigma> {
+    fn initial(&self) -> Self::Q {
+        Pair::new(self.left.initial(), self.right.initial())
+    }
+}
 
+pub struct ProductTransitions<L, R> where L: Iterator {
+    left: L,
+    left_element: Option<L::Item>,
+    right: R,
+    right_backup: R,
+}
 
-// impl<S, U> ProductWithTransitions<S> for U
-// where
-//     S: Symbol,
-//     U: Pointed,
-//     for<'a> &'a U: IntoTransitions<Sigma = S>,
-// {
-//     fn product_with<T: Pointed + IntoTransitions<Sigma = S>>(
-//         &self,
-//         transitions: T,
-//     ) -> (TransitionSystem<Pair<U::Q, T::Q>, S>, Pair<Self::Q, T::Q>) {
-//         let initial_pair = Pair::new(self.initial(), transitions.initial());
-//         let product_ts = self
-//             .into_transitions()
-//             .flat_map(|t| {
-//                 transitions.into_transitions().filter_map(move |t2| {
-//                     if t.sym() == t2.sym() {
-//                         Some((
-//                             Pair {
-//                                 left: t.source().clone(),
-//                                 right: t2.source().clone(),
-//                             },
-//                             t.sym().clone(),
-//                             Pair {
-//                                 left: t.target().clone(),
-//                                 right: t2.target().clone(),
-//                             },
-//                         ))
-//                     } else {
-//                         None
-//                     }
-//                 })
-//             })
-//             .collect();
-//         (product_ts, initial_pair)
-//     }
-// }
+impl<L, R> Iterator for ProductTransitions<L, R> where
+L: Iterator,
+R: Iterator + Clone,
+L::Item: Clone + Transition,
+R::Item: Transition,
+{
+    type Item = (Pair<<L::Item as Trigger>::Q, <R::Item as Trigger>::Q>, <L::Item as Trigger>::S, Pair<<L::Item as Trigger>::Q, <R::Item as Trigger>::Q>); 
 
-impl<Q: StateIndex, S: Symbol> TransitionSystem<Q, S> {
-    /// Builds the product transition system with the given one.
-    pub fn product_with_transitions<T: IntoTransitions<Sigma = S>>(
-        &self,
-        transitions: T,
-    ) -> TransitionSystem<Pair<Q, T::Q>, S> {
-        self.into_transitions()
-            .flat_map(|t| {
-                transitions.into_transitions().filter_map(move |t2| {
-                    if t.sym() == t2.sym() {
-                        Some((
-                            Pair {
-                                left: t.source().clone(),
-                                right: t2.source().clone(),
-                            },
-                            t.sym().clone(),
-                            Pair {
-                                left: t.target().clone(),
-                                right: t2.target().clone(),
-                            },
-                        ))
-                    } else {
-                        None
+    fn next(&mut self) -> Option<Self::Item> {
+        let right_element = match self.right.next() {
+            None => {
+                self.right = self.right_backup.clone();
+                match self.right.next() {
+                    None => return None,
+                    Some(t) => {
+                        self.left_element = self.left.next();
+                        t
                     }
-                })
-            })
-            .collect()
+                }
+            }
+            Some(t) => t
+        };
+        self.left_element.as_ref().map(|t| (Pair::new(t.source().clone(), right_element.source().clone()), t.sym().clone(), Pair::new(t.target().clone(), right_element.target().clone())))
+    }
+}
+
+pub fn product_transitions<L, R>(left_transitions: L, right_transitions: R) -> ProductTransitions<L::IntoTransitions, R::IntoTransitions> where
+L: IntoTransitions,
+R: IntoTransitions<Sigma = L::Sigma>,
+R::IntoTransitions: Clone,
+{
+    let mut left = left_transitions.into_transitions();
+    let right = right_transitions.into_transitions();
+    ProductTransitions {
+        left_element: left.next(),
+        left,
+        right_backup: right.clone(),
+        right,
+    }
+}
+
+impl<'a, L, R> IntoTransitions for &'a Product<L, R> where L: IntoTransitions, R: IntoTransitions<Sigma = L::Sigma>,
+R::IntoTransitions: Clone, {
+    type TransitionRef = (Pair<StateOf<L>, StateOf<R>>, SymbolOf<L>, Pair<StateOf<L>, StateOf<R>>);
+
+    type IntoTransitions = ProductTransitions<L::IntoTransitions, R::IntoTransitions>;
+
+    fn into_transitions(self) -> Self::IntoTransitions {
+        product_transitions(self.left, self.right)
+    }
+}
+
+impl<L, R> Transformer for Product<L, R> where L: Transformer, R: Transformer {
+    type Domain = Pair<L::Domain, R::Domain>;
+
+    type Range = Pair<L::Range, R::Range>;
+
+    fn apply<X: Borrow<Self::Domain>>(&self, input:X) -> Self::Range {
+        let Pair {left, right } = input.borrow();
+        Pair::new(self.left.apply(left), self.right.apply(right))
+    }
+}
+
+pub struct ProductAssignments<L, R> where L: Iterator {
+    left: L,
+    left_element: Option<L::Item>,
+    right: R,
+    right_backup: R,
+}
+
+impl<'a, L, R> IntoAssignments for &'a Product<L, R> where
+L: IntoAssignments,
+R: IntoAssignments,
+R::Assignments: Clone,
+L::AssignmentRef: Clone {
+    type AssignmentRef = (Pair<L::Domain, R::Domain>, Pair<L::Range, R::Range>);
+
+    type Assignments = ProductAssignments<L::Assignments, R::Assignments>;
+
+    fn into_assignments(self) -> Self::Assignments {
+        let mut left = self.left.into_assignments();
+        let right = self.right.into_assignments();
+        ProductAssignments {
+            left_element: left.next(),
+            left,
+            right_backup: right.clone(),
+            right,
+        }
+    }
+}
+
+impl<L, R> Iterator for ProductAssignments<L, R> where
+L: Iterator,
+R: Iterator + Clone,
+L::Item: Clone + Assignment,
+R::Item: Assignment,
+{
+    type Item = (Pair<<L::Item as Assignment>::Left, <R::Item as Assignment>::Left>, Pair<<L::Item as Assignment>::Right, <R::Item as Assignment>::Right>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let right_element = match self.right.next() {
+            None => {
+                self.right = self.right_backup.clone();
+                match self.right.next() {
+                    None => return None,
+                    Some(a) => {
+                        self.left_element = self.left.next();
+                        a
+                    }
+                }
+            }
+            Some(a) => a
+        };
+        self.left_element.as_ref().map(|a| (Pair::new(a.left(), right_element.left()), Pair::new(a.right(), right_element.right())))
     }
 }
 
@@ -200,40 +267,6 @@ impl<'a, Q: StateIndex, S: Symbol, O: Value> IntoTransitions for &'a MooreMachin
     }
 }
 
-impl<Q: StateIndex, S: Symbol, O: Value> MealyMachine<O, Q, S> {
-    /// Computes the product of two mealy machines. Uses a naive product construction for the transition structure
-    /// and obtains the outputs as the product of the outputs of the two machines.
-    fn mealy_product<Rhs, Q2, O2>(&self, other: Rhs) -> MealyMachine<Pair<O, O2>, Pair<Q, Q2>, S>
-    where
-        Rhs: IntoAssignments + IntoTransitions<Sigma = S, Q = Q2> + Pointed,
-        Rhs::AssignmentRef: Assignment<Left = TriggerOf<Rhs>, Right = O2>,
-        O2: Value,
-        Q2: StateIndex,
-    {
-        let ts = self.ts().product_with_transitions(other);
-        let assignments = self
-            .acceptance()
-            .product_with_assignments(other)
-            .into_assignments()
-            .filter_map(|r| {
-                let Pair {
-                    left: t1,
-                    right: t2,
-                } = r.left();
-                let Pair { left: q, right: p } = r.right();
-
-                if t1.1 == t2.1 {
-                    Some(((Pair::new(t1.0, t2.0), t1.1), Pair::new(q, p)))
-                } else {
-                    None
-                }
-            })
-            .collect();
-        let initial = Pair::new(self.initial(), other.initial());
-        Combined::from_parts(ts, initial, assignments)
-    }
-}
-
 type MooreProduct<Q, P, S, A, B> = MooreMachine<Pair<A, B>, Pair<Q, P>, S>;
 
 impl<Q: StateIndex, S: Symbol, A: Value> MooreMachine<A, Q, S> {
@@ -245,10 +278,9 @@ impl<Q: StateIndex, S: Symbol, A: Value> MooreMachine<A, Q, S> {
         &self,
         other: D,
     ) -> MooreProduct<Q, P, S, A, B> {
-        let ts = self.ts().product_with_transitions(other.borrow().ts());
-        let acc = self
-            .acceptance()
-            .product_with_assignments(other.borrow().acceptance());
+        let product = self.product(other.borrow());
+        let ts = product.collect_ts();
+        let acc = product.collect_mapping();
         let initial = Pair::new(self.initial(), other.borrow().initial());
         Combined::from_parts(ts, initial, acc)
     }
@@ -265,10 +297,9 @@ impl<Q: StateIndex, S: Symbol, A: Value> MealyMachine<A, Q, S> {
         &self,
         other: D,
     ) -> MealyProduct<Q, P, S, A, B> {
-        let ts = self.ts().product_with_transitions(other.borrow().ts());
-        let acc = self
-            .acceptance()
-            .product_with_assignments(other.borrow().acceptance())
+        let product = self.product(other.borrow());
+        let ts = product.collect_ts();
+        let acc = product
             .into_assignments()
             .filter_map(|r| {
                 let Pair {
@@ -294,8 +325,8 @@ mod tests {
     use crate::{
         acceptance::Accepts,
         output::{IntoAssignments, Mapping},
-        ts::IntoTransitions,
-        MealyMachine, Pair, Transformer, TransitionSystem, DFA,
+        ts::{IntoTransitions, Visitor},
+        MealyMachine, Pair, Transformer, TransitionSystem, DFA, Successor,
     };
 
     #[test]
@@ -305,7 +336,7 @@ mod tests {
         let right =
             TransitionSystem::from_iter([(0, 'a', 1), (0, 'b', 0), (1, 'a', 0), (1, 'b', 0)]);
 
-        let prod = left.product_with_transitions(&right);
+        let prod = left.product(&right).collect_ts();
         assert_eq!(prod.size(), 4);
 
         let edges = prod.into_transitions();
@@ -340,7 +371,10 @@ mod tests {
             0,
         );
 
-        let prod = mm.mealy_product(&mm2);
-        println!("{}", prod);
+        let mealy_prod = mm.direct_product(&mm2);
+        println!("{}", mealy_prod);
+
+        let prod = mm.product(&mm2);
+        println!("{}", prod.bfs_edges().iter().collect::<TransitionSystem<_>>());
     }
 }

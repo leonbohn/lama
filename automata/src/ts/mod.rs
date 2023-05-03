@@ -137,6 +137,10 @@ pub trait IntoTransitions: Successor + Copy {
 
     /// Converts the transition system into an iterator over its transitions.
     fn into_transitions(self) -> Self::IntoTransitions;
+
+    fn collect_ts(self) -> TransitionSystem<Self::Q, Self::Sigma> {
+        self.into_transitions().collect()
+    }
 }
 
 impl<'a, T> IntoTransitions for &'a T

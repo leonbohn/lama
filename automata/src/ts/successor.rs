@@ -4,11 +4,11 @@ use impl_tools::autoimpl;
 use owo_colors::OwoColorize;
 use tabled::{builder::Builder, settings::Style};
 
-use crate::{run::Configuration, Pointed, Trigger, Word};
+use crate::{run::Configuration, Pointed, TransitionSystem, Trigger, Word};
 
 use super::{
-    HasInput, HasStates, IntoStates, LengthLexicographic, LengthLexicographicEdges, Restricted,
-    StateReference,
+    HasInput, HasStates, IntoStates, IntoTransitions, LengthLexicographic,
+    LengthLexicographicEdges, Restricted, StateReference,
 };
 
 /// The base trait implemented by a deterministic transition system. A transition system is a tuple `(Q, S, δ)`, where `Q` is a finite set of states, `S` is a finite set of symbols and `δ: Q × S → Q` is a transition function. Note that the transition function is not necessarily complete and some transitions may be missing.
@@ -27,6 +27,14 @@ pub trait Successor: HasStates + HasInput {
     /// Returns the successor state for the given trigger through calling [`Self::succ`].
     fn apply_trigger(&self, trigger: &(Self::Q, Self::Sigma)) -> Option<Self::Q> {
         self.successor(trigger.source(), trigger.sym())
+    }
+
+    fn product<O>(&self, other: O) -> crate::operations::Product<&Self, O>
+    where
+        Self: Sized,
+        O: Successor<Sigma = Self::Sigma>,
+    {
+        crate::operations::Product::new(self, other)
     }
 
     /// Restrict the transition system to only those transitions that satisfy the given predicate.

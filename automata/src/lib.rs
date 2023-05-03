@@ -122,14 +122,17 @@ impl<L, R> Pair<L, R> {
         Self { left, right }
     }
 
+    /// Obtains a reference to the left stored value.
     pub fn left(&self) -> &L {
         &self.left
     }
 
+    /// Obtains a reference to the right stored value.
     pub fn right(&self) -> &R {
         &self.right
     }
 
+    /// Clones both entries, returning a tuple of elements.
     pub fn raw(&self) -> (L, R)
     where
         L: Clone,
@@ -145,7 +148,7 @@ where
     R: Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({}|{})", self.left, self.right)
+        write!(f, "\u{2329}{}|{}\u{232A}", self.left, self.right)
     }
 }
 

@@ -174,14 +174,18 @@ impl<'a, L: Value, R: Value> Assignment for AssignmentReference<'a, L, R> {
 /// Converter trait that allows conversion of a reference to a [`Mapping`] into an
 /// [`Iterator`] over [`Assignment`]s.
 pub trait IntoAssignments: Transformer + Copy {
-    /// THe type of the assignment reference, something like [`AssignmentReference`].
+    /// The type of the assignment reference, something like [`AssignmentReference`].
     type AssignmentRef: Assignment<Left = Self::Domain, Right = Self::Range>;
 
     /// The type of the iterator over the assignments.
-    type Assignments: IntoIterator<Item = Self::AssignmentRef>;
+    type Assignments: Iterator<Item = Self::AssignmentRef>;
 
     /// Converts the reference into an iterator over the individual assignments.
     fn into_assignments(self) -> Self::Assignments;
+
+    fn collect_mapping(self) -> Mapping<Self::Domain, Self::Range> {
+        self.into_assignments().collect()
+    }
 }
 
 impl<'a, X, Y> IntoAssignments for &'a Mapping<X, Y>
