@@ -35,13 +35,13 @@ impl<X: Clone + Eq + PartialEq + std::hash::Hash + std::fmt::Debug + Ord> StateI
 
 // The following two type aliases might change in the future to allow for more flexibility, i.e. for example for implementing nondeterminism.
 /// Helper type for getting the symbol type of a transition system.
-pub type SymbolOf<X> = <X as HasInput>::Sigma;
+pub type InputOf<X> = <X as HasInput>::Sigma;
 /// Helper type for getting the output type of a transition system.
 pub type StateOf<X> = <X as HasStates>::Q;
 /// Helper type for getting the trigger type of a transition system.
-pub type TriggerOf<TS> = (StateOf<TS>, SymbolOf<TS>);
+pub type TriggerOf<TS> = (StateOf<TS>, InputOf<TS>);
 /// Helper type for getting the transition type of a transition system.
-pub type TransitionOf<TS> = (StateOf<TS>, SymbolOf<TS>, StateOf<TS>);
+pub type TransitionOf<TS> = (StateOf<TS>, InputOf<TS>, StateOf<TS>);
 
 /// Trait that encapsulates things which have a set of states. The states can be generic, as long as they implement the [`StateIndex`] trait.
 #[autoimpl(for<T: trait> &T, &mut T)]
@@ -142,35 +142,35 @@ pub trait IntoTransitions: Successor + Copy {
     fn into_transitions(self) -> Self::IntoTransitions;
 
     /// Collect the produced sequence of transitions into a [`TransitionSystem`].
-    fn collect_ts(self) -> TransitionSystem<Self::Q, Self::Sigma> {
+    fn into_ts(self) -> TransitionSystem<Self::Q, Self::Sigma> {
         self.into_transitions().collect()
     }
 
     /// Collect into a pair of [`TransitionSystem`] and initial state.
-    fn collect_pointed(self) -> (TransitionSystem<Self::Q, Self::Sigma>, Self::Q)
+    fn into_pointed(self) -> (TransitionSystem<Self::Q, Self::Sigma>, Self::Q)
     where
         Self: Pointed,
     {
-        let ts = self.collect_ts();
+        let ts = self.into_ts();
         (ts, self.initial())
     }
 
     /// Collect into a [`MooreMachine`]. This is only possible if the object is
     /// [`Pointed`] and implements [`IntoAssignments`] where the domain is the state type.
-    fn collect_moore(self) -> MooreMachine<Self::Range, Self::Q, Self::Sigma>
+    fn into_moore(self) -> MooreMachine<Self::Range, Self::Q, Self::Sigma>
     where
         Self: IntoAssignments<Domain = Self::Q> + Pointed,
     {
-        MooreMachine::from_parts(self.collect_ts(), self.initial(), self.collect_mapping())
+        MooreMachine::from_parts(self.into_ts(), self.initial(), self.collect_mapping())
     }
 
     /// Collect into a [`MealyMachine`]. This is only possible if the object is
     /// [`Pointed`] and implements [`IntoAssignments`] where the domain is the trigger type.
-    fn collect_mealy(self) -> MealyMachine<Self::Range, Self::Q, Self::Sigma>
+    fn into_mealy(self) -> MealyMachine<Self::Range, Self::Q, Self::Sigma>
     where
         Self: IntoAssignments<Domain = TriggerOf<Self>> + Pointed,
     {
-        MealyMachine::from_parts(self.collect_ts(), self.initial(), self.collect_mapping())
+        MealyMachine::from_parts(self.into_ts(), self.initial(), self.collect_mapping())
     }
 
     /// Computes the size of the transition system
@@ -234,7 +234,7 @@ pub trait Growable: Successor {
     fn add_transition<X: Borrow<Self::Q>, Y: Borrow<Self::Q>>(
         &mut self,
         from: X,
-        on: SymbolOf<Self>,
+        on: InputOf<Self>,
         to: Y,
     ) -> Option<Self::Q>;
 }
@@ -252,7 +252,7 @@ pub trait Shrinkable: Successor {
     fn remove_state(&mut self, state: Self::Q) -> Option<Self::Q>;
 
     /// Deletes the given transition from the transition system. If the transition did not exist before, `None` is returned. Otherwise, the old target state is returned.
-    fn remove_transition(&mut self, from: Self::Q, on: SymbolOf<Self>) -> Option<Self::Q>;
+    fn remove_transition(&mut self, from: Self::Q, on: InputOf<Self>) -> Option<Self::Q>;
 }
 
 /// A trait implemented by a [`TransitionSystem`] which can be trimmed. This means that all unreachable states are removed from the transition system. Further, all transitions which point to or originate from unreachable states are removed. Note that this operation is only applicable to a [`TransitionSystem`] which is [`Pointed`], as the concept of reachability is only defined if a designated initial state is given.

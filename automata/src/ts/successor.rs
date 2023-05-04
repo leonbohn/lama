@@ -7,8 +7,9 @@ use tabled::{builder::Builder, settings::Style};
 use crate::{run::Configuration, Pointed, Set, TransitionSystem, Trigger, Word};
 
 use super::{
-    visit::LLexPaths, HasInput, HasStates, IntoStates, IntoTransitions, LengthLexicographic,
-    LengthLexicographicEdges, Restricted, StateReference, Visitor, VisitorIter,
+    visit::LLexPaths, HasInput, HasStates, InputOf, IntoStates, IntoTransitions,
+    LengthLexicographic, LengthLexicographicEdges, Restricted, StateOf, StateReference,
+    TransitionOf, TriggerOf, Visitor, VisitorIter,
 };
 
 /// The base trait implemented by a deterministic transition system. A transition system is a tuple `(Q, S, δ)`, where `Q` is a finite set of states, `S` is a finite set of symbols and `δ: Q × S → Q` is a transition function. Note that the transition function is not necessarily complete and some transitions may be missing.
@@ -52,8 +53,24 @@ pub trait Successor: HasStates + HasInput {
     }
 
     /// Creates a new trigger from the given state and symbol.
-    fn make_trigger(from: &Self::Q, on: &Self::Sigma) -> (Self::Q, Self::Sigma) {
-        (from.clone(), on.clone())
+    fn make_trigger<X: Borrow<StateOf<Self>>, Y: Borrow<InputOf<Self>>>(
+        from: X,
+        on: Y,
+    ) -> TriggerOf<Self> {
+        (from.borrow().clone(), on.borrow().clone())
+    }
+
+    /// Creates a new transition from the given input data.
+    fn make_transition<X: Borrow<StateOf<Self>>, Y: Borrow<InputOf<Self>>>(
+        from: X,
+        on: Y,
+        to: X,
+    ) -> TransitionOf<Self> {
+        (
+            from.borrow().clone(),
+            on.borrow().clone(),
+            to.borrow().clone(),
+        )
     }
 
     /// Starts a run from the given state. A run is given by a [`Configuration`] object, which keeps track

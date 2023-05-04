@@ -1,7 +1,11 @@
 use itertools::Itertools;
 
-use super::{IsInfinite, Str, SymbolIterable, Word};
-use crate::{InfiniteKind, Subword, Symbol};
+use super::{IsInfinite, Str, SymbolIterable, Word, WordTransitions};
+use crate::{
+    congruence::CongruenceTransition,
+    ts::{HasInput, HasStates, IntoTransitions},
+    Class, InfiniteKind, Subword, Successor, Symbol,
+};
 
 pub trait InfiniteWord {
     type Symbol: Symbol;
@@ -141,5 +145,37 @@ impl<S: Symbol> UltimatelyPeriodicWord<S> {
     /// Returns true if and only if the word has the given prefix.
     pub fn has_prefix(&self, prefix: &Str<S>) -> bool {
         self.iter().zip(prefix.iter()).all(|(x, y)| x == y)
+    }
+}
+
+impl<S: Symbol> Successor for UltimatelyPeriodicWord<S> {
+    fn successor<X: std::borrow::Borrow<Self::Q>, Y: std::borrow::Borrow<Self::Sigma>>(
+        &self,
+        from: X,
+        on: Y,
+    ) -> Option<Self::Q> {
+        todo!()
+    }
+}
+impl<S: Symbol> HasStates for UltimatelyPeriodicWord<S> {
+    type Q = Class<S>;
+}
+impl<S: Symbol> HasInput for UltimatelyPeriodicWord<S> {
+    type Sigma = S;
+
+    type Input<'me> = itertools::Unique<std::iter::Chain<std::slice::Iter<'me, S>,std::slice::Iter<'me, S>>> where Self:'me;
+
+    fn raw_input_alphabet_iter(&self) -> Self::Input<'_> {
+        todo!()
+    }
+}
+
+impl<'a, S: Symbol> IntoTransitions for &'a UltimatelyPeriodicWord<S> {
+    type TransitionRef = CongruenceTransition<S>;
+
+    type IntoTransitions = WordTransitions<Self>;
+
+    fn into_transitions(self) -> Self::IntoTransitions {
+        WordTransitions::new(self)
     }
 }

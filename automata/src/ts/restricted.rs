@@ -3,7 +3,7 @@ use crate::{
     TransitionSystem, Trigger,
 };
 
-use super::{HasInput, HasStates, IntoTransitions, StateOf, SymbolOf};
+use super::{HasInput, HasStates, InputOf, IntoTransitions, StateOf};
 
 /// Allows the restriction of a transition system to a subset of its states.
 #[derive(Debug, Clone)]
@@ -23,7 +23,7 @@ impl<TS: Successor, F> HasStates for Restricted<TS, F> {
     type Q = StateOf<TS>;
 }
 impl<TS: Successor, F> HasInput for Restricted<TS, F> {
-    type Sigma = SymbolOf<TS>;
+    type Sigma = InputOf<TS>;
 
     type Input<'me> = TS::Input<'me>
     where
@@ -111,7 +111,7 @@ mod tests {
             (2, 'a', 1),
             (2, 'b', 0),
         ]);
-        let smaller = original.restrict(|&state| state != 2).collect_ts();
+        let smaller = original.restrict(|&state| state != 2).into_ts();
 
         assert_eq!(smaller.size(), 2);
     }

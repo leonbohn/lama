@@ -2,8 +2,9 @@ use std::{borrow::Borrow, fmt::Display, ops::Add};
 
 use itertools::Itertools;
 
-use super::{IsFinite, SymbolIterable, Word};
+use super::{IsFinite, SymbolIterable, Word, WordTransitions};
 use crate::{
+    congruence::CongruenceTransition,
     ts::{HasInput, HasStates, IntoTransitions},
     Class, FiniteKind, Successor, Symbol,
 };
@@ -58,11 +59,23 @@ impl<S> Str<S> {
 
     /// Returns true if and only if `prefix` is a prefix of `self`, meaning all symbols
     /// of `prefix` are contained in `self` in the same order.
-    pub fn has_prefix<X: Borrow<Self>>(&self, prefix: X) -> bool
+    pub fn has_prefix<X: Borrow<S>, I: IntoIterator<Item = X>>(&self, prefix: I) -> bool
     where
         S: Eq,
     {
-        self.symbols.starts_with(&prefix.borrow().symbols)
+        prefix
+            .into_iter()
+            .enumerate()
+            .all(|(i, sym)| self.symbols.get(i) == Some(sym.borrow()))
+    }
+}
+
+impl<S: Symbol> IntoIterator for Str<S> {
+    type Item = S;
+    type IntoIter = std::vec::IntoIter<S>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.symbols.into_iter()
     }
 }
 
@@ -169,7 +182,7 @@ impl<S: Symbol> HasInput for Str<S> {
     }
 }
 impl<S: Symbol> HasStates for Str<S> {
-    type Q = Str<S>;
+    type Q = Class<S>;
 }
 impl<S: Symbol> Successor for Str<S> {
     fn successor<X: Borrow<Self::Q>, Y: Borrow<Self::Sigma>>(
@@ -187,13 +200,15 @@ impl<S: Symbol> Successor for Str<S> {
     }
 }
 
-// impl<'a, S: Symbol> IntoTransitions for &'a Str<S> {
-//     type TransitionRef = (Str<S>, S, Str<S>);
+impl<'a, S: Symbol> IntoTransitions for &'a Str<S> {
+    type TransitionRef = CongruenceTransition<S>;
 
-//     fn into_transitions(self) -> Self::IntoTransitions {
-//         todo!()
-//     }
-// }
+    type IntoTransitions = WordTransitions<Self>;
+
+    fn into_transitions(self) -> Self::IntoTransitions {
+        WordTransitions::new(self)
+    }
+}
 
 #[cfg(test)]
 mod tests {

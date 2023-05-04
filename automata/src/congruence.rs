@@ -3,7 +3,7 @@ use std::{borrow::Borrow, fmt::Display, ops::Add};
 use crate::{
     ts::{
         transitionsystem::{States, TransitionSystemAlphabetIter, Transitions},
-        HasInput, HasStates, IntoStates, IntoTransitions, StateOf, StateReference, SymbolOf,
+        HasInput, HasStates, InputOf, IntoStates, IntoTransitions, StateOf, StateReference,
         TransitionReference, Trivial,
     },
     words::IsFinite,
@@ -32,6 +32,32 @@ impl<S: Symbol> Class<S> {
     /// Returns an iterator over the elements/symbols of the class
     pub fn iter(&self) -> impl Iterator<Item = &S> + '_ {
         self.0.symbols.iter()
+    }
+
+    pub fn push_back<X: Borrow<S>>(&mut self, with: X) {
+        self.0.push_back(with)
+    }
+}
+
+impl<S: Symbol> From<Str<S>> for Class<S> {
+    fn from(value: Str<S>) -> Self {
+        Self(value)
+    }
+}
+
+impl<S: Symbol> From<&Str<S>> for Class<S> {
+    fn from(value: &Str<S>) -> Self {
+        Self(value.clone())
+    }
+}
+
+impl<S: Symbol> IntoIterator for Class<S> {
+    type Item = S;
+
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.symbols.into_iter()
     }
 }
 
@@ -113,6 +139,12 @@ impl<S: Symbol> Add<S> for &Class<S> {
         let mut extend = self.0.clone();
         extend.symbols.push(rhs);
         Class(extend)
+    }
+}
+
+impl From<&str> for Class<char> {
+    fn from(value: &str) -> Self {
+        Self(Str::from_display(value))
     }
 }
 
@@ -277,7 +309,7 @@ impl<S: Symbol> Growable for RightCongruence<S> {
     fn add_transition<X: std::borrow::Borrow<Self::Q>, Y: std::borrow::Borrow<Self::Q>>(
         &mut self,
         from: X,
-        on: SymbolOf<Self>,
+        on: InputOf<Self>,
         to: Y,
     ) -> Option<Self::Q> {
         self.0.add_transition(from, on, to)
@@ -289,7 +321,7 @@ impl<S: Symbol> Shrinkable for RightCongruence<S> {
         self.0.remove_state(state)
     }
 
-    fn remove_transition(&mut self, from: Self::Q, on: SymbolOf<Self>) -> Option<Self::Q> {
+    fn remove_transition(&mut self, from: Self::Q, on: InputOf<Self>) -> Option<Self::Q> {
         self.0.remove_transition(from, on)
     }
 }
@@ -340,7 +372,7 @@ impl<S: Symbol> Growable for ProgressRightCongruence<S> {
     fn add_transition<X: std::borrow::Borrow<Self::Q>, Y: std::borrow::Borrow<Self::Q>>(
         &mut self,
         from: X,
-        on: SymbolOf<Self>,
+        on: InputOf<Self>,
         to: Y,
     ) -> Option<Self::Q> {
         self.1.add_transition(from, on, to)

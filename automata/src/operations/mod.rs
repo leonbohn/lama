@@ -20,7 +20,7 @@ impl<Q: StateIndex, S: Symbol> DFA<Q, S> {
         D: Borrow<DFA<P, S>>,
     {
         self.product(other.borrow())
-            .collect_moore()
+            .into_moore()
             .map_acceptance(|x| x.left || x.right)
     }
 
@@ -32,7 +32,7 @@ impl<Q: StateIndex, S: Symbol> DFA<Q, S> {
         D: Borrow<DFA<P, S>>,
     {
         self.product(other.borrow())
-            .collect_moore()
+            .into_moore()
             .map_acceptance(|x| x.left && x.right)
     }
 

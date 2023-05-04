@@ -4,8 +4,8 @@ use tabled::{builder::Builder, settings::Style};
 use crate::{AnonymousGrowable, HasAlphabet, Map, Pair, Pointed, Set, Symbol, Transition};
 
 use super::{
-    transition::TransitionReference, Growable, HasInput, HasStates, IntoStates, IntoTransitions,
-    LengthLexicographic, Shrinkable, StateIndex, StateOf, Successor, SymbolOf, TransitionOf,
+    transition::TransitionReference, Growable, HasInput, HasStates, InputOf, IntoStates,
+    IntoTransitions, LengthLexicographic, Shrinkable, StateIndex, StateOf, Successor, TransitionOf,
     TriggerIterable, Trivial, Visitor,
 };
 
@@ -183,7 +183,7 @@ where
     fn add_transition<X: Borrow<Q>, Y: Borrow<Q>>(
         &mut self,
         from: X,
-        on: SymbolOf<Self>,
+        on: InputOf<Self>,
         to: Y,
     ) -> std::option::Option<Q> {
         self.edges
@@ -207,7 +207,7 @@ where
     fn remove_transition(
         &mut self,
         from: StateOf<Self>,
-        on: super::SymbolOf<Self>,
+        on: super::InputOf<Self>,
     ) -> Option<StateOf<Self>> {
         self.edges.remove(&(from, on))
     }

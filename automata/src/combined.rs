@@ -11,8 +11,8 @@ use crate::{
     helpers::MooreMachine,
     output::{Assignment, IntoAssignments, Mapping},
     ts::{
-        transitionsystem::Transitions, Growable, HasInput, HasStates, IntoStates, IntoTransitions,
-        Pointed, Shrinkable, Successor, SymbolOf, TransitionReference, TransitionSystem,
+        transitionsystem::Transitions, Growable, HasInput, HasStates, InputOf, IntoStates,
+        IntoTransitions, Pointed, Shrinkable, Successor, TransitionReference, TransitionSystem,
     },
     AnonymousGrowable, HasAlphabet, MealyMachine, OmegaAutomaton, RightCongruence, Set, StateIndex,
     Symbol, Transformer, Transition, Value, DBA, DFA,
@@ -116,7 +116,7 @@ impl<TS: Successor + HasAlphabet<Alphabet = TS::Sigma>, Acc> HasAlphabet for Com
 }
 
 impl<TS: Successor, Acc> HasInput for Combined<TS, Acc> {
-    type Sigma = SymbolOf<TS>;
+    type Sigma = InputOf<TS>;
 
     type Input<'me> = TS::Input<'me>
     where
@@ -293,7 +293,7 @@ impl<TS: Growable, Acc: AcceptanceCondition> Growable for Combined<TS, Acc> {
     fn add_transition<X: std::borrow::Borrow<Self::Q>, Y: std::borrow::Borrow<Self::Q>>(
         &mut self,
         from: X,
-        on: crate::ts::SymbolOf<Self>,
+        on: crate::ts::InputOf<Self>,
         to: Y,
     ) -> Option<Self::Q> {
         self.ts.add_transition(from, on, to)

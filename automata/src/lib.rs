@@ -29,7 +29,7 @@ pub use ts::{
     AnonymousGrowable, Growable, IntoStateReferences, Pointed, Shrinkable, StateIndex, Successor,
     Transition, TransitionIterable, TransitionSystem, Trigger, TriggerIterable,
 };
-use ts::{IntoTransitions, SymbolOf, TriggerOf};
+use ts::{InputOf, IntoTransitions, TriggerOf};
 
 mod display;
 
@@ -178,12 +178,12 @@ pub trait HasAlphabet {
 
 /// An iterator over the alphabet of a transition system.
 pub struct AlphabetIter<TS: TriggerIterable> {
-    alphabet: Vec<SymbolOf<TS>>,
+    alphabet: Vec<InputOf<TS>>,
     pos: usize,
 }
 
 impl<TS: TriggerIterable> Iterator for AlphabetIter<TS> {
-    type Item = SymbolOf<TS>;
+    type Item = InputOf<TS>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(result) = self.alphabet.get(self.pos) {
@@ -196,7 +196,7 @@ impl<TS: TriggerIterable> Iterator for AlphabetIter<TS> {
 }
 
 impl<TS: TriggerIterable> HasAlphabet for TS {
-    type Alphabet = SymbolOf<TS>;
+    type Alphabet = InputOf<TS>;
     type AlphabetIter = AlphabetIter<TS>;
 
     fn alphabet_iter(&self) -> Self::AlphabetIter {
@@ -210,7 +210,7 @@ impl<TS: TriggerIterable> HasAlphabet for TS {
 mod helpers {
     use crate::{
         output::{IntoAssignments, Mapping, TransformerOutput},
-        ts::{HasStates, IntoTransitions, StateOf, SymbolOf, TriggerOf},
+        ts::{HasStates, InputOf, IntoTransitions, StateOf, TriggerOf},
         Combined, OmegaCondition, OutputOf, StateIndex, Symbol, Transformer, TransitionSystem,
         Value,
     };
@@ -234,7 +234,7 @@ mod helpers {
     {
         type State = StateOf<X>;
 
-        type Symbol = SymbolOf<X>;
+        type Symbol = InputOf<X>;
 
         type Output = TransformerOutput<Self>;
     }
@@ -242,7 +242,7 @@ mod helpers {
     /// Trait that is implemented by objects which can be turned into the components that
     /// make up a [`MealyMachine`].
     pub trait IntoMealyTransitions:
-        IntoTransitions + IntoAssignments<Domain = (StateOf<Self>, SymbolOf<Self>)>
+        IntoTransitions + IntoAssignments<Domain = (StateOf<Self>, InputOf<Self>)>
     {
         /// The typ of state.
         type State: StateIndex;
@@ -254,11 +254,11 @@ mod helpers {
 
     impl<X> IntoMealyTransitions for X
     where
-        X: IntoTransitions + IntoAssignments<Domain = (StateOf<X>, SymbolOf<X>)>,
+        X: IntoTransitions + IntoAssignments<Domain = (StateOf<X>, InputOf<X>)>,
     {
         type State = StateOf<X>;
 
-        type Symbol = SymbolOf<X>;
+        type Symbol = InputOf<X>;
 
         type Output = TransformerOutput<Self>;
     }

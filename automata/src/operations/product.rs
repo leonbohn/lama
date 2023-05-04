@@ -8,7 +8,7 @@ use crate::{
     output::{Assignment, AssignmentReference, IntoAssignments, Mapping},
     ts::{
         transitionsystem::{States, Transitions},
-        HasInput, HasStates, IntoTransitions, TransitionReference, TriggerOf, StateOf, SymbolOf,
+        HasInput, HasStates, IntoTransitions, TransitionReference, TriggerOf, StateOf, InputOf,
     },
     Acceptor, Combined, IntoMealyTransitions, MealyMachine, Pair, Pointed, StateIndex, Successor,
     Symbol, Transformer, Transition, TransitionSystem, Trigger, Value, DBA, DFA, DPA,
@@ -162,7 +162,7 @@ R::IntoTransitions: Clone,
 
 impl<'a, L, R> IntoTransitions for &'a Product<L, R> where L: IntoTransitions, R: IntoTransitions<Sigma = L::Sigma>,
 R::IntoTransitions: Clone, {
-    type TransitionRef = (Pair<StateOf<L>, StateOf<R>>, SymbolOf<L>, Pair<StateOf<L>, StateOf<R>>);
+    type TransitionRef = (Pair<StateOf<L>, StateOf<R>>, InputOf<L>, Pair<StateOf<L>, StateOf<R>>);
 
     type IntoTransitions = ProductTransitions<L::IntoTransitions, R::IntoTransitions>;
 
@@ -294,7 +294,7 @@ impl<Q: StateIndex, S: Symbol, A: Value> MooreMachine<A, Q, S> {
         other: D,
     ) -> MooreProduct<Q, P, S, A, B> {
         let product = self.product(other.borrow());
-        let ts = product.collect_ts();
+        let ts = product.into_ts();
         let acc = product.collect_mapping();
         let initial = Pair::new(self.initial(), other.borrow().initial());
         Combined::from_parts(ts, initial, acc)
@@ -313,7 +313,7 @@ impl<Q: StateIndex, S: Symbol, A: Value> MealyMachine<A, Q, S> {
         other: D,
     ) -> MealyProduct<Q, P, S, A, B> {
         let product = self.product(other.borrow());
-        let ts = product.collect_ts();
+        let ts = product.into_ts();
         let acc = product
             .into_assignments()
             .filter_map(|r| {
@@ -351,7 +351,7 @@ mod tests {
         let right =
             TransitionSystem::from_iter([(0, 'a', 1), (0, 'b', 0), (1, 'a', 0), (1, 'b', 0)]);
 
-        let prod = left.product(&right).collect_ts();
+        let prod = left.product(&right).into_ts();
         assert_eq!(prod.size(), 4);
 
         let edges = prod.into_transitions();

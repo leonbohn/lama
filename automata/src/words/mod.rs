@@ -1,6 +1,9 @@
 use std::fmt::Debug;
 
-use crate::{Boundedness, FiniteKind, Set, Symbol};
+use crate::{
+    congruence::CongruenceTransition, ts::IntoTransitions, Boundedness, Class, FiniteKind,
+    RightCongruence, Set, Successor, Symbol,
+};
 mod append;
 pub use append::Append;
 
@@ -15,6 +18,7 @@ mod subword;
 pub use finite::Str;
 pub use infinite::{PeriodicWord, UltimatelyPeriodicWord};
 pub use subword::Subword;
+use tracing::trace;
 
 /// Abstracts a word over some given alphabet. The type parameter `S` is the alphabet, and `Kind` is a marker type which indicates whether the word is finite or infinite.
 #[autoimpl(for<T: trait> &T, &mut T)]
@@ -111,28 +115,84 @@ impl<S: Symbol> Word for Vec<S> {
     }
 }
 
+/// Used to extract the transitions from a word viewed as a transition system.
+/// Is an iterator that outputs the transitions as follows:
+///
+/// For a finite word w = abaab, it would emit transitions
+///     ε -a-> a, a -b-> ab, ab -a-> aba, ...
+///
+/// Infinite words like w = uv^ω will produce transitions that mimick a finite path
+/// on the symbols of u, to which a loop on the symbols of v is attached
 #[derive(Debug, Clone)]
 pub struct WordTransitions<W: Subword> {
     word: W,
     pos: usize,
-    seen: Set<W::SuffixType>,
 }
 
-impl<W: Subword> WordTransitions<W> {
-    pub fn new(word: W) -> Self {
-        Self {
-            word,
-            pos: 0,
-            seen: Set::new(),
-        }
+impl<S: Symbol> Iterator for WordTransitions<&UltimatelyPeriodicWord<S>> {
+    type Item = CongruenceTransition<S>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let loop_back_point = self.word.base_length() + self.word.recur_length();
+
+        trace!(
+            "Pos is {}/{}, base {} and recur {}",
+            self.pos,
+            loop_back_point,
+            self.word.base_length(),
+            self.word.recur_length()
+        );
+        let ret = match self.pos.cmp(&loop_back_point) {
+            std::cmp::Ordering::Less => Some((
+                self.word.prefix(self.pos).into(),
+                self.word
+                    .nth(self.pos)
+                    .expect("Was checked via base length"),
+                self.word.prefix(self.pos + 1).into(),
+            )),
+            std::cmp::Ordering::Equal => Some((
+                self.word.prefix(self.pos).into(),
+                self.word
+                    .nth(self.pos)
+                    .expect("Should also be covered by length!"),
+                self.word.prefix(self.word.base_length() + 1).into(),
+            )),
+            std::cmp::Ordering::Greater => None,
+        };
+        self.pos += 1;
+        ret
     }
 }
 
-impl<W: Subword> Iterator for WordTransitions<W> {
-    type Item = (W::PrefixType, <W as Word>::S, W::PrefixType);
+impl<W: Subword> WordTransitions<W> {
+    /// Creates a new [`WordTransitions`] object.
+    pub fn new(word: W) -> Self {
+        Self { word, pos: 0 }
+    }
+}
+
+impl<W> Iterator for WordTransitions<W>
+where
+    W: Subword + IsFinite,
+    W::PrefixType: Into<Class<W::S>>,
+{
+    type Item = CongruenceTransition<W::S>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        todo!()
+        let ret = if self.pos < self.word.length() {
+            trace!("Pos is {}", self.pos);
+            Some((
+                self.word.prefix(self.pos).into(),
+                self.word
+                    .nth(self.pos)
+                    .expect("Was checked via base length"),
+                self.word.prefix(self.pos + 1).into(),
+            ))
+        } else {
+            None
+        };
+        self.pos += 1;
+        ret
     }
 }
 
@@ -142,10 +202,18 @@ macro_rules! upw {
     ($cyc:expr) => {
         $crate::words::UltimatelyPeriodicWord::from($crate::words::PeriodicWord::from($cyc))
     };
+    ($base:expr, $cyc:expr) => {
+        $crate::words::UltimatelyPeriodicWord::from((
+            $crate::words::Str::from($base),
+            $crate::words::PeriodicWord::from($cyc),
+        ))
+    };
 }
 
 #[cfg(test)]
 mod tests {
+    use tracing_test::traced_test;
+
     use super::*;
     #[test]
     fn symbol_iterability() {
@@ -160,5 +228,13 @@ mod tests {
         let word = UltimatelyPeriodicWord(Str::empty(), PeriodicWord::from(vec![1, 3, 3, 7]));
         let mut iter = word.iter();
         assert_eq!(iter.next(), Some(1usize));
+    }
+
+    #[test]
+    #[traced_test]
+    fn word_as_ts() {
+        let word = upw!("aa", "bb");
+        let ts = word.into_ts();
+        println!("{}", ts);
     }
 }
