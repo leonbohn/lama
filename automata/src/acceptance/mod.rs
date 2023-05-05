@@ -8,7 +8,7 @@ mod reachability;
 pub use reachability::{ReachabilityCondition, SafetyAcceptance};
 
 use crate::{
-    run::{InitialRun, Run},
+    run::{Induces, InitialRun},
     words::{IsFinite, IsInfinite},
     BuchiAcceptance, FiniteKind, InfiniteKind, ParityAcceptance, Pointed, ReachabilityAcceptance,
     Set, StateIndex, Symbol, Transformer, TransitionSystem, Word, DBA, DFA, DPA,
@@ -81,10 +81,10 @@ pub trait Accepts<W> {
 impl<Q, W> Accepts<W> for DFA<Q, W::S>
 where
     Q: StateIndex,
-    W: IsFinite + Run<TransitionSystem<Q, <W as Word>::S>, FiniteKind, Induces = Q>,
+    W: IsFinite + Induces<TransitionSystem<Q, <W as Word>::S>, FiniteKind, Induces = Q>,
 {
     fn accepts(&self, word: W) -> bool {
-        if let Ok(induced) = word.run(self.ts(), self.initial()) {
+        if let Ok(induced) = word.evaluate(self.ts(), self.initial()) {
             self.acceptance().apply(&induced)
         } else {
             false
@@ -96,10 +96,14 @@ impl<Q, W> Accepts<W> for DBA<Q, W::S>
 where
     Q: StateIndex,
     W: IsInfinite
-        + Run<TransitionSystem<Q, <W as Word>::S>, InfiniteKind, Induces = Set<(Q, <W as Word>::S)>>,
+        + Induces<
+            TransitionSystem<Q, <W as Word>::S>,
+            InfiniteKind,
+            Induces = Set<(Q, <W as Word>::S)>,
+        >,
 {
     fn accepts(&self, word: W) -> bool {
-        if let Ok(induced) = word.run(self.ts(), self.initial()) {
+        if let Ok(induced) = word.evaluate(self.ts(), self.initial()) {
             induced.into_iter().any(|q| self.acceptance().apply(&q))
         } else {
             false
@@ -111,10 +115,14 @@ impl<Q, W> Accepts<W> for DPA<Q, W::S>
 where
     Q: StateIndex,
     W: IsInfinite
-        + Run<TransitionSystem<Q, <W as Word>::S>, InfiniteKind, Induces = Set<(Q, <W as Word>::S)>>,
+        + Induces<
+            TransitionSystem<Q, <W as Word>::S>,
+            InfiniteKind,
+            Induces = Set<(Q, <W as Word>::S)>,
+        >,
 {
     fn accepts(&self, word: W) -> bool {
-        if let Ok(induced) = word.run(self.ts(), self.initial()) {
+        if let Ok(induced) = word.evaluate(self.ts(), self.initial()) {
             induced
                 .into_iter()
                 .map(|q| self.acceptance().apply(&q))

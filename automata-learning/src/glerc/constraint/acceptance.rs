@@ -1,6 +1,6 @@
 use automata::{
-    congruence::CongruenceTrigger, run::Run, words::WordKind, BuchiCondition, RightCongruence, Set,
-    Subword, Symbol, TriggerIterable, Word,
+    congruence::CongruenceTrigger, run::Induces, words::WordKind, BuchiCondition, RightCongruence,
+    Set, Subword, Symbol, TriggerIterable, Word,
 };
 use tracing::trace;
 
@@ -17,7 +17,7 @@ use super::{
 impl<S: Symbol, X: Eq> Constraint<S, X> for ReachabilityConstraint {
     type Output = ();
 
-    fn satisfied<'s, W: Subword<S = S> + Run<RightCongruence<S>, WordKind<W>, Induces = X>>(
+    fn satisfied<'s, W: Subword<S = S> + Induces<RightCongruence<S>, WordKind<W>, Induces = X>>(
         &self,
         info: &'s GlercInfo<'s, S, W>,
     ) -> Result<Self::Output, ConstraintError<'s, S, W>> {
@@ -32,7 +32,8 @@ impl<S: Symbol> Constraint<S, Set<CongruenceTrigger<S>>> for BuchiConstraint {
 
     fn satisfied<
         's,
-        W: Subword<S = S> + Run<RightCongruence<S>, WordKind<W>, Induces = Set<CongruenceTrigger<S>>>,
+        W: Subword<S = S>
+            + Induces<RightCongruence<S>, WordKind<W>, Induces = Set<CongruenceTrigger<S>>>,
     >(
         &self,
         info: &'s GlercInfo<'s, S, W>,

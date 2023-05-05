@@ -84,6 +84,10 @@ where
     R: HasStates,
 {
     type Q = Pair<L::Q, R::Q>;
+
+    fn contains_state<X:Borrow<Self::Q>>(&self,state:X) -> bool {
+        self.left.contains_state(state.borrow().left()) && self.right.contains_state(state.borrow().right())
+    }
 }
 
 impl<L, R> Successor for Product<L, R>
@@ -390,6 +394,6 @@ mod tests {
         println!("{}", mealy_prod);
 
         let prod = mm.product(&mm2);
-        println!("{}", prod.bfs_edges().iter().collect::<TransitionSystem<_>>());
+        println!("{}", prod.bfs().iter().collect::<TransitionSystem<_>>());
     }
 }

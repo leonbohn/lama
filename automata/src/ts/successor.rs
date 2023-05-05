@@ -4,12 +4,15 @@ use impl_tools::autoimpl;
 use owo_colors::OwoColorize;
 use tabled::{builder::Builder, settings::Style};
 
-use crate::{run::Configuration, Pointed, Set, TransitionSystem, Trigger, Word};
+use crate::{
+    run::{Configuration, Run},
+    Pointed, Set, TransitionSystem, Trigger, Word,
+};
 
 use super::{
-    visit::LLexPaths, HasInput, HasStates, InputOf, IntoStates, IntoTransitions,
-    LengthLexicographic, LengthLexicographicEdges, Restricted, StateOf, StateReference,
-    TransitionOf, TriggerOf, Visitor, VisitorIter,
+    visit::{Dfs, LLexPaths, Place},
+    Bfs, HasInput, HasStates, InputOf, IntoStates, IntoTransitions, Restricted, StateOf,
+    StateReference, TransitionOf, TriggerOf, Visitor, VisitorIter,
 };
 
 /// The base trait implemented by a deterministic transition system. A transition system is a tuple `(Q, S, δ)`, where `Q` is a finite set of states, `S` is a finite set of symbols and `δ: Q × S → Q` is a transition function. Note that the transition function is not necessarily complete and some transitions may be missing.
@@ -24,6 +27,34 @@ pub trait Successor: HasStates + HasInput {
         from: X,
         on: Y,
     ) -> Option<Self::Q>;
+
+    fn run_from<W: Word<S = Self::Sigma>, X: Borrow<Self::Q>>(
+        &self,
+        origin: X,
+        input: W,
+    ) -> Run<&Self, W>
+    where
+        Self: Sized,
+    {
+        Run::new(self, origin, input)
+    }
+
+    fn transition_for<X: Borrow<Self::Q>, Y: Borrow<Self::Sigma>>(
+        &self,
+        from: X,
+        on: Y,
+    ) -> Option<TransitionOf<Self>> {
+        let (from, on) = (from.borrow(), on.borrow());
+        self.successor(from, on)
+            .map(|to| (from.clone(), on.clone(), to))
+    }
+
+    fn run<W: Word<S = Self::Sigma>, X: Borrow<Self::Q>>(&self, input: W) -> Run<&Self, W>
+    where
+        Self: Sized + Pointed,
+    {
+        Run::new(self, self.initial(), input)
+    }
 
     /// Returns the successor state for the given trigger through calling [`Self::succ`].
     fn apply_trigger(&self, trigger: &(Self::Q, Self::Sigma)) -> Option<Self::Q> {
@@ -128,35 +159,35 @@ pub trait Successor: HasStates + HasInput {
     }
 
     /// Performs a breadth-first search on the transition system, starting from the given state.
-    fn bfs_from(&self, start: Self::Q) -> LengthLexicographic<&Self>
+    fn bfs_from(&self, start: Self::Q) -> Bfs<&Self>
     where
         Self: Sized,
     {
-        LengthLexicographic::new_from(self, start)
+        Bfs::new_from(self, start)
     }
 
     /// Performs a breadth-first search on the transition system, starting from the initial state.
-    fn bfs(&self) -> LengthLexicographic<&Self>
+    fn bfs(&self) -> Bfs<&Self>
     where
         Self: Sized + Pointed,
     {
-        LengthLexicographic::new(self)
+        Bfs::new(self)
     }
 
-    /// Performs a breadth-first search on the transition system, starting from the given state, emitting each visited edge.
-    fn bfs_edges_from(&self, start: Self::Q) -> LengthLexicographicEdges<&Self>
+    /// Performs a depth-first search on the states, starting from the given state.
+    fn dfs_from(&self, start: Self::Q) -> Dfs<&Self>
     where
         Self: Sized,
     {
-        LengthLexicographicEdges::new_from(self, start)
+        Dfs::new_from(self, start)
     }
 
-    /// Performs a breadth-first search on the transition system, starting from the initial state, emitting each visited edge.
-    fn bfs_edges(&self) -> LengthLexicographicEdges<&Self>
+    /// Performs a depth-first search on the states, starting from the initial state.
+    fn dfs(&self) -> Dfs<&Self>
     where
         Self: Sized + Pointed,
     {
-        LengthLexicographicEdges::new(self)
+        Dfs::new(self)
     }
 
     /// Performs a breadth-first search on the transition system, starting from the given state, emitting each visited [`Path`].
@@ -170,22 +201,21 @@ pub trait Successor: HasStates + HasInput {
 
     /// Computes the set of all reachable states starting in `origin`. Note, that this does not necessarily include
     /// the state `origin` itself.
-    fn reachable_states_from<X>(
-        &self,
-        origin: X,
-    ) -> std::iter::Skip<VisitorIter<LengthLexicographic<&Self>>>
+    /// The states in the vec are returned in the order that they are visited.
+    fn reachable_states_from<X>(&self, origin: X) -> Set<Self::Q>
     where
         Self: Sized,
         X: Borrow<Self::Q>,
     {
-        LengthLexicographic::new_from(self, origin.borrow().clone())
+        self.bfs_from(origin.borrow().clone())
             .iter()
-            .skip(1)
+            .flat_map(|(p, _, q)| [p, q])
+            .collect()
     }
 
     /// Computes the set of all reachable states from the initial state. This does not include the initial state itself,
     /// only if it can reach itself via a cycle.
-    fn reachable_states(&self) -> std::iter::Skip<VisitorIter<LengthLexicographic<&Self>>>
+    fn reachable_states(&self) -> Set<<Self as HasStates>::Q>
     where
         Self: Pointed + Sized,
     {
@@ -199,6 +229,7 @@ pub trait Successor: HasStates + HasInput {
         Self: Sized,
     {
         self.reachable_states_from(source.borrow())
-            .any(|state| &state == source.borrow())
+            .iter()
+            .any(|state| state == source.borrow())
     }
 }

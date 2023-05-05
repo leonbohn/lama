@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::BTreeSet, hash::Hash};
 
 use automata::{
-    ts::{HasInput, HasStates, IntoTransitions, LengthLexicographicEdges, Trivial, Visitor},
+    ts::{Bfs, HasInput, HasStates, IntoTransitions, Trivial, Visitor},
     words::{IsFinite, IsInfinite},
     Class, FiniteKind, Pointed, RightCongruence, Set, Subword, Successor, Symbol, TransitionSystem,
     UltimatelyPeriodicWord, Word, DFA,
@@ -130,6 +130,12 @@ impl<'a, S: Symbol> Prefixes<'a, S> {
 
 impl<'a, S: Symbol> HasStates for Prefixes<'a, S> {
     type Q = Class<S>;
+
+    fn contains_state<X: std::borrow::Borrow<Self::Q>>(&self, state: X) -> bool {
+        self.set
+            .iter()
+            .any(|word| word.has_prefix(state.borrow().raw()))
+    }
 }
 
 impl<'a, S: Symbol> HasInput for Prefixes<'a, S> {
@@ -200,7 +206,7 @@ impl<'a, S: Symbol> Pointed for Prefixes<'a, S> {
 
 fn build_prefix_dfa<S: Symbol>(source: &Set<UltimatelyPeriodicWord<S>>) -> DFA<Class<S>, S> {
     let pref = Prefixes::new(source);
-    let ts: TransitionSystem<_, S> = LengthLexicographicEdges::new(&pref).iter().collect();
+    let ts: TransitionSystem<_, S> = Bfs::new(&pref).iter().collect();
     let accepting: automata::output::Mapping<Class<S>, bool> =
         ts.states().map(|q| (q.clone(), !pref.is_sink(q))).collect();
     DFA::from_parts(ts, Class::epsilon(), accepting)
@@ -222,7 +228,7 @@ impl<S: Symbol> Sample<UltimatelyPeriodicWord<S>> {
 #[cfg(test)]
 mod tests {
     use automata::{
-        ts::{LengthLexicographicEdges, Visitor},
+        ts::{Bfs, Visitor},
         upw, Accepts, Class, Set, UltimatelyPeriodicWord, DFA,
     };
     use tracing::trace;

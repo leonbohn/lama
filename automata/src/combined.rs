@@ -265,6 +265,10 @@ where
     TS: Successor,
 {
     type Q = TS::Q;
+
+    fn contains_state<X: Borrow<Self::Q>>(&self, state: X) -> bool {
+        self.ts.contains_state(state)
+    }
 }
 
 impl<TS: Successor, Acc> Successor for Combined<TS, Acc> {

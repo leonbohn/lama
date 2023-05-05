@@ -1,5 +1,5 @@
 use automata::{
-    run::{InitialRun, Run},
+    run::{Induces, InitialRun},
     RightCongruence, Subword, Symbol, Word,
 };
 use impl_tools::autoimpl;
@@ -11,15 +11,18 @@ use super::state::{EscapePair, InducedPair};
 #[autoimpl(for<T: trait> &T)]
 pub trait ProvidesGlercInfo<
     S: Symbol,
-    W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind>,
+    W: Subword<S = S> + Induces<RightCongruence<S>, <W as Word>::Kind>,
 >: Clone
 {
     fn build_for<'s>(&'s self, cong: &'s RightCongruence<S>) -> GlercInfo<'s, S, W>;
 }
 
 #[derive(Clone, Debug)]
-pub struct GlercInfo<'s, S: Symbol, W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind>>
-{
+pub struct GlercInfo<
+    's,
+    S: Symbol,
+    W: Subword<S = S> + Induces<RightCongruence<S>, <W as Word>::Kind>,
+> {
     pub(crate) cong: &'s RightCongruence<S>,
     pub(crate) induced: InducedPair<'s, S, W>,
     pub(crate) escaping: EscapePair<'s, S, W>,
@@ -27,7 +30,7 @@ pub struct GlercInfo<'s, S: Symbol, W: Subword<S = S> + Run<RightCongruence<S>, 
 
 impl<W> ProvidesGlercInfo<W::S, W> for Sample<W>
 where
-    W: Subword + Run<RightCongruence<<W as Word>::S>, <W as Word>::Kind> + Clone,
+    W: Subword + Induces<RightCongruence<<W as Word>::S>, <W as Word>::Kind> + Clone,
 {
     fn build_for<'t>(
         &'t self,
@@ -57,7 +60,7 @@ where
 impl<'s, S, W> GlercInfo<'s, S, W>
 where
     S: Symbol,
-    W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind>,
+    W: Subword<S = S> + Induces<RightCongruence<S>, <W as Word>::Kind>,
 {
     pub fn update(&mut self, sample: &Sample<W>) {
         unimplemented!()

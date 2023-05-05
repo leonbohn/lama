@@ -159,6 +159,10 @@ impl<S: Symbol> Successor for UltimatelyPeriodicWord<S> {
 }
 impl<S: Symbol> HasStates for UltimatelyPeriodicWord<S> {
     type Q = Class<S>;
+
+    fn contains_state<X: std::borrow::Borrow<Self::Q>>(&self, state: X) -> bool {
+        self.has_prefix(&state.borrow().iter().collect())
+    }
 }
 impl<S: Symbol> HasInput for UltimatelyPeriodicWord<S> {
     type Sigma = S;

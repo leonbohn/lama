@@ -1,14 +1,19 @@
 mod walker;
 
 mod configuration;
+mod run;
+pub use run::Run;
 mod escape_prefix;
 pub use escape_prefix::EscapePrefix;
 mod output;
 /// Allows the evaluation of a run.
 mod result;
-use std::fmt::{Debug, Display};
+use std::{
+    borrow::Borrow,
+    fmt::{Debug, Display},
+};
 
-pub use result::{InitialRun, Run};
+pub use result::{Induces, InitialRun};
 
 pub use walker::Walker;
 

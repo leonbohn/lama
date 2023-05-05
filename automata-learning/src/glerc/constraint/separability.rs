@@ -1,5 +1,5 @@
 use automata::{
-    run::{EscapePrefix, Run},
+    run::{EscapePrefix, Induces},
     words::WordKind,
     Class, Equivalent, RightCongruence, Subword, Symbol, Word,
 };
@@ -54,7 +54,7 @@ fn induced_consistent<'s, S: Symbol, W: Subword<S = S> + Eq>(
 impl<S: Symbol, X> Constraint<S, X> for EscapeSeparabilityConstraint {
     type Output = ();
 
-    fn satisfied<'s, W: Subword<S = S> + Run<RightCongruence<S>, WordKind<W>, Induces = X>>(
+    fn satisfied<'s, W: Subword<S = S> + Induces<RightCongruence<S>, WordKind<W>, Induces = X>>(
         &self,
         info: &'s GlercInfo<'s, S, W>,
     ) -> Result<Self::Output, ConstraintError<'s, S, W>> {
@@ -72,7 +72,7 @@ impl<S: Symbol, X> Constraint<S, X> for EscapeSeparabilityConstraint {
 impl<S: Symbol, X: Eq> Constraint<S, X> for InducedSeparabilityConstraint {
     type Output = ();
 
-    fn satisfied<'s, W: Subword<S = S> + Run<RightCongruence<S>, WordKind<W>, Induces = X>>(
+    fn satisfied<'s, W: Subword<S = S> + Induces<RightCongruence<S>, WordKind<W>, Induces = X>>(
         &self,
         info: &'s GlercInfo<'s, S, W>,
     ) -> Result<Self::Output, ConstraintError<'s, S, W>> {

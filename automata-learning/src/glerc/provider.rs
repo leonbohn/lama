@@ -1,7 +1,7 @@
 use std::hash::Hash;
 
 use automata::{
-    run::{InitialRun, Run},
+    run::{Induces, InitialRun},
     Class, RightCongruence, Set, Subword, Successor, Symbol, Word,
 };
 
@@ -55,7 +55,7 @@ impl<S: Symbol> ProvidesMissing<S> for LengthLexicographicMissing<S> {
 
 impl<W> ProvidesGlercInfo<<W as Word>::S, W> for LengthLexicographicMissing<<W as Word>::S>
 where
-    W: Subword + Run<RightCongruence<<W as Word>::S>, <W as Word>::Kind> + Clone,
+    W: Subword + Induces<RightCongruence<<W as Word>::S>, <W as Word>::Kind> + Clone,
 {
     fn build_for<'s>(
         &'s self,

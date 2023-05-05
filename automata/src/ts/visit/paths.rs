@@ -10,7 +10,7 @@ use itertools::Itertools;
 use crate::{
     ts::{HasInput, HasStates, StateOf},
     words::SymbolIterable,
-    StateIndex, Str, Successor, Symbol, Trigger,
+    Set, StateIndex, Str, Successor, Symbol, Trigger,
 };
 
 use super::Visitor;
@@ -36,46 +36,95 @@ impl<Q: Display, S: Symbol + Display> std::fmt::Display for Path<Q, S> {
 }
 
 impl<Q: StateIndex, S: Symbol> Path<Q, S> {
+    /// Creates a new path from the given sequence of states and symbols.
     pub fn new<I: IntoIterator<Item = Q>, J: IntoIterator<Item = S>>(states: I, label: J) -> Self {
         let states = states.into_iter().collect_vec();
         let label = Str::from_iter(label);
         debug_assert_eq!(states.len(), label.len() + 1);
+        debug_assert!(!states.is_empty());
         Self { states, label }
     }
 
+    /// Returns a reference to the sequence of states that make up the path.
+    /// This sequence is never empty.
     pub fn states(&self) -> &[Q] {
+        debug_assert!(!self.states.is_empty());
         debug_assert_eq!(self.states.len(), self.label.len() + 1);
         &self.states
     }
 
+    /// Returns the label of the path, i.e. the sequence of symbols that make up the path.
+    /// The label is empty iff the path is empty.
     pub fn label(&self) -> &Str<S> {
         debug_assert_eq!(self.states.len(), self.label.len() + 1);
         &self.label
     }
 
+    /// Extends the path with the given state and symbol.
     pub fn extend(&mut self, state: Q, symbol: S) {
         self.states.push(state);
         self.label.push_back(symbol);
     }
 
+    /// Returns the state at which the path ends. We consider only non-empty paths,
+    /// so this always exists.
     pub fn reached(&self) -> &Q {
         self.states
             .last()
             .expect("We consider only non-empty paths!")
     }
 
+    /// Returns the state at which the path starts. We consider only non-empty paths,
+    /// so this always exists.
     pub fn origin(&self) -> &Q {
         self.states
             .first()
             .expect("We consider only non-empty paths!")
     }
 
+    /// Returns the last letter of the path, if it exists.
     pub fn last_letter(&self) -> Option<&S> {
         self.label.last()
     }
 
+    /// Returns true iff the path is trivial, i.e. it contains of a single state and its label is empty.
+    pub fn is_trivial(&self) -> bool {
+        self.label.is_empty()
+    }
+
+    /// Checks whether the path is a cycle, meaning its origin and reached state are the same.
+    /// Note, that a path of length 1 is not considered a cycle, so the label sequence must
+    /// be non-empty.
     pub fn is_cycle(&self) -> bool {
-        self.origin() == self.reached()
+        !self.is_trivial() && self.origin() == self.reached()
+    }
+
+    /// Checks whether the path is an elementary cycle, meaning it is a cycle and the origin
+    /// state occurs exactly twice in the path, once at the start and once at the end.
+    pub fn is_elementary_cycle(&self) -> bool {
+        self.is_cycle()
+            && self
+                .states
+                .iter()
+                .skip(1)
+                // skip the first state, ensure that each other state appears precisely once
+                .try_fold(Set::new(), |mut acc, state| {
+                    if acc.contains(state) {
+                        // already seen, so not an elementary cycle
+                        Err(())
+                    } else {
+                        acc.insert(state);
+                        Ok(acc)
+                    }
+                })
+                .is_ok()
+    }
+
+    /// Checks whether the path exists in the transition system `ts`,
+    pub fn exists_in<TS: Successor<Q = Q>>(&self, ts: TS) -> bool {
+        let mut it = self.states.iter();
+        let initial = ts.contains_state(it.next().expect("Must exist"));
+        it.fold(initial, |acc, state| acc && ts.contains_state(state))
     }
 }
 
@@ -126,7 +175,6 @@ where
 
 impl<TS: Successor> Visitor for LLexPaths<TS> {
     type Place = PathFor<TS>;
-
     fn visit_next(&mut self) -> Option<Self::Place> {
         while let Some((path, sym)) = self.queue.pop_front() {
             if let Some(successor) = self.ts.successor(path.reached(), &sym) {
@@ -141,6 +189,17 @@ impl<TS: Successor> Visitor for LLexPaths<TS> {
     }
 }
 
+/// A macro for constructing an ultimately periodic word from string(s).
+#[macro_export]
+macro_rules! path {
+    ($state:expr) => {
+        $crate::ts::visit::Path::new(vec![$state], vec![])
+    };
+    ($($state:expr)+ , $($sym:expr)+) => {
+        $crate::ts::visit::Path::new(vec![$($state),+], vec![$($sym),+])
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use itertools::Itertools;
@@ -149,6 +208,12 @@ mod tests {
         ts::{visit::Path, Visitor},
         Successor, TransitionSystem,
     };
+
+    #[test]
+    fn path_and_macro() {
+        assert!(!path!(0 1 2 1, 'a' 'a' 'a').is_cycle());
+        assert!(path!(1 2 1, 'a' 'a').is_elementary_cycle())
+    }
 
     #[test]
     fn simple_paths_test() {

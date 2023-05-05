@@ -19,8 +19,12 @@ impl<TS, F> Restricted<TS, F> {
     }
 }
 
-impl<TS: Successor, F> HasStates for Restricted<TS, F> {
+impl<TS: Successor, F: Fn(&TS::Q) -> bool> HasStates for Restricted<TS, F> {
     type Q = StateOf<TS>;
+
+    fn contains_state<X: std::borrow::Borrow<Self::Q>>(&self, state: X) -> bool {
+        (self.mask)(state.borrow()) && self.on.contains_state(state)
+    }
 }
 impl<TS: Successor, F> HasInput for Restricted<TS, F> {
     type Sigma = InputOf<TS>;

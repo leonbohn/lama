@@ -37,6 +37,10 @@ impl<S: Symbol> Class<S> {
     pub fn push_back<X: Borrow<S>>(&mut self, with: X) {
         self.0.push_back(with)
     }
+
+    pub fn raw(&self) -> &Str<S> {
+        &self.0
+    }
 }
 
 impl<S: Symbol> From<Str<S>> for Class<S> {
@@ -229,6 +233,10 @@ pub struct RightCongruence<S: Symbol = char>(TransitionSystem<Class<S>, S>, Clas
 
 impl<S: Symbol> HasStates for RightCongruence<S> {
     type Q = Class<S>;
+
+    fn contains_state<X: Borrow<Self::Q>>(&self, state: X) -> bool {
+        self.0.contains_state(state)
+    }
 }
 
 impl<S: Symbol> RightCongruence<S> {
@@ -341,6 +349,10 @@ pub struct ProgressRightCongruence<S: Symbol>(Class<S>, RightCongruence<S>);
 
 impl<S: Symbol> HasStates for ProgressRightCongruence<S> {
     type Q = Class<S>;
+
+    fn contains_state<X: Borrow<Self::Q>>(&self, state: X) -> bool {
+        self.1.contains_state(state)
+    }
 }
 
 impl<S: Symbol> HasInput for ProgressRightCongruence<S> {

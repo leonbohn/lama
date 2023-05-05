@@ -3,7 +3,7 @@ mod myhillnerode;
 mod separability;
 
 use automata::{
-    run::{EscapePrefix, Run},
+    run::{EscapePrefix, Induces},
     ts::IntoTransitions,
     words::WordKind,
     Class, RightCongruence, Subword, Symbol, Word,
@@ -26,7 +26,7 @@ pub trait Constraint<S: Symbol, X> {
     type Output;
 
     /// Verifies that under the given information, the constraint is satisfied.
-    fn satisfied<'s, W: Subword<S = S> + Run<RightCongruence<S>, WordKind<W>, Induces = X>>(
+    fn satisfied<'s, W: Subword<S = S> + Induces<RightCongruence<S>, WordKind<W>, Induces = X>>(
         &self,
         info: &'s GlercInfo<'s, S, W>,
     ) -> Result<Self::Output, ConstraintError<'s, S, W>>;
@@ -104,7 +104,7 @@ pub struct IterationConstraint;
 impl<S: Symbol, X> Constraint<S, X> for RandomConstraint {
     type Output = ();
 
-    fn satisfied<'s, W: Subword<S = S> + Run<RightCongruence<S>, WordKind<W>, Induces = X>>(
+    fn satisfied<'s, W: Subword<S = S> + Induces<RightCongruence<S>, WordKind<W>, Induces = X>>(
         &self,
         info: &'s GlercInfo<'s, S, W>,
     ) -> Result<Self::Output, ConstraintError<'s, S, W>> {
@@ -122,7 +122,7 @@ impl<S: Symbol, X> Constraint<S, X> for RandomConstraint {
 impl<S: Symbol, X> Constraint<S, X> for EmptyConstraint {
     type Output = ();
 
-    fn satisfied<'s, W: Subword<S = S> + Run<RightCongruence<S>, WordKind<W>, Induces = X>>(
+    fn satisfied<'s, W: Subword<S = S> + Induces<RightCongruence<S>, WordKind<W>, Induces = X>>(
         &self,
         info: &'s GlercInfo<'s, S, W>,
     ) -> Result<Self::Output, ConstraintError<'s, S, W>> {

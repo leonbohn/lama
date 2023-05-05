@@ -4,9 +4,9 @@ use tabled::{builder::Builder, settings::Style};
 use crate::{AnonymousGrowable, HasAlphabet, Map, Pair, Pointed, Set, Symbol, Transition};
 
 use super::{
-    transition::TransitionReference, Growable, HasInput, HasStates, InputOf, IntoStates,
-    IntoTransitions, LengthLexicographic, Shrinkable, StateIndex, StateOf, Successor, TransitionOf,
-    TriggerIterable, Trivial, Visitor,
+    transition::TransitionReference, Bfs, Growable, HasInput, HasStates, InputOf, IntoStates,
+    IntoTransitions, Shrinkable, StateIndex, StateOf, Successor, TransitionOf, TriggerIterable,
+    Trivial, Visitor,
 };
 
 use std::{
@@ -47,6 +47,10 @@ impl<Q: StateIndex, S: Symbol> TransitionSystem<Q, S> {
 
 impl<Q: StateIndex, S: Symbol> HasStates for TransitionSystem<Q, S> {
     type Q = Q;
+
+    fn contains_state<X: Borrow<Self::Q>>(&self, state: X) -> bool {
+        self.states.contains(state.borrow())
+    }
 }
 
 /// An iterator over the alphabet of a [`Deterministic`] transition system.

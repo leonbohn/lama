@@ -131,6 +131,14 @@ impl<S: Clone> FromIterator<S> for Str<S> {
     }
 }
 
+impl<'a, S: Clone + 'a> FromIterator<&'a S> for Str<S> {
+    fn from_iter<T: IntoIterator<Item = &'a S>>(iter: T) -> Self {
+        Self {
+            symbols: iter.into_iter().cloned().collect(),
+        }
+    }
+}
+
 impl<S: Symbol> From<Vec<S>> for Str<S> {
     fn from(symbols: Vec<S>) -> Self {
         Str { symbols }
@@ -183,6 +191,10 @@ impl<S: Symbol> HasInput for Str<S> {
 }
 impl<S: Symbol> HasStates for Str<S> {
     type Q = Class<S>;
+
+    fn contains_state<X: Borrow<Self::Q>>(&self, state: X) -> bool {
+        self.has_prefix(state.borrow().iter())
+    }
 }
 impl<S: Symbol> Successor for Str<S> {
     fn successor<X: Borrow<Self::Q>, Y: Borrow<Self::Sigma>>(

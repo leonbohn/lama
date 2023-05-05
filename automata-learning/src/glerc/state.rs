@@ -1,7 +1,7 @@
 use std::hash::Hash;
 
 use automata::{
-    run::{EscapePrefix, InitialRun, Run},
+    run::{EscapePrefix, Induces, InitialRun},
     AcceptanceCondition, Combined, Growable, Shrinkable, Subword, Symbol, Word,
 };
 use tracing::trace;
@@ -35,8 +35,8 @@ enum GlercIterationStatus<S: Symbol> {
 pub struct GlercState<
     's,
     S: Symbol,
-    W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind>,
-    C: Constraint<S, <W as Run<RightCongruence<S>, <W as Word>::Kind>>::Induces>,
+    W: Subword<S = S> + Induces<RightCongruence<S>, <W as Word>::Kind>,
+    C: Constraint<S, <W as Induces<RightCongruence<S>, <W as Word>::Kind>>::Induces>,
     M: ProvidesMissing<S>,
 > {
     timer: Result<std::time::Duration, std::time::Instant>,
@@ -57,7 +57,8 @@ pub struct GlercState<
 }
 
 /// Alias for the result of evaluating a configuration
-pub(super) type EvalResult<'s, S, W> = <W as Run<RightCongruence<S>, <W as Word>::Kind>>::Induces;
+pub(super) type EvalResult<'s, S, W> =
+    <W as Induces<RightCongruence<S>, <W as Word>::Kind>>::Induces;
 /// Alias for the induced pair
 pub(super) type InducedPair<'s, S, W> = (
     Vec<(&'s W, EvalResult<'s, S, W>)>,
@@ -74,7 +75,7 @@ where
     S: Symbol + 's,
     W: Subword<S = S> + Clone + 's + Hash,
     W: InitialRun<RightCongruence<S>, <W as Word>::Kind>,
-    C: Constraint<S, <W as Run<RightCongruence<S>, <W as Word>::Kind>>::Induces>,
+    C: Constraint<S, <W as Induces<RightCongruence<S>, <W as Word>::Kind>>::Induces>,
     P: ProvidesMissing<S> + ProvidesGlercInfo<S, W>,
 {
     fn get_status(&self) -> GlercIterationStatus<S> {
@@ -257,7 +258,7 @@ where
     S: Symbol + 's,
     W: Subword<S = S> + Clone + 's + Hash,
     W: InitialRun<RightCongruence<S>, <W as Word>::Kind>,
-    C: Constraint<S, <W as Run<RightCongruence<S>, <W as Word>::Kind>>::Induces, Output = Acc>,
+    C: Constraint<S, <W as Induces<RightCongruence<S>, <W as Word>::Kind>>::Induces, Output = Acc>,
 {
     fn from(value: GlercState<'s, S, W, C, &'s Sample<W>>) -> Self {
         let mut gs = value;
@@ -279,7 +280,7 @@ where
     S: Symbol + 's,
     W: Subword<S = S> + Clone + 's + Hash,
     W: InitialRun<RightCongruence<S>, <W as Word>::Kind>,
-    C: Constraint<S, <W as Run<RightCongruence<S>, <W as Word>::Kind>>::Induces, Output = ()>,
+    C: Constraint<S, <W as Induces<RightCongruence<S>, <W as Word>::Kind>>::Induces, Output = ()>,
     P: ProvidesMissing<S> + ProvidesGlercInfo<S, W>,
 {
     fn from(value: GlercState<'s, S, W, C, P>) -> Self {

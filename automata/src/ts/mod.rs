@@ -26,7 +26,7 @@ pub mod transitionsystem;
 #[cfg(feature = "det")]
 pub use transitionsystem::TransitionSystem;
 
-pub use visit::{LengthLexicographic, LengthLexicographicEdges, Visitor, VisitorIter};
+pub use visit::{Bfs, Visitor, VisitorIter};
 
 /// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`
 pub trait StateIndex: Clone + PartialEq + Eq + std::hash::Hash + std::fmt::Debug + Ord {}
@@ -48,6 +48,9 @@ pub type TransitionOf<TS> = (StateOf<TS>, InputOf<TS>, StateOf<TS>);
 pub trait HasStates {
     /// The type of states of the object.
     type Q: StateIndex;
+
+    /// Returns true if the object contanins the particular state.
+    fn contains_state<X: Borrow<Self::Q>>(&self, state: X) -> bool;
 }
 
 /// Trait that encapsulates things which have a set of input symbols, such as a transition system or transducer. The symbols can be generic, as long as they implement the [`Symbol`] trait.
@@ -274,6 +277,10 @@ impl<TS: Successor> HasInput for (TS, TS::Q) {
 }
 impl<TS: Successor> HasStates for (TS, TS::Q) {
     type Q = TS::Q;
+
+    fn contains_state<X: Borrow<Self::Q>>(&self, state: X) -> bool {
+        self.0.contains_state(state)
+    }
 }
 impl<TS: Successor> Successor for (TS, TS::Q) {
     fn successor<X: Borrow<Self::Q>, Y: Borrow<Self::Sigma>>(

@@ -1,6 +1,7 @@
 use automata::{
-    congruence::CongruenceTrigger, run::Run, words::WordKind, Class, Dfa, Pair, RightCongruence,
-    Set, StateIndex, Subword, Symbol, TransitionSystem, UltimatelyPeriodicWord, DFA,
+    congruence::CongruenceTrigger, run::Induces, words::WordKind, Class, Dfa, Pair,
+    RightCongruence, Set, StateIndex, Subword, Symbol, TransitionSystem, UltimatelyPeriodicWord,
+    DFA,
 };
 
 use crate::sample::Sample;
@@ -34,7 +35,8 @@ impl<Q: StateIndex, P: StateIndex, S: Symbol> Constraint<S, Set<CongruenceTrigge
 
     fn satisfied<
         's,
-        W: Subword<S = S> + Run<RightCongruence<S>, WordKind<W>, Induces = Set<CongruenceTrigger<S>>>,
+        W: Subword<S = S>
+            + Induces<RightCongruence<S>, WordKind<W>, Induces = Set<CongruenceTrigger<S>>>,
     >(
         &self,
         info: &'s crate::glerc::info::GlercInfo<'s, S, W>,

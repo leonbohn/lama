@@ -7,7 +7,8 @@ impl<Q: StateIndex, S: Symbol, Acc> Combined<TransitionSystem<Q, S>, Acc> {
     /// Trims self, mutably. See [`Trimmable::trim`] for more information on the trim
     /// operation itself.
     pub fn trim_in_place(&mut self) {
-        let mut bfs = self.bfs().iter().collect::<Set<_>>();
+        let bfs = self.reachable_states();
+
         self.ts_mut().states.retain(|s| bfs.contains(s));
         self.ts_mut()
             .edges

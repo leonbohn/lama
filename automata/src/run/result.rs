@@ -9,12 +9,12 @@ use crate::{
 use super::{EscapePrefix, RunOutput, Walk, Walker};
 
 /// Abstracts the evaluation of a run.
-pub trait Run<TS: Successor + ?Sized, K>: Subword {
+pub trait Induces<TS: Successor + ?Sized, K>: Subword {
     /// Type that is returned for successful runs. This is usually a state in the case of a finite input and a set of states (usually a [`HashSet`]) in the case of an infinite input.
     type Induces: Clone + Debug + Eq;
 
     /// Evaluates the run and returns the result.
-    fn run<X: Borrow<StateOf<TS>>>(
+    fn evaluate<X: Borrow<StateOf<TS>>>(
         &self,
         on: &TS,
         from: X,
@@ -24,26 +24,26 @@ pub trait Run<TS: Successor + ?Sized, K>: Subword {
 }
 
 /// Abstracts the evaluation of an initial run, i.e. a [`Run`] that starts at the initial state of the transition system.
-pub trait InitialRun<TS: Successor + ?Sized, K>: Run<TS, K> {
+pub trait InitialRun<TS: Successor + ?Sized, K>: Induces<TS, K> {
     /// Evaluates the run and returns the result.
     fn initial_run(&self, on: &TS) -> Result<Self::Induces, EscapePrefix<StateOf<TS>, Self>>
     where
         Self: Sized;
 }
 
-impl<TS: Successor + Pointed + ?Sized, K: Boundedness, R: Run<TS, K>> InitialRun<TS, K> for R {
+impl<TS: Successor + Pointed + ?Sized, K: Boundedness, R: Induces<TS, K>> InitialRun<TS, K> for R {
     fn initial_run(&self, on: &TS) -> Result<Self::Induces, EscapePrefix<StateOf<TS>, Self>>
     where
         Self: Sized,
     {
-        self.run(on, on.initial())
+        self.evaluate(on, on.initial())
     }
 }
 
-impl<W: IsFinite + Subword, TS: Successor<Sigma = W::S>> Run<TS, FiniteKind> for W {
+impl<W: IsFinite + Subword, TS: Successor<Sigma = W::S>> Induces<TS, FiniteKind> for W {
     type Induces = StateOf<TS>;
 
-    fn run<X: Borrow<StateOf<TS>>>(
+    fn evaluate<X: Borrow<StateOf<TS>>>(
         &self,
         on: &TS,
         from: X,
@@ -62,13 +62,13 @@ impl<W: IsFinite + Subword, TS: Successor<Sigma = W::S>> Run<TS, FiniteKind> for
     }
 }
 
-impl<W: IsInfinite + Subword, TS: Successor<Sigma = W::S>> Run<TS, InfiniteKind> for W
+impl<W: IsInfinite + Subword, TS: Successor<Sigma = W::S>> Induces<TS, InfiniteKind> for W
 where
-    <W as Subword>::PrefixType: IsFinite + Run<TS, FiniteKind, Induces = StateOf<TS>>,
+    <W as Subword>::PrefixType: IsFinite + Induces<TS, FiniteKind, Induces = StateOf<TS>>,
 {
     type Induces = Set<(StateOf<TS>, TS::Sigma)>;
 
-    fn run<X: Borrow<StateOf<TS>>>(
+    fn evaluate<X: Borrow<StateOf<TS>>>(
         &self,
         on: &TS,
         from: X,
@@ -76,7 +76,7 @@ where
         let prefix_length = self.base_length();
         let recur_length = self.recur_length();
         let prefix = self.prefix(prefix_length);
-        match prefix.run(on, from) {
+        match prefix.evaluate(on, from) {
             Err(e) => Err(EscapePrefix::from_finite(self, e)),
             Ok(reached) => {
                 let recur = self.skip(prefix_length);
@@ -129,11 +129,11 @@ mod tests {
         ts.add_transition(&q2, 'b', &q0);
 
         let word = PeriodicWord::from(Str::from("b"));
-        let run = word.run(&ts, q0);
+        let run = word.evaluate(&ts, q0);
         assert!(run.is_ok());
         assert_eq!(run.unwrap(), vec![(q0, 'b')].into_iter().collect());
 
-        let ab_run = PeriodicWord::from(Str::from("ab")).run(&ts, q0);
+        let ab_run = PeriodicWord::from(Str::from("ab")).evaluate(&ts, q0);
         assert!(ab_run.is_ok());
         assert_eq!(
             ab_run.unwrap(),
