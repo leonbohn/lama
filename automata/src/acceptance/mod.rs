@@ -70,3 +70,23 @@ impl<Q: StateIndex, S: Symbol> Acceptance<Set<(Q, S)>> for ParityAcceptance<Q, S
             .unwrap_or(false)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::DFA;
+
+    pub fn one_mod_three_times_a_dfa() -> DFA {
+        DFA::from_parts_iters(
+            [
+                (0, 'a', 1),
+                (0, 'b', 0),
+                (1, 'a', 2),
+                (1, 'b', 1),
+                (2, 'a', 0),
+                (2, 'b', 2),
+            ],
+            [1],
+            0,
+        )
+    }
+}

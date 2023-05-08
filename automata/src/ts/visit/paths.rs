@@ -8,7 +8,7 @@ use std::{
 use itertools::Itertools;
 
 use crate::{
-    ts::{HasInput, HasStates, StateOf},
+    ts::{HasInput, HasStates, InputOf, StateOf},
     words::SymbolIterable,
     Set, StateIndex, Str, Successor, Symbol, Transition, Trigger,
 };
@@ -131,6 +131,16 @@ impl<Q: StateIndex, S: Symbol> Path<Q, S> {
         let initial = ts.contains_state(it.next().expect("Must exist"));
         it.fold(initial, |acc, state| acc && ts.contains_state(state))
     }
+
+    pub fn extend_with(self, symbol: S, state: Q) -> Self {
+        let Path {
+            mut states,
+            mut label,
+        } = self;
+        label.push_back(symbol);
+        states.push(state);
+        Path { states, label }
+    }
 }
 
 impl<Q: StateIndex, S: Symbol> Extend<(Q, S)> for Path<Q, S> {
@@ -149,18 +159,6 @@ impl<Q: StateIndex, S: Symbol> Extend<(Q, S, Q)> for Path<Q, S> {
             self.states.push(target);
             self.label.push_back(symbol);
         }
-    }
-}
-
-impl<T: Trigger> Add<T> for &Path<T::Q, T::S> {
-    type Output = Path<T::Q, T::S>;
-
-    fn add(self, rhs: T) -> Self::Output {
-        let mut states = self.states.clone();
-        let mut label = self.label.clone();
-        states.push(rhs.source().clone());
-        label.push_back(rhs.sym());
-        Path { states, label }
     }
 }
 
@@ -195,18 +193,19 @@ impl<T: Transition> From<Vec<T>> for Path<T::Q, T::S> {
     }
 }
 
-type PathFor<TS> = Path<<TS as HasStates>::Q, <TS as HasInput>::Sigma>;
-type PathQueue<TS> = VecDeque<(
+pub type PathFor<TS> = Path<<TS as HasStates>::Q, <TS as HasInput>::Sigma>;
+pub type PathQueue<TS> = VecDeque<(
     Path<<TS as HasStates>::Q, <TS as HasInput>::Sigma>,
     <TS as HasInput>::Sigma,
 )>;
-pub struct LLexPaths<TS: Successor> {
+pub struct BfsPaths<TS: Successor> {
     ts: TS,
     alphabet: BTreeSet<TS::Sigma>,
     queue: PathQueue<TS>,
+    seen: Set<TS::Q>,
 }
 
-impl<TS> LLexPaths<TS>
+impl<TS> BfsPaths<TS>
 where
     TS: Successor,
 {
@@ -214,6 +213,7 @@ where
         let alphabet: BTreeSet<_> = ts.input_alphabet().cloned().collect();
         Self {
             ts,
+            seen: [origin.borrow().clone()].into_iter().collect(),
             queue: alphabet
                 .iter()
                 .map(|sym| {
@@ -228,12 +228,18 @@ where
     }
 }
 
-impl<TS: Successor> Visitor for LLexPaths<TS> {
+impl<TS> Visitor for BfsPaths<TS>
+where
+    TS: Successor,
+{
     type Place = PathFor<TS>;
     fn visit_next(&mut self) -> Option<Self::Place> {
-        while let Some((path, sym)) = self.queue.pop_front() {
+        while let Some((mut path, sym)) = self.queue.pop_front() {
             if let Some(successor) = self.ts.successor(path.reached(), &sym) {
-                let extended = path.add((successor, sym));
+                if self.seen.contains(&successor) {
+                    continue;
+                }
+                let extended = path.extend_with(sym, successor);
                 for sym in &self.alphabet {
                     self.queue.push_back((extended.clone(), sym.clone()));
                 }
@@ -279,7 +285,7 @@ mod tests {
             (2, 'a', 1),
             (2, 'b', 2),
         ]);
-        let mut it = ts.all_paths_from(0).iter();
+        let mut it = ts.paths_from(0).iter();
         assert_eq!(it.next().unwrap(), Path::new([0, 1], ['a']),);
         assert_eq!(it.next().unwrap(), Path::new([0, 2], ['b']),);
         assert_eq!(it.next().unwrap(), Path::new([0, 1, 2], ['a', 'a']),);

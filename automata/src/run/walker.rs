@@ -39,6 +39,7 @@ impl<'t, 'w, W: Word, TS: Successor<Sigma = W::S>> Walker<'t, 'w, W, TS> {
         }
     }
 
+    /// Returns the current position of the `Walker`.
     pub fn position(&self) -> usize {
         self.position
     }

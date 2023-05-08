@@ -129,12 +129,12 @@ impl<TS: Successor + HasAlphabet<Alphabet = TS::Sigma>, Acc> HasAlphabet for Com
 impl<TS: Successor, Acc> HasInput for Combined<TS, Acc> {
     type Sigma = InputOf<TS>;
 
-    type Input<'me> = TS::Input<'me>
+    type Input<'me> = itertools::Unique<TS::Input<'me>>
     where
         Self: 'me;
 
-    fn raw_input_alphabet_iter(&self) -> Self::Input<'_> {
-        self.ts.raw_input_alphabet_iter()
+    fn input_alphabet(&self) -> Self::Input<'_> {
+        self.ts.input_alphabet().unique()
     }
 }
 
@@ -217,9 +217,9 @@ impl<Q: StateIndex, S: Symbol, C: Value> MealyMachine<C, Q, S> {
     }
 }
 
-impl<S: Symbol, Acc> Into<RightCongruence<S>> for Combined<TransitionSystem<Class<S>, S>, Acc> {
-    fn into(self) -> RightCongruence<S> {
-        RightCongruence(self.ts, Class::epsilon())
+impl<S: Symbol, Acc> From<Combined<TransitionSystem<Class<S>, S>, Acc>> for RightCongruence<S> {
+    fn from(val: Combined<TransitionSystem<Class<S>, S>, Acc>) -> Self {
+        RightCongruence(val.ts, Class::epsilon())
     }
 }
 

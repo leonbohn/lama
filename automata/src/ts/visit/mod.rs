@@ -1,12 +1,12 @@
 mod paths;
-pub use paths::{LLexPaths, Path};
+pub use paths::{BfsPaths, Path, PathFor};
 
 mod bfs;
 pub use bfs::Bfs;
 mod dfs;
 pub use dfs::Dfs;
 mod tarjan;
-pub use tarjan::Tarjan;
+pub use tarjan::tarjan_scc;
 
 use std::collections::{BTreeSet, VecDeque};
 

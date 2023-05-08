@@ -27,6 +27,8 @@ pub trait Constraint<S: Symbol> {
     /// that some conditions are met, then it may return `()` as output. In other cases, for
     /// example in a [`BuchiConstraint`], the output is a [`BuchiAcceptance`] condition.
     type Output: Debug;
+
+    /// The type of the error that is returned if the constraint is not satisfied.
     type Error: Debug;
 
     /// Verifies that under the given information, the constraint is satisfied.
@@ -73,6 +75,9 @@ pub struct BuchiConstraint;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParityConstraint;
 
+/// Constraint modeled by a pair of congruences A, B (note, that these are effectively deterministic transition
+/// systems) and a set of conflicting pairs C ⊆ A × B. The constraint is then satisfied by a congruence T, if
+/// there exists no pair (a, b) ∈ C such that (x, a) and (x, b) are reachable in T x A and T x B, respectively.
 #[derive(Debug, Clone)]
 pub struct ConflictConstraint<S: Symbol> {
     left: RightCongruence<S>,
@@ -81,7 +86,12 @@ pub struct ConflictConstraint<S: Symbol> {
 }
 
 impl<S: Symbol> ConflictConstraint<S> {
-    pub fn from_omega_sample(sample: &Sample<UltimatelyPeriodicWord<S>>) -> Self {
+    /// Construct a [`ConflictConstraint`] from a sample of ultimately periodic words. This first computes DFAs for
+    /// the prefixes of the positive and the negative parts of the sample. Call them P and N respectively. It then
+    /// builds the product of P and N restricted to final states. A pair of states (p, n) is now added to the conflict
+    /// relation C, if the state (p, n) in P x N can reach a cycle in the product. This is the Myhill-Nerode constraint
+    /// for omega-languages.
+    pub fn mn_from_omega_sample(sample: &Sample<UltimatelyPeriodicWord<S>>) -> Self {
         trace!("Constructing conflict constraint from omega sample");
         let time = std::time::Instant::now();
         let left = sample.positive_prefixes();
@@ -135,6 +145,9 @@ impl<S: Symbol> ConflictConstraint<S> {
         }
     }
 
+    /// Construct a [`ConflictConstraint`] from a sample of finite words. The procedure is similar to [`ConflictConstraint::mn_from_omega_sample`], but
+    /// it differs in the way that pairs (p, n) are chosen for the conflict relation. Here, a pair (p, n) is added to the conflict relation, if the
+    /// it is reachable in the product P x N.
     pub fn from_finite_sample(sample: &Sample<Str<S>>) -> Self {
         trace!("Constructing conflict constraint from omega sample");
         let time = std::time::Instant::now();
@@ -353,7 +366,7 @@ mod tests {
             [upw!("a"), upw!("ba"), upw!("bba")],
         );
         let time = std::time::Instant::now();
-        let cons = ConflictConstraint::from_omega_sample(&sample);
+        let cons = ConflictConstraint::mn_from_omega_sample(&sample);
         let duration = time.elapsed();
         println!("{:?}", cons);
         println!("Took {} ms", duration.as_millis())

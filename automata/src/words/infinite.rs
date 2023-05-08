@@ -160,7 +160,7 @@ impl<S: Symbol> HasInput for UltimatelyPeriodicWord<S> {
 
     type Input<'me> = itertools::Unique<std::iter::Chain<std::slice::Iter<'me, S>,std::slice::Iter<'me, S>>> where Self:'me;
 
-    fn raw_input_alphabet_iter(&self) -> Self::Input<'_> {
+    fn input_alphabet(&self) -> Self::Input<'_> {
         todo!()
     }
 }

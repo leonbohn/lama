@@ -143,11 +143,11 @@ impl<'a, S: Symbol, W: Subword<S = S>> HasStates for Prefixes<'a, S, W> {
 impl<'a, S: Symbol, W: Subword<S = S>> HasInput for Prefixes<'a, S, W> {
     type Sigma = S;
 
-    type Input<'me> = std::collections::hash_set::Iter<'me, S>
+    type Input<'me> = itertools::Unique<std::collections::hash_set::Iter<'me, S>>
     where Self:'me;
 
-    fn raw_input_alphabet_iter(&self) -> Self::Input<'_> {
-        self.alphabet.iter()
+    fn input_alphabet(&self) -> Self::Input<'_> {
+        self.alphabet.iter().unique()
     }
 }
 

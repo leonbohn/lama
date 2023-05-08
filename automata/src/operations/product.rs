@@ -73,8 +73,8 @@ where
     type Input<'me> = L::Input<'me> 
     where Self:'me;
 
-    fn raw_input_alphabet_iter(&self) -> Self::Input<'_> {
-        self.left.raw_input_alphabet_iter()
+    fn input_alphabet(&self) -> Self::Input<'_> {
+        self.left.input_alphabet()
     }
 }
 

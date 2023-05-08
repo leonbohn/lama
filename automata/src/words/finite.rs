@@ -189,7 +189,7 @@ impl<S: Symbol> HasInput for Str<S> {
     type Input<'me> = itertools::Unique<std::slice::Iter<'me, S>>
     where Self:'me;
 
-    fn raw_input_alphabet_iter(&self) -> Self::Input<'_> {
+    fn input_alphabet(&self) -> Self::Input<'_> {
         self.symbols.iter().unique()
     }
 }

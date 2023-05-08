@@ -34,10 +34,12 @@ impl<S: Symbol> Class<S> {
         self.0.symbols.iter()
     }
 
+    /// Appends the given symbol to the end of the class.
     pub fn push_back<X: Borrow<S>>(&mut self, with: X) {
         self.0.push_back(with)
     }
 
+    /// Returns the raw string underlying the class.
     pub fn raw(&self) -> &Str<S> {
         &self.0
     }
@@ -262,10 +264,10 @@ impl<S: Symbol> RightCongruence<S> {
 impl<S: Symbol> HasInput for RightCongruence<S> {
     type Sigma = S;
 
-    type Input<'me> = TransitionSystemAlphabetIter<'me, StateOf<Self>, S> where Self:'me;
+    type Input<'me> = itertools::Unique<TransitionSystemAlphabetIter<'me, StateOf<Self>, S>> where Self:'me;
 
-    fn raw_input_alphabet_iter(&self) -> Self::Input<'_> {
-        self.0.raw_input_alphabet_iter()
+    fn input_alphabet(&self) -> Self::Input<'_> {
+        self.0.input_alphabet().unique()
     }
 }
 
@@ -362,11 +364,11 @@ impl<S: Symbol> HasStates for ProgressRightCongruence<S> {
 impl<S: Symbol> HasInput for ProgressRightCongruence<S> {
     type Sigma = S;
 
-    type Input<'me> = TransitionSystemAlphabetIter<'me, StateOf<Self>, S>
+    type Input<'me> = itertools::Unique<TransitionSystemAlphabetIter<'me, StateOf<Self>, S>>
     where Self:'me;
 
-    fn raw_input_alphabet_iter(&self) -> Self::Input<'_> {
-        self.1.raw_input_alphabet_iter()
+    fn input_alphabet(&self) -> Self::Input<'_> {
+        self.1.input_alphabet()
     }
 }
 

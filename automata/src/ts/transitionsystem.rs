@@ -73,7 +73,7 @@ impl<Q: StateIndex, S: Symbol> HasInput for TransitionSystem<Q, S> {
     type Input<'me> = TransitionSystemAlphabetIter<'me, Q, S>
     where Self:'me;
 
-    fn raw_input_alphabet_iter(&self) -> Self::Input<'_> {
+    fn input_alphabet(&self) -> Self::Input<'_> {
         TransitionSystemAlphabetIter {
             iter: self.edges.iter(),
         }

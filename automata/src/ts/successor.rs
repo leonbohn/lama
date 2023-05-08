@@ -7,11 +7,11 @@ use tabled::{builder::Builder, settings::Style};
 use crate::{
     output::Mapping,
     run::{Configuration, Run},
-    Map, Pointed, Set, TransitionSystem, Trigger, Word,
+    Map, Pointed, Set, Transition, TransitionSystem, Trigger, Word,
 };
 
 use super::{
-    visit::{Dfs, LLexPaths, Place},
+    visit::{tarjan_scc, BfsPaths, Dfs, PathFor, Place},
     Bfs, HasInput, HasStates, InputOf, IntoStates, IntoTransitions, Restricted, StateOf,
     StateReference, TransitionOf, TriggerOf, Visitor, VisitorIter,
 };
@@ -29,6 +29,7 @@ pub trait Successor: HasStates + HasInput {
         on: Y,
     ) -> Option<Self::Q>;
 
+    /// Starts a run on the `input` from the given `origin`.
     fn run_from<W: Word<S = Self::Sigma>, X: Borrow<Self::Q>>(
         &self,
         origin: X,
@@ -40,6 +41,7 @@ pub trait Successor: HasStates + HasInput {
         Run::new(self, origin, input)
     }
 
+    /// Returns the [`Transition`] corresponding to taking the `on`-transition starting in `from`.
     fn transition_for<X: Borrow<Self::Q>, Y: Borrow<Self::Sigma>>(
         &self,
         from: X,
@@ -50,6 +52,7 @@ pub trait Successor: HasStates + HasInput {
             .map(|to| (from.clone(), on.clone(), to))
     }
 
+    /// Starts a run on the `input` from the initial state.
     fn run<W: Word<S = Self::Sigma>>(&self, input: W) -> Run<&Self, W>
     where
         Self: Sized + Pointed,
@@ -192,12 +195,20 @@ pub trait Successor: HasStates + HasInput {
     }
 
     /// Performs a breadth-first search on the transition system, starting from the given state, emitting each visited [`Path`].
-    fn all_paths_from<X>(&self, origin: X) -> LLexPaths<&Self>
+    fn paths_from<X>(&self, origin: X) -> BfsPaths<&Self>
     where
         Self: Sized,
         X: Borrow<Self::Q>,
     {
-        LLexPaths::new_from(self, origin)
+        BfsPaths::new_from(self, origin.borrow())
+    }
+
+    /// Performs a breadth-first search on the transition system, starting from the initial state, emitting each visited [`Path`].
+    fn paths(&self) -> BfsPaths<&Self>
+    where
+        Self: Pointed + Sized,
+    {
+        BfsPaths::new_from(self, &self.initial())
     }
 
     /// Computes the set of all reachable states starting in `origin`. Note that this always includes `origin` itself.
@@ -223,6 +234,7 @@ pub trait Successor: HasStates + HasInput {
         self.reachable_states_from(self.initial())
     }
 
+    /// Returns true if and only if `target` is reachable from `source`.
     fn can_reach<X: Borrow<Self::Q>, Y: Borrow<Self::Q>>(&self, source: X, target: Y) -> bool
     where
         Self: Sized,
@@ -243,19 +255,56 @@ pub trait Successor: HasStates + HasInput {
             .any(|state| state == source.borrow())
     }
 
-    /// Computes a mapping that assigns to each state in the transition system, an index representing
-    /// the strongly connected component that state belongs to. If two states belong to the same
-    /// strongly connected component, they will be assigned the same index.
-    fn scc_maping(&self) -> Map<Self::Q, usize> {
-        let mut out = Map::new();
+    /// Decomposes the transition system into its strongly connected components.
+    fn sccs(self) -> Vec<Vec<Self::Q>>
+    where
+        Self: Sized + IntoStates,
+    {
+        tarjan_scc(self)
+    }
 
+    fn transitions_from<'a>(
+        &'a self,
+        origin: &'a StateOf<Self>,
+    ) -> TransitionsForState<'a, Self, Self::Input<'a>>
+    where
+        Self: Sized,
+    {
+        TransitionsForState {
+            ts: self,
+            state: origin,
+            alphabet_iter: self.input_alphabet(),
+        }
+    }
+
+    fn scc_transitions(self) -> Vec<Vec<TransitionOf<Self>>>
+    where
+        Self: Sized + IntoStates,
+    {
+        let alphabet = self.input_alphabet();
+        let mut out = vec![];
+        for scc in self.sccs() {
+            for state in &scc {
+                let mut transitions_scc = vec![];
+                for transition in self.transitions_from(state) {
+                    if scc.contains(transition.target()) {
+                        transitions_scc.push(transition);
+                    }
+                }
+                out.push(transitions_scc);
+            }
+        }
         out
     }
 }
 
+/// Trait that encapsulates the exact opposite to the [`Successor`] trait; it provides access to the predecessors of a state.
+/// For now, these are returned just in the form of a [`Set`], but this might change in the future.
 pub trait Predecessor: Successor {
+    /// Returns the set of all states that have a transition to `from`.
     fn predecessors<X: Borrow<Self::Q>>(&self, from: X) -> Set<&Self::Q>;
 
+    /// Returns the set of all states that can reach `from` via a path of arbitrary length.
     fn reached_by<'a>(&'a self, from: &'a Self::Q) -> Set<&'a Self::Q> {
         let mut seen = Set::from_iter([from]);
         let mut queue = VecDeque::from_iter([from]);
@@ -270,5 +319,27 @@ pub trait Predecessor: Successor {
         }
 
         seen
+    }
+}
+
+pub struct TransitionsForState<'a, T: Successor, I> {
+    ts: &'a T,
+    state: &'a T::Q,
+    alphabet_iter: I,
+}
+
+impl<'a, T: Successor, I: Iterator<Item = &'a T::Sigma>> Iterator
+    for TransitionsForState<'a, T, I>
+{
+    type Item = TransitionOf<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.alphabet_iter.find_map(|sym| {
+            if let Some(successor) = self.ts.successor(self.state, sym) {
+                Some(T::make_transition(self.state, sym, &successor))
+            } else {
+                None
+            }
+        })
     }
 }

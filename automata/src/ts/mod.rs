@@ -64,12 +64,7 @@ pub trait HasInput {
         Self: 'me;
 
     /// Should rarely be used as it might contain duplicates, see [`Self::input_alphabet()`] instead.
-    fn raw_input_alphabet_iter(&self) -> Self::Input<'_>;
-
-    /// Returns an iterator over the input symbols without duplicates.
-    fn input_alphabet(&self) -> itertools::Unique<Self::Input<'_>> {
-        self.raw_input_alphabet_iter().unique()
-    }
+    fn input_alphabet(&self) -> Self::Input<'_>;
 }
 
 /// Creates a new trivial transition system, which could either be empty (for [`TransitionSystem`]) or contain a single initial state (for [`InitializedDeterministic`]).
@@ -171,6 +166,14 @@ where
     }
 }
 
+/// Trait that allows decomposing a transition system into its parts, which are a set of states and a set of transitions.
+/// This trait is implemented for all types that implement [`IntoTransitions`] and [`IntoStates`].
+/// Its main purpose is to provide convenience methods for collecting into the following objects:
+/// - [`TransitionSystem`] which ignores initial states and any other information,
+/// - [`MooreMachine`] which assumes that the object is [`Pointed`] and has output at each state,
+/// - [`MealyMachine`] which assumes that the object is [`Pointed`] and has output at each transition,
+/// - and initialized [`TransitionSystem`] which assumes that the object is [`Pointed`] i.e. has a single initial state.
+/// For collecting into Mealy and Moore machines the object must also implement [`IntoTransitions`].
 pub trait IntoParts: IntoTransitions + IntoStates {
     /// Collect the produced sequence of transitions into a [`TransitionSystem`].
     fn into_ts(self) -> TransitionSystem<Self::Q, Self::Sigma> {
@@ -273,8 +276,8 @@ impl<TS: Successor> HasInput for (TS, TS::Q) {
 
     type Input<'me> =  TS::Input<'me> where Self:'me;
 
-    fn raw_input_alphabet_iter(&self) -> Self::Input<'_> {
-        self.0.raw_input_alphabet_iter()
+    fn input_alphabet(&self) -> Self::Input<'_> {
+        self.0.input_alphabet()
     }
 }
 impl<TS: Successor> HasStates for (TS, TS::Q) {

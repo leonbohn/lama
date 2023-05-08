@@ -1,8 +1,8 @@
 mod walker;
 
 mod configuration;
-mod run;
-pub use run::{Evaluate, Run};
+mod evaluate;
+pub use evaluate::{Evaluate, Run};
 mod escape_prefix;
 pub use escape_prefix::EscapePrefix;
 mod output;
@@ -50,10 +50,12 @@ impl<Q: Display, S: Display> Display for RunOutput<Q, S> {
 }
 
 impl<Q: Clone, S: Clone> RunOutput<Q, S> {
+    /// Returns true if `self` is of type `RunOutput::Transition` and `false` otherwise.
     pub fn is_transition(&self) -> bool {
         matches!(self, RunOutput::Transition(_, _, _))
     }
 
+    /// Returns true if `self` is of type `RunOutput::WordEnd` and `false` otherwise.
     pub fn transition(from: Q, on: S, to: Q) -> Self {
         Self::Transition(from, on, to)
     }

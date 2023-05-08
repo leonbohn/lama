@@ -113,7 +113,9 @@ pub trait Equivalent<T = Self> {
 /// Pairs of elements of type `L` and `R`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Pair<L, R> {
+    /// The left part.
     pub left: L,
+    /// The right part.
     pub right: R,
 }
 

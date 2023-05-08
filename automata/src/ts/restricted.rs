@@ -34,8 +34,8 @@ impl<TS: Successor, F> HasInput for Restricted<TS, F> {
     where
         Self: 'me;
 
-    fn raw_input_alphabet_iter(&self) -> Self::Input<'_> {
-        self.on.raw_input_alphabet_iter()
+    fn input_alphabet(&self) -> Self::Input<'_> {
+        self.on.input_alphabet()
     }
 }
 impl<TS: Successor, F: Fn(&TS::Q) -> bool> Successor for Restricted<TS, F> {
