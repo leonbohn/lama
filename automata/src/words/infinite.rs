@@ -3,7 +3,7 @@ use itertools::Itertools;
 use super::{IsInfinite, Str, SymbolIterable, Word, WordTransitions};
 use crate::{
     congruence::CongruenceTransition,
-    ts::{HasInput, HasStates, IntoTransitions},
+    ts::{transitionsystem::States, HasInput, HasStates, IntoStates, IntoTransitions},
     Class, InfiniteKind, Subword, Successor, Symbol,
 };
 
@@ -52,18 +52,11 @@ impl<S> TryFrom<UltimatelyPeriodicWord<S>> for PeriodicWord<S> {
     }
 }
 
-impl<S: Symbol> SymbolIterable for PeriodicWord<S> {
-    type Iter = std::iter::Cycle<std::vec::IntoIter<S>>;
+impl<'a, S: Symbol> SymbolIterable for &'a PeriodicWord<S> {
+    type SymbolIter = std::iter::Cycle<std::vec::IntoIter<S>>;
 
-    fn iter(&self) -> Self::Iter {
-        self.0.iter().cycle()
-    }
-}
-
-impl<S: Symbol> PeriodicWord<S> {
-    /// Returns an iterator over the alphabet of the word, i.e all symbols that appear in it.
-    pub fn alphabet(&self) -> impl Iterator<Item = &S> {
-        self.0.alphabet().unique()
+    fn symbol_iter(self) -> Self::SymbolIter {
+        self.0.symbol_iter().cycle()
     }
 }
 
@@ -97,7 +90,7 @@ impl<S: Symbol> Word for UltimatelyPeriodicWord<S> {
 
 impl<S> From<PeriodicWord<S>> for UltimatelyPeriodicWord<S> {
     fn from(periodic: PeriodicWord<S>) -> Self {
-        Self(Str::empty(), periodic)
+        Self(Str::epsilon(), periodic)
     }
 }
 
@@ -107,20 +100,16 @@ impl<S> From<(Str<S>, PeriodicWord<S>)> for UltimatelyPeriodicWord<S> {
     }
 }
 
-impl<S: Symbol> SymbolIterable for UltimatelyPeriodicWord<S> {
-    type Iter = std::iter::Chain<std::vec::IntoIter<S>, std::iter::Cycle<std::vec::IntoIter<S>>>;
+impl<'a, S: Symbol> SymbolIterable for &'a UltimatelyPeriodicWord<S> {
+    type SymbolIter =
+        std::iter::Chain<std::vec::IntoIter<S>, std::iter::Cycle<std::vec::IntoIter<S>>>;
 
-    fn iter(&self) -> Self::Iter {
-        self.0.iter().chain(self.1.iter())
+    fn symbol_iter(self) -> Self::SymbolIter {
+        self.0.symbol_iter().chain(self.1.symbol_iter())
     }
 }
 
 impl<S: Symbol> UltimatelyPeriodicWord<S> {
-    /// Returns an iterator over the alphabet of the word, i.e all symbols that appear in it.
-    pub fn alphabet(&self) -> impl Iterator<Item = &S> {
-        self.0.alphabet().chain(self.1.alphabet()).unique()
-    }
-
     /// Returns a reference to the base part of the word.
     pub fn base(&self) -> &Str<S> {
         &self.0
@@ -144,7 +133,9 @@ impl<S: Symbol> UltimatelyPeriodicWord<S> {
 
     /// Returns true if and only if the word has the given prefix.
     pub fn has_prefix(&self, prefix: &Str<S>) -> bool {
-        self.iter().zip(prefix.iter()).all(|(x, y)| x == y)
+        self.symbol_iter()
+            .zip(prefix.symbol_iter())
+            .all(|(x, y)| x == y)
     }
 }
 
@@ -170,6 +161,16 @@ impl<S: Symbol> HasInput for UltimatelyPeriodicWord<S> {
     type Input<'me> = itertools::Unique<std::iter::Chain<std::slice::Iter<'me, S>,std::slice::Iter<'me, S>>> where Self:'me;
 
     fn raw_input_alphabet_iter(&self) -> Self::Input<'_> {
+        todo!()
+    }
+}
+
+impl<'a, S: Symbol> IntoStates for &'a UltimatelyPeriodicWord<S> {
+    type StateRef = &'a Class<S>;
+
+    type IntoStates = States<'a, Class<S>>;
+
+    fn into_states(self) -> Self::IntoStates {
         todo!()
     }
 }

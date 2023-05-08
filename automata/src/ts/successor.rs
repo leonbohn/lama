@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, fmt::Display};
+use std::{borrow::Borrow, collections::VecDeque, fmt::Display};
 
 use impl_tools::autoimpl;
 use owo_colors::OwoColorize;
@@ -49,7 +49,7 @@ pub trait Successor: HasStates + HasInput {
             .map(|to| (from.clone(), on.clone(), to))
     }
 
-    fn run<W: Word<S = Self::Sigma>, X: Borrow<Self::Q>>(&self, input: W) -> Run<&Self, W>
+    fn run<W: Word<S = Self::Sigma>>(&self, input: W) -> Run<&Self, W>
     where
         Self: Sized + Pointed,
     {
@@ -199,9 +199,7 @@ pub trait Successor: HasStates + HasInput {
         LLexPaths::new_from(self, origin)
     }
 
-    /// Computes the set of all reachable states starting in `origin`. Note, that this does not necessarily include
-    /// the state `origin` itself.
-    /// The states in the vec are returned in the order that they are visited.
+    /// Computes the set of all reachable states starting in `origin`. Note that this always includes `origin` itself.
     fn reachable_states_from<X>(&self, origin: X) -> Set<Self::Q>
     where
         Self: Sized,
@@ -210,16 +208,24 @@ pub trait Successor: HasStates + HasInput {
         self.bfs_from(origin.borrow().clone())
             .iter()
             .flat_map(|(p, _, q)| [p, q])
+            .chain(std::iter::once(origin.borrow().clone()))
             .collect()
     }
 
-    /// Computes the set of all reachable states from the initial state. This does not include the initial state itself,
-    /// only if it can reach itself via a cycle.
+    /// Computes the set of all reachable states from the initial state.
     fn reachable_states(&self) -> Set<<Self as HasStates>::Q>
     where
         Self: Pointed + Sized,
     {
         self.reachable_states_from(self.initial())
+    }
+
+    fn can_reach<X: Borrow<Self::Q>, Y: Borrow<Self::Q>>(&self, source: X, target: Y) -> bool
+    where
+        Self: Sized,
+    {
+        self.reachable_states_from(source.borrow())
+            .contains(target.borrow())
     }
 
     /// Checks whether `source` lies on a non-trivial cycle. This is done by calling [`Self::reachable_states_from`] and
@@ -228,8 +234,29 @@ pub trait Successor: HasStates + HasInput {
     where
         Self: Sized,
     {
+        todo!();
         self.reachable_states_from(source.borrow())
             .iter()
             .any(|state| state == source.borrow())
+    }
+}
+
+pub trait Predecessor: Successor {
+    fn predecessors<X: Borrow<Self::Q>>(&self, from: X) -> Set<&Self::Q>;
+
+    fn reached_by<'a>(&'a self, from: &'a Self::Q) -> Set<&'a Self::Q> {
+        let mut seen = Set::from_iter([from]);
+        let mut queue = VecDeque::from_iter([from]);
+
+        while let Some(next) = queue.pop_front() {
+            for pred in self.predecessors(next) {
+                if !seen.contains(pred) {
+                    seen.insert(pred);
+                    queue.push_back(pred);
+                }
+            }
+        }
+
+        seen
     }
 }

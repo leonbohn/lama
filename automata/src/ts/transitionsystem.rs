@@ -4,13 +4,14 @@ use tabled::{builder::Builder, settings::Style};
 use crate::{AnonymousGrowable, HasAlphabet, Map, Pair, Pointed, Set, Symbol, Transition};
 
 use super::{
-    transition::TransitionReference, Bfs, Growable, HasInput, HasStates, InputOf, IntoStates,
-    IntoTransitions, Shrinkable, StateIndex, StateOf, Successor, TransitionOf, TriggerIterable,
-    Trivial, Visitor,
+    successor::Predecessor, transition::TransitionReference, Bfs, Growable, HasInput, HasStates,
+    InputOf, IntoStates, IntoTransitions, Shrinkable, StateIndex, StateOf, Successor, TransitionOf,
+    TriggerIterable, Trivial, Visitor,
 };
 
 use std::{
     borrow::Borrow,
+    collections::VecDeque,
     fmt::{Debug, Display, Formatter},
 };
 
@@ -302,5 +303,15 @@ impl<'a, S: Symbol, Q: StateIndex> IntoStates for &'a TransitionSystem<Q, S> {
         States {
             iter: self.states.iter(),
         }
+    }
+}
+
+impl<Q: StateIndex, S: Symbol> Predecessor for TransitionSystem<Q, S> {
+    fn predecessors<X: Borrow<Self::Q>>(&self, from: X) -> Set<&Self::Q> {
+        self.edges
+            .iter()
+            .filter(|(_, t)| *t == from.borrow())
+            .map(|((f, _), _)| f)
+            .collect()
     }
 }

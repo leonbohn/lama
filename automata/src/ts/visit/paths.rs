@@ -2,7 +2,7 @@ use std::{
     borrow::Borrow,
     collections::{BTreeSet, VecDeque},
     fmt::Display,
-    ops::Add,
+    ops::{Add, AddAssign},
 };
 
 use itertools::Itertools;
@@ -10,7 +10,7 @@ use itertools::Itertools;
 use crate::{
     ts::{HasInput, HasStates, StateOf},
     words::SymbolIterable,
-    Set, StateIndex, Str, Successor, Symbol, Trigger,
+    Set, StateIndex, Str, Successor, Symbol, Transition, Trigger,
 };
 
 use super::Visitor;
@@ -24,7 +24,7 @@ pub struct Path<Q, S> {
 impl<Q: Display, S: Symbol + Display> std::fmt::Display for Path<Q, S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Path: [ ")?;
-        for x in self.states.iter().zip_longest(self.label.iter()) {
+        for x in self.states.iter().zip_longest(self.label.symbol_iter()) {
             match x {
                 itertools::EitherOrBoth::Both(q, s) => write!(f, "{}-{}->", q, s)?,
                 itertools::EitherOrBoth::Left(q) => write!(f, "{} ]", q)?,
@@ -36,6 +36,13 @@ impl<Q: Display, S: Symbol + Display> std::fmt::Display for Path<Q, S> {
 }
 
 impl<Q: StateIndex, S: Symbol> Path<Q, S> {
+    pub fn empty(from: Q) -> Self {
+        Self {
+            states: vec![from],
+            label: Str::epsilon(),
+        }
+    }
+
     /// Creates a new path from the given sequence of states and symbols.
     pub fn new<I: IntoIterator<Item = Q>, J: IntoIterator<Item = S>>(states: I, label: J) -> Self {
         let states = states.into_iter().collect_vec();
@@ -60,18 +67,16 @@ impl<Q: StateIndex, S: Symbol> Path<Q, S> {
         &self.label
     }
 
-    /// Extends the path with the given state and symbol.
-    pub fn extend(&mut self, state: Q, symbol: S) {
-        self.states.push(state);
-        self.label.push_back(symbol);
-    }
-
     /// Returns the state at which the path ends. We consider only non-empty paths,
     /// so this always exists.
     pub fn reached(&self) -> &Q {
         self.states
             .last()
             .expect("We consider only non-empty paths!")
+    }
+
+    pub fn len(&self) -> usize {
+        self.label.len()
     }
 
     /// Returns the state at which the path starts. We consider only non-empty paths,
@@ -128,6 +133,25 @@ impl<Q: StateIndex, S: Symbol> Path<Q, S> {
     }
 }
 
+impl<Q: StateIndex, S: Symbol> Extend<(Q, S)> for Path<Q, S> {
+    fn extend<T: IntoIterator<Item = (Q, S)>>(&mut self, iter: T) {
+        for (state, symbol) in iter.into_iter() {
+            self.states.push(state);
+            self.label.push_back(symbol);
+        }
+    }
+}
+
+impl<Q: StateIndex, S: Symbol> Extend<(Q, S, Q)> for Path<Q, S> {
+    fn extend<T: IntoIterator<Item = (Q, S, Q)>>(&mut self, iter: T) {
+        for (source, symbol, target) in iter.into_iter() {
+            assert!(self.reached() == &source, "Path must be continuous");
+            self.states.push(target);
+            self.label.push_back(symbol);
+        }
+    }
+}
+
 impl<T: Trigger> Add<T> for &Path<T::Q, T::S> {
     type Output = Path<T::Q, T::S>;
 
@@ -136,6 +160,37 @@ impl<T: Trigger> Add<T> for &Path<T::Q, T::S> {
         let mut label = self.label.clone();
         states.push(rhs.source().clone());
         label.push_back(rhs.sym());
+        Path { states, label }
+    }
+}
+
+impl<T: Transition> AddAssign<T> for Path<T::Q, T::S> {
+    fn add_assign(&mut self, rhs: T) {
+        assert!(self.reached() == rhs.source(), "Path must be continuous");
+        self.states.push(rhs.target().clone());
+        self.label.push_back(rhs.sym());
+    }
+}
+
+impl<T: Transition> From<Vec<T>> for Path<T::Q, T::S> {
+    fn from(value: Vec<T>) -> Self {
+        assert!(
+            !value.is_empty(),
+            "Cannot create path from empty sequence of transitions"
+        );
+        let mut states = Vec::with_capacity(value.len() + 1);
+        let mut label = Str::epsilon();
+        let mut i = 0;
+        let len = value.len();
+        for transition in value {
+            states.pop();
+            states.push(transition.source().clone());
+            label.push_back(transition.sym());
+            todo!("Test that this actually makes sense.");
+            if i == len - 1 {
+                states.push(transition.target().clone());
+            }
+        }
         Path { states, label }
     }
 }

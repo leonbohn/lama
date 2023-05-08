@@ -5,7 +5,7 @@ use itertools::Itertools;
 use super::{IsFinite, SymbolIterable, Word, WordTransitions};
 use crate::{
     congruence::CongruenceTransition,
-    ts::{HasInput, HasStates, IntoTransitions},
+    ts::{transitionsystem::States, HasInput, HasStates, IntoStates, IntoTransitions},
     Class, FiniteKind, Successor, Symbol,
 };
 
@@ -34,14 +34,6 @@ impl<S> Str<S> {
         self.symbols.push(sym.borrow().clone())
     }
 
-    /// Returns an iterator over the alphabet of the word.
-    pub fn alphabet(&self) -> impl Iterator<Item = &S>
-    where
-        S: Symbol,
-    {
-        self.symbols.iter().unique()
-    }
-
     /// Returns the length of the word.
     pub fn len(&self) -> usize {
         self.symbols.len()
@@ -53,7 +45,7 @@ impl<S> Str<S> {
     }
 
     /// Creates an empty instance.
-    pub fn empty() -> Self {
+    pub fn epsilon() -> Self {
         Self { symbols: vec![] }
     }
 
@@ -67,6 +59,18 @@ impl<S> Str<S> {
             .into_iter()
             .enumerate()
             .all(|(i, sym)| self.symbols.get(i) == Some(sym.borrow()))
+    }
+}
+
+impl<S: Symbol> PartialEq<Class<S>> for Str<S> {
+    fn eq(&self, other: &Class<S>) -> bool {
+        self.symbols == other.0.symbols
+    }
+}
+
+impl PartialEq<String> for Str<char> {
+    fn eq(&self, other: &String) -> bool {
+        self.symbols.iter().zip(other.chars()).all(|(a, b)| a == &b)
     }
 }
 
@@ -163,10 +167,10 @@ impl<S: Symbol> Add<&S> for &Str<S> {
     }
 }
 
-impl<C: Symbol> SymbolIterable for Str<C> {
-    type Iter = std::vec::IntoIter<C>;
+impl<'a, S: Symbol> SymbolIterable for &'a Str<S> {
+    type SymbolIter = std::vec::IntoIter<S>;
 
-    fn iter(&self) -> Self::Iter {
+    fn symbol_iter(self) -> Self::SymbolIter {
         self.symbols.clone().into_iter()
     }
 }
@@ -209,6 +213,16 @@ impl<S: Symbol> Successor for Str<S> {
         } else {
             None
         }
+    }
+}
+
+impl<'a, S: Symbol> IntoStates for &'a Str<S> {
+    type StateRef = &'a Class<S>;
+
+    type IntoStates = States<'a, Class<S>>;
+
+    fn into_states(self) -> Self::IntoStates {
+        todo!()
     }
 }
 

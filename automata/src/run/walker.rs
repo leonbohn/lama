@@ -1,5 +1,5 @@
 use crate::{
-    ts::{StateOf, Successor},
+    ts::{StateOf, Successor, TransitionOf},
     words::Word,
 };
 
@@ -13,7 +13,7 @@ pub struct Walker<'ts, 'w, W: Word, TS: Successor<Sigma = W::S>> {
     pub(crate) ts: &'ts TS,
     pub(crate) state: Option<StateOf<TS>>,
     pub(crate) position: usize,
-    pub(crate) seq: Vec<(StateOf<TS>, TS::Sigma)>,
+    pub(crate) seq: Vec<TransitionOf<TS>>,
 }
 
 impl<'t, 'w, W: Word, TS: Successor<Sigma = W::S>> Iterator for Walker<'t, 'w, W, TS> {
@@ -39,15 +39,20 @@ impl<'t, 'w, W: Word, TS: Successor<Sigma = W::S>> Walker<'t, 'w, W, TS> {
         }
     }
 
+    pub fn position(&self) -> usize {
+        self.position
+    }
+
     /// Takes a single transition, returning the corresponding [`RunOutput`].
     pub fn take_transition(&mut self) -> RunOutput<StateOf<TS>, TS::Sigma> {
         if let Some(state) = self.state.clone() {
             if let Some(symbol) = self.word.nth(self.position) {
                 if let Some(successor) = self.ts.successor(&state, &symbol) {
                     self.position += 1;
-                    self.state = Some(successor);
-                    self.seq.push((state.clone(), symbol.clone()));
-                    RunOutput::trigger(state, symbol)
+                    self.state = Some(successor.clone());
+                    self.seq
+                        .push((state.clone(), symbol.clone(), successor.clone()));
+                    RunOutput::transition(state, symbol, successor)
                 } else {
                     RunOutput::Missing(state, symbol)
                 }
@@ -68,7 +73,7 @@ impl<'t, 'w, W: Word, TS: Successor<Sigma = W::S>> Walker<'t, 'w, W, TS> {
             self.take_transition();
         }
         match self.take_transition() {
-            RunOutput::Trigger(q, _) => Ok(q),
+            RunOutput::Transition(q, _, _) => Ok(q),
             otherwise => Err(otherwise),
         }
     }

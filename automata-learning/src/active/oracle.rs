@@ -26,19 +26,6 @@ pub trait Oracle {
     ) -> Result<(), Class<Self::Input>>;
 }
 
-impl<Q: StateIndex, S: Symbol> Oracle for Dfa<Q, S> {
-    type Input = S;
-    type Output = bool;
-
-    fn output(&mut self, word: &Class<S>) -> bool {
-        self.accepts(word)
-    }
-
-    fn equivalence<M: TransitionOutput>(&mut self, _hypothesis: &M) -> Result<(), Class<S>> {
-        todo!()
-    }
-}
-
 /// Wraps a given oracle and memorizes the output and equivalence queries it receives. Also stores
 /// the output of these queries.
 #[derive(Debug, Clone)]

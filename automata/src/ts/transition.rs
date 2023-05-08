@@ -5,7 +5,7 @@ use impl_tools::autoimpl;
 use crate::{StateIndex, Symbol, Value};
 
 /// Abstracts a reference to a state.
-pub trait StateReference {
+pub trait StateReference: Clone {
     /// The type of the state index.
     type Q: StateIndex;
 
@@ -18,6 +18,14 @@ impl<'a, Q: StateIndex> StateReference for &'a Q {
 
     fn state(&self) -> Self::Q {
         (*self).clone()
+    }
+}
+
+impl<P: StateIndex, Q: StateIndex> StateReference for crate::Pair<P, Q> {
+    type Q = crate::Pair<P, Q>;
+
+    fn state(&self) -> Self::Q {
+        self.clone()
     }
 }
 

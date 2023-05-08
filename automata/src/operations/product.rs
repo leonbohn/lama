@@ -8,7 +8,7 @@ use crate::{
     output::{Assignment, AssignmentReference, IntoAssignments, Mapping},
     ts::{
         transitionsystem::{States, Transitions},
-        HasInput, HasStates, IntoTransitions, TransitionReference, TriggerOf, StateOf, InputOf,
+        HasInput, HasStates, IntoTransitions, TransitionReference, TriggerOf, StateOf, InputOf, IntoStates, StateReference, IntoParts,
     },
     Acceptor, Combined, IntoMealyTransitions, MealyMachine, Pair, Pointed, StateIndex, Successor,
     Symbol, Transformer, Transition, TransitionSystem, Trigger, Value, DBA, DFA, DPA,
@@ -127,23 +127,23 @@ R::Item: Transition<S = <L::Item as Trigger>::S>,
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(left_element) = self.left_element.clone() {
-            trace!("left_element: {:?} -{:?}-> ", left_element.source(), left_element.sym());
+            // trace!("left_element: {:?} -{:?}-> ", left_element.source(), left_element.sym());
             let right_element = match self.right.find(|x| x.sym() == left_element.sym()) {
                 None => {
-                    trace!("\tno right element found, resetting right iterator and advancing left");
+                    // trace!("\tno right element found, resetting right iterator and advancing left");
                     self.right = self.right_backup.clone();
                     self.left_element = self.left.next();
                     return self.next();
                 }
                 Some(t) => {
-                    trace!("\tfound right element: {:?}, {}", t.target(), "left not advanced".green());
+                    // trace!("\tfound right element: {:?}, {}", t.target(), "left not advanced".green());
                     t
                 }
             };
-            trace!("\tEmitting: <{:?},{:?}> -{:?}-> <{:?},{:?}>", left_element.source(), right_element.source(), left_element.sym(), left_element.target(), right_element.target());
+            // trace!("\tEmitting: <{:?},{:?}> -{:?}-> <{:?},{:?}>", left_element.source(), right_element.source(), left_element.sym(), left_element.target(), right_element.target());
             Some((Pair::new(left_element.source().clone(), right_element.source().clone()), left_element.sym().clone(), Pair::new(left_element.target().clone(), right_element.target().clone())))
         } else {
-            trace!("left_element is None");
+            // trace!("left_element is None");
             None
         }
     }
@@ -161,6 +161,58 @@ R::IntoTransitions: Clone,
         left,
         right_backup: right.clone(),
         right,
+    }
+}
+
+
+pub struct ProductStates<L, R> where L: Iterator {
+    left: L,
+    left_element: Option<L::Item>,
+    right: R,
+    right_backup: R,
+}
+
+impl<L, R> Iterator for ProductStates<L, R> where
+L: Iterator,
+R: Iterator + Clone,
+L::Item: Clone + StateReference,
+R::Item: StateReference,
+{
+    type Item = Pair<<L::Item as StateReference>::Q, <R::Item as StateReference>::Q>; 
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(left_element) = self.left_element.clone() {
+            let right_element = match self.right.next() {
+                Some(t) => t,
+                None => {
+                    self.right = self.right_backup.clone();
+                    self.left_element = self.left.next();
+                    return self.next();
+                },
+            };
+            // trace!("\tEmitting: <{:?},{:?}> -{:?}-> <{:?},{:?}>", left_element.source(), right_element.source(), left_element.sym(), left_element.target(), right_element.target());
+            Some(Pair::new(left_element.state().clone(), right_element.state().clone()) )
+        } else {
+            // trace!("left_element is None");
+            None
+        }
+    }
+}
+impl<'a, L, R> IntoStates for &'a Product<L, R> where L: IntoStates, R: IntoStates<Sigma = L::Sigma>,
+R::IntoStates: Clone {
+    type StateRef = Pair<L::Q, R::Q>;
+
+    type IntoStates = ProductStates<L::IntoStates, R::IntoStates>;
+
+    fn into_states(self) -> Self::IntoStates {
+        let mut left = self.left.into_states();
+        let right = self.right.into_states();
+        ProductStates {
+        left_element: left.next(),
+        left,
+        right_backup: right.clone(),
+        right,
+    }
     }
 }
 
@@ -253,6 +305,25 @@ impl<'a, Q: StateIndex, S: Symbol, O: Value> IntoAssignments for &'a MealyMachin
     }
 }
 
+impl<'a, Q: StateIndex, S: Symbol, O: Value> IntoStates for &'a MealyMachine<O, Q, S> {
+    type StateRef = &'a StateOf<Self>;
+
+    type IntoStates = States<'a, Q>;
+
+    fn into_states(self) -> Self::IntoStates {
+        self.ts.into_states()
+    }
+}
+impl<'a, Q: StateIndex, S: Symbol, O: Value> IntoStates for &'a MooreMachine<O, Q, S> {
+    type StateRef = &'a StateOf<Self>;
+
+    type IntoStates = States<'a, Q>;
+
+    fn into_states(self) -> Self::IntoStates {
+        self.ts.into_states()
+    }
+}
+
 impl<'a, Q: StateIndex, S: Symbol, O: Value> IntoTransitions for &'a MealyMachine<O, Q, S> {
     type TransitionRef = TransitionReference<'a, Q, S>;
 
@@ -342,9 +413,8 @@ impl<Q: StateIndex, S: Symbol, A: Value> MealyMachine<A, Q, S> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        acceptance::Accepts,
         output::{IntoAssignments, Mapping},
-        ts::{IntoTransitions, Visitor},
+        ts::{IntoTransitions, Visitor, IntoParts},
         MealyMachine, Pair, Transformer, TransitionSystem, DFA, Successor,
     };
 

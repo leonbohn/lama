@@ -62,70 +62,70 @@ pub trait Eval<K> {
     fn eval(&self) -> Result<Self::Output, Self::Failure>;
 }
 
-impl<TS: Successor, W: IsFinite + Subword<S = TS::Sigma>> Eval<FiniteKind>
-    for Configuration<TS, W>
-{
-    type Output = TS::Q;
-    type Failure = EscapePrefix<TS::Q, W>;
+// impl<TS: Successor, W: IsFinite + Subword<S = TS::Sigma>> Eval<FiniteKind>
+//     for Configuration<TS, W>
+// {
+//     type Output = TS::Q;
+//     type Failure = EscapePrefix<TS::Q, W>;
 
-    fn eval(&self) -> Result<Self::Output, Self::Failure> {
-        let mut walker = self.ts.walk(self.start.clone(), &self.word);
-        let prefix = walker
-            .by_ref()
-            .take_while(RunOutput::is_trigger)
-            .map(|o| o.get_trigger().expect("Must be a trigger!"))
-            .collect();
-        match walker.next() {
-            Some(RunOutput::WordEnd(q)) => Ok(q),
-            Some(RunOutput::Missing(q, a)) => Err(EscapePrefix::new(&self.word, prefix, q, a)),
-            _ => unreachable!(),
-        }
-    }
-}
+//     fn eval(&self) -> Result<Self::Output, Self::Failure> {
+//         let mut walker = self.ts.walk(self.start.clone(), &self.word);
+//         let prefix = walker
+//             .by_ref()
+//             .take_while(RunOutput::is_trigger)
+//             .map(|o| o.get_trigger().expect("Must be a trigger!"))
+//             .collect();
+//         match walker.next() {
+//             Some(RunOutput::WordEnd(q)) => Ok(q),
+//             Some(RunOutput::Missing(q, a)) => Err(EscapePrefix::new(&self.word, prefix, q, a)),
+//             _ => unreachable!(),
+//         }
+//     }
+// }
 
-impl<TS: Successor, W: IsInfinite + Subword<S = TS::Sigma>> Eval<InfiniteKind>
-    for Configuration<TS, W>
-where
-    <W as Subword>::PrefixType: IsFinite,
-    Configuration<TS, <W as Subword>::PrefixType>: Eval<FiniteKind, Output = TS::Q>,
-{
-    type Output = Set<(TS::Q, TS::Sigma)>;
-    type Failure = EscapePrefix<TS::Q, W>;
+// impl<TS: Successor, W: IsInfinite + Subword<S = TS::Sigma>> Eval<InfiniteKind>
+//     for Configuration<TS, W>
+// where
+//     <W as Subword>::PrefixType: IsFinite,
+//     Configuration<TS, <W as Subword>::PrefixType>: Eval<FiniteKind, Output = TS::Q>,
+// {
+//     type Output = Set<(TS::Q, TS::Sigma)>;
+//     type Failure = EscapePrefix<TS::Q, W>;
 
-    fn eval(&self) -> Result<Self::Output, Self::Failure> {
-        let prefix_length = self.word.base_length();
-        let recur_length = self.word.recur_length();
-        let prefix = self.word.prefix(prefix_length);
-        let cfg = Configuration::from_state(&self.ts, self.start.clone(), prefix);
-        match cfg.eval() {
-            Err(_e) => todo!(),
-            Ok(reached) => {
-                let recur = self.word.skip(prefix_length);
-                let mut seen = Set::new();
-                let mut walker = self.ts.walk(reached, &recur);
-                loop {
-                    // We now collect the individual run pieces and check if we have seen them before.
-                    match walker.try_take_n(recur_length) {
-                        Ok(recur_reached) => {
-                            if !seen.insert(recur_reached) {
-                                // We have seen this piece before, so we can stop here.
-                                return Ok(walker.seq.into_iter().collect());
-                            }
-                        }
-                        Err(RunOutput::WordEnd(_)) => unreachable!("We are in an infinite run!"),
-                        Err(RunOutput::Trigger(_, _)) => {
-                            unreachable!("We failed to take a full piece!")
-                        }
-                        Err(RunOutput::Missing(q, a)) => {
-                            return Err(EscapePrefix::new(&self.word, walker.seq, q, a))
-                        }
-                        Err(RunOutput::FailedBefore) => unreachable!("We would have noticed!"),
-                    }
-                }
-            }
-        }
-    }
-}
+//     fn eval(&self) -> Result<Self::Output, Self::Failure> {
+//         let prefix_length = self.word.base_length();
+//         let recur_length = self.word.recur_length();
+//         let prefix = self.word.prefix(prefix_length);
+//         let cfg = Configuration::from_state(&self.ts, self.start.clone(), prefix);
+//         match cfg.eval() {
+//             Err(_e) => todo!(),
+//             Ok(reached) => {
+//                 let recur = self.word.skip(prefix_length);
+//                 let mut seen = Set::new();
+//                 let mut walker = self.ts.walk(reached, &recur);
+//                 loop {
+//                     // We now collect the individual run pieces and check if we have seen them before.
+//                     match walker.try_take_n(recur_length) {
+//                         Ok(recur_reached) => {
+//                             if !seen.insert(recur_reached) {
+//                                 // We have seen this piece before, so we can stop here.
+//                                 return Ok(walker.seq.into_iter().collect());
+//                             }
+//                         }
+//                         Err(RunOutput::WordEnd(_)) => unreachable!("We are in an infinite run!"),
+//                         Err(RunOutput::Trigger(_, _)) => {
+//                             unreachable!("We failed to take a full piece!")
+//                         }
+//                         Err(RunOutput::Missing(q, a)) => {
+//                             return Err(EscapePrefix::new(&self.word, walker.seq, q, a))
+//                         }
+//                         Err(RunOutput::FailedBefore) => unreachable!("We would have noticed!"),
+//                     }
+//                 }
+//             }
+//         }
+//     }
+// }
 
 impl<TS: Successor, W: Word> Evaluate for Configuration<TS, W>
 where

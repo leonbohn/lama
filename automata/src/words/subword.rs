@@ -1,4 +1,4 @@
-use crate::Symbol;
+use crate::{Set, Symbol};
 
 use super::{IsFinite, PeriodicWord, Str, SymbolIterable, UltimatelyPeriodicWord, Word};
 
@@ -17,14 +17,18 @@ pub trait Subword: Word {
     fn skip(&self, number: usize) -> Self::SuffixType;
 
     /// Returns whether the word has a finite prefix which is equal to the given word.
-    fn has_finite_prefix<F: IsFinite + PartialEq<Self::PrefixType>>(&self, prefix: F) -> bool {
-        let prefix_length = prefix.length();
-        prefix.eq(&self.prefix(prefix_length))
+    fn has_finite_prefix<O: SymbolIterable<S = Self::S>>(&self, prefix: O) -> bool {
+        prefix
+            .symbol_iter()
+            .enumerate()
+            .all(|(i, sym)| self.nth(i) == Some(sym))
     }
 
     fn split_at(&self, position: usize) -> (Self::PrefixType, Self::SuffixType) {
         (self.prefix(position), self.skip(position))
     }
+
+    fn alphabet(&self) -> Set<Self::S>;
 }
 
 impl<S: Symbol> Subword for Str<S> {
@@ -39,6 +43,10 @@ impl<S: Symbol> Subword for Str<S> {
     fn skip(&self, number: usize) -> Self {
         self.symbols.iter().skip(number).cloned().collect()
     }
+
+    fn alphabet(&self) -> Set<Self::S> {
+        self.symbol_iter().collect()
+    }
 }
 
 impl<S: Symbol> Subword for PeriodicWord<S> {
@@ -46,13 +54,17 @@ impl<S: Symbol> Subword for PeriodicWord<S> {
     type SuffixType = Self;
 
     fn prefix(&self, length: usize) -> Str<Self::S> {
-        self.0.iter().cycle().take(length).collect()
+        self.0.symbol_iter().cycle().take(length).collect()
     }
 
     fn skip(&self, number: usize) -> Self {
         let mut symbols = self.0.symbols.clone();
         symbols.rotate_left(number % self.0.symbols.len());
         Self(symbols.into())
+    }
+
+    fn alphabet(&self) -> Set<Self::S> {
+        self.0.symbol_iter().collect()
     }
 }
 
@@ -66,7 +78,7 @@ impl<S: Symbol> Subword for UltimatelyPeriodicWord<S> {
             self.0.prefix(length)
         } else {
             let mut symbols = self.0.symbols.clone();
-            symbols.extend(self.1.iter().take(length - prefix_length));
+            symbols.extend(self.1.symbol_iter().take(length - prefix_length));
             symbols.into()
         }
     }
@@ -76,8 +88,16 @@ impl<S: Symbol> Subword for UltimatelyPeriodicWord<S> {
         if number <= prefix_length {
             Self(self.0.skip(number), self.1.clone())
         } else {
-            Self(Str::empty(), self.1.skip(number - prefix_length))
+            Self(Str::epsilon(), self.1.skip(number - prefix_length))
         }
+    }
+
+    fn alphabet(&self) -> Set<Self::S> {
+        self.0
+            .alphabet()
+            .union(&self.1.alphabet())
+            .cloned()
+            .collect()
     }
 }
 
@@ -93,6 +113,10 @@ impl<Sub: Subword> Subword for &Sub {
     fn skip(&self, number: usize) -> Self::SuffixType {
         Subword::skip(*self, number)
     }
+
+    fn alphabet(&self) -> Set<Self::S> {
+        (*self).alphabet()
+    }
 }
 
 impl Subword for String {
@@ -106,6 +130,10 @@ impl Subword for String {
     fn skip(&self, number: usize) -> Self {
         self.chars().skip(number).collect()
     }
+
+    fn alphabet(&self) -> Set<Self::S> {
+        self.chars().collect()
+    }
 }
 
 impl Subword for &str {
@@ -118,6 +146,10 @@ impl Subword for &str {
 
     fn skip(&self, number: usize) -> Self::SuffixType {
         self.chars().skip(number).collect()
+    }
+
+    fn alphabet(&self) -> Set<Self::S> {
+        self.chars().collect()
     }
 }
 
@@ -138,6 +170,10 @@ impl<S: Symbol> Subword for Vec<S> {
         } else {
             Vec::from(self.get(number..).unwrap())
         }
+    }
+
+    fn alphabet(&self) -> Set<Self::S> {
+        self.iter().cloned().collect()
     }
 }
 

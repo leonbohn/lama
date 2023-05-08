@@ -2,7 +2,7 @@ use std::{borrow::Borrow, fmt::Display};
 
 use crate::{
     helpers::MooreMachine, output::IntoAssignments, run::Configuration, Combined, MealyMachine,
-    Set, Symbol, Word,
+    RightCongruence, Set, Symbol, Word,
 };
 
 mod restricted;
@@ -12,7 +12,7 @@ mod visit;
 
 pub use restricted::Restricted;
 
-pub use successor::Successor;
+pub use successor::{Predecessor, Successor};
 
 use impl_tools::autoimpl;
 use itertools::Itertools;
@@ -26,7 +26,7 @@ pub mod transitionsystem;
 #[cfg(feature = "det")]
 pub use transitionsystem::TransitionSystem;
 
-pub use visit::{Bfs, Visitor, VisitorIter};
+pub use visit::{Bfs, Path, Visitor, VisitorIter};
 
 /// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`
 pub trait StateIndex: Clone + PartialEq + Eq + std::hash::Hash + std::fmt::Debug + Ord {}
@@ -83,15 +83,6 @@ pub trait Trivial: Successor {
 pub trait Pointed: Successor {
     /// Get the initial state of the automaton.
     fn initial(&self) -> Self::Q;
-
-    /// Runs the word from the given initial state.
-    fn run<'t, W>(&'t self, on: &'t W) -> Configuration<&'t Self, &'t W>
-    where
-        Self: Sized + HasInput,
-        W: Word<S = Self::Sigma>,
-    {
-        Configuration::for_pointed(self, on)
-    }
 }
 
 /// Trait that allows iterating over all edges in a [`TransitionSystem`].
@@ -143,10 +134,53 @@ pub trait IntoTransitions: Successor + Copy {
 
     /// Converts the transition system into an iterator over its transitions.
     fn into_transitions(self) -> Self::IntoTransitions;
+}
 
+impl<'a, T> IntoTransitions for &'a T
+where
+    T: IntoTransitions,
+{
+    type TransitionRef = T::TransitionRef;
+
+    type IntoTransitions = T::IntoTransitions;
+
+    fn into_transitions(self) -> Self::IntoTransitions {
+        (*self).into_transitions()
+    }
+}
+
+/// Converts the given object in to an iterator over states, consumes self.
+pub trait IntoStates: Successor + Copy {
+    /// The type of state output by the iterator.
+    type StateRef: StateReference<Q = Self::Q>;
+    /// The type of the iterator.
+    type IntoStates: Iterator<Item = Self::StateRef>;
+
+    /// Converts the transition system into an iterator over its states.
+    fn into_states(self) -> Self::IntoStates;
+}
+
+impl<'a, T> IntoStates for &'a T
+where
+    T: IntoStates,
+{
+    type StateRef = T::StateRef;
+    type IntoStates = T::IntoStates;
+    fn into_states(self) -> Self::IntoStates {
+        (*self).into_states()
+    }
+}
+
+pub trait IntoParts: IntoTransitions + IntoStates {
     /// Collect the produced sequence of transitions into a [`TransitionSystem`].
     fn into_ts(self) -> TransitionSystem<Self::Q, Self::Sigma> {
-        self.into_transitions().collect()
+        let mut ts = TransitionSystem::from_iter(self.into_transitions());
+        for state in self.into_states() {
+            if !ts.contains_state(state.state()) {
+                ts.add_state(&state.state());
+            }
+        }
+        ts
     }
 
     /// Collect into a pair of [`TransitionSystem`] and initial state.
@@ -154,7 +188,8 @@ pub trait IntoTransitions: Successor + Copy {
     where
         Self: Pointed,
     {
-        let ts = self.into_ts();
+        let ts: TransitionSystem<<Self as HasStates>::Q, <Self as HasInput>::Sigma> =
+            self.into_ts();
         (ts, self.initial())
     }
 
@@ -185,40 +220,7 @@ pub trait IntoTransitions: Successor + Copy {
     }
 }
 
-impl<'a, T> IntoTransitions for &'a T
-where
-    T: IntoTransitions,
-{
-    type TransitionRef = T::TransitionRef;
-
-    type IntoTransitions = T::IntoTransitions;
-
-    fn into_transitions(self) -> Self::IntoTransitions {
-        (*self).into_transitions()
-    }
-}
-
-/// Converts the given object in to an iterator over states, consumes self.
-pub trait IntoStates: HasStates + Copy {
-    /// The type of state output by the iterator.
-    type StateRef: StateReference<Q = Self::Q>;
-    /// The type of the iterator.
-    type IntoStates: Iterator<Item = Self::StateRef>;
-
-    /// Converts the transition system into an iterator over its states.
-    fn into_states(self) -> Self::IntoStates;
-}
-
-impl<'a, T> IntoStates for &'a T
-where
-    T: IntoStates,
-{
-    type StateRef = T::StateRef;
-    type IntoStates = T::IntoStates;
-    fn into_states(self) -> Self::IntoStates {
-        (*self).into_states()
-    }
-}
+impl<TS: IntoStates + IntoTransitions> IntoParts for TS {}
 
 /// Converts the given transition system in to an Iterator over references to its states.
 pub trait IntoStateReferences<'a>: Successor + 'a {

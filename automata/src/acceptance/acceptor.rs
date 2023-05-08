@@ -1,72 +1,49 @@
+use tracing::trace;
+
 use crate::{
     acceptance::AcceptanceCondition,
     run::{Configuration, Evaluate},
     ts::{InputOf, Pointed, Successor},
-    Word,
+    StateIndex, Str, Symbol, Transformer, Transition, Trigger, UltimatelyPeriodicWord, Word, DBA,
+    DFA,
 };
 
 /// Implemented by objects which can accept a word. We use `W` as an ipnut type parameter to allow for different implementations based on the type of word.
 pub trait Acceptor {
-    /// The transition system type.
-    type TS: Successor + Pointed;
-
-    /// The acceptance condition type.
-    type Acc: AcceptanceCondition;
+    /// The type of object accepted.
+    type Word: Word;
 
     /// Returns true iff the given `word` is accepted, i.e. it satisfies the acceptance condition.
-    fn accepts<'t, W>(&'t self, on: W) -> bool
-    where
-        Configuration<&'t Self::TS, W>:
-            Evaluate<Output = <Self::Acc as AcceptanceCondition>::Induced>,
-        W: Word<S = InputOf<Self::TS>>;
+    fn accepts(&self, input: &Self::Word) -> bool;
 
     /// Returns the opposite of `accepts`.
-    fn rejects<'t, W>(&'t self, on: W) -> bool
-    where
-        Configuration<&'t Self::TS, W>:
-            Evaluate<Output = <Self::Acc as AcceptanceCondition>::Induced>,
-        W: Word<S = InputOf<Self::TS>>,
-    {
-        !self.accepts(on)
+    fn rejects(&self, input: &Self::Word) -> bool {
+        !self.accepts(input)
     }
 }
 
-impl<TS, Acc> Acceptor for (TS, Acc)
-where
-    TS: Successor + Pointed,
-    Acc: AcceptanceCondition,
-{
-    type TS = TS;
+impl<Q: StateIndex, S: Symbol> Acceptor for DFA<Q, S> {
+    type Word = Str<S>;
 
-    type Acc = Acc;
-
-    fn accepts<'t, W>(&'t self, on: W) -> bool
-    where
-        Configuration<&'t Self::TS, W>:
-            Evaluate<Output = <Self::Acc as AcceptanceCondition>::Induced>,
-        W: Word<S = InputOf<Self::TS>>,
-    {
-        matches!(self.0.run_word_from(on, self.0.initial()).evaluate(), Ok(_))
+    fn accepts(&self, input: &Self::Word) -> bool {
+        trace!("Seeing if the word {} is accepted", input);
+        self.run(input).evaluate().map_or(false, |q| {
+            trace!("Evaluating acceptance for state {:?}", q);
+            self.acceptance().apply(&q)
+        })
     }
 }
 
-impl<A> Acceptor for A
-where
-    A: Successor + Pointed + AcceptanceCondition,
-{
-    type TS = A;
-    type Acc = A;
+impl<Q: StateIndex, S: Symbol> Acceptor for DBA<Q, S> {
+    type Word = UltimatelyPeriodicWord<S>;
 
-    fn accepts<'t, W>(&'t self, on: W) -> bool
-    where
-        Configuration<&'t Self::TS, W>:
-            Evaluate<Output = <Self::Acc as AcceptanceCondition>::Induced>,
-        W: Word<S = InputOf<Self::TS>>,
-    {
-        match self.run_word_from(on, self.initial()).evaluate() {
-            Ok(induced) => self.is_accepting(&induced),
-            _ => false,
-        }
+    fn accepts(&self, input: &Self::Word) -> bool {
+        self.run(input).evaluate().map_or(false, |q| {
+            q.iter().any(|q| {
+                self.acceptance()
+                    .apply((q.source().clone(), q.sym().clone()))
+            })
+        })
     }
 }
 

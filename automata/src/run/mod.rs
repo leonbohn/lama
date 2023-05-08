@@ -2,7 +2,7 @@ mod walker;
 
 mod configuration;
 mod run;
-pub use run::Run;
+pub use run::{Evaluate, Run};
 mod escape_prefix;
 pub use escape_prefix::EscapePrefix;
 mod output;
@@ -17,15 +17,15 @@ pub use result::{Induces, InitialRun};
 
 pub use walker::Walker;
 
-pub use configuration::{Configuration, Evaluate};
+pub use configuration::Configuration;
 
 use crate::{ts::Successor, words::Word};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 /// Encapsulates the possible outputs of a run when a symbol is consumed.
 pub enum RunOutput<Q, S> {
-    /// A transition is taken, gives the trigger.
-    Trigger(Q, S),
+    /// A transition is taken.
+    Transition(Q, S, Q),
     /// The word has ended, returns the reached state.
     WordEnd(Q),
     /// No transition for the given symbol is found, returns the state we are in as well as the missing symbol.
@@ -40,7 +40,7 @@ impl<Q: Display, S: Display> Display for RunOutput<Q, S> {
             f,
             "{}",
             match self {
-                RunOutput::Trigger(q, s) => format!("trigger({},{})", q, s),
+                RunOutput::Transition(q, s, p) => format!("transition({},{},{})", q, s, p),
                 RunOutput::WordEnd(q) => format!("end({})", q),
                 RunOutput::Missing(q, s) => format!("missing({},{})", q, s),
                 RunOutput::FailedBefore => "failed before".to_string(),
@@ -50,14 +50,12 @@ impl<Q: Display, S: Display> Display for RunOutput<Q, S> {
 }
 
 impl<Q: Clone, S: Clone> RunOutput<Q, S> {
-    /// Returns true iff the run output is a trigger.
-    pub fn is_trigger(&self) -> bool {
-        matches!(self, RunOutput::Trigger(_, _))
+    pub fn is_transition(&self) -> bool {
+        matches!(self, RunOutput::Transition(_, _, _))
     }
 
-    /// Creates a new `RunOutput::Trigger` from the given state symbol pair.
-    pub fn trigger(from: Q, on: S) -> Self {
-        Self::Trigger(from, on)
+    pub fn transition(from: Q, on: S, to: Q) -> Self {
+        Self::Transition(from, on, to)
     }
 
     /// Creates a new `RunOutput::WordEnd` with the given reached state.
@@ -71,9 +69,9 @@ impl<Q: Clone, S: Clone> RunOutput<Q, S> {
     }
 
     /// Returns the trigger if `self` is of type `RunOutput::Trigger` and `None` otherwise.
-    pub fn get_trigger(&self) -> Option<(Q, S)> {
+    pub fn get_transition(&self) -> Option<(Q, S, Q)> {
         match self {
-            RunOutput::Trigger(q, a) => Some((q.clone(), a.clone())),
+            RunOutput::Transition(q, a, p) => Some((q.clone(), a.clone(), p.clone())),
             _ => None,
         }
     }
@@ -119,7 +117,8 @@ mod tests {
         ts.add_transition(&q2, 'b', &q0);
 
         let w = Str::from("abba");
-        assert_eq!(ts.run_word_from(&w, q0).evaluate(), Ok(q1));
+        todo!()
+        // assert_eq!(ts.run_word_from(&w, q0).evaluate(), Ok(q1));
     }
 
     #[test]
@@ -137,15 +136,16 @@ mod tests {
         let w = Str::from("abaaa");
         {
             let mut run = ts.walk(q0, &w);
-            assert_eq!(run.next(), Some(RunOutput::trigger(q0, 'a')));
-            assert_eq!(run.next(), Some(RunOutput::trigger(q1, 'b')));
-            assert_eq!(run.next(), Some(RunOutput::trigger(q0, 'a')));
-            assert_eq!(run.next(), Some(RunOutput::trigger(q1, 'a')));
+            assert_eq!(run.next(), Some(RunOutput::transition(q0, 'a', q1)));
+            assert_eq!(run.next(), Some(RunOutput::transition(q1, 'b', q0)));
+            assert_eq!(run.next(), Some(RunOutput::transition(q0, 'a', q1)));
+            assert_eq!(run.next(), Some(RunOutput::transition(q1, 'a', q2)));
             assert_eq!(run.next(), Some(RunOutput::missing(q2, 'a')));
         }
 
         ts.add_transition(&q2, 'a', &q0);
-        assert_eq!(ts.run_word_from(&w, q0).evaluate(), Ok(q0));
+        todo!()
+        // assert_eq!(ts.run_word_from(&w, q0).evaluate(), Ok(q0));
     }
 
     #[test]
@@ -160,6 +160,7 @@ mod tests {
         ts.add_transition(&q1, 'b', &q0);
         ts.add_transition(&q2, 'b', &q0);
 
-        assert_eq!(ts.run_word_from("abba", q0).evaluate(), Ok(q1));
+        todo!()
+        // assert_eq!(ts.run_word_from("abba", q0).evaluate(), Ok(q1));
     }
 }

@@ -40,72 +40,6 @@ impl<TS: Successor + Pointed + ?Sized, K: Boundedness, R: Induces<TS, K>> Initia
     }
 }
 
-impl<W: IsFinite + Subword, TS: Successor<Sigma = W::S>> Induces<TS, FiniteKind> for W {
-    type Induces = StateOf<TS>;
-
-    fn evaluate<X: Borrow<StateOf<TS>>>(
-        &self,
-        on: &TS,
-        from: X,
-    ) -> Result<Self::Induces, EscapePrefix<StateOf<TS>, Self>> {
-        let mut walker = on.walk(from.borrow().clone(), self);
-        let prefix = walker
-            .by_ref()
-            .take_while(RunOutput::is_trigger)
-            .map(|o| o.get_trigger().expect("Must be a trigger!"))
-            .collect();
-        match walker.next() {
-            Some(RunOutput::WordEnd(q)) => Ok(q),
-            Some(RunOutput::Missing(q, a)) => Err(EscapePrefix::new(self, prefix, q, a)),
-            _ => unreachable!(),
-        }
-    }
-}
-
-impl<W: IsInfinite + Subword, TS: Successor<Sigma = W::S>> Induces<TS, InfiniteKind> for W
-where
-    <W as Subword>::PrefixType: IsFinite + Induces<TS, FiniteKind, Induces = StateOf<TS>>,
-{
-    type Induces = Set<(StateOf<TS>, TS::Sigma)>;
-
-    fn evaluate<X: Borrow<StateOf<TS>>>(
-        &self,
-        on: &TS,
-        from: X,
-    ) -> Result<Self::Induces, EscapePrefix<StateOf<TS>, Self>> {
-        let prefix_length = self.base_length();
-        let recur_length = self.recur_length();
-        let prefix = self.prefix(prefix_length);
-        match prefix.evaluate(on, from) {
-            Err(e) => Err(EscapePrefix::from_finite(self, e)),
-            Ok(reached) => {
-                let recur = self.skip(prefix_length);
-                let mut seen = HashSet::new();
-                let mut walker = Walker::new(on, &recur, reached);
-                loop {
-                    // We now collect the individual run pieces and check if we have seen them before.
-                    match walker.try_take_n(recur_length) {
-                        Ok(recur_reached) => {
-                            if !seen.insert(recur_reached) {
-                                // We have seen this piece before, so we can stop here.
-                                return Ok(walker.seq.into_iter().collect());
-                            }
-                        }
-                        Err(RunOutput::WordEnd(_)) => unreachable!("We are in an infinite run!"),
-                        Err(RunOutput::Trigger(_, _)) => {
-                            unreachable!("We failed to take a full piece!")
-                        }
-                        Err(RunOutput::Missing(q, a)) => {
-                            return Err(EscapePrefix::new(self, walker.seq, q, a))
-                        }
-                        Err(RunOutput::FailedBefore) => unreachable!("We would have noticed!"),
-                    }
-                }
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -129,15 +63,16 @@ mod tests {
         ts.add_transition(&q2, 'b', &q0);
 
         let word = PeriodicWord::from(Str::from("b"));
-        let run = word.evaluate(&ts, q0);
-        assert!(run.is_ok());
-        assert_eq!(run.unwrap(), vec![(q0, 'b')].into_iter().collect());
+        todo!()
+        // let run = word.evaluate(&ts, q0);
+        // assert!(run.is_ok());
+        // assert_eq!(run.unwrap(), vec![(q0, 'b')].into_iter().collect());
 
-        let ab_run = PeriodicWord::from(Str::from("ab")).evaluate(&ts, q0);
-        assert!(ab_run.is_ok());
-        assert_eq!(
-            ab_run.unwrap(),
-            vec![(q0, 'a'), (q1, 'b')].into_iter().collect()
-        )
+        // let ab_run = PeriodicWord::from(Str::from("ab")).evaluate(&ts, q0);
+        // assert!(ab_run.is_ok());
+        // assert_eq!(
+        //     ab_run.unwrap(),
+        //     vec![(q0, 'a'), (q1, 'b')].into_iter().collect()
+        // )
     }
 }

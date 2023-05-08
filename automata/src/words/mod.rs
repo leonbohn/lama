@@ -62,12 +62,12 @@ impl<F: IsInfinite> IsInfinite for &F {
 }
 
 /// A trait which allows iterating over the symbols of a word. For an infinite word, this is an infinite iterator.
-pub trait SymbolIterable: Word {
+pub trait SymbolIterable: Word + Copy {
     /// The iterator type.
-    type Iter: Iterator<Item = Self::S>;
+    type SymbolIter: Iterator<Item = Self::S>;
 
     /// Returns an iterator over the symbols of the word.
-    fn iter(&self) -> Self::Iter;
+    fn symbol_iter(self) -> Self::SymbolIter;
 }
 
 impl Word for String {
@@ -210,23 +210,33 @@ macro_rules! upw {
     };
 }
 
+/// A macro for constructing a finite word from a string.
+#[macro_export]
+macro_rules! word {
+    ($symbols:expr) => {
+        $crate::words::Str::from($symbols)
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use tracing_test::traced_test;
+
+    use crate::ts::IntoParts;
 
     use super::*;
     #[test]
     fn symbol_iterability() {
         let word = Str::<usize>::from(vec![1, 3, 3, 7]);
-        let mut iter = word.iter();
+        let mut iter = word.symbol_iter();
         assert_eq!(iter.next(), Some(1));
         assert_eq!(iter.next(), Some(3));
         assert_eq!(iter.next(), Some(3));
         assert_eq!(iter.next(), Some(7));
         assert_eq!(iter.next(), None);
 
-        let word = UltimatelyPeriodicWord(Str::empty(), PeriodicWord::from(vec![1, 3, 3, 7]));
-        let mut iter = word.iter();
+        let word = UltimatelyPeriodicWord(Str::epsilon(), PeriodicWord::from(vec![1, 3, 3, 7]));
+        let mut iter = word.symbol_iter();
         assert_eq!(iter.next(), Some(1usize));
     }
 

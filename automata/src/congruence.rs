@@ -19,7 +19,7 @@ pub struct Class<S: Symbol>(pub Str<S>);
 impl<S: Symbol> Class<S> {
     /// Returns the class associated with the empty word.
     pub fn epsilon() -> Self {
-        Self(Str::empty())
+        Self(Str::epsilon())
     }
 
     /// Create a class for the given single letter.
@@ -106,6 +106,10 @@ impl<S: Symbol> Subword for Class<S> {
 
     fn skip(&self, number: usize) -> Self::SuffixType {
         Class(self.0.skip(number))
+    }
+
+    fn alphabet(&self) -> crate::Set<Self::S> {
+        self.0.alphabet()
     }
 }
 
@@ -229,7 +233,7 @@ pub type CongruenceTrigger<S> = (Class<S>, S);
 
 /// Represents a right congruence relation, which is in essence just a deterministic transition system. The only notable difference is that a right congruence per default encodes an initial state, namely that belonging to the epsilon class (see [`Class::epsilon`]]).
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct RightCongruence<S: Symbol = char>(TransitionSystem<Class<S>, S>, Class<S>);
+pub struct RightCongruence<S: Symbol = char>(pub TransitionSystem<Class<S>, S>, pub Class<S>);
 
 impl<S: Symbol> HasStates for RightCongruence<S> {
     type Q = Class<S>;

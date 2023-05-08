@@ -26,8 +26,8 @@ pub mod ts;
 use itertools::Itertools;
 use output::{IntoAssignments, Mapping};
 pub use ts::{
-    AnonymousGrowable, Growable, IntoStateReferences, Pointed, Shrinkable, StateIndex, Successor,
-    Transition, TransitionIterable, TransitionSystem, Trigger, TriggerIterable,
+    AnonymousGrowable, Growable, IntoStateReferences, Pointed, Predecessor, Shrinkable, StateIndex,
+    Successor, Transition, TransitionIterable, TransitionSystem, Trigger, TriggerIterable,
 };
 use ts::{InputOf, IntoTransitions, TriggerOf};
 
@@ -44,10 +44,11 @@ pub use congruence::{Class, ProgressRightCongruence, RightCongruence, FORC};
 /// Module in which acceptance conditions of automata are defined. This includes the [`AcceptanceCondition`] trait, which is implemented by all acceptance conditions, and provides a common interface for working with acceptance conditions.
 mod acceptance;
 pub use acceptance::{
-    AcceptanceCondition, Acceptor, Accepts, BuchiCondition, OmegaCondition, ParityCondition,
+    AcceptanceCondition, Acceptor, BuchiCondition, OmegaCondition, ParityCondition,
     ReachabilityCondition,
 };
 
+pub use run::Run;
 use std::{fmt::Display, hash::Hash};
 
 mod combined;
@@ -112,8 +113,8 @@ pub trait Equivalent<T = Self> {
 /// Pairs of elements of type `L` and `R`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Pair<L, R> {
-    left: L,
-    right: R,
+    pub left: L,
+    pub right: R,
 }
 
 impl<L, R> Pair<L, R> {
@@ -148,7 +149,7 @@ where
     R: Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "\u{2329}{}|{}\u{232A}", self.left, self.right)
+        write!(f, "({}|{})", self.left, self.right)
     }
 }
 
@@ -301,7 +302,7 @@ pub use helpers::{
 #[cfg(test)]
 mod tests {
     use crate::{
-        acceptance::Accepts, AnonymousGrowable, Growable, PeriodicWord, TransitionSystem, DBA, DFA,
+        upw, word, Acceptor, AnonymousGrowable, Growable, PeriodicWord, TransitionSystem, DBA, DFA,
     };
 
     pub fn simple_ts() -> TransitionSystem {
@@ -326,8 +327,8 @@ mod tests {
         );
         println!("{}", &dfa);
 
-        assert!(dfa.accepts("aa"));
-        assert!(!dfa.accepts("a"));
+        assert!(dfa.accepts(&word!("aa")));
+        assert!(!dfa.accepts(&word!("a")));
 
         let dba = DBA::from_iter(
             vec![
@@ -340,9 +341,9 @@ mod tests {
         );
         println!("{}", dba);
 
-        assert!(dba.accepts(PeriodicWord::from("a")));
-        assert!(dba.accepts(PeriodicWord::from("ab")));
-        assert!(dba.accepts(PeriodicWord::from("babbabab")));
-        assert!(!dba.accepts(PeriodicWord::from("b")));
+        assert!(dba.accepts(&upw!("a")));
+        assert!(dba.accepts(&upw!("ab")));
+        assert!(dba.accepts(&upw!("babbabab")));
+        assert!(!dba.accepts(&upw!("b")));
     }
 }

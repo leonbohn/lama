@@ -1,9 +1,9 @@
 use crate::{
-    output::IntoAssignments, Growable, Mapping, Pointed, Set, Successor, Transition,
+    output::IntoAssignments, Growable, Mapping, Pointed, Set, StateIndex, Successor, Transition,
     TransitionSystem, Trigger,
 };
 
-use super::{HasInput, HasStates, InputOf, IntoTransitions, StateOf};
+use super::{HasInput, HasStates, InputOf, IntoStates, IntoTransitions, StateOf, StateReference};
 
 /// Allows the restriction of a transition system to a subset of its states.
 #[derive(Debug, Clone)]
@@ -26,6 +26,7 @@ impl<TS: Successor, F: Fn(&TS::Q) -> bool> HasStates for Restricted<TS, F> {
         (self.mask)(state.borrow()) && self.on.contains_state(state)
     }
 }
+
 impl<TS: Successor, F> HasInput for Restricted<TS, F> {
     type Sigma = InputOf<TS>;
 
@@ -101,9 +102,47 @@ where
     }
 }
 
+pub struct RestrictedStates<I, F> {
+    iter: I,
+    mask: F,
+}
+
+impl<I, F> Iterator for RestrictedStates<I, F>
+where
+    I: Iterator,
+    I::Item: StateReference,
+    F: Fn(&<I::Item as StateReference>::Q) -> bool,
+{
+    type Item = I::Item;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.find(|q| (self.mask)(&q.state()))
+    }
+}
+
+impl<'a, TS, F> IntoStates for &'a Restricted<TS, F>
+where
+    TS: IntoStates,
+    F: Fn(&TS::Q) -> bool,
+{
+    type StateRef = TS::StateRef;
+
+    type IntoStates = RestrictedStates<TS::IntoStates, &'a F>;
+
+    fn into_states(self) -> Self::IntoStates {
+        RestrictedStates {
+            iter: self.on.into_states(),
+            mask: &self.mask,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{ts::IntoTransitions, Successor, TransitionSystem};
+    use crate::{
+        ts::{IntoParts, IntoTransitions},
+        Successor, TransitionSystem,
+    };
 
     #[test]
     fn restrict_ts() {

@@ -1,9 +1,14 @@
 use std::borrow::Borrow;
 
 pub use crate::TransitionOutput;
-use crate::{ts::IntoTransitions, Equivalent, Pair, StateIndex, Successor, Symbol, DFA};
+use crate::{
+    ts::{IntoParts, IntoTransitions},
+    Equivalent, Pair, StateIndex, Successor, Symbol, DFA,
+};
 
 mod chain;
+
+mod emptiness;
 
 mod product;
 pub(crate) use product::product_transitions;
@@ -52,7 +57,7 @@ impl<T: TransitionOutput> Equivalent for T {
 mod tests {
     use tracing_test::traced_test;
 
-    use crate::{acceptance::Accepts, DFA};
+    use crate::{Acceptor, DFA};
 
     #[test]
     #[traced_test]
@@ -80,26 +85,26 @@ mod tests {
         );
 
         for p in ["aaa", "bb", "abb", "b"] {
-            assert!(union.accepts(p), "Should accept {}", p);
+            assert!(union.accepts(&p.into()), "Should accept {}", p);
         }
         for n in ["ab", "aba", "baa", "aababba"] {
-            assert!(!union.accepts(n), "Should reject {}", n);
+            assert!(!union.accepts(&n.into()), "Should reject {}", n);
         }
 
         let intersection = left.intersection(&right);
         for p in ["", "aaabb", "bb", "aaa"] {
-            assert!(intersection.accepts(p));
+            assert!(intersection.accepts(&p.into()));
         }
         for n in ["a", "b", "aba", "bba", "aaab", "baabab"] {
-            assert!(!intersection.accepts(n));
+            assert!(!intersection.accepts(&n.into()));
         }
 
         let negation = left.negation();
         for p in ["a", "aa", "ba"] {
-            assert!(negation.accepts(p));
+            assert!(negation.accepts(&p.into()));
         }
         for n in ["", "aaa"] {
-            assert!(!negation.accepts(n));
+            assert!(!negation.accepts(&n.into()));
         }
     }
 }

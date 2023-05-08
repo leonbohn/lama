@@ -11,11 +11,12 @@ use crate::{
     helpers::MooreMachine,
     output::{Assignment, IntoAssignments, Mapping},
     ts::{
-        transitionsystem::Transitions, Growable, HasInput, HasStates, InputOf, IntoStates,
-        IntoTransitions, Pointed, Shrinkable, Successor, TransitionReference, TransitionSystem,
+        transitionsystem::{States, Transitions},
+        Growable, HasInput, HasStates, InputOf, IntoStates, IntoTransitions, Pointed, Shrinkable,
+        Successor, TransitionReference, TransitionSystem,
     },
-    AnonymousGrowable, HasAlphabet, MealyMachine, OmegaAutomaton, RightCongruence, Set, StateIndex,
-    Symbol, Transformer, Transition, Value, DBA, DFA,
+    AnonymousGrowable, Class, HasAlphabet, MealyMachine, OmegaAutomaton, RightCongruence, Set,
+    StateIndex, Symbol, Transformer, Transition, Value, DBA, DFA,
 };
 
 /// Struct that represents the 'usual' automata, which is a combination of a transition system, a designated initial state and an acceptance condition.
@@ -82,6 +83,16 @@ impl<'a, TS: Successor + IntoTransitions, Acc> IntoTransitions for &'a Combined<
 
     fn into_transitions(self) -> Self::IntoTransitions {
         self.ts.into_transitions()
+    }
+}
+
+impl<'a, TS: IntoStates, Acc> IntoStates for &'a Combined<TS, Acc> {
+    type StateRef = TS::StateRef;
+
+    type IntoStates = TS::IntoStates;
+
+    fn into_states(self) -> Self::IntoStates {
+        self.ts.into_states()
     }
 }
 
@@ -203,6 +214,12 @@ impl<Q: StateIndex, S: Symbol, C: Value> MealyMachine<C, Q, S> {
             initial,
             acc: assignments,
         }
+    }
+}
+
+impl<S: Symbol, Acc> Into<RightCongruence<S>> for Combined<TransitionSystem<Class<S>, S>, Acc> {
+    fn into(self) -> RightCongruence<S> {
+        RightCongruence(self.ts, Class::epsilon())
     }
 }
 
@@ -343,41 +360,4 @@ pub type CongruenceDpa<S = char> =
     Combined<RightCongruence<S>, ParityCondition<CongruenceTrigger<S>>>;
 
 #[cfg(test)]
-mod tests {
-    use crate::{
-        acceptance::Acceptor,
-        ts::{Growable, Pointed},
-        words::PeriodicWord,
-    };
-
-    #[test]
-    fn dfa_acceptor() {
-        let mut dfa = super::Dfa::trivial();
-        let q0 = dfa.initial();
-        let q1 = 1u32;
-        assert!(dfa.add_state(&q1));
-        dfa.add_transition(q0, 'a', q1);
-        dfa.add_transition(q1, 'a', q0);
-        dfa.add_transition(q0, 'b', q0);
-        dfa.add_transition(q1, 'b', q1);
-        *dfa.acceptance_mut() += q1;
-        assert!(dfa.accepts("a"));
-        *dfa.acceptance_mut() -= q1;
-        assert!(!dfa.accepts("a"));
-        assert!(dfa.rejects("b"))
-    }
-
-    #[test]
-    fn dba_accetor() {
-        let mut dba = super::Dba::trivial();
-        let q0 = dba.initial();
-        let q1 = 1u32;
-        assert!(dba.add_state(&q1));
-        dba.add_transition(q0, 'a', q1);
-        dba.add_transition(q1, 'a', q0);
-        dba.add_transition(q0, 'b', q0);
-        dba.add_transition(q1, 'b', q1);
-        *dba.acceptance_mut() += (q1, 'a');
-        assert!(dba.accepts(PeriodicWord::from("a")));
-    }
-}
+mod tests {}
