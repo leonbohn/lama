@@ -5,6 +5,8 @@ mod bfs;
 pub use bfs::Bfs;
 mod dfs;
 pub use dfs::Dfs;
+mod tarjan;
+pub use tarjan::Tarjan;
 
 use std::collections::{BTreeSet, VecDeque};
 

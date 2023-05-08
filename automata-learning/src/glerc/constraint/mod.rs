@@ -88,7 +88,7 @@ impl<S: Symbol> ConflictConstraint<S> {
         let right = sample.negative_prefixes();
 
         trace!(
-            "took {} ms, Building restricted product",
+            "Took {} ms for constructing conflict constraint from omega sample.",
             time.elapsed().as_millis()
         );
         let time = std::time::Instant::now();
@@ -103,7 +103,7 @@ impl<S: Symbol> ConflictConstraint<S> {
             .into_ts();
 
         trace!(
-            "took {} ms, Computing on-cycle states",
+            "Took {} ms for building restricted product.",
             time.elapsed().as_millis()
         );
         let time = std::time::Instant::now();
@@ -114,7 +114,7 @@ impl<S: Symbol> ConflictConstraint<S> {
 
         // build the product restricted to final states
         trace!(
-            "took {} ms, Computing conflicts",
+            "Took {} ms for computing on-cycle states.",
             time.elapsed().as_millis()
         );
         let time = std::time::Instant::now();
@@ -124,7 +124,10 @@ impl<S: Symbol> ConflictConstraint<S> {
             .map(|pair| (pair.left().clone(), pair.right().clone()))
             .collect();
 
-        trace!("took {} ms", time.elapsed().as_millis());
+        trace!(
+            "Took {} ms for computing conflicts.",
+            time.elapsed().as_millis()
+        );
         Self {
             left: left.into(),
             right: right.into(),

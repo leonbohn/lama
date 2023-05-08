@@ -5,8 +5,9 @@ use owo_colors::OwoColorize;
 use tabled::{builder::Builder, settings::Style};
 
 use crate::{
+    output::Mapping,
     run::{Configuration, Run},
-    Pointed, Set, TransitionSystem, Trigger, Word,
+    Map, Pointed, Set, TransitionSystem, Trigger, Word,
 };
 
 use super::{
@@ -205,10 +206,12 @@ pub trait Successor: HasStates + HasInput {
         Self: Sized,
         X: Borrow<Self::Q>,
     {
-        self.bfs_from(origin.borrow().clone())
-            .iter()
-            .flat_map(|(p, _, q)| [p, q])
-            .chain(std::iter::once(origin.borrow().clone()))
+        std::iter::once(origin.borrow().clone())
+            .chain(
+                self.bfs_from(origin.borrow().clone())
+                    .iter()
+                    .flat_map(|(p, _, q)| [p, q]),
+            )
             .collect()
     }
 
@@ -234,10 +237,19 @@ pub trait Successor: HasStates + HasInput {
     where
         Self: Sized,
     {
-        todo!();
         self.reachable_states_from(source.borrow())
             .iter()
+            .skip(1)
             .any(|state| state == source.borrow())
+    }
+
+    /// Computes a mapping that assigns to each state in the transition system, an index representing
+    /// the strongly connected component that state belongs to. If two states belong to the same
+    /// strongly connected component, they will be assigned the same index.
+    fn scc_maping(&self) -> Map<Self::Q, usize> {
+        let mut out = Map::new();
+
+        out
     }
 }
 
