@@ -10,8 +10,8 @@ use crate::{
         transitionsystem::{States, Transitions},
         HasInput, HasStates, IntoTransitions, TransitionReference, TriggerOf, StateOf, InputOf, IntoStates, StateReference, IntoParts,
     },
-    Acceptor, Combined, IntoMealyTransitions, MealyMachine, Pair, Pointed, StateIndex, Successor,
-    Symbol, Transformer, Transition, TransitionSystem, Trigger, Value, DBA, DFA, DPA,
+    Acceptor, Combined, IntoMealyTransitions, MealyMachine, Pair, Pointed, State, Successor,
+    Symbol, Transformer, Transition, TransitionSystem, Trigger, Value, DBA, DFA, DPA, Equivalent,
 };
 
 pub type AssignmentProductMapping<X, Y, A> =
@@ -292,7 +292,7 @@ R::Item: Assignment,
     }
 }
 
-impl<'a, Q: StateIndex, S: Symbol, O: Value> IntoAssignments for &'a MealyMachine<O, Q, S> {
+impl<'a, Q: State, S: Symbol, O: Value> IntoAssignments for &'a MealyMachine<O, Q, S> {
     type AssignmentRef = AssignmentReference<'a, (Q, S), O>;
 
     type Assignments = std::iter::Map<
@@ -305,7 +305,7 @@ impl<'a, Q: StateIndex, S: Symbol, O: Value> IntoAssignments for &'a MealyMachin
     }
 }
 
-impl<'a, Q: StateIndex, S: Symbol, O: Value> IntoStates for &'a MealyMachine<O, Q, S> {
+impl<'a, Q: State, S: Symbol, O: Value> IntoStates for &'a MealyMachine<O, Q, S> {
     type StateRef = &'a StateOf<Self>;
 
     type IntoStates = States<'a, Q>;
@@ -314,7 +314,7 @@ impl<'a, Q: StateIndex, S: Symbol, O: Value> IntoStates for &'a MealyMachine<O, 
         self.ts.into_states()
     }
 }
-impl<'a, Q: StateIndex, S: Symbol, O: Value> IntoStates for &'a MooreMachine<O, Q, S> {
+impl<'a, Q: State, S: Symbol, O: Value> IntoStates for &'a MooreMachine<O, Q, S> {
     type StateRef = &'a StateOf<Self>;
 
     type IntoStates = States<'a, Q>;
@@ -324,7 +324,7 @@ impl<'a, Q: StateIndex, S: Symbol, O: Value> IntoStates for &'a MooreMachine<O, 
     }
 }
 
-impl<'a, Q: StateIndex, S: Symbol, O: Value> IntoTransitions for &'a MealyMachine<O, Q, S> {
+impl<'a, Q: State, S: Symbol, O: Value> IntoTransitions for &'a MealyMachine<O, Q, S> {
     type TransitionRef = TransitionReference<'a, Q, S>;
 
     type IntoTransitions = Transitions<'a, Q, S>;
@@ -334,7 +334,7 @@ impl<'a, Q: StateIndex, S: Symbol, O: Value> IntoTransitions for &'a MealyMachin
     }
 }
 
-impl<'a, Q: StateIndex, S: Symbol, O: Value> IntoAssignments for &'a MooreMachine<O, Q, S> {
+impl<'a, Q: State, S: Symbol, O: Value> IntoAssignments for &'a MooreMachine<O, Q, S> {
     type AssignmentRef = AssignmentReference<'a, Q, O>;
 
     type Assignments = std::iter::Map<
@@ -347,7 +347,7 @@ impl<'a, Q: StateIndex, S: Symbol, O: Value> IntoAssignments for &'a MooreMachin
     }
 }
 
-impl<'a, Q: StateIndex, S: Symbol, O: Value> IntoTransitions for &'a MooreMachine<O, Q, S> {
+impl<'a, Q: State, S: Symbol, O: Value> IntoTransitions for &'a MooreMachine<O, Q, S> {
     type TransitionRef = TransitionReference<'a, Q, S>;
 
     type IntoTransitions = Transitions<'a, Q, S>;
@@ -359,12 +359,12 @@ impl<'a, Q: StateIndex, S: Symbol, O: Value> IntoTransitions for &'a MooreMachin
 
 type MooreProduct<Q, P, S, A, B> = MooreMachine<Pair<A, B>, Pair<Q, P>, S>;
 
-impl<Q: StateIndex, S: Symbol, A: Value> MooreMachine<A, Q, S> {
+impl<Q: State, S: Symbol, A: Value> MooreMachine<A, Q, S> {
     /// Computes the direct product of two Moore machines. This is done by computing
     /// the direct product of both the transition systems and the acceptance mappings.
     /// The result is a Moore machine which has pairs as states and pairs of outputs as
     /// acceptance values.
-    pub fn direct_product<P: StateIndex, B: Value, D: Borrow<MooreMachine<B, P, S>>>(
+    pub fn direct_product<P: State, B: Value, D: Borrow<MooreMachine<B, P, S>>>(
         &self,
         other: D,
     ) -> MooreProduct<Q, P, S, A, B> {
@@ -378,12 +378,12 @@ impl<Q: StateIndex, S: Symbol, A: Value> MooreMachine<A, Q, S> {
 
 type MealyProduct<Q, P, S, A, B> = MealyMachine<Pair<A, B>, Pair<Q, P>, S>;
 
-impl<Q: StateIndex, S: Symbol, A: Value> MealyMachine<A, Q, S> {
+impl<Q: State, S: Symbol, A: Value> MealyMachine<A, Q, S> {
     /// Computes the direct product of two Mealy machines. It first computes the direct
     /// product of the transition systems and the acceptance mappings. Subsequently, the
     /// mappings are joined on the common input symbol. This results in a Mealy machine
     /// which has pairs as states and pairs as outputs.
-    pub fn direct_product<P: StateIndex, B: Value, D: Borrow<MealyMachine<B, P, S>>>(
+    pub fn direct_product<P: State, B: Value, D: Borrow<MealyMachine<B, P, S>>>(
         &self,
         other: D,
     ) -> MealyProduct<Q, P, S, A, B> {

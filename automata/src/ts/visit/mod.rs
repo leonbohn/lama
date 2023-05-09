@@ -12,7 +12,7 @@ use std::collections::{BTreeSet, VecDeque};
 
 use tracing::trace;
 
-use crate::{Pointed, Set, StateIndex, Successor, Transition, Trigger};
+use crate::{Pointed, Set, State, Successor, Transition, Trigger};
 
 use super::{StateOf, TransitionOf};
 

@@ -16,7 +16,7 @@ use crate::{
         Successor, TransitionReference, TransitionSystem,
     },
     AnonymousGrowable, Class, HasAlphabet, MealyMachine, OmegaAutomaton, RightCongruence, Set,
-    StateIndex, Symbol, Transformer, Transition, Value, DBA, DFA,
+    State, Symbol, Transformer, Transition, Value, DBA, DFA,
 };
 
 /// Struct that represents the 'usual' automata, which is a combination of a transition system, a designated initial state and an acceptance condition.
@@ -147,7 +147,7 @@ where
     }
 }
 
-impl<Q: StateIndex, S: Symbol, X: Value> MooreMachine<X, Q, S> {
+impl<Q: State, S: Symbol, X: Value> MooreMachine<X, Q, S> {
     /// Function which maps the acceptance condition of a Moore machine to a new acceptance condition.
     /// It gets as parameter a function which is applied to every element of the acceptance mapping.
     pub fn map_acceptance<Y, F>(self, f: F) -> MooreMachine<Y, Q, S>
@@ -164,7 +164,7 @@ impl<Q: StateIndex, S: Symbol, X: Value> MooreMachine<X, Q, S> {
     }
 }
 
-impl<Q: StateIndex, S: Symbol, X: Value> MealyMachine<X, Q, S> {
+impl<Q: State, S: Symbol, X: Value> MealyMachine<X, Q, S> {
     /// Function which maps the acceptance condition of a Mealy machine to a new acceptance condition.
     /// It gets as parameter a function which is applied to every element of the acceptance mapping.
     pub fn map_acceptance<Y, F>(self, f: F) -> MealyMachine<Y, Q, S>
@@ -181,7 +181,7 @@ impl<Q: StateIndex, S: Symbol, X: Value> MealyMachine<X, Q, S> {
     }
 }
 
-impl<Q: StateIndex, S: Symbol, Acc> Combined<TransitionSystem<Q, S>, Acc> {
+impl<Q: State, S: Symbol, Acc> Combined<TransitionSystem<Q, S>, Acc> {
     /// Converts the automaton to an [`OmegaAutomaton`], which boils down to simply
     /// replacing the acceptance condition with an [`OmegaCondition`].
     pub fn to_omega(&self) -> OmegaAutomaton<Q, S>
@@ -192,7 +192,7 @@ impl<Q: StateIndex, S: Symbol, Acc> Combined<TransitionSystem<Q, S>, Acc> {
     }
 }
 
-impl<Q: StateIndex, S: Symbol, C: Value> MealyMachine<C, Q, S> {
+impl<Q: State, S: Symbol, C: Value> MealyMachine<C, Q, S> {
     /// Creates a mealy machine from an iterator of transitions annotated with their output.
     pub fn from_iter<
         X: Transition<S = S, Q = Q> + Assignment<Left = (Q, S), Right = C>,
@@ -223,7 +223,7 @@ impl<S: Symbol, Acc> From<Combined<TransitionSystem<Class<S>, S>, Acc>> for Righ
     }
 }
 
-impl<Q: StateIndex, S: Symbol> DFA<Q, S> {
+impl<Q: State, S: Symbol> DFA<Q, S> {
     /// Creates a mealy machine from an iterator of transitions annotated with their output.
     pub fn from_parts_iters<
         X: Transition<S = S, Q = Q>,

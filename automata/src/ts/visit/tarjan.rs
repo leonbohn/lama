@@ -5,7 +5,7 @@ use tracing::trace;
 
 use crate::{
     ts::{InputOf, IntoStates, StateOf, StateReference},
-    Map, Set, StateIndex, Successor,
+    Map, Set, State, Successor,
 };
 
 #[derive(Debug, Clone)]
@@ -16,14 +16,14 @@ struct TarjanData {
 /// Struct that is used to compute the strongly connected components of a transition system.
 /// Many thanks go out to the authors of the petgraph crate <3.
 #[derive(Debug, Clone)]
-pub struct Tarjan<Q: StateIndex> {
+pub struct Tarjan<Q: State> {
     index: usize,
     component_count: usize,
     stack: Vec<Q>,
     data: Map<Q, TarjanData>,
 }
 
-impl<Q: StateIndex> Tarjan<Q> {
+impl<Q: State> Tarjan<Q> {
     pub fn new() -> Self {
         Self {
             index: 0,

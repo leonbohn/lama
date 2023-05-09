@@ -11,7 +11,7 @@ use crate::{
     run::{Induces, InitialRun},
     words::{IsFinite, IsInfinite},
     BuchiAcceptance, FiniteKind, InfiniteKind, ParityAcceptance, Pointed, ReachabilityAcceptance,
-    Set, StateIndex, Symbol, Transformer, TransitionSystem, Word, DBA, DFA, DPA,
+    Set, State, Symbol, Transformer, TransitionSystem, Word, DBA, DFA, DPA,
 };
 
 /// Abstracts the finiteness of the type `X`.
@@ -48,19 +48,19 @@ pub trait Acceptance<I> {
     fn is_accepting(&self, induced: &I) -> bool;
 }
 
-impl<Q: StateIndex> Acceptance<Q> for ReachabilityAcceptance<Q> {
+impl<Q: State> Acceptance<Q> for ReachabilityAcceptance<Q> {
     fn is_accepting(&self, induced: &Q) -> bool {
         self.apply(induced)
     }
 }
 
-impl<Q: StateIndex, S: Symbol> Acceptance<Set<(Q, S)>> for BuchiAcceptance<Q, S> {
+impl<Q: State, S: Symbol> Acceptance<Set<(Q, S)>> for BuchiAcceptance<Q, S> {
     fn is_accepting(&self, induced: &Set<(Q, S)>) -> bool {
         induced.iter().any(|q| self.apply(q))
     }
 }
 
-impl<Q: StateIndex, S: Symbol> Acceptance<Set<(Q, S)>> for ParityAcceptance<Q, S> {
+impl<Q: State, S: Symbol> Acceptance<Set<(Q, S)>> for ParityAcceptance<Q, S> {
     fn is_accepting(&self, induced: &Set<(Q, S)>) -> bool {
         induced
             .iter()
@@ -68,25 +68,5 @@ impl<Q: StateIndex, S: Symbol> Acceptance<Set<(Q, S)>> for ParityAcceptance<Q, S
             .min()
             .map(|x| x % 2 == 0)
             .unwrap_or(false)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::DFA;
-
-    pub fn one_mod_three_times_a_dfa() -> DFA {
-        DFA::from_parts_iters(
-            [
-                (0, 'a', 1),
-                (0, 'b', 0),
-                (1, 'a', 2),
-                (1, 'b', 1),
-                (2, 'a', 0),
-                (2, 'b', 2),
-            ],
-            [1],
-            0,
-        )
     }
 }

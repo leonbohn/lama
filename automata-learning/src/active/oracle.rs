@@ -1,4 +1,4 @@
-use automata::{Acceptor, Class, Dfa, Map, Pointed, StateIndex, Symbol, TransitionOutput};
+use automata::{Acceptor, Class, Dfa, Map, Pointed, State, Symbol, TransitionOutput};
 
 /// A trait that encapsulates a minimally adequate teacher (MAT) for active learning. This is mainly used by
 /// L*-esque algorithms and can be implemented by wildly different types, for example an automaton, a function

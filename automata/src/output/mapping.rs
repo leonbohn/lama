@@ -3,7 +3,7 @@ use std::{borrow::Borrow, hash::Hash};
 use impl_tools::autoimpl;
 use itertools::Itertools;
 
-use crate::{Map, StateIndex, Symbol, Value};
+use crate::{Map, State, Symbol, Value};
 
 use super::with_output::HasOutput;
 
@@ -129,7 +129,7 @@ pub trait Assignment {
     fn right(&self) -> Self::Right;
 }
 
-impl<Q: StateIndex, S: Symbol, O: Value> Assignment for (Q, S, Q, O) {
+impl<Q: State, S: Symbol, O: Value> Assignment for (Q, S, Q, O) {
     type Left = (Q, S);
 
     type Right = O;

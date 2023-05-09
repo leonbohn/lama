@@ -100,6 +100,12 @@ impl<S> From<(Str<S>, PeriodicWord<S>)> for UltimatelyPeriodicWord<S> {
     }
 }
 
+impl<S> From<(Str<S>, Str<S>)> for UltimatelyPeriodicWord<S> {
+    fn from((prefix, periodic): (Str<S>, Str<S>)) -> Self {
+        Self(prefix, periodic.into())
+    }
+}
+
 impl<'a, S: Symbol> SymbolIterable for &'a UltimatelyPeriodicWord<S> {
     type SymbolIter =
         std::iter::Chain<std::vec::IntoIter<S>, std::iter::Cycle<std::vec::IntoIter<S>>>;

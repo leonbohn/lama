@@ -10,7 +10,7 @@ use itertools::Itertools;
 use crate::{
     ts::{HasInput, HasStates, InputOf, StateOf},
     words::SymbolIterable,
-    Set, StateIndex, Str, Successor, Symbol, Transition, Trigger,
+    Set, State, Str, Successor, Symbol, Transition, Trigger,
 };
 
 use super::Visitor;
@@ -35,7 +35,7 @@ impl<Q: Display, S: Symbol + Display> std::fmt::Display for Path<Q, S> {
     }
 }
 
-impl<Q: StateIndex, S: Symbol> Path<Q, S> {
+impl<Q: State, S: Symbol> Path<Q, S> {
     pub fn empty(from: Q) -> Self {
         Self {
             states: vec![from],
@@ -143,7 +143,7 @@ impl<Q: StateIndex, S: Symbol> Path<Q, S> {
     }
 }
 
-impl<Q: StateIndex, S: Symbol> Extend<(Q, S)> for Path<Q, S> {
+impl<Q: State, S: Symbol> Extend<(Q, S)> for Path<Q, S> {
     fn extend<T: IntoIterator<Item = (Q, S)>>(&mut self, iter: T) {
         for (state, symbol) in iter.into_iter() {
             self.states.push(state);
@@ -152,7 +152,7 @@ impl<Q: StateIndex, S: Symbol> Extend<(Q, S)> for Path<Q, S> {
     }
 }
 
-impl<Q: StateIndex, S: Symbol> Extend<(Q, S, Q)> for Path<Q, S> {
+impl<Q: State, S: Symbol> Extend<(Q, S, Q)> for Path<Q, S> {
     fn extend<T: IntoIterator<Item = (Q, S, Q)>>(&mut self, iter: T) {
         for (source, symbol, target) in iter.into_iter() {
             assert!(self.reached() == &source, "Path must be continuous");

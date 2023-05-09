@@ -1,18 +1,18 @@
 use std::{borrow::Borrow, fmt::Debug};
 
-use hoars::State;
+use hoars::State as HoaState;
 use tracing::trace;
 
 use crate::{
     ts::{HasStates, InputOf, Path, StateOf, TransitionOf},
     words::IsInfinite,
-    Set, StateIndex, Str, Subword, Successor, Symbol, UltimatelyPeriodicWord, Value, Word,
+    Set, State, Str, Subword, Successor, Symbol, UltimatelyPeriodicWord, Value, Word,
 };
 
 use super::{RunOutput, Walk};
 
 pub trait Runnable: Subword {
-    type Induces<Q: StateIndex>: Eq + Clone + Debug;
+    type Induces<Q: State>: Eq + Clone + Debug;
 
     fn runnable_from<TS>(
         &self,
@@ -24,7 +24,7 @@ pub trait Runnable: Subword {
 }
 
 impl<S: Symbol> Runnable for Str<S> {
-    type Induces<Q: StateIndex> = Q;
+    type Induces<Q: State> = Q;
 
     fn runnable_from<TS>(
         &self,
@@ -55,7 +55,7 @@ impl<S: Symbol> Runnable for Str<S> {
 }
 
 impl<S: Symbol> Runnable for UltimatelyPeriodicWord<S> {
-    type Induces<Q: StateIndex> = Set<Q>;
+    type Induces<Q: State> = Set<Q>;
 
     fn runnable_from<TS>(
         &self,

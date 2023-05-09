@@ -5,7 +5,7 @@ use std::{
 
 use itertools::Itertools;
 
-use crate::{words::IsFinite, Equivalent, StateIndex, Subword, Word};
+use crate::{words::IsFinite, Equivalent, State, Subword, Word};
 
 /// An escape prefix for a transition system is a triple `(u, q, a)`, where `u` is a finite sequence of triggers for the transition system, `q` is a state of the transition system and `a` is a symbol such that:
 /// - the last trigger in `u` brings the transition system into the state `q`
@@ -24,7 +24,7 @@ pub struct EscapePrefix<Q, W: Subword> {
 
 impl<Q, W> PartialOrd for EscapePrefix<Q, W>
 where
-    Q: StateIndex,
+    Q: State,
     W: Subword,
     W::S: PartialOrd,
 {
@@ -52,7 +52,7 @@ where
 
 impl<Q, W> Ord for EscapePrefix<Q, W>
 where
-    Q: StateIndex,
+    Q: State,
     W: Subword,
     W::S: Ord,
 {
@@ -70,7 +70,7 @@ impl<Q: Eq, W: Subword> Equivalent for EscapePrefix<Q, W> {
     }
 }
 
-impl<Q: StateIndex, W: Word + Subword> EscapePrefix<Q, W> {
+impl<Q: State, W: Word + Subword> EscapePrefix<Q, W> {
     /// Creates a new escape prefix from the given prefix, state and symbol.
     pub fn new(word: &W, prefix: Vec<(Q, W::S)>, state: Q, symbol: W::S) -> Self {
         let length = prefix.len();

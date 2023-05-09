@@ -2,18 +2,18 @@ use std::{borrow::Borrow, hash::Hash};
 
 use impl_tools::autoimpl;
 
-use crate::{StateIndex, Symbol, Value};
+use crate::{State, Symbol, Value};
 
 /// Abstracts a reference to a state.
 pub trait StateReference: Clone {
     /// The type of the state index.
-    type Q: StateIndex;
+    type Q: State;
 
     /// Returns a reference to the state.
     fn state(&self) -> Self::Q;
 }
 
-impl<'a, Q: StateIndex> StateReference for &'a Q {
+impl<'a, Q: State> StateReference for &'a Q {
     type Q = Q;
 
     fn state(&self) -> Self::Q {
@@ -21,7 +21,7 @@ impl<'a, Q: StateIndex> StateReference for &'a Q {
     }
 }
 
-impl<P: StateIndex, Q: StateIndex> StateReference for crate::Pair<P, Q> {
+impl<P: State, Q: State> StateReference for crate::Pair<P, Q> {
     type Q = crate::Pair<P, Q>;
 
     fn state(&self) -> Self::Q {
@@ -35,7 +35,7 @@ pub trait Trigger: Clone + Eq + Hash {
     /// The symbol type.
     type S: Symbol;
     /// The state type.
-    type Q: StateIndex;
+    type Q: State;
 
     /// The source state of the transition.
     fn source(&self) -> &Self::Q;
@@ -50,7 +50,7 @@ pub trait Transition: Trigger {
     fn target(&self) -> &Self::Q;
 }
 
-impl<Q: StateIndex, S: Symbol, O: Value> Trigger for (Q, S, Q, O) {
+impl<Q: State, S: Symbol, O: Value> Trigger for (Q, S, Q, O) {
     type S = S;
 
     type Q = Q;
@@ -64,13 +64,13 @@ impl<Q: StateIndex, S: Symbol, O: Value> Trigger for (Q, S, Q, O) {
     }
 }
 
-impl<Q: StateIndex, S: Symbol, O: Value> Transition for (Q, S, Q, O) {
+impl<Q: State, S: Symbol, O: Value> Transition for (Q, S, Q, O) {
     fn target(&self) -> &Self::Q {
         &self.2
     }
 }
 
-impl<Q: StateIndex, S: Symbol> Trigger for (Q, S) {
+impl<Q: State, S: Symbol> Trigger for (Q, S) {
     type S = S;
     type Q = Q;
     fn source(&self) -> &Self::Q {
@@ -81,7 +81,7 @@ impl<Q: StateIndex, S: Symbol> Trigger for (Q, S) {
     }
 }
 
-impl<Q: StateIndex, S: Symbol> Trigger for (Q, S, Q) {
+impl<Q: State, S: Symbol> Trigger for (Q, S, Q) {
     type S = S;
 
     type Q = Q;
@@ -95,7 +95,7 @@ impl<Q: StateIndex, S: Symbol> Trigger for (Q, S, Q) {
     }
 }
 
-impl<Q: StateIndex, S: Symbol> Transition for (Q, S, Q) {
+impl<Q: State, S: Symbol> Transition for (Q, S, Q) {
     fn target(&self) -> &Self::Q {
         &self.2
     }
@@ -109,7 +109,7 @@ pub struct TransitionReference<'a, Q, S> {
     target: &'a Q,
 }
 
-impl<'a, Q: StateIndex, S: Symbol> TransitionReference<'a, Q, S> {
+impl<'a, Q: State, S: Symbol> TransitionReference<'a, Q, S> {
     /// Creates a new transition reference.
     pub fn new(source: &'a Q, sym: &'a S, target: &'a Q) -> Self {
         Self {
@@ -120,7 +120,7 @@ impl<'a, Q: StateIndex, S: Symbol> TransitionReference<'a, Q, S> {
     }
 }
 
-impl<'a, Q: StateIndex, S: Symbol> Trigger for TransitionReference<'a, Q, S> {
+impl<'a, Q: State, S: Symbol> Trigger for TransitionReference<'a, Q, S> {
     type S = S;
 
     type Q = Q;
@@ -134,7 +134,7 @@ impl<'a, Q: StateIndex, S: Symbol> Trigger for TransitionReference<'a, Q, S> {
     }
 }
 
-impl<'a, Q: StateIndex, S: Symbol> Transition for TransitionReference<'a, Q, S> {
+impl<'a, Q: State, S: Symbol> Transition for TransitionReference<'a, Q, S> {
     fn target(&self) -> &Self::Q {
         self.target
     }

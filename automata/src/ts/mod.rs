@@ -34,9 +34,9 @@ pub use visit::{Bfs, Path, Visitor, VisitorIter};
 use self::transitionsystem::{States, Transitions};
 
 /// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`
-pub trait StateIndex: Clone + PartialEq + Eq + std::hash::Hash + std::fmt::Debug + Ord {}
+pub trait State: Clone + PartialEq + Eq + std::hash::Hash + std::fmt::Debug + Ord {}
 
-impl<X: Clone + Eq + PartialEq + std::hash::Hash + std::fmt::Debug + Ord> StateIndex for X {}
+impl<X: Clone + Eq + PartialEq + std::hash::Hash + std::fmt::Debug + Ord> State for X {}
 
 // The following two type aliases might change in the future to allow for more flexibility, i.e. for example for implementing nondeterminism.
 /// Helper type for getting the symbol type of a transition system.
@@ -52,7 +52,7 @@ pub type TransitionOf<TS> = (StateOf<TS>, InputOf<TS>, StateOf<TS>);
 #[autoimpl(for<T: trait> &T, &mut T)]
 pub trait HasStates {
     /// The type of states of the object.
-    type Q: StateIndex;
+    type Q: State;
 
     /// Returns true if the object contanins the particular state.
     fn contains_state<X: Borrow<Self::Q>>(&self, state: X) -> bool;
@@ -449,7 +449,7 @@ impl<TS: Successor> Pointed for (TS, TS::Q) {
         self.1.clone()
     }
 }
-impl<'a, Q: StateIndex, S: Symbol> IntoStates for &'a (TransitionSystem<Q, S>, Q) {
+impl<'a, Q: State, S: Symbol> IntoStates for &'a (TransitionSystem<Q, S>, Q) {
     type StateRef = &'a Q;
 
     type IntoStates = States<'a, Q>;
@@ -458,7 +458,7 @@ impl<'a, Q: StateIndex, S: Symbol> IntoStates for &'a (TransitionSystem<Q, S>, Q
         self.0.into_states()
     }
 }
-impl<'a, Q: StateIndex, S: Symbol> IntoTransitions for &'a (TransitionSystem<Q, S>, Q) {
+impl<'a, Q: State, S: Symbol> IntoTransitions for &'a (TransitionSystem<Q, S>, Q) {
     type TransitionRef = TransitionReference<'a, Q, S>;
 
     type IntoTransitions = Transitions<'a, Q, S>;

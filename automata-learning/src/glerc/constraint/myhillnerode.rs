@@ -1,7 +1,6 @@
 use automata::{
     congruence::CongruenceTrigger, run::Induces, words::WordKind, Class, Dfa, Pair,
-    RightCongruence, Set, StateIndex, Subword, Symbol, TransitionSystem, UltimatelyPeriodicWord,
-    DFA,
+    RightCongruence, Set, State, Subword, Symbol, TransitionSystem, UltimatelyPeriodicWord, DFA,
 };
 
 use crate::sample::Sample;
@@ -12,12 +11,12 @@ use super::Constraint;
 /// detailed explanation of this constraint and its computation can be found in the proof of Lemma 23
 /// (which is in the appendix) of the (paper)[https://arxiv.org/abs/2302.11043].
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct MyhillNerodeConstraint<Q: StateIndex, P: StateIndex, S: Symbol> {
+pub struct MyhillNerodeConstraint<Q: State, P: State, S: Symbol> {
     product: (TransitionSystem<Pair<Q, P>, S>, Pair<Q, P>),
     conflicts: Set<(Q, P)>,
 }
 
-impl<Q: StateIndex, P: StateIndex, S: Symbol> MyhillNerodeConstraint<Q, P, S> {
+impl<Q: State, P: State, S: Symbol> MyhillNerodeConstraint<Q, P, S> {
     /// Creates a new Myhill-Nerode constraint, which ensures that if two words
     /// lead to the same state, they are equivalent under the right congruence.
     pub fn new(sample: &Sample<UltimatelyPeriodicWord<S>>) -> Self {

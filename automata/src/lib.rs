@@ -26,7 +26,7 @@ pub mod ts;
 use itertools::Itertools;
 use output::{IntoAssignments, Mapping};
 pub use ts::{
-    AnonymousGrowable, Growable, IntoStateReferences, Pointed, Predecessor, Shrinkable, StateIndex,
+    AnonymousGrowable, Growable, IntoStateReferences, Pointed, Predecessor, Shrinkable, State,
     Successor, Transition, TransitionIterable, TransitionSystem, Trigger, TriggerIterable,
 };
 use ts::{InputOf, IntoTransitions, TriggerOf};
@@ -108,6 +108,17 @@ pub use hoa::{parse_dba, parse_dpa, parse_hoa};
 pub trait Equivalent<T = Self> {
     /// Returns true if `self` and `other` are equivalent.
     fn equivalent(&self, other: &T) -> bool;
+}
+
+impl<X: Equivalent> Equivalent<X> for &X {
+    fn equivalent(&self, other: &X) -> bool {
+        self.equivalent(other)
+    }
+}
+impl<X: Equivalent> Equivalent<&X> for X {
+    fn equivalent(&self, other: &&X) -> bool {
+        self.equivalent(other)
+    }
 }
 
 /// Pairs of elements of type `L` and `R`.
@@ -214,8 +225,7 @@ mod helpers {
     use crate::{
         output::{IntoAssignments, Mapping, TransformerOutput},
         ts::{HasStates, InputOf, IntoTransitions, StateOf, TriggerOf},
-        Combined, OmegaCondition, OutputOf, StateIndex, Symbol, Transformer, TransitionSystem,
-        Value,
+        Combined, OmegaCondition, OutputOf, State, Symbol, Transformer, TransitionSystem, Value,
     };
 
     /// Trait that is implemented by objects which can be turned into the components that
@@ -224,7 +234,7 @@ mod helpers {
         IntoTransitions + IntoAssignments<Domain = StateOf<Self>>
     {
         /// The typ of state.
-        type State: StateIndex;
+        type State: State;
         /// The input symbol type.
         type Symbol: Symbol;
         /// The output symbol type.
@@ -248,7 +258,7 @@ mod helpers {
         IntoTransitions + IntoAssignments<Domain = (StateOf<Self>, InputOf<Self>)>
     {
         /// The typ of state.
-        type State: StateIndex;
+        type State: State;
         /// The input symbol type.
         type Symbol: Symbol;
         /// The output symbol type.
@@ -303,6 +313,33 @@ pub use helpers::{
 
 #[cfg(test)]
 mod tests {
+    pub fn one_mod_three_times_a_dfa() -> DFA {
+        DFA::from_parts_iters(
+            [
+                (0, 'a', 1),
+                (0, 'b', 0),
+                (1, 'a', 2),
+                (1, 'b', 1),
+                (2, 'a', 0),
+                (2, 'b', 2),
+            ],
+            [1],
+            0,
+        )
+    }
+
+    pub fn inf_aa_dba() -> DBA {
+        DBA::from_iter(
+            [
+                (0, 'a', 1, false),
+                (0, 'b', 0, false),
+                (1, 'b', 0, false),
+                (1, 'a', 0, true),
+            ],
+            0,
+        )
+    }
+
     use crate::{
         upw, word, Acceptor, AnonymousGrowable, Growable, PeriodicWord, TransitionSystem, DBA, DFA,
     };

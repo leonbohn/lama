@@ -3,12 +3,13 @@ use std::borrow::Borrow;
 pub use crate::TransitionOutput;
 use crate::{
     ts::{IntoParts, IntoTransitions},
-    Equivalent, Pair, StateIndex, Successor, Symbol, DFA,
+    Equivalent, Pair, State, Successor, Symbol, DFA,
 };
 
 mod chain;
 
 mod emptiness;
+pub use emptiness::IsEmpty;
 
 mod product;
 pub(crate) use product::product_transitions;
@@ -16,12 +17,12 @@ pub use product::Product;
 
 mod trimming;
 
-impl<Q: StateIndex, S: Symbol> DFA<Q, S> {
+impl<Q: State, S: Symbol> DFA<Q, S> {
     /// Computes the union of two DFAs. This is built upon the [`direct_product`], where the acceptance
     /// condition is computed by taking the disjunction of the two acceptance conditions.
     pub fn union<P, D>(&self, other: &D) -> DFA<Pair<Q, P>, S>
     where
-        P: StateIndex,
+        P: State,
         D: Borrow<DFA<P, S>>,
     {
         self.product(other.borrow())
@@ -33,7 +34,7 @@ impl<Q: StateIndex, S: Symbol> DFA<Q, S> {
     /// the acceptance by taking the conjunction of the two acceptance conditions.
     pub fn intersection<P, D>(&self, other: &D) -> DFA<Pair<Q, P>, S>
     where
-        P: StateIndex,
+        P: State,
         D: Borrow<DFA<P, S>>,
     {
         self.product(other.borrow())
@@ -44,12 +45,6 @@ impl<Q: StateIndex, S: Symbol> DFA<Q, S> {
     /// Builds the negation of the DFA by inverting/negating the acceptance condition.
     pub fn negation(&self) -> DFA<Q, S> {
         self.clone().map_acceptance(|x| !x)
-    }
-}
-
-impl<T: TransitionOutput> Equivalent for T {
-    fn equivalent(&self, _other: &Self) -> bool {
-        todo!()
     }
 }
 

@@ -1,9 +1,9 @@
 use crate::{
     ts::{IntoTransitions, Trimmable, Visitor},
-    Combined, Pointed, Set, StateIndex, Successor, Symbol, TransitionSystem,
+    Combined, Pointed, Set, State, Successor, Symbol, TransitionSystem,
 };
 
-impl<Q: StateIndex, S: Symbol, Acc> Combined<TransitionSystem<Q, S>, Acc> {
+impl<Q: State, S: Symbol, Acc> Combined<TransitionSystem<Q, S>, Acc> {
     /// Trims self, mutably. See [`Trimmable::trim`] for more information on the trim
     /// operation itself.
     pub fn trim_in_place(&mut self) {

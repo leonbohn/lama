@@ -1,5 +1,5 @@
 use crate::{
-    output::IntoAssignments, Growable, Mapping, Pointed, Set, StateIndex, Successor, Transition,
+    output::IntoAssignments, Growable, Mapping, Pointed, Set, State, Successor, Transition,
     TransitionSystem, Trigger,
 };
 

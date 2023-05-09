@@ -1,4 +1,4 @@
 use crate::{
     output::{Assignment, AssignmentReference, IntoAssignments, Mapping},
-    Combined, StateIndex, Symbol, Transformer, TransitionSystem, Value,
+    Combined, State, Symbol, Transformer, TransitionSystem, Value,
 };

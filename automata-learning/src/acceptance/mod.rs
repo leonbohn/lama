@@ -1,4 +1,4 @@
-use automata::{ReachabilityCondition, Set, StateIndex, Word};
+use automata::{ReachabilityCondition, Set, State, Word};
 
 /// Represents an error that can occur when trying to infer an acceptance condition.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -29,7 +29,7 @@ pub trait TryFromInduced {
         W: Word + std::hash::Hash + Eq;
 }
 
-impl<Q: StateIndex> TryFromInduced for ReachabilityCondition<Q> {
+impl<Q: State> TryFromInduced for ReachabilityCondition<Q> {
     type Induced = Q;
     fn from_induced<'w, W: Word + std::hash::Hash + Eq>(
         positive: &[(&'w W, Self::Induced)],

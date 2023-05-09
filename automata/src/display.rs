@@ -12,7 +12,7 @@ use crate::{
     congruence::CongruenceTrigger,
     output::Mapping,
     ts::{HasInput, HasStates, IntoStates, StateOf, StateReference},
-    BuchiCondition, Class, Combined, Map, OmegaCondition, ParityCondition, Pointed, StateIndex,
+    BuchiCondition, Class, Combined, Map, OmegaCondition, ParityCondition, Pointed, State,
     Successor, Symbol, Transformer, TransitionSystem, Value,
 };
 
@@ -235,7 +235,7 @@ where
     }
 }
 
-impl<Q: StateIndex + Display, S: Symbol + Display> Display for TransitionSystem<Q, S> {
+impl<Q: State + Display, S: Symbol + Display> Display for TransitionSystem<Q, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = Builder::default();
         let alphabet = self.input_alphabet().cloned().sorted().collect_vec();
