@@ -9,7 +9,7 @@ use crate::{
     },
     congruence::CongruenceTrigger,
     helpers::MooreMachine,
-    output::{Assignment, IntoAssignments, Mapping},
+    output::{Assignment, IntoAssignments, Mapping, MutableTransformer},
     ts::{
         transitionsystem::{States, Transitions},
         Growable, HasInput, HasStates, InputOf, IntoStates, IntoTransitions, Pointed, Shrinkable,
@@ -113,6 +113,12 @@ impl<TS: Successor, M: Transformer> Transformer for Combined<TS, M> {
 
     fn apply<R: std::borrow::Borrow<Self::Domain>>(&self, input: R) -> Self::Range {
         self.acc.apply(input)
+    }
+}
+
+impl<TS: Successor, M: MutableTransformer> MutableTransformer for Combined<TS, M> {
+    fn set_map<R: Borrow<Self::Domain>>(&mut self, of: R, to: Self::Range) -> Option<Self::Range> {
+        self.acc.set_map(of, to)
     }
 }
 

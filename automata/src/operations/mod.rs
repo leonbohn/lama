@@ -3,19 +3,32 @@ use std::borrow::Borrow;
 pub use crate::TransitionOutput;
 use crate::{
     ts::{IntoParts, IntoTransitions},
-    Equivalent, Pair, State, Successor, Symbol, DFA,
+    Acceptor, Equivalent, Pair, State, Successor, Symbol, DFA,
 };
 
 mod chain;
 
+mod union;
+use union::Union;
+
+mod intersection;
+use intersection::Intersection;
+
 mod emptiness;
 pub use emptiness::IsEmpty;
+
+mod negation;
+use negation::Negation;
 
 mod product;
 pub(crate) use product::product_transitions;
 pub use product::Product;
 
 mod trimming;
+
+pub trait BooleanOperations: Union + Intersection + Negation + Sized {}
+
+impl<T: Union + Intersection + Negation + Sized> BooleanOperations for T {}
 
 impl<Q: State, S: Symbol> DFA<Q, S> {
     /// Computes the union of two DFAs. This is built upon the [`direct_product`], where the acceptance

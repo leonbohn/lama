@@ -236,14 +236,13 @@ where
     fn visit_next(&mut self) -> Option<Self::Place> {
         while let Some((mut path, sym)) = self.queue.pop_front() {
             if let Some(successor) = self.ts.successor(path.reached(), &sym) {
-                if self.seen.contains(&successor) {
-                    continue;
+                if self.seen.insert(successor.clone()) {
+                    let extended = path.extend_with(sym, successor);
+                    for sym in &self.alphabet {
+                        self.queue.push_back((extended.clone(), sym.clone()));
+                    }
+                    return Some(extended);
                 }
-                let extended = path.extend_with(sym, successor);
-                for sym in &self.alphabet {
-                    self.queue.push_back((extended.clone(), sym.clone()));
-                }
-                return Some(extended);
             }
         }
         None

@@ -110,17 +110,6 @@ pub trait Equivalent<T = Self> {
     fn equivalent(&self, other: &T) -> bool;
 }
 
-impl<X: Equivalent> Equivalent<X> for &X {
-    fn equivalent(&self, other: &X) -> bool {
-        self.equivalent(other)
-    }
-}
-impl<X: Equivalent> Equivalent<&X> for X {
-    fn equivalent(&self, other: &&X) -> bool {
-        self.equivalent(other)
-    }
-}
-
 /// Pairs of elements of type `L` and `R`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Pair<L, R> {
@@ -341,7 +330,8 @@ mod tests {
     }
 
     use crate::{
-        upw, word, Acceptor, AnonymousGrowable, Growable, PeriodicWord, TransitionSystem, DBA, DFA,
+        operations::IsEmpty, output::MutableTransformer, upw, word, Acceptor, AnonymousGrowable,
+        Growable, PeriodicWord, TransitionSystem, DBA, DFA,
     };
 
     pub fn simple_ts() -> TransitionSystem {
@@ -384,5 +374,23 @@ mod tests {
         assert!(dba.accepts(&upw!("ab")));
         assert!(dba.accepts(&upw!("babbabab")));
         assert!(!dba.accepts(&upw!("b")));
+    }
+
+    #[test]
+    fn boolean_operations() {
+        let mut dfa = one_mod_three_times_a_dfa();
+        dfa.set_map(1, false);
+        dfa.set_map(2, true);
+        let right = one_mod_three_times_a_dfa();
+
+        let union = dfa.union(&right);
+        let intersection = dfa.intersection(&right);
+        let negation = dfa.negation();
+
+        let should_be_empty = dfa.intersection(&negation);
+        assert!(should_be_empty.is_empty());
+
+        let should_be_empty = (dfa.union(&negation)).negation();
+        assert!(should_be_empty.is_empty());
     }
 }
