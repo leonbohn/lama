@@ -2,13 +2,16 @@ use std::{borrow::Borrow, fmt::Display};
 
 use crate::{
     helpers::MooreMachine, output::IntoAssignments, run::Configuration, Combined, MealyMachine,
-    RightCongruence, Set, Symbol, Word,
+    RightCongruence, Set, Str, Symbol, Word,
 };
 
 mod restricted;
 mod successor;
 mod transition;
 mod visit;
+
+use tracing::trace;
+pub use visit::tarjan_scc;
 
 pub use restricted::Restricted;
 
@@ -27,6 +30,8 @@ pub mod transitionsystem;
 pub use transitionsystem::TransitionSystem;
 
 pub use visit::{Bfs, Path, Visitor, VisitorIter};
+
+use self::transitionsystem::{States, Transitions};
 
 /// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`
 pub trait StateIndex: Clone + PartialEq + Eq + std::hash::Hash + std::fmt::Debug + Ord {}
@@ -144,6 +149,7 @@ where
     }
 }
 
+type SccWitness<TS> = (Str<InputOf<TS>>, Str<InputOf<TS>>);
 /// Converts the given object in to an iterator over states, consumes self.
 pub trait IntoStates: Successor + Copy {
     /// The type of state output by the iterator.
@@ -153,6 +159,148 @@ pub trait IntoStates: Successor + Copy {
 
     /// Converts the transition system into an iterator over its states.
     fn into_states(self) -> Self::IntoStates;
+
+    /// Decomposes the transition system into its strongly connected components.
+    fn sccs(self) -> Vec<Vec<Self::Q>>
+    where
+        Self: Sized,
+    {
+        tarjan_scc(self)
+    }
+
+    /// Returns a vector containing for each SCC C in the transition system, a vector containing all
+    /// transitions originating from a state in C and targeting a state in C.
+    fn scc_transitions(self) -> Vec<Vec<TransitionOf<Self>>>
+    where
+        Self: Sized,
+    {
+        let alphabet = self.input_alphabet();
+        let mut out = vec![];
+        for scc in self.sccs() {
+            let mut transitions_scc = vec![];
+            for state in &scc {
+                for transition in self.transitions_from(state) {
+                    if scc.contains(transition.target()) {
+                        transitions_scc.push(transition);
+                    }
+                }
+            }
+            out.push(transitions_scc);
+        }
+        out
+    }
+
+    /// Returns the strongly connected component containing the given state.
+    fn scc_of(self, state: &Self::Q) -> Vec<Self::Q> {
+        self.sccs()
+            .into_iter()
+            .find(|scc| scc.contains(state))
+            .expect("It must occur in _some_ SCC!")
+    }
+
+    /// Returns the set of transition within the strongly connected component containing `state`.
+    fn scc_transitions_of(self, state: &Self::Q) -> Vec<TransitionOf<Self>> {
+        self.scc_transitions()
+            .into_iter()
+            .find(|scc| scc.iter().any(|t| t.source() == state))
+            .expect("It must occur in _some_ SCC!")
+    }
+
+    /// Checks whether the given collection of states is a strongly connected component.
+    fn is_scc<'a, I>(self, scc: I) -> bool
+    where
+        Self::Q: 'a,
+        I: IntoIterator<Item = &'a Self::Q>,
+        I::IntoIter: Clone,
+        Self: Sized,
+    {
+        let sccs = self.sccs();
+        let it = scc.into_iter();
+        sccs.iter().any(|c| it.clone().all(|q| c.contains(q)))
+    }
+
+    /// Returns a path starting in `source` and reaching `target`, if it exists.
+    fn path_from_to(self, source: &Self::Q, target: &Self::Q) -> Option<Str<InputOf<Self>>>
+    where
+        Self: Sized,
+    {
+        if source == target {
+            return Some(Str::epsilon());
+        }
+        self.paths_from(source).iter().find_map(|path| {
+            if path.reached() == target {
+                Some(path.label().clone())
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Returns a path starting in the initial state and reaching `target`, if it exists.
+    fn path_to(self, target: &Self::Q) -> Option<Str<InputOf<Self>>>
+    where
+        Self: Sized + Pointed,
+    {
+        self.path_from_to(&self.initial(), target)
+    }
+
+    /// Constructs a witness for the given strongly connected component, that is a word which reaches
+    /// the SCC and then returns to itself.
+    fn scc_witness(self, scc: &[Self::Q]) -> Option<SccWitness<Self>>
+    where
+        Self: Sized + Pointed,
+    {
+        let mut it = scc.iter();
+        let first = it.next()?;
+
+        let reach = self.path_to(first)?;
+        let mut witness = Str::epsilon();
+
+        for state in it {
+            witness += self.path_from_to(first, state)?;
+            witness += self.path_from_to(state, first)?;
+        }
+
+        Some((reach, witness))
+    }
+
+    /// Constructs a witness for the given set of transitions, that is a pair (u,v) of finite words such
+    /// that u reaches the source of the first transition and the word v loops back to the source of the
+    /// first transition, while using all transitions in the given set.
+    fn scc_transitions_witness(
+        self,
+        scc_transitions: &[TransitionOf<Self>],
+    ) -> Option<SccWitness<Self>>
+    where
+        Self: Sized + Pointed,
+    {
+        trace!(
+            "Computing witness for SCC transitions: {:?}",
+            scc_transitions
+        );
+        let first = scc_transitions.first()?;
+        trace!("First transition: {:?}", first);
+        let mut current_state = first.source().clone();
+        let reach = self.path_to(&current_state)?;
+        trace!("Found path to first state: {:?}", reach);
+
+        let mut witness = Str::epsilon();
+
+        for transition in scc_transitions {
+            trace!("Next transition: {:?}", transition);
+            if transition.source() != &current_state {
+                witness += self.path_from_to(&current_state, transition.source())?;
+                trace!("Extended witness to {:?}", witness);
+            }
+
+            witness += transition.sym();
+            trace!("Extended witness to {:?}", witness);
+            current_state = transition.target().clone();
+            trace!("Set current state to {:?}", current_state);
+        }
+
+        Some((reach, witness))
+    }
 }
 
 impl<'a, T> IntoStates for &'a T
@@ -299,5 +447,23 @@ impl<TS: Successor> Successor for (TS, TS::Q) {
 impl<TS: Successor> Pointed for (TS, TS::Q) {
     fn initial(&self) -> Self::Q {
         self.1.clone()
+    }
+}
+impl<'a, Q: StateIndex, S: Symbol> IntoStates for &'a (TransitionSystem<Q, S>, Q) {
+    type StateRef = &'a Q;
+
+    type IntoStates = States<'a, Q>;
+
+    fn into_states(self) -> Self::IntoStates {
+        self.0.into_states()
+    }
+}
+impl<'a, Q: StateIndex, S: Symbol> IntoTransitions for &'a (TransitionSystem<Q, S>, Q) {
+    type TransitionRef = TransitionReference<'a, Q, S>;
+
+    type IntoTransitions = Transitions<'a, Q, S>;
+
+    fn into_transitions(self) -> Self::IntoTransitions {
+        self.0.into_transitions()
     }
 }

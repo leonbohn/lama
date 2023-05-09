@@ -1,13 +1,14 @@
 use std::{borrow::Borrow, collections::VecDeque, fmt::Display};
 
 use impl_tools::autoimpl;
+use itertools::Itertools;
 use owo_colors::OwoColorize;
 use tabled::{builder::Builder, settings::Style};
 
 use crate::{
     output::Mapping,
     run::{Configuration, Run},
-    Map, Pointed, Set, Transition, TransitionSystem, Trigger, Word,
+    Map, Pointed, Set, Str, Transition, TransitionSystem, Trigger, Word,
 };
 
 use super::{
@@ -122,11 +123,11 @@ pub trait Successor: HasStates + HasInput {
     }
 
     /// Creates a copy of the current TS which has its initial state set.
-    fn start(&self, start: Self::Q) -> (Self, Self::Q)
+    fn start(self, start: Self::Q) -> (Self, Self::Q)
     where
         Self: Sized + Clone,
     {
-        (self.clone(), start)
+        (self, start)
     }
 
     /// Builds a string representation of the transition table of the transition system.
@@ -255,46 +256,19 @@ pub trait Successor: HasStates + HasInput {
             .any(|state| state == source.borrow())
     }
 
-    /// Decomposes the transition system into its strongly connected components.
-    fn sccs(self) -> Vec<Vec<Self::Q>>
-    where
-        Self: Sized + IntoStates,
-    {
-        tarjan_scc(self)
-    }
-
+    /// Returns an iterator over all transitions originating from the given state.
     fn transitions_from<'a>(
         &'a self,
         origin: &'a StateOf<Self>,
-    ) -> TransitionsForState<'a, Self, Self::Input<'a>>
+    ) -> TransitionsForState<'a, Self, itertools::Unique<Self::Input<'a>>>
     where
         Self: Sized,
     {
         TransitionsForState {
             ts: self,
             state: origin,
-            alphabet_iter: self.input_alphabet(),
+            alphabet_iter: self.input_alphabet().unique(),
         }
-    }
-
-    fn scc_transitions(self) -> Vec<Vec<TransitionOf<Self>>>
-    where
-        Self: Sized + IntoStates,
-    {
-        let alphabet = self.input_alphabet();
-        let mut out = vec![];
-        for scc in self.sccs() {
-            for state in &scc {
-                let mut transitions_scc = vec![];
-                for transition in self.transitions_from(state) {
-                    if scc.contains(transition.target()) {
-                        transitions_scc.push(transition);
-                    }
-                }
-                out.push(transitions_scc);
-            }
-        }
-        out
     }
 }
 
@@ -341,5 +315,43 @@ impl<'a, T: Successor, I: Iterator<Item = &'a T::Sigma>> Iterator
                 None
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use itertools::Itertools;
+    use tracing_test::traced_test;
+
+    use crate::{ts::IntoStates, Successor, Transition, TransitionSystem, Trigger};
+
+    #[test]
+    #[traced_test]
+    fn scc_witnesses() {
+        let ts = TransitionSystem::from_iter([
+            (0u32, 'a', 0),
+            (0, 'b', 1),
+            (1, 'a', 0),
+            (1, 'b', 2),
+            (2, 'b', 2),
+            (2, 'a', 3),
+            (3, 'a', 4),
+            (3, 'b', 4),
+            (4, 'a', 4),
+            (4, 'b', 3),
+        ])
+        .start(0);
+
+        let scc_transitions = ts.scc_transitions();
+        assert_eq!(scc_transitions.len(), 3);
+
+        let scc_for_four = ts.scc_transitions_of(&4);
+        assert_eq!(scc_for_four.len(), 4);
+
+        let witness = ts.scc_transitions_witness(&scc_for_four);
+        assert!(witness.is_some());
+
+        let (base, recur) = witness.unwrap();
+        println!("{}, {}", base, recur);
     }
 }

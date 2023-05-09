@@ -5,7 +5,7 @@ use tracing::trace;
 use crate::{
     acceptance::AcceptanceCondition,
     run::{Configuration, Evaluate},
-    ts::{InputOf, Pointed, Successor, Visitor},
+    ts::{InputOf, IntoStates, Pointed, Successor, Visitor},
     StateIndex, Str, Symbol, Transformer, Transition, Trigger, UltimatelyPeriodicWord, Word, DBA,
     DFA,
 };

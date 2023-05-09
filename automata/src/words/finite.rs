@@ -1,4 +1,8 @@
-use std::{borrow::Borrow, fmt::Display, ops::Add};
+use std::{
+    borrow::Borrow,
+    fmt::Display,
+    ops::{Add, AddAssign},
+};
 
 use itertools::Itertools;
 
@@ -164,6 +168,30 @@ impl<S: Symbol> Add<&S> for &Str<S> {
         let mut v = self.symbols.clone();
         v.push(rhs.clone());
         Str { symbols: v }
+    }
+}
+
+impl<S: Symbol> AddAssign<&Str<S>> for Str<S> {
+    fn add_assign(&mut self, rhs: &Str<S>) {
+        self.symbols.extend(rhs.symbols.iter().cloned())
+    }
+}
+
+impl<S: Symbol> AddAssign<Str<S>> for Str<S> {
+    fn add_assign(&mut self, rhs: Str<S>) {
+        self.symbols.extend(rhs.symbols.into_iter())
+    }
+}
+
+impl<S: Symbol> AddAssign<S> for Str<S> {
+    fn add_assign(&mut self, rhs: S) {
+        self.symbols.push(rhs)
+    }
+}
+
+impl<S: Symbol> AddAssign<&S> for Str<S> {
+    fn add_assign(&mut self, rhs: &S) {
+        self.symbols.push(rhs.clone())
     }
 }
 
