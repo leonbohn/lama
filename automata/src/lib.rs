@@ -330,8 +330,9 @@ mod tests {
     }
 
     use crate::{
-        operations::IsEmpty, output::MutableTransformer, upw, word, Acceptor, AnonymousGrowable,
-        Growable, PeriodicWord, TransitionSystem, DBA, DFA,
+        operations::{Intersection, IsEmpty, Negation, Union},
+        output::MutableTransformer,
+        upw, word, Acceptor, AnonymousGrowable, Growable, PeriodicWord, TransitionSystem, DBA, DFA,
     };
 
     pub fn simple_ts() -> TransitionSystem {
@@ -385,12 +386,12 @@ mod tests {
 
         let union = dfa.union(&right);
         let intersection = dfa.intersection(&right);
-        let negation = dfa.negation();
+        let negation = dfa.complement();
 
         let should_be_empty = dfa.intersection(&negation);
         assert!(should_be_empty.is_empty());
 
-        let should_be_empty = (dfa.union(&negation)).negation();
+        let should_be_empty = (dfa.union(&negation)).complement();
         assert!(should_be_empty.is_empty());
     }
 }

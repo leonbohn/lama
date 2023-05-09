@@ -74,7 +74,7 @@ mod tests {
             hypothesis: &M,
         ) -> Result<(), automata::Class<Self::Input>> {
             for word in ["aa", "bb", "bab", "aba", "abba", "bbab", "", "b", "a"] {
-                let word = Class::from(word);
+                let word = Class::from_display(word);
                 if Some(self.output(&word)) != hypothesis.output(word.iter()) {
                     return Err(word);
                 }
@@ -100,7 +100,7 @@ mod tests {
             for word in [
                 "aa", "bb", "bab", "bbabba", "aba", "abba", "bbab", "", "b", "a",
             ] {
-                let word = Class::from(word);
+                let word = Class::from_display(word);
                 if Some(self.output(&word)) != hypothesis.output(word.iter()) {
                     return Err(word);
                 }
@@ -122,14 +122,14 @@ mod tests {
     #[test]
     fn lstar_even_a_even_b() {
         let mut oracle = EvenAEvenB();
-        assert!(oracle.output(&automata::Class::from("aa")));
+        assert!(oracle.output(&automata::Class::from_display("aa")));
 
         let mut lstar = super::LStar::new(oracle, vec!['a', 'b']);
         println!("{}", lstar.table);
         lstar.table.insert_extensions();
         lstar.fill();
         println!("{}", lstar.table);
-        let x = lstar.table.equivalent_class(&Class::from("aa"));
+        let x = lstar.table.equivalent_class(&Class::from_display("aa"));
         println!("{:?}", x);
         lstar.close();
         println!("{}", lstar.table);

@@ -11,6 +11,9 @@ use automata::Symbol;
 
 use automata::Class;
 
+use self::constraint::Constraint;
+use self::state::GlercState;
+
 /// Represents an intermediate output of the GLERC algorithm.
 #[derive(Eq, Debug, Clone, PartialEq)]
 pub enum GlercSignal<S: Symbol> {
@@ -51,6 +54,19 @@ impl<S: Symbol> Display for GlercOutput<S> {
         writeln!(f, "Learned congruence:")?;
         writeln!(f, "{}", self.learned_congruence)?;
         writeln!(f, "Execution time: {:?}", self.execution_time)
+    }
+}
+
+pub fn glerc<S: Symbol, C: Constraint<S>, I: IntoIterator<Item = S>>(
+    constraint: C,
+    alphabet: I,
+    fallback: RightCongruence<S>,
+) -> RightCongruence<S> {
+    let mut glerc = GlercState::new(fallback, alphabet, constraint);
+    loop {
+        if let GlercSignal::Finished(output) = glerc.step() {
+            return output.learned_congruence;
+        }
     }
 }
 

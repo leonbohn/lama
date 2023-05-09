@@ -9,16 +9,16 @@ use crate::{
 mod chain;
 
 mod union;
-use union::Union;
+pub use union::Union;
 
 mod intersection;
-use intersection::Intersection;
+pub use intersection::Intersection;
 
 mod emptiness;
 pub use emptiness::IsEmpty;
 
 mod negation;
-use negation::Negation;
+pub use negation::Negation;
 
 mod product;
 pub(crate) use product::product_transitions;
@@ -26,46 +26,14 @@ pub use product::Product;
 
 mod trimming;
 
-pub trait BooleanOperations: Union + Intersection + Negation + Sized {}
-
-impl<T: Union + Intersection + Negation + Sized> BooleanOperations for T {}
-
-impl<Q: State, S: Symbol> DFA<Q, S> {
-    /// Computes the union of two DFAs. This is built upon the [`direct_product`], where the acceptance
-    /// condition is computed by taking the disjunction of the two acceptance conditions.
-    pub fn union<P, D>(&self, other: &D) -> DFA<Pair<Q, P>, S>
-    where
-        P: State,
-        D: Borrow<DFA<P, S>>,
-    {
-        self.product(other.borrow())
-            .into_moore()
-            .map_acceptance(|x| x.left || x.right)
-    }
-
-    /// Computes the intersection of two DFAs. We build this through the [`direct_product`] and obtain
-    /// the acceptance by taking the conjunction of the two acceptance conditions.
-    pub fn intersection<P, D>(&self, other: &D) -> DFA<Pair<Q, P>, S>
-    where
-        P: State,
-        D: Borrow<DFA<P, S>>,
-    {
-        self.product(other.borrow())
-            .into_moore()
-            .map_acceptance(|x| x.left && x.right)
-    }
-
-    /// Builds the negation of the DFA by inverting/negating the acceptance condition.
-    pub fn negation(&self) -> DFA<Q, S> {
-        self.clone().map_acceptance(|x| !x)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use tracing_test::traced_test;
 
-    use crate::{Acceptor, DFA};
+    use crate::{
+        operations::{Intersection, Negation, Union},
+        Acceptor, DFA,
+    };
 
     #[test]
     #[traced_test]
@@ -107,7 +75,7 @@ mod tests {
             assert!(!intersection.accepts(&n.into()));
         }
 
-        let negation = left.negation();
+        let negation = left.complement();
         for p in ["a", "aa", "ba"] {
             assert!(negation.accepts(&p.into()));
         }

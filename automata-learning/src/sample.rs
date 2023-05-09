@@ -9,23 +9,33 @@ use automata::{
 use itertools::Itertools;
 use tracing::trace;
 
+use crate::glerc::{constraint::ConflictConstraint, glerc};
+
+pub type OmegaSample<S> = Sample<UltimatelyPeriodicWord<S>>;
+pub type FiniteSample<S> = Sample<Str<S>>;
+
 /// Represents a finite sample, which is a pair of positive and negative instances.
 #[derive(Debug, Clone)]
 #[allow(missing_docs)]
-pub struct Sample<W> {
+pub struct Sample<W: Word> {
+    pub alphabet: BTreeSet<W::S>,
     pub positive: Set<W>,
     pub negative: Set<W>,
 }
 
-impl<W: Eq + Hash> PartialEq for Sample<W> {
+impl<W: Word> PartialEq for Sample<W> {
     fn eq(&self, other: &Self) -> bool {
         self.positive == other.positive && self.negative == other.negative
     }
 }
 
-impl<W: Eq + Hash> Eq for Sample<W> {}
+impl<W: Word> Eq for Sample<W> {}
 
-impl<W: IsInfinite> Sample<W> {
+impl<S: Symbol> OmegaSample<S> {
+    fn alphabet(&self) -> &BTreeSet<S> {
+        &self.alphabet
+    }
+
     /// Returns the maximum length of the base prefix of any word in the sample.
     pub fn max_base_len(&self) -> usize {
         self.iter().map(|w| w.base_length()).max().unwrap_or(0)
@@ -35,12 +45,30 @@ impl<W: IsInfinite> Sample<W> {
     pub fn max_recur_len(&self) -> usize {
         self.iter().map(|w| w.recur_length()).max().unwrap_or(0)
     }
+
+    pub fn underlying_right_congruence(&self) -> RightCongruence<S> {
+        let fallback = Prefixes::new(&self.positive).bfs().iter().collect();
+        glerc(
+            ConflictConstraint::mn_from_omega_sample(self),
+            self.alphabet().clone(),
+            fallback,
+        )
+    }
 }
 
-impl<W: Eq + Hash> Sample<W> {
+impl<W: Subword> Sample<W> {
     /// Creates a new sample from the given data.
     pub fn from_parts(positive: Set<W>, negative: Set<W>) -> Self {
-        Self { positive, negative }
+        let alphabet = positive
+            .iter()
+            .chain(negative.iter())
+            .flat_map(|w| w.alphabet())
+            .collect();
+        Self {
+            positive,
+            negative,
+            alphabet,
+        }
     }
 
     /// Returns the number of elements in the sample.
@@ -59,9 +87,17 @@ impl<W: Eq + Hash> Sample<W> {
         I: IntoIterator<Item = W>,
         J: IntoIterator<Item = W>,
     {
+        let positive: Set<W> = positive.into_iter().collect();
+        let negative: Set<W> = negative.into_iter().collect();
+        let alphabet = positive
+            .iter()
+            .chain(negative.iter())
+            .flat_map(|w| w.alphabet())
+            .collect();
         Self {
-            positive: positive.into_iter().collect(),
-            negative: negative.into_iter().collect(),
+            positive,
+            negative,
+            alphabet,
         }
     }
 
@@ -88,7 +124,6 @@ impl<W: Eq + Hash> Sample<W> {
             .chain(self.negative.iter().map(|w| (false, w)))
     }
 }
-impl<W: Word<Kind = FiniteKind>> Sample<W> {}
 
 /// A helper struct which can be used to construct an acceptor for the prefixes of a
 /// set of ultimately periodic words.

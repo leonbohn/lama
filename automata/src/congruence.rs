@@ -3,12 +3,12 @@ use std::{borrow::Borrow, fmt::Display, ops::Add};
 use crate::{
     ts::{
         transitionsystem::{States, TransitionSystemAlphabetIter, Transitions},
-        HasInput, HasStates, InputOf, IntoStates, IntoTransitions, StateOf, StateReference,
-        TransitionReference, Trivial,
+        HasInput, HasStates, InputOf, IntoParts, IntoStates, IntoTransitions, StateOf,
+        StateReference, TransitionReference, Trivial,
     },
     words::IsFinite,
-    FiniteKind, Growable, Map, Pointed, Shrinkable, Str, Subword, Successor, Symbol,
-    TransitionSystem, TriggerIterable, Word,
+    FiniteKind, Growable, Map, Pointed, Shrinkable, State, Str, Subword, Successor, Symbol,
+    TransitionSystem, TriggerIterable, Word, DFA,
 };
 use itertools::Itertools;
 
@@ -117,7 +117,7 @@ impl<S: Symbol> Subword for Class<S> {
 
 impl Class<char> {
     /// Turns a given displayable thing into a class.
-    pub fn from<D: Display>(d: D) -> Self {
+    pub fn from_display<D: Display>(d: D) -> Self {
         Self(Str::from_display(d))
     }
 }
@@ -255,6 +255,10 @@ impl<S: Symbol> RightCongruence<S> {
         RightCongruence(ts, eps)
     }
 
+    pub fn class_loops_dfa(&self, class: &Class<S>) -> DFA<Class<S>, S> {
+        self.reaching_words_dfa(class.clone(), class.clone())
+    }
+
     /// Iterates over the classes/states of a right congruence in canonical order (i.e. in the order that they were created/inserted).
     pub fn states_canonical(&self) -> impl Iterator<Item = &Class<S>> + '_ {
         self.0.into_states().sorted()
@@ -348,6 +352,20 @@ impl<S: Symbol> TriggerIterable for RightCongruence<S> {
     }
 }
 
+impl<S: Symbol> FromIterator<(Class<S>, S, Class<S>)> for RightCongruence<S> {
+    fn from_iter<T: IntoIterator<Item = (Class<S>, S, Class<S>)>>(iter: T) -> Self {
+        iter.into_iter().collect()
+    }
+}
+
+impl<S: Symbol> FromIterator<(Str<S>, S, Str<S>)> for RightCongruence<S> {
+    fn from_iter<T: IntoIterator<Item = (Str<S>, S, Str<S>)>>(iter: T) -> RightCongruence<S> {
+        iter.into_iter()
+            .map(|(from, on, to)| (Class::from(from), on, Class::from(to)))
+            .collect()
+    }
+}
+
 /// Encapsulates a special type of right congruence relation which is can be used to build
 /// family of right congruences (FORC), which is a special kind of acceptor for omega languages.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -427,7 +445,7 @@ mod tests {
     pub fn easy_cong() -> RightCongruence {
         let mut ts = RightCongruence::trivial();
         let q0 = ts.initial();
-        let q1 = Class::from("b");
+        let q1 = Class::from_display("b");
         assert!(ts.add_state(&q1));
         ts.add_transition(&q0, 'a', &q0);
         ts.add_transition(&q1, 'a', &q1);
@@ -440,6 +458,6 @@ mod tests {
     fn state_ordering_test() {
         let cong = easy_cong();
         let states: Vec<_> = cong.0.states().sorted().collect();
-        assert_eq!(states, vec![&Class::epsilon(), &Class::from("b")])
+        assert_eq!(states, vec![&Class::epsilon(), &Class::from_display("b")])
     }
 }

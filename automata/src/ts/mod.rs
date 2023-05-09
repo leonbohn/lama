@@ -2,7 +2,7 @@ use std::{borrow::Borrow, fmt::Display};
 
 use crate::{
     helpers::MooreMachine, output::IntoAssignments, run::Configuration, Combined, MealyMachine,
-    RightCongruence, Set, Str, Symbol, Word,
+    RightCongruence, Set, Str, Symbol, Word, DFA,
 };
 
 mod restricted;
@@ -323,6 +323,10 @@ where
 /// - and initialized [`TransitionSystem`] which assumes that the object is [`Pointed`] i.e. has a single initial state.
 /// For collecting into Mealy and Moore machines the object must also implement [`IntoTransitions`].
 pub trait IntoParts: IntoTransitions + IntoStates {
+    fn reaching_words_dfa(self, from: Self::Q, to: Self::Q) -> DFA<Self::Q, Self::Sigma> {
+        DFA::from_parts_iters(self.into_transitions(), [to], from)
+    }
+
     /// Collect the produced sequence of transitions into a [`TransitionSystem`].
     fn into_ts(self) -> TransitionSystem<Self::Q, Self::Sigma> {
         let mut ts = TransitionSystem::from_iter(self.into_transitions());

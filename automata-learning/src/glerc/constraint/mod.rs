@@ -314,7 +314,7 @@ mod tests {
     fn reachability_from_induced() {
         let mut ts = RightCongruence::trivial();
         let q0 = ts.initial();
-        let q1 = Class::from("b");
+        let q1 = Class::from_display("b");
         assert!(ts.add_state(&q1));
         ts.add_transition(&q0, 'a', &q0);
         ts.add_transition(&q1, 'a', &q1);
