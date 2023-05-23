@@ -43,9 +43,10 @@ impl<TS: Successor + Pointed + ?Sized, K: Boundedness, R: Induces<TS, K>> Initia
 #[cfg(test)]
 mod tests {
     use crate::{
+        run::Evaluate,
         ts::{transitionsystem::TransitionSystem, Growable},
         words::{PeriodicWord, Str},
-        AnonymousGrowable,
+        AnonymousGrowable, UltimatelyPeriodicWord,
     };
 
     use super::*;
@@ -63,16 +64,20 @@ mod tests {
         ts.add_transition(&q2, 'b', &q0);
 
         let word = PeriodicWord::from(Str::from("b"));
-        todo!()
-        // let run = word.evaluate(&ts, q0);
-        // assert!(run.is_ok());
-        // assert_eq!(run.unwrap(), vec![(q0, 'b')].into_iter().collect());
 
-        // let ab_run = PeriodicWord::from(Str::from("ab")).evaluate(&ts, q0);
-        // assert!(ab_run.is_ok());
-        // assert_eq!(
-        //     ab_run.unwrap(),
-        //     vec![(q0, 'a'), (q1, 'b')].into_iter().collect()
-        // )
+        let run = ts.run_from(q0, &word);
+
+        let result = run.evaluate();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), vec![(q0, 'b', q0)].into_iter().collect());
+
+        let ab_run = ts
+            .run_from(q0, &UltimatelyPeriodicWord::from("ab"))
+            .evaluate();
+        assert!(ab_run.is_ok());
+        assert_eq!(
+            ab_run.unwrap(),
+            vec![(q0, 'a', q1), (q1, 'b', q0)].into_iter().collect()
+        )
     }
 }

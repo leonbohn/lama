@@ -1,15 +1,16 @@
 use std::{cell::RefCell, collections::BTreeSet, hash::Hash};
 
 use automata::{
-    ts::{Bfs, HasInput, HasStates, IntoTransitions, Trivial, Visitor},
+    run::Evaluate,
+    ts::{Bfs, HasInput, HasStates, IntoTransitions, TransitionOf, Trivial, Visitor},
     words::{IsFinite, IsInfinite},
-    Class, FiniteKind, Pointed, RightCongruence, Set, Str, Subword, Successor, Symbol,
-    TransitionSystem, UltimatelyPeriodicWord, Word, DFA,
+    Acceptor, Class, FiniteKind, Pointed, RightCongruence, Set, State, Str, Subword, Successor,
+    Symbol, TransitionSystem, UltimatelyPeriodicWord, Word, DFA,
 };
 use itertools::Itertools;
 use tracing::trace;
 
-use crate::glerc::{constraint::ConflictConstraint, glerc};
+use crate::glerc::{glerc, ConflictConstraint};
 
 pub type OmegaSample<S> = Sample<UltimatelyPeriodicWord<S>>;
 pub type FiniteSample<S> = Sample<Str<S>>;
@@ -30,31 +31,6 @@ impl<W: Word> PartialEq for Sample<W> {
 }
 
 impl<W: Word> Eq for Sample<W> {}
-
-impl<S: Symbol> OmegaSample<S> {
-    fn alphabet(&self) -> &BTreeSet<S> {
-        &self.alphabet
-    }
-
-    /// Returns the maximum length of the base prefix of any word in the sample.
-    pub fn max_base_len(&self) -> usize {
-        self.iter().map(|w| w.base_length()).max().unwrap_or(0)
-    }
-
-    /// Returns the maximum loop length of any word in the sample.
-    pub fn max_recur_len(&self) -> usize {
-        self.iter().map(|w| w.recur_length()).max().unwrap_or(0)
-    }
-
-    pub fn underlying_right_congruence(&self) -> RightCongruence<S> {
-        let fallback = Prefixes::new(&self.positive).bfs().iter().collect();
-        glerc(
-            ConflictConstraint::mn_from_omega_sample(self),
-            self.alphabet().clone(),
-            fallback,
-        )
-    }
-}
 
 impl<W: Subword> Sample<W> {
     /// Creates a new sample from the given data.
@@ -305,7 +281,42 @@ fn build_prefix_dfa_infinite<S: Symbol>(
     DFA::from_parts(ts, Class::epsilon(), accepting)
 }
 
-impl<S: Symbol> Sample<UltimatelyPeriodicWord<S>> {
+type FiniteSampleInduced<'a, S> = (Vec<(&'a Str<S>, Class<S>)>, Vec<(&'a Str<S>, Class<S>)>);
+type OmegaSampleInduced<'a, S> = (
+    Vec<(
+        &'a UltimatelyPeriodicWord<S>,
+        Set<TransitionOf<RightCongruence<S>>>,
+    )>,
+    Vec<(
+        &'a UltimatelyPeriodicWord<S>,
+        Set<TransitionOf<RightCongruence<S>>>,
+    )>,
+);
+
+impl<S: Symbol> OmegaSample<S> {
+    fn alphabet(&self) -> &BTreeSet<S> {
+        &self.alphabet
+    }
+
+    /// Returns the maximum length of the base prefix of any word in the sample.
+    pub fn max_base_len(&self) -> usize {
+        self.iter().map(|w| w.base_length()).max().unwrap_or(0)
+    }
+
+    /// Returns the maximum loop length of any word in the sample.
+    pub fn max_recur_len(&self) -> usize {
+        self.iter().map(|w| w.recur_length()).max().unwrap_or(0)
+    }
+
+    pub fn underlying_right_congruence(&self) -> RightCongruence<S> {
+        let fallback = Prefixes::new(&self.positive).bfs().iter().collect();
+        glerc(
+            ConflictConstraint::mn_from_omega_sample(self),
+            self.alphabet().clone(),
+            fallback,
+        )
+    }
+
     /// Builds a [`DFA`] that accepts all finite words which are a prefix of some positive
     /// sample word.
     pub fn positive_prefixes(&self) -> DFA<Class<S>, S> {
@@ -316,9 +327,27 @@ impl<S: Symbol> Sample<UltimatelyPeriodicWord<S>> {
     pub fn negative_prefixes(&self) -> DFA<Class<S>, S> {
         build_prefix_dfa_infinite(&self.negative)
     }
+
+    /// Computes what the positive sample words induce in `cong`.
+    pub fn induced(&self, cong: &RightCongruence<S>) -> OmegaSampleInduced<'_, S> {
+        (
+            self.positive_iter()
+                .filter_map(|word| {
+                    let ind = cong.run(word).evaluate().ok()?;
+                    Some((word, ind))
+                })
+                .collect(),
+            self.negative_iter()
+                .filter_map(|word| {
+                    let ind = cong.run(word).evaluate().ok()?;
+                    Some((word, ind))
+                })
+                .collect(),
+        )
+    }
 }
 
-impl<S: Symbol> Sample<Str<S>> {
+impl<S: Symbol> FiniteSample<S> {
     /// Builds a [`DFA`] that accepts all finite words which are a prefix of some positive
     /// sample word.
     pub fn positive_prefixes(&self) -> DFA<Class<S>, S> {
@@ -328,6 +357,30 @@ impl<S: Symbol> Sample<Str<S>> {
     /// Does the same as [`positive_prefixes`], but for negative sample words.
     pub fn negative_prefixes(&self) -> DFA<Class<S>, S> {
         build_prefix_dfa_finite(&self.negative)
+    }
+
+    /// Computes what is induced by the finite sample, that is the function runs
+    /// each positive word and collects what it induces in `cong`.
+    pub fn induced(&self, cong: &RightCongruence<S>) -> FiniteSampleInduced<'_, S> {
+        (
+            self.positive_iter()
+                .filter_map(|pos| cong.run(pos).evaluate().ok().map(|ind| (pos, ind)))
+                .collect(),
+            self.negative_iter()
+                .filter_map(|neg| cong.run(neg).evaluate().ok().map(|ind| (neg, ind)))
+                .collect(),
+        )
+    }
+
+    /// Returns a default structure for `self`. In this case, that is a prefix tree
+    /// which naturally separates all positive words from each negative word.
+    pub fn default_structure(&self) -> RightCongruence<S> {
+        build_prefix_dfa_finite(&self.positive).into_congruence()
+    }
+
+    pub fn consistent_with<A: Acceptor<Word = Str<S>>>(&self, dfa: &A) -> bool {
+        self.positive_iter().all(|pos| dfa.accepts(pos))
+            && self.negative_iter().all(|neg| !dfa.accepts(neg))
     }
 }
 

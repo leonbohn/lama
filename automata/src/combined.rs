@@ -76,6 +76,13 @@ impl<TS: Successor, Acc> Combined<TS, Acc> {
     }
 }
 
+impl<S: Symbol, Acc> Combined<TransitionSystem<Class<S>, S>, Acc> {
+    /// Turns the object into a right congruence.
+    pub fn into_congruence(self) -> RightCongruence<S> {
+        RightCongruence::from_parts(self.ts, self.initial)
+    }
+}
+
 impl<'a, TS: Successor + IntoTransitions, Acc> IntoTransitions for &'a Combined<TS, Acc> {
     type TransitionRef = TS::TransitionRef;
 

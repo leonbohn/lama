@@ -9,7 +9,7 @@ use automata::{
 };
 use tracing::trace;
 
-use crate::sample::Sample;
+use crate::passive::Sample;
 use automata::{Class, RightCongruence};
 
 use super::{constraint::Constraint, GlercOutput, GlercSignal};
@@ -50,11 +50,36 @@ where
     S: Symbol,
     C: Constraint<S>,
 {
+    /// Creates a new state for the given sample and default congruence
+    pub fn new<I: IntoIterator<Item = S>>(
+        default: RightCongruence<S>,
+        alphabet: I,
+        constraint: C,
+    ) -> Self {
+        let cong = RightCongruence::empty_trivial();
+        let alphabet = alphabet.into_iter().collect::<BTreeSet<_>>();
+        let queue = alphabet
+            .iter()
+            .map(|a| (Class::epsilon(), a.clone()))
+            .collect();
+
+        Self {
+            timer: Err(std::time::Instant::now()),
+            cong,
+            default,
+            queue,
+            alphabet,
+            iteration: 0,
+            status: GlercIterationStatus::FindMissing,
+            constraint,
+        }
+    }
+
     fn get_status(&self) -> GlercIterationStatus<S> {
         self.status.clone()
     }
 
-    pub fn step(&mut self) -> GlercSignal<S> {
+    pub fn step(&mut self) -> GlercSignal<S, C::Output> {
         trace!("Starting iteration {}", self.iteration);
         let (new_status, result) = match &self.get_status() {
             GlercIterationStatus::TryInsertion(from, on, states, index) => {
@@ -142,6 +167,9 @@ where
                         GlercSignal::Finished(super::GlercOutput::new(
                             &self.cong,
                             self.timer.unwrap(),
+                            self.constraint
+                                .satisfied(&self.cong)
+                                .expect("This must not fail, since we already checked it before."),
                         )),
                     )
                 }
@@ -150,38 +178,19 @@ where
                 trace!("Finished!");
                 (
                     GlercIterationStatus::Finished,
-                    GlercSignal::Finished(GlercOutput::new(&self.cong, self.timer.unwrap())),
+                    GlercSignal::Finished(GlercOutput::new(
+                        &self.cong,
+                        self.timer.unwrap(),
+                        self.constraint
+                            .satisfied(&self.cong)
+                            .expect("This must not fail, since we already checked it before."),
+                    )),
                 )
             }
         };
 
         self.status = new_status;
         result
-    }
-
-    /// Creates a new state for the given sample and default congruence
-    pub fn new<I: IntoIterator<Item = S>>(
-        default: RightCongruence<S>,
-        alphabet: I,
-        constraint: C,
-    ) -> Self {
-        let cong = RightCongruence::empty_trivial();
-        let alphabet = alphabet.into_iter().collect::<BTreeSet<_>>();
-        let queue = alphabet
-            .iter()
-            .map(|a| (Class::epsilon(), a.clone()))
-            .collect();
-
-        Self {
-            timer: Err(std::time::Instant::now()),
-            cong,
-            default,
-            queue,
-            alphabet,
-            iteration: 0,
-            status: GlercIterationStatus::FindMissing,
-            constraint,
-        }
     }
 
     fn extend_queue(&mut self, state: &Class<S>) {
@@ -200,7 +209,7 @@ where
     }
 
     /// Runs the algorithm to completion, executing [`step`] until it returns [`GlercSignal::Finished`].
-    pub fn execute(&mut self) -> GlercOutput<S> {
+    pub fn execute(&mut self) -> GlercOutput<S, C::Output> {
         let mut iteration = 0;
         loop {
             iteration += 1;

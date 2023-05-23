@@ -70,13 +70,14 @@ impl<'a, Q: State, S: Symbol> Iterator for TransitionSystemAlphabetIter<'a, Q, S
 impl<Q: State, S: Symbol> HasInput for TransitionSystem<Q, S> {
     type Sigma = S;
 
-    type Input<'me> = TransitionSystemAlphabetIter<'me, Q, S>
+    type Input<'me> = itertools::Unique<TransitionSystemAlphabetIter<'me, Q, S>>
     where Self:'me;
 
     fn input_alphabet(&self) -> Self::Input<'_> {
         TransitionSystemAlphabetIter {
             iter: self.edges.iter(),
         }
+        .unique()
     }
 }
 

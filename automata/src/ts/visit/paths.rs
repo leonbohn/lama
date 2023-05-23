@@ -236,13 +236,13 @@ where
     fn visit_next(&mut self) -> Option<Self::Place> {
         while let Some((mut path, sym)) = self.queue.pop_front() {
             if let Some(successor) = self.ts.successor(path.reached(), &sym) {
-                if self.seen.insert(successor.clone()) {
-                    let extended = path.extend_with(sym, successor);
+                let extended = path.extend_with(sym, successor.clone());
+                if self.seen.insert(successor) {
                     for sym in &self.alphabet {
                         self.queue.push_back((extended.clone(), sym.clone()));
                     }
-                    return Some(extended);
                 }
+                return Some(extended);
             }
         }
         None
@@ -290,7 +290,6 @@ mod tests {
         assert_eq!(it.next().unwrap(), Path::new([0, 1, 2], ['a', 'a']),);
         assert_eq!(it.next().unwrap(), Path::new([0, 2, 1], ['b', 'a']),);
         assert_eq!(it.next().unwrap(), Path::new([0, 2, 2], ['b', 'b']),);
-        assert_eq!(it.next().unwrap(), Path::new([0, 1, 2, 1], ['a', 'a', 'a']),);
-        assert_eq!(it.next().unwrap(), Path::new([0, 1, 2, 2], ['a', 'a', 'b']),);
+        assert_eq!(it.next(), None);
     }
 }

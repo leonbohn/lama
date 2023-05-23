@@ -119,8 +119,7 @@ mod tests {
         ts.add_transition(&q2, 'b', &q0);
 
         let w = Str::from("abba");
-        todo!()
-        // assert_eq!(ts.run_word_from(&w, q0).evaluate(), Ok(q1));
+        assert_eq!(ts.run_from(q0, &w).evaluate(), Ok(q1));
     }
 
     #[test]
@@ -146,8 +145,7 @@ mod tests {
         }
 
         ts.add_transition(&q2, 'a', &q0);
-        todo!()
-        // assert_eq!(ts.run_word_from(&w, q0).evaluate(), Ok(q0));
+        assert_eq!(ts.run_from(q0, &w).evaluate(), Ok(q0))
     }
 
     #[test]
@@ -162,7 +160,6 @@ mod tests {
         ts.add_transition(&q1, 'b', &q0);
         ts.add_transition(&q2, 'b', &q0);
 
-        todo!()
-        // assert_eq!(ts.run_word_from("abba", q0).evaluate(), Ok(q1));
+        assert_eq!(ts.run_from(q0, "abba").evaluate(), Ok(q1));
     }
 }

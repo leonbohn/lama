@@ -263,6 +263,14 @@ impl<S: Symbol> RightCongruence<S> {
     pub fn states_canonical(&self) -> impl Iterator<Item = &Class<S>> + '_ {
         self.0.into_states().sorted()
     }
+
+    pub fn extract_ts(self) -> TransitionSystem<Class<S>, S> {
+        self.0
+    }
+
+    pub fn from_parts(ts: TransitionSystem<Class<S>, S>, initial: Class<S>) -> Self {
+        Self(ts, initial)
+    }
 }
 
 impl<S: Symbol> HasInput for RightCongruence<S> {
@@ -271,7 +279,7 @@ impl<S: Symbol> HasInput for RightCongruence<S> {
     type Input<'me> = itertools::Unique<TransitionSystemAlphabetIter<'me, StateOf<Self>, S>> where Self:'me;
 
     fn input_alphabet(&self) -> Self::Input<'_> {
-        self.0.input_alphabet().unique()
+        self.0.input_alphabet()
     }
 }
 
@@ -354,7 +362,7 @@ impl<S: Symbol> TriggerIterable for RightCongruence<S> {
 
 impl<S: Symbol> FromIterator<(Class<S>, S, Class<S>)> for RightCongruence<S> {
     fn from_iter<T: IntoIterator<Item = (Class<S>, S, Class<S>)>>(iter: T) -> Self {
-        iter.into_iter().collect()
+        Self(TransitionSystem::from_iter(iter), Class::epsilon())
     }
 }
 

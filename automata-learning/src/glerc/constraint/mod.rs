@@ -1,4 +1,6 @@
 mod acceptance;
+pub use acceptance::*;
+
 mod myhillnerode;
 mod separability;
 
@@ -14,7 +16,7 @@ use automata::{
 use itertools::Itertools;
 use tracing::trace;
 
-use crate::{acceptance::AcceptanceError, sample::Sample};
+use crate::{acceptance::AcceptanceError, passive::Sample};
 
 pub use myhillnerode::MyhillNerodeConstraint;
 
@@ -48,11 +50,6 @@ pub struct EmptyConstraint;
 #[derive(Debug, Clone, PartialEq)]
 pub struct RandomConstraint(pub f64, pub usize);
 
-/// A constraint that checks whether the sample words are all separated, meaning that
-/// positive and negative words never end up in the same state.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RpniConstraint<'a, W: IsFinite>(pub &'a Sample<W>);
-
 /// Constraint for verifying that the escaping words/escape prefixes for positive and
 /// negative words can be separated from each other. In other words this is violated
 /// if a positive and a negative word escape from the same state with the same suffix.
@@ -65,20 +62,10 @@ pub struct EscapeSeparabilityConstraint<'a, W: Word>(&'a Sample<W>);
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InducedSeparabilityConstraint;
 
-/// Constraint, which ensures that the transition system can be endowed with a Büchi acceptance
-/// condition.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BuchiConstraint;
-
-/// Constraint, which ensures that the transition system can be endowed with a parity acceptance
-/// condition.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ParityConstraint;
-
 /// Constraint modeled by a pair of congruences A, B (note, that these are effectively deterministic transition
 /// systems) and a set of conflicting pairs C ⊆ A × B. The constraint is then satisfied by a congruence T, if
 /// there exists no pair (a, b) ∈ C such that (x, a) and (x, b) are reachable in T x A and T x B, respectively.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ConflictConstraint<S: Symbol> {
     left: RightCongruence<S>,
     right: RightCongruence<S>,
@@ -292,11 +279,11 @@ mod tests {
     use tracing_test::traced_test;
 
     use crate::{
-        glerc::{constraint::RpniConstraint, state::GlercState, GlercSignal},
-        sample::Sample,
+        glerc::{state::GlercState, GlercSignal},
+        passive::{rpni, Sample},
     };
 
-    use super::{BuchiConstraint, ConflictConstraint, RandomConstraint};
+    use super::{ConflictConstraint, RandomConstraint};
 
     #[test]
     fn random_ts() {
@@ -323,32 +310,15 @@ mod tests {
     }
 
     #[test]
+    #[traced_test]
     fn dfa_learning() {
         let sample = Sample::from_iters(
             [word!("a"), word!("ab")],
             [word!(""), word!("b"), word!("aa")],
         );
-        todo!()
-        // let mut glerc = GlercState::new(
-        //     RightCongruence::trivial(),
-        //     ['a', 'b'],
-        //     RpniConstraint(&sample),
-        // );
-        // assert!(matches!(glerc.step(), GlercSignal::MissingTransition(..)));
-        // assert!(matches!(glerc.step(), GlercSignal::FailedInsertion(..)));
-        // assert!(matches!(glerc.step(), GlercSignal::NewState(..)));
-        // assert!(matches!(glerc.step(), GlercSignal::MissingTransition(..)));
-        // assert!(matches!(glerc.step(), GlercSignal::SuccessfulInsertion(..)));
-        // assert!(matches!(glerc.step(), GlercSignal::MissingTransition(..)));
-        // assert!(matches!(glerc.step(), GlercSignal::SuccessfulInsertion(..)));
-        // assert!(matches!(glerc.step(), GlercSignal::MissingTransition(..)));
-        // assert!(matches!(glerc.step(), GlercSignal::FailedInsertion(..)));
-        // assert!(matches!(glerc.step(), GlercSignal::SuccessfulInsertion(..)));
-
-        // match glerc.step() {
-        //     GlercSignal::Finished(result) => println!("{}", result),
-        //     _ => unreachable!("Execution should be finished by now!"),
-        // }
+        let dfa = rpni(&sample);
+        println!("{}", dfa);
+        assert!(sample.consistent_with(&dfa))
     }
 
     #[test]
@@ -427,7 +397,7 @@ mod tests {
         );
         let constraint = ConflictConstraint::from_finite_sample(&sample);
         println!(
-            "{}\n{}\n{}",
+            "Left constraint\n{}\nRight constraint\n{}\nConflicts: {}",
             constraint.left,
             constraint.right,
             constraint
@@ -458,7 +428,7 @@ mod tests {
         let res = glerc.step();
         println!("{:?}", res);
         let res = glerc.execute();
-        println!("{}", res);
+        println!("{}", res.learned_congruence);
     }
 
     #[test]

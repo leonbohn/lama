@@ -3,7 +3,7 @@ use automata::{
     RightCongruence, Set, State, Subword, Symbol, TransitionSystem, UltimatelyPeriodicWord, DFA,
 };
 
-use crate::sample::Sample;
+use crate::passive::Sample;
 
 use super::Constraint;
 

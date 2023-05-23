@@ -6,7 +6,7 @@ use tracing::trace;
 use crate::{
     ts::{HasStates, InputOf, Path, StateOf, TransitionOf},
     words::IsInfinite,
-    Set, State, Str, Subword, Successor, Symbol, UltimatelyPeriodicWord, Value, Word,
+    PeriodicWord, Set, State, Str, Subword, Successor, Symbol, UltimatelyPeriodicWord, Value, Word,
 };
 
 use super::{RunOutput, Walk};
@@ -161,6 +161,18 @@ impl<TS: Successor> Evaluate for Run<TS, &Str<InputOf<TS>>> {
     }
 }
 
+impl<TS: Successor<Sigma = char>> Evaluate for Run<TS, &str> {
+    type TS = TS;
+
+    type Induces = StateOf<TS>;
+
+    fn evaluate(&self) -> Result<Self::Induces, (Vec<TransitionOf<Self::TS>>, StateOf<Self::TS>)> {
+        self.ts
+            .run_from(self.origin.clone(), &Str::from(self.input))
+            .evaluate()
+    }
+}
+
 impl<TS: Successor> Evaluate for Run<TS, &UltimatelyPeriodicWord<InputOf<TS>>> {
     type TS = TS;
     type Induces = Set<TransitionOf<TS>>;
@@ -197,5 +209,20 @@ impl<TS: Successor> Evaluate for Run<TS, &UltimatelyPeriodicWord<InputOf<TS>>> {
                 }
             }
         }
+    }
+}
+
+impl<TS: Successor> Evaluate for Run<TS, &PeriodicWord<InputOf<TS>>> {
+    type TS = TS;
+
+    type Induces = Set<TransitionOf<Self::TS>>;
+
+    fn evaluate(&self) -> Result<Self::Induces, (Vec<TransitionOf<Self::TS>>, StateOf<Self::TS>)> {
+        self.ts()
+            .run_from(
+                self.origin.clone(),
+                &UltimatelyPeriodicWord::from(self.input.clone()),
+            )
+            .evaluate()
     }
 }

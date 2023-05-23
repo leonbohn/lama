@@ -202,6 +202,11 @@ where
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = Builder::default();
         let alphabet = self.ts().input_alphabet().cloned().sorted().collect_vec();
+        debug_assert!(
+            alphabet.len() == self.ts().input_alphabet().unique().count(),
+            "Alphabet contains duplicates"
+        );
+
         builder.set_header(
             vec!["δ".bright_yellow().to_string()].into_iter().chain(
                 alphabet
@@ -239,6 +244,11 @@ impl<Q: State + Display, S: Symbol + Display> Display for TransitionSystem<Q, S>
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut builder = Builder::default();
         let alphabet = self.input_alphabet().cloned().sorted().collect_vec();
+        debug_assert!(
+            alphabet.len() == self.input_alphabet().unique().count(),
+            "Alphabet contains duplicates"
+        );
+
         builder.set_header(
             vec!["δ".bright_yellow().to_string()].into_iter().chain(
                 alphabet

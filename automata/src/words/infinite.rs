@@ -1,10 +1,10 @@
 use itertools::Itertools;
 
-use super::{IsInfinite, Str, SymbolIterable, Word, WordTransitions};
+use super::{IsFinite, IsInfinite, Str, SymbolIterable, Word, WordTransitions};
 use crate::{
     congruence::CongruenceTransition,
     ts::{transitionsystem::States, HasInput, HasStates, IntoStates, IntoTransitions},
-    Class, InfiniteKind, Subword, Successor, Symbol,
+    Class, InfiniteKind, RightCongruence, Subword, Successor, Symbol, TransitionSystem,
 };
 
 pub trait InfiniteWord {
@@ -106,6 +106,15 @@ impl<S> From<(Str<S>, Str<S>)> for UltimatelyPeriodicWord<S> {
     }
 }
 
+impl<S, I> From<I> for UltimatelyPeriodicWord<S>
+where
+    I: Into<Str<S>>,
+{
+    fn from(value: I) -> Self {
+        Self(Str::epsilon(), value.into().into())
+    }
+}
+
 impl<'a, S: Symbol> SymbolIterable for &'a UltimatelyPeriodicWord<S> {
     type SymbolIter =
         std::iter::Chain<std::vec::IntoIter<S>, std::iter::Cycle<std::vec::IntoIter<S>>>;
@@ -143,50 +152,17 @@ impl<S: Symbol> UltimatelyPeriodicWord<S> {
             .zip(prefix.symbol_iter())
             .all(|(x, y)| x == y)
     }
-}
 
-impl<S: Symbol> Successor for UltimatelyPeriodicWord<S> {
-    fn successor<X: std::borrow::Borrow<Self::Q>, Y: std::borrow::Borrow<Self::Sigma>>(
-        &self,
-        from: X,
-        on: Y,
-    ) -> Option<Self::Q> {
-        todo!()
-    }
-}
-impl<S: Symbol> HasStates for UltimatelyPeriodicWord<S> {
-    type Q = Class<S>;
-
-    fn contains_state<X: std::borrow::Borrow<Self::Q>>(&self, state: X) -> bool {
-        self.has_prefix(&state.borrow().iter().collect())
-    }
-}
-impl<S: Symbol> HasInput for UltimatelyPeriodicWord<S> {
-    type Sigma = S;
-
-    type Input<'me> = itertools::Unique<std::iter::Chain<std::slice::Iter<'me, S>,std::slice::Iter<'me, S>>> where Self:'me;
-
-    fn input_alphabet(&self) -> Self::Input<'_> {
-        todo!()
-    }
-}
-
-impl<'a, S: Symbol> IntoStates for &'a UltimatelyPeriodicWord<S> {
-    type StateRef = &'a Class<S>;
-
-    type IntoStates = States<'a, Class<S>>;
-
-    fn into_states(self) -> Self::IntoStates {
-        todo!()
-    }
-}
-
-impl<'a, S: Symbol> IntoTransitions for &'a UltimatelyPeriodicWord<S> {
-    type TransitionRef = CongruenceTransition<S>;
-
-    type IntoTransitions = WordTransitions<Self>;
-
-    fn into_transitions(self) -> Self::IntoTransitions {
-        WordTransitions::new(self)
+    pub fn into_ts(&self) -> RightCongruence<S> {
+        let mut transitions = vec![];
+        for i in (0..(self.base_length() + self.recur_length())) {
+            transitions.push((self.prefix(i), self.nth(i).unwrap(), self.prefix(i + 1)))
+        }
+        transitions.push((
+            self.prefix(self.base_length() + self.recur_length()),
+            self.nth(self.base_length() + self.recur_length()).unwrap(),
+            self.prefix(self.base_length() + 1),
+        ));
+        transitions.into_iter().collect()
     }
 }
