@@ -11,7 +11,10 @@ use automata::{
 use itertools::Itertools;
 use tracing::trace;
 
-use crate::{acceptance::AcceptanceError, passive::FiniteSample};
+use crate::{
+    acceptance::AcceptanceError,
+    passive::{FiniteSample, OmegaSample},
+};
 
 use super::{
     ConflictConstraint, Constraint, EscapeSeparabilityConstraint, InducedSeparabilityConstraint,
@@ -20,7 +23,7 @@ use super::{
 /// Constraint, which ensures that the transition system can be endowed with a Büchi acceptance
 /// condition.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BuchiConstraint;
+pub struct BuchiConstraint<'a, S: Symbol>(pub &'a OmegaSample<S>);
 
 /// Constraint, which ensures that the transition system can be endowed with a parity acceptance
 /// condition.
@@ -33,6 +36,7 @@ pub struct ParityConstraint;
 pub struct ReachabilityConstraint<S: Symbol>(pub ConflictConstraint<S>, pub FiniteSample<S>);
 
 impl<S: Symbol> ReachabilityConstraint<S> {
+    /// Creates a new constraint from the given sample.
     pub fn new<B: Borrow<FiniteSample<S>>>(sample: B) -> Self {
         let sample = sample.borrow();
         Self(
@@ -81,5 +85,15 @@ impl<S: Symbol> Constraint<S> for ReachabilityConstraint<S> {
                         .map(|(_, reached)| (reached, false)),
                 ),
         ))
+    }
+}
+
+impl<'a, S: Symbol> Constraint<S> for BuchiConstraint<'a, S> {
+    type Output = Mapping<CongruenceTrigger<S>, bool>;
+
+    type Error = String;
+
+    fn satisfied(&self, cong: &RightCongruence<S>) -> Result<Self::Output, Self::Error> {
+        todo!()
     }
 }

@@ -27,8 +27,6 @@ pub trait Subword: Word {
     fn split_at(&self, position: usize) -> (Self::PrefixType, Self::SuffixType) {
         (self.prefix(position), self.skip(position))
     }
-
-    fn alphabet(&self) -> Set<Self::S>;
 }
 
 impl<S: Symbol> Subword for Str<S> {
@@ -42,10 +40,6 @@ impl<S: Symbol> Subword for Str<S> {
 
     fn skip(&self, number: usize) -> Self {
         self.symbols.iter().skip(number).cloned().collect()
-    }
-
-    fn alphabet(&self) -> Set<Self::S> {
-        self.symbol_iter().collect()
     }
 }
 
@@ -61,10 +55,6 @@ impl<S: Symbol> Subword for PeriodicWord<S> {
         let mut symbols = self.0.symbols.clone();
         symbols.rotate_left(number % self.0.symbols.len());
         Self(symbols.into())
-    }
-
-    fn alphabet(&self) -> Set<Self::S> {
-        self.0.symbol_iter().collect()
     }
 }
 
@@ -91,14 +81,6 @@ impl<S: Symbol> Subword for UltimatelyPeriodicWord<S> {
             Self(Str::epsilon(), self.1.skip(number - prefix_length))
         }
     }
-
-    fn alphabet(&self) -> Set<Self::S> {
-        self.0
-            .alphabet()
-            .union(&self.1.alphabet())
-            .cloned()
-            .collect()
-    }
 }
 
 impl<Sub: Subword> Subword for &Sub {
@@ -113,10 +95,6 @@ impl<Sub: Subword> Subword for &Sub {
     fn skip(&self, number: usize) -> Self::SuffixType {
         Subword::skip(*self, number)
     }
-
-    fn alphabet(&self) -> Set<Self::S> {
-        (*self).alphabet()
-    }
 }
 
 impl Subword for String {
@@ -130,10 +108,6 @@ impl Subword for String {
     fn skip(&self, number: usize) -> Self {
         self.chars().skip(number).collect()
     }
-
-    fn alphabet(&self) -> Set<Self::S> {
-        self.chars().collect()
-    }
 }
 
 impl Subword for &str {
@@ -146,10 +120,6 @@ impl Subword for &str {
 
     fn skip(&self, number: usize) -> Self::SuffixType {
         self.chars().skip(number).collect()
-    }
-
-    fn alphabet(&self) -> Set<Self::S> {
-        self.chars().collect()
     }
 }
 
@@ -170,10 +140,6 @@ impl<S: Symbol> Subword for Vec<S> {
         } else {
             Vec::from(self.get(number..).unwrap())
         }
-    }
-
-    fn alphabet(&self) -> Set<Self::S> {
-        self.iter().cloned().collect()
     }
 }
 

@@ -31,6 +31,8 @@ pub trait Word: Debug + Eq + std::hash::Hash {
 
     /// Returns the symbol at the given index, or `None` if the index is out of bounds.
     fn nth(&self, index: usize) -> Option<Self::S>;
+
+    fn alphabet(&self) -> Set<Self::S>;
 }
 
 /// Alias to extract the kind of the word.
@@ -77,6 +79,10 @@ impl Word for String {
     fn nth(&self, index: usize) -> Option<Self::S> {
         self.chars().nth(index)
     }
+
+    fn alphabet(&self) -> Set<Self::S> {
+        self.chars().collect()
+    }
 }
 
 impl IsFinite for String {
@@ -91,6 +97,10 @@ impl Word for &str {
 
     fn nth(&self, index: usize) -> Option<Self::S> {
         self.chars().nth(index)
+    }
+
+    fn alphabet(&self) -> Set<Self::S> {
+        self.chars().collect()
     }
 }
 
@@ -112,6 +122,10 @@ impl<S: Symbol> Word for Vec<S> {
 
     fn nth(&self, index: usize) -> Option<Self::S> {
         self.get(index).cloned()
+    }
+
+    fn alphabet(&self) -> Set<Self::S> {
+        self.iter().cloned().collect()
     }
 }
 

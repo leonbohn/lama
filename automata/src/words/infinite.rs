@@ -4,7 +4,7 @@ use super::{IsFinite, IsInfinite, Str, SymbolIterable, Word, WordTransitions};
 use crate::{
     congruence::CongruenceTransition,
     ts::{transitionsystem::States, HasInput, HasStates, IntoStates, IntoTransitions},
-    Class, InfiniteKind, RightCongruence, Subword, Successor, Symbol, TransitionSystem,
+    Class, InfiniteKind, RightCongruence, Set, Subword, Successor, Symbol, TransitionSystem,
 };
 
 pub trait InfiniteWord {
@@ -31,6 +31,10 @@ impl<S: Symbol> Word for PeriodicWord<S> {
 
     fn nth(&self, index: usize) -> Option<Self::S> {
         self.0.nth(index % self.0.symbols.len())
+    }
+
+    fn alphabet(&self) -> Set<Self::S> {
+        self.0.symbol_iter().collect()
     }
 }
 
@@ -85,6 +89,14 @@ impl<S: Symbol> Word for UltimatelyPeriodicWord<S> {
         } else {
             self.1.nth(index - prefix_length)
         }
+    }
+
+    fn alphabet(&self) -> Set<Self::S> {
+        self.0
+            .alphabet()
+            .union(&self.1.alphabet())
+            .cloned()
+            .collect()
     }
 }
 

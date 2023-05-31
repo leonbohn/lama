@@ -89,6 +89,10 @@ impl<S: Symbol> Word for Class<S> {
     fn nth(&self, index: usize) -> Option<Self::S> {
         self.0.symbols.get(index).cloned()
     }
+
+    fn alphabet(&self) -> crate::Set<Self::S> {
+        self.0.alphabet()
+    }
 }
 
 impl<S: Symbol> IsFinite for Class<S> {
@@ -108,10 +112,6 @@ impl<S: Symbol> Subword for Class<S> {
 
     fn skip(&self, number: usize) -> Self::SuffixType {
         Class(self.0.skip(number))
-    }
-
-    fn alphabet(&self) -> crate::Set<Self::S> {
-        self.0.alphabet()
     }
 }
 

@@ -104,11 +104,12 @@ impl<S: Symbol> Runnable for UltimatelyPeriodicWord<S> {
     }
 }
 
+pub type EvaluateErr<TS> = (Vec<TransitionOf<TS>>, StateOf<TS>, InputOf<TS>);
 pub trait Evaluate {
     type TS: Successor;
     type Induces: Clone + Eq;
 
-    fn evaluate(&self) -> Result<Self::Induces, (Vec<TransitionOf<Self::TS>>, StateOf<Self::TS>)>;
+    fn evaluate(&self) -> Result<Self::Induces, EvaluateErr<Self::TS>>;
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -143,7 +144,7 @@ impl<TS: Successor> Evaluate for Run<TS, &Str<InputOf<TS>>> {
     type TS = TS;
     type Induces = StateOf<TS>;
 
-    fn evaluate(&self) -> Result<StateOf<TS>, (Vec<TransitionOf<TS>>, StateOf<TS>)> {
+    fn evaluate(&self) -> Result<StateOf<TS>, EvaluateErr<TS>> {
         trace!("In call to evaluate");
         let mut trace = Vec::new();
         for run_output in self.ts.walk(self.origin.clone(), &self.input) {
@@ -153,7 +154,7 @@ impl<TS: Successor> Evaluate for Run<TS, &Str<InputOf<TS>>> {
                     trace.push((q, a, p.clone()));
                 }
                 RunOutput::WordEnd(q) => return Ok(q),
-                RunOutput::Missing(q, a) => return Err((trace, q)),
+                RunOutput::Missing(q, a) => return Err((trace, q, a)),
                 RunOutput::FailedBefore => unreachable!(),
             }
         }
@@ -166,7 +167,7 @@ impl<TS: Successor<Sigma = char>> Evaluate for Run<TS, &str> {
 
     type Induces = StateOf<TS>;
 
-    fn evaluate(&self) -> Result<Self::Induces, (Vec<TransitionOf<Self::TS>>, StateOf<Self::TS>)> {
+    fn evaluate(&self) -> Result<Self::Induces, EvaluateErr<TS>> {
         self.ts
             .run_from(self.origin.clone(), &Str::from(self.input))
             .evaluate()
@@ -177,9 +178,7 @@ impl<TS: Successor> Evaluate for Run<TS, &UltimatelyPeriodicWord<InputOf<TS>>> {
     type TS = TS;
     type Induces = Set<TransitionOf<TS>>;
 
-    fn evaluate(
-        &self,
-    ) -> Result<Set<TransitionOf<TS>>, (Vec<TransitionOf<Self::TS>>, StateOf<Self::TS>)> {
+    fn evaluate(&self) -> Result<Set<TransitionOf<TS>>, EvaluateErr<TS>> {
         let input = self.input.borrow();
         let prefix_length = input.base_length();
         let recur_length = input.recur_length();
@@ -203,7 +202,7 @@ impl<TS: Successor> Evaluate for Run<TS, &UltimatelyPeriodicWord<InputOf<TS>>> {
                         Err(RunOutput::Transition(..)) => {
                             unreachable!("We failed to take a full piece!")
                         }
-                        Err(RunOutput::Missing(q, a)) => return Err((walker.seq, q)),
+                        Err(RunOutput::Missing(q, a)) => return Err((walker.seq, q, a)),
                         Err(RunOutput::FailedBefore) => unreachable!("We would have noticed!"),
                     }
                 }
@@ -217,7 +216,7 @@ impl<TS: Successor> Evaluate for Run<TS, &PeriodicWord<InputOf<TS>>> {
 
     type Induces = Set<TransitionOf<Self::TS>>;
 
-    fn evaluate(&self) -> Result<Self::Induces, (Vec<TransitionOf<Self::TS>>, StateOf<Self::TS>)> {
+    fn evaluate(&self) -> Result<Self::Induces, EvaluateErr<TS>> {
         self.ts()
             .run_from(
                 self.origin.clone(),

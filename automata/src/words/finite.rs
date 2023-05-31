@@ -10,7 +10,7 @@ use super::{IsFinite, SymbolIterable, Word, WordTransitions};
 use crate::{
     congruence::CongruenceTransition,
     ts::{transitionsystem::States, HasInput, HasStates, IntoStates, IntoTransitions},
-    Class, FiniteKind, Successor, Symbol,
+    Class, FiniteKind, Set, Successor, Symbol,
 };
 
 pub trait FiniteWord {
@@ -208,6 +208,10 @@ impl<S: Symbol> Word for Str<S> {
     type S = S;
     fn nth(&self, index: usize) -> Option<Self::S> {
         self.symbols.get(index).cloned()
+    }
+
+    fn alphabet(&self) -> Set<Self::S> {
+        self.symbol_iter().collect()
     }
 }
 

@@ -32,9 +32,12 @@ impl<W: Word> PartialEq for Sample<W> {
 
 impl<W: Word> Eq for Sample<W> {}
 
-impl<W: Subword> Sample<W> {
+impl<W: Word> Sample<W> {
     /// Creates a new sample from the given data.
-    pub fn from_parts(positive: Set<W>, negative: Set<W>) -> Self {
+    pub fn from_parts(positive: Set<W>, negative: Set<W>) -> Self
+    where
+        W: Subword,
+    {
         let alphabet = positive
             .iter()
             .chain(negative.iter())

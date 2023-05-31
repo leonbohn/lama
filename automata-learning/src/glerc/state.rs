@@ -79,6 +79,7 @@ where
         self.status.clone()
     }
 
+    /// Executes a single step of the GLERC algorithm, producing a [`GlercSignal`].
     pub fn step(&mut self) -> GlercSignal<S, C::Output> {
         trace!("Starting iteration {}", self.iteration);
         let (new_status, result) = match &self.get_status() {
@@ -145,7 +146,7 @@ where
                 }
             }
             GlercIterationStatus::FindMissing => {
-                trace!("Findining missing transition target");
+                trace!("Finding missing transition target");
                 if let Some((q, a)) = self.next_missing() {
                     (
                         GlercIterationStatus::TryInsertion(
@@ -204,6 +205,7 @@ where
         self.queue.pop_front()
     }
 
+    /// Obtains the output of the constraint, if it is satisfied.
     pub fn constraint_output(&self) -> Option<C::Output> {
         self.constraint.satisfied(&self.cong).ok()
     }

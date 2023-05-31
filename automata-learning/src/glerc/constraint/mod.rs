@@ -41,15 +41,6 @@ pub trait Constraint<S: Symbol> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EmptyConstraint;
 
-/// A constraint that can be used for the generation of random transition systems.
-/// The given number is the number of states that the generated transition system should have,
-/// it must be greater than 0.
-/// The second given number presents a limit on the number of states that the generated
-/// transition system may have. If the number of states of the generated transition system
-/// exceeds this limit, then the constraint is immediately satisfied.
-#[derive(Debug, Clone, PartialEq)]
-pub struct RandomConstraint(pub f64, pub usize);
-
 /// Constraint for verifying that the escaping words/escape prefixes for positive and
 /// negative words can be separated from each other. In other words this is violated
 /// if a positive and a negative word escape from the same state with the same suffix.
@@ -60,7 +51,11 @@ pub struct EscapeSeparabilityConstraint<'a, W: Word>(&'a Sample<W>);
 /// In other words this is violated if the positive and negative words induce the same
 /// object in the current congruence.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct InducedSeparabilityConstraint;
+pub struct InducedSeparabilityConstraint<'a, W: Word>(&'a Sample<W>);
+
+/// [`Constraint`], which is used for the computation of the progress right congruence of a FORC.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IterationConstraint;
 
 /// Constraint modeled by a pair of congruences A, B (note, that these are effectively deterministic transition
 /// systems) and a set of conflicting pairs C ⊆ A × B. The constraint is then satisfied by a congruence T, if
@@ -188,25 +183,6 @@ impl<S: Symbol> ConflictConstraint<S> {
     }
 }
 
-/// [`Constraint`], which is used for the computation of the progress right congruence of a FORC.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct IterationConstraint;
-
-impl<S: Symbol> Constraint<S> for RandomConstraint {
-    type Output = ();
-
-    type Error = f64;
-
-    fn satisfied(&self, cong: &RightCongruence<S>) -> Result<Self::Output, Self::Error> {
-        let roll = alea::f64_in_range(0.0, 1.0);
-        if self.0 >= roll {
-            Ok(())
-        } else {
-            Err(roll)
-        }
-    }
-}
-
 impl<S: Symbol> Constraint<S> for EmptyConstraint {
     type Output = ();
 
@@ -280,22 +256,10 @@ mod tests {
 
     use crate::{
         glerc::{state::GlercState, GlercSignal},
-        passive::{rpni, Sample},
+        passive::{dfa_rpni, Sample},
     };
 
-    use super::{ConflictConstraint, RandomConstraint};
-
-    #[test]
-    fn random_ts() {
-        let sample = Sample::from_iters(["a", "ab"], ["", "b", "aa"]);
-        let mut glerc: GlercState<char, RandomConstraint> = GlercState::new(
-            RightCongruence::trivial(),
-            ['a', 'b'],
-            RandomConstraint(0.2, 10),
-        );
-        let ts: RightCongruence<_> = glerc.into();
-        println!("{}", ts);
-    }
+    use super::{BuchiConstraint, ConflictConstraint};
 
     #[test]
     fn reachability_from_induced() {
@@ -316,7 +280,7 @@ mod tests {
             [word!("a"), word!("ab")],
             [word!(""), word!("b"), word!("aa")],
         );
-        let dfa = rpni(&sample);
+        let dfa = dfa_rpni(&sample);
         println!("{}", dfa);
         assert!(sample.consistent_with(&dfa))
     }
@@ -444,9 +408,12 @@ mod tests {
             ],
             [upw!("a"), upw!("ba"), upw!("bba")],
         );
-        todo!()
 
-        // let glerc = GlercState::new(RightCongruence::trivial(), ['a', 'b'], BuchiConstraint);
+        let glerc = GlercState::new(
+            RightCongruence::trivial(),
+            ['a', 'b'],
+            BuchiConstraint(&sample),
+        );
         // let aut: automata::CongruenceDba = glerc.into();
         // println!("{}", aut);
     }
