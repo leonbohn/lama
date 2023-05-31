@@ -48,7 +48,7 @@ pub use acceptance::{
     ReachabilityCondition,
 };
 
-pub use run::Run;
+pub use run::{Run, Runnable};
 use std::{fmt::Display, hash::Hash};
 
 mod combined;

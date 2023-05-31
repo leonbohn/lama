@@ -5,8 +5,8 @@ use automata::{
     output::Mapping,
     run::{Evaluate, Induces},
     words::{IsFinite, WordKind},
-    BuchiCondition, Class, RightCongruence, Run, Set, Str, Subword, Successor, Symbol,
-    TriggerIterable, Word,
+    BuchiCondition, Class, HasAlphabet, Map, RightCongruence, Run, Set, Str, Subword, Successor,
+    Symbol, TriggerIterable, Word,
 };
 use itertools::Itertools;
 use tracing::trace;
@@ -94,6 +94,32 @@ impl<'a, S: Symbol> Constraint<S> for BuchiConstraint<'a, S> {
     type Error = String;
 
     fn satisfied(&self, cong: &RightCongruence<S>) -> Result<Self::Output, Self::Error> {
-        todo!()
+        let escape_separability = EscapeSeparabilityConstraint(self.0);
+        escape_separability.satisfied(cong).map_err(|e| {
+            format!(
+                "Escape separability constraint not satisfied because of words {} and {}",
+                e.0, e.1
+            )
+        })?;
+
+        let (positive, negative) = InducedSeparabilityConstraint(self.0).satisfied(cong).map_err(|err| format!("Induced separability constraint not satisfied, words {} and {} both induce {}!", err.0, err.1, err.2.iter().map(|(c, a, d)| format!("({}, {}, {})", c, a, d)).join(",")))?;
+
+        let neg_union = negative.iter().fold(Set::new(), |mut acc, set| {
+            acc.extend(set.into_iter().map(|(c, a, _)| (c, a)));
+            acc
+        });
+
+        let alphabet = cong.alphabet();
+        let mut mapping = Map::new();
+        for state in cong.states_canonical() {
+            for sym in &alphabet {
+                if neg_union.contains(&(state, sym)) {
+                    mapping.insert((state.clone(), sym.clone()), false);
+                } else {
+                    mapping.insert((state.clone(), sym.clone()), true);
+                }
+            }
+        }
+        Ok(mapping.into())
     }
 }

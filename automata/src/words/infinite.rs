@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use itertools::Itertools;
 
 use super::{IsFinite, IsInfinite, Str, SymbolIterable, Word, WordTransitions};
@@ -14,6 +16,12 @@ pub trait InfiniteWord {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// A `PeriodicWord` essentially just loops a [`FiniteWord`] over and over again.
 pub struct PeriodicWord<S>(pub(crate) Str<S>);
+
+impl<S: Symbol> Display for PeriodicWord<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({})", self.0)
+    }
+}
 
 impl<S: Symbol> IsInfinite for PeriodicWord<S> {
     fn base_length(&self) -> usize {
@@ -67,6 +75,12 @@ impl<'a, S: Symbol> SymbolIterable for &'a PeriodicWord<S> {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// In an `UltimatelyPeriodicWord`, the first part is a finite prefix, after which a periodic part follows. The prefix can be empty.
 pub struct UltimatelyPeriodicWord<S>(pub(crate) Str<S>, pub(crate) PeriodicWord<S>);
+
+impl<S: Symbol> Display for UltimatelyPeriodicWord<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}({})", self.0, self.1)
+    }
+}
 
 impl<S: Symbol> IsInfinite for UltimatelyPeriodicWord<S> {
     fn base_length(&self) -> usize {

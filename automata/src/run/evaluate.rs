@@ -6,7 +6,8 @@ use tracing::trace;
 use crate::{
     ts::{HasStates, InputOf, Path, StateOf, TransitionOf},
     words::IsInfinite,
-    PeriodicWord, Set, State, Str, Subword, Successor, Symbol, UltimatelyPeriodicWord, Value, Word,
+    PeriodicWord, Pointed, Set, State, Str, Subword, Successor, Symbol, UltimatelyPeriodicWord,
+    Value, Word,
 };
 
 use super::{RunOutput, Walk};
@@ -14,23 +15,58 @@ use super::{RunOutput, Walk};
 pub trait Runnable: Subword {
     type Induces<Q: State>: Eq + Clone + Debug;
 
-    fn runnable_from<TS>(
+    fn run_in_from<TS>(
         &self,
         ts: TS,
         from: StateOf<TS>,
-    ) -> Result<Self::Induces<StateOf<TS>>, (Path<StateOf<TS>, Self::S>, Self::SuffixType)>
+    ) -> Result<
+        Self::Induces<StateOf<TS>>,
+        (
+            Path<StateOf<TS>, Self::S>,
+            StateOf<TS>,
+            InputOf<TS>,
+            Self::SuffixType,
+        ),
+    >
     where
         TS: Successor<Sigma = Self::S>;
+
+    fn run_in<TS>(
+        &self,
+        ts: TS,
+    ) -> Result<
+        Self::Induces<StateOf<TS>>,
+        (
+            Path<StateOf<TS>, Self::S>,
+            StateOf<TS>,
+            InputOf<TS>,
+            Self::SuffixType,
+        ),
+    >
+    where
+        TS: Successor<Sigma = Self::S> + Pointed,
+    {
+        let initial = ts.initial();
+        self.run_in_from(ts, initial)
+    }
 }
 
 impl<S: Symbol> Runnable for Str<S> {
     type Induces<Q: State> = Q;
 
-    fn runnable_from<TS>(
+    fn run_in_from<TS>(
         &self,
         ts: TS,
         from: StateOf<TS>,
-    ) -> Result<Self::Induces<StateOf<TS>>, (Path<StateOf<TS>, Self::S>, Self::SuffixType)>
+    ) -> Result<
+        Self::Induces<StateOf<TS>>,
+        (
+            Path<StateOf<TS>, Self::S>,
+            StateOf<TS>,
+            InputOf<TS>,
+            Self::SuffixType,
+        ),
+    >
     where
         TS: Successor<Sigma = S>,
     {
@@ -43,9 +79,9 @@ impl<S: Symbol> Runnable for Str<S> {
                     trace += (q, a, p.clone());
                 }
                 RunOutput::WordEnd(q) => return Ok(q),
-                RunOutput::Missing(..) => {
+                RunOutput::Missing(q, a) => {
                     let suffix = self.skip(trace.len());
-                    return Err((trace, suffix));
+                    return Err((trace, q, a, suffix));
                 }
                 RunOutput::FailedBefore => unreachable!(),
             }
@@ -55,13 +91,21 @@ impl<S: Symbol> Runnable for Str<S> {
 }
 
 impl<S: Symbol> Runnable for UltimatelyPeriodicWord<S> {
-    type Induces<Q: State> = Set<Q>;
+    type Induces<Q: State> = Set<(Q, S, Q)>;
 
-    fn runnable_from<TS>(
+    fn run_in_from<TS>(
         &self,
         ts: TS,
         from: StateOf<TS>,
-    ) -> Result<Self::Induces<StateOf<TS>>, (Path<StateOf<TS>, Self::S>, Self::SuffixType)>
+    ) -> Result<
+        Self::Induces<StateOf<TS>>,
+        (
+            Path<StateOf<TS>, Self::S>,
+            StateOf<TS>,
+            InputOf<TS>,
+            Self::SuffixType,
+        ),
+    >
     where
         TS: Successor<Sigma = S>,
     {
@@ -70,10 +114,10 @@ impl<S: Symbol> Runnable for UltimatelyPeriodicWord<S> {
         let prefix_length = input.base_length();
         let recur_length = input.recur_length();
         let prefix = input.prefix(prefix_length);
-        match prefix.runnable_from(&ts, from) {
-            Err((path, suffix)) => {
+        match prefix.run_in_from(&ts, from) {
+            Err((path, q, a, suffix)) => {
                 let suffix = self.skip(path.len());
-                Err((path, suffix))
+                Err((path, q, a, suffix))
             }
             Ok(reached) => {
                 let recur = input.skip(prefix_length);
@@ -85,7 +129,7 @@ impl<S: Symbol> Runnable for UltimatelyPeriodicWord<S> {
                         Ok(recur_reached) => {
                             if !seen.insert(recur_reached) {
                                 // We have seen this piece before, so we can stop here.
-                                return Ok(walker.seq.into_iter().map(|(_, _, q)| q).collect());
+                                return Ok(walker.seq.into_iter().collect());
                             }
                         }
                         Err(RunOutput::WordEnd(_)) => unreachable!("We are in an infinite run!"),
@@ -94,7 +138,7 @@ impl<S: Symbol> Runnable for UltimatelyPeriodicWord<S> {
                         }
                         Err(RunOutput::Missing(q, a)) => {
                             let suffix = recur.skip(walker.position());
-                            return Err((walker.seq.into(), suffix));
+                            return Err((walker.seq.into(), q, a, suffix));
                         }
                         Err(RunOutput::FailedBefore) => unreachable!("We would have noticed!"),
                     }

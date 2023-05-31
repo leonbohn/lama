@@ -29,6 +29,12 @@ impl<X: Value, Y: Value> Default for Mapping<X, Y> {
     }
 }
 
+impl<X: Value, Y: Value> From<Map<X, Y>> for Mapping<X, Y> {
+    fn from(map: Map<X, Y>) -> Self {
+        Self { map }
+    }
+}
+
 impl<X, Y> Mapping<X, Y>
 where
     X: Value,

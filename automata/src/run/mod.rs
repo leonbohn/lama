@@ -1,8 +1,7 @@
-mod walker;
-
 mod configuration;
 mod evaluate;
-pub use evaluate::{Evaluate, Run};
+mod walker;
+pub use evaluate::{Evaluate, Run, Runnable};
 mod escape_prefix;
 pub use escape_prefix::EscapePrefix;
 mod output;
