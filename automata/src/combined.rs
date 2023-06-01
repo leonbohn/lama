@@ -1,4 +1,4 @@
-use std::borrow::Borrow;
+use std::{borrow::Borrow, collections::BTreeSet};
 
 use hoars::HoaSymbol;
 use itertools::Itertools;
@@ -15,8 +15,8 @@ use crate::{
         Growable, HasInput, HasStates, InputOf, IntoStates, IntoTransitions, Pointed, Shrinkable,
         Successor, TransitionReference, TransitionSystem,
     },
-    AnonymousGrowable, Class, HasAlphabet, MealyMachine, OmegaAutomaton, RightCongruence, Set,
-    State, Symbol, Transformer, Transition, Value, DBA, DFA,
+    AnonymousGrowable, Class, HasAlphabet, MealyMachine, OmegaAutomaton, Pair, RightCongruence,
+    Set, State, Symbol, Transformer, Transition, Value, DBA, DFA,
 };
 
 /// Struct that represents the 'usual' automata, which is a combination of a transition system, a designated initial state and an acceptance condition.
@@ -258,6 +258,29 @@ impl<Q: State, S: Symbol> DFA<Q, S> {
             .map(|x| (x.clone(), accepting.contains(x)))
             .collect();
         Self { ts, initial, acc }
+    }
+
+    /// Builds a universal DFA for the given `alphabet`, that means it is just a single state
+    /// which loops on every symbol.
+    pub fn universal(alphabet: BTreeSet<S>) -> DFA<bool, S> {
+        DFA::from_parts_iters(
+            alphabet.into_iter().map(|sym| (true, sym, true)),
+            [true],
+            true,
+        )
+    }
+
+    /// Constructs a DFA that accepts every nonempty word over `alphabet`. It has two states,
+    /// all transitions from the initial state go to the only other state, which loops on every
+    /// symbol and is the only accepting state.
+    pub fn almost_universal(alphabet: BTreeSet<S>) -> DFA<bool, S> {
+        DFA::from_parts_iters(
+            alphabet
+                .into_iter()
+                .flat_map(|sym| [(false, sym.clone(), true), (true, sym, true)]),
+            [true],
+            false,
+        )
     }
 
     /// Creates a [`DFA`] from an iterator of transitions and a given initial state.

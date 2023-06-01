@@ -191,7 +191,7 @@ R::Item: StateReference,
                 },
             };
             // trace!("\tEmitting: <{:?},{:?}> -{:?}-> <{:?},{:?}>", left_element.source(), right_element.source(), left_element.sym(), left_element.target(), right_element.target());
-            Some(Pair::new(left_element.state().clone(), right_element.state().clone()) )
+            Some(Pair::new(left_element.state(), right_element.state()) )
         } else {
             // trace!("left_element is None");
             None

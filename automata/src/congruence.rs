@@ -255,15 +255,12 @@ impl<S: Symbol> RightCongruence<S> {
         RightCongruence(ts, eps)
     }
 
-    pub fn class_loops_dfa(&self, class: &Class<S>) -> DFA<Class<S>, S> {
-        self.reaching_words_dfa(class.clone(), class.clone())
-    }
-
     /// Iterates over the classes/states of a right congruence in canonical order (i.e. in the order that they were created/inserted).
     pub fn states_canonical(&self) -> impl Iterator<Item = &Class<S>> + '_ {
         self.0.into_states().sorted()
     }
 
+    /// Obtains the transition system underlying this right congruence.
     pub fn extract_ts(self) -> TransitionSystem<Class<S>, S> {
         self.0
     }

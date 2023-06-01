@@ -16,7 +16,10 @@ use automata::{
 use itertools::Itertools;
 use tracing::trace;
 
-use crate::{acceptance::AcceptanceError, passive::Sample};
+use crate::{
+    acceptance::AcceptanceError,
+    passive::{FiniteSample, OmegaSample, Sample},
+};
 
 pub use myhillnerode::MyhillNerodeConstraint;
 
@@ -73,7 +76,7 @@ impl<S: Symbol> ConflictConstraint<S> {
     /// builds the product of P and N restricted to final states. A pair of states (p, n) is now added to the conflict
     /// relation C, if the state (p, n) in P x N can reach a cycle in the product. This is the Myhill-Nerode constraint
     /// for omega-languages.
-    pub fn mn_from_omega_sample(sample: &Sample<UltimatelyPeriodicWord<S>>) -> Self {
+    pub fn mn_from_omega_sample(sample: &OmegaSample<S>) -> Self {
         trace!("Constructing conflict constraint from omega sample");
         let time = std::time::Instant::now();
         let left = sample.positive_prefixes();
@@ -130,7 +133,7 @@ impl<S: Symbol> ConflictConstraint<S> {
     /// Construct a [`ConflictConstraint`] from a sample of finite words. The procedure is similar to [`ConflictConstraint::mn_from_omega_sample`], but
     /// it differs in the way that pairs (p, n) are chosen for the conflict relation. Here, a pair (p, n) is added to the conflict relation, if the
     /// it is reachable in the product P x N.
-    pub fn from_finite_sample(sample: &Sample<Str<S>>) -> Self {
+    pub fn from_finite_sample(sample: &FiniteSample<S>) -> Self {
         trace!("Constructing conflict constraint from omega sample");
         let time = std::time::Instant::now();
 
@@ -180,6 +183,14 @@ impl<S: Symbol> ConflictConstraint<S> {
             right: right.into(),
             conflicts,
         }
+    }
+
+    fn iteration_constraint(
+        sample: &OmegaSample<S>,
+        leading: &RightCongruence<S>,
+        class: Class<S>,
+    ) -> Self {
+        todo!()
     }
 }
 

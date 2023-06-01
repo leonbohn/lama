@@ -326,8 +326,17 @@ where
 /// - and initialized [`TransitionSystem`] which assumes that the object is [`Pointed`] i.e. has a single initial state.
 /// For collecting into Mealy and Moore machines the object must also implement [`IntoTransitions`].
 pub trait IntoParts: IntoTransitions + IntoStates {
-    fn reaching_words_dfa(self, from: Self::Q, to: Self::Q) -> DFA<Self::Q, Self::Sigma> {
+    /// Builds a [`DFA`] that has the same transition structure as `self`, with `from` set as the initial
+    /// state and `to` set as target state. This can be used to check whether `to` is reachable from `from`.
+    /// If called for a [`RightCongruence`], this instead can be used to obtain the words that lead from
+    /// one class into another.
+    fn reaching_words(self, from: Self::Q, to: Self::Q) -> DFA<Self::Q, Self::Sigma> {
         DFA::from_parts_iters(self.into_transitions(), [to], from)
+    }
+
+    /// Builds a [`DFA`] that accepts all words which loop on `center`, including the empty word.
+    fn looping_words(self, center: Self::Q) -> DFA<Self::Q, Self::Sigma> {
+        self.reaching_words(center.clone(), center)
     }
 
     /// Collect the produced sequence of transitions into a [`TransitionSystem`].
