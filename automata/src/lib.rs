@@ -31,7 +31,9 @@ pub use ts::{
 };
 use ts::{InputOf, IntoTransitions, TriggerOf};
 
-mod display;
+mod convert;
+#[cfg(feature = "hoa")]
+pub use convert::{parse_dba, parse_dpa, parse_hoa};
 
 /// Module in which traits for working with words are defined, see [`crate::Word`] for more details.
 pub mod words;
@@ -99,11 +101,6 @@ pub type Map<X, Y> = std::collections::HashMap<X, Y>;
 pub type Set<X> = ahash::AHashSet<X>;
 #[cfg(not(feature = "ahash"))]
 pub type Set<X> = std::collections::AHashSet<X>;
-
-#[cfg(feature = "hoa")]
-mod hoa;
-#[cfg(feature = "hoa")]
-pub use hoa::{parse_dba, parse_dpa, parse_hoa};
 
 /// Abstracts things that are equivalent, meaning they represent the same thing. Useful for comparing represtantions of words.
 pub trait Equivalent<T = Self> {

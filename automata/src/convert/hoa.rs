@@ -364,7 +364,7 @@ pub fn parse_hoa(hoa: &str) -> Result<OmegaAutomaton<u32, HoaSymbol>, FromHoaErr
 #[cfg(test)]
 mod tests {
     use super::ToHoa;
-    use crate::{combined::HoaDpa, parse_dba, BuchiCondition, Combined};
+    use crate::{combined::HoaDpa, convert::parse_dba, BuchiCondition, Combined};
     use hoars::HoaAutomaton;
 
     #[test]

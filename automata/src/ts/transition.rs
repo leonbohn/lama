@@ -48,6 +48,10 @@ pub trait Trigger: Clone + Eq + Hash {
 pub trait Transition: Trigger {
     /// The target state of the transition.
     fn target(&self) -> &Self::Q;
+
+    fn to_trigger(&self) -> (Self::Q, Self::S) {
+        (self.source().clone(), self.sym().clone())
+    }
 }
 
 impl<Q: State, S: Symbol, O: Value> Trigger for (Q, S, Q, O) {

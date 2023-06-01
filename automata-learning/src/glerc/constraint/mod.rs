@@ -251,7 +251,9 @@ impl<S: Symbol + Display> Constraint<S> for ConflictConstraint<S> {
 #[cfg(test)]
 mod tests {
 
-    use automata::{ts::Trivial, upw, word, Class, Growable, Pointed, RightCongruence, Str};
+    use automata::{
+        ts::Trivial, upw, word, Class, Growable, Pointed, RightCongruence, Str, Transformer,
+    };
     use tracing_test::traced_test;
 
     use crate::{
@@ -414,8 +416,7 @@ mod tests {
     }
 
     #[test]
-    #[traced_test]
-    fn dpa_learning() {
+    fn dpa_learning_simple() {
         let sample = Sample::from_iters(
             [
                 upw!("b"),
@@ -430,5 +431,26 @@ mod tests {
 
         let aut = dpa_rpni(&sample);
         println!("{}", aut);
+    }
+
+    #[test]
+    fn dpa_learning_layered() {
+        let sample = Sample::from_iters(
+            [
+                upw!("abc"),
+                upw!("bca"),
+                upw!("cba"),
+                upw!("ac"),
+                upw!("ab"),
+                upw!("c"),
+            ],
+            [upw!("bc"), upw!("b")],
+        );
+
+        let aut = dpa_rpni(&sample);
+        assert!(aut.size() == 1);
+        assert_eq!(aut.apply((Class::epsilon(), 'a')), 0);
+        assert_eq!(aut.apply((Class::epsilon(), 'b')), 1);
+        assert_eq!(aut.apply((Class::epsilon(), 'c')), 2);
     }
 }

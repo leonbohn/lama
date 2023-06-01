@@ -261,11 +261,11 @@ fn compute_zielonka_path<S: Symbol>(
         trace!("Union equal to universe, {}", displayed_union);
         None
     } else {
-        let tail = compute_zielonka_path(union.clone(), right, left, !start)?;
+        let tail = compute_zielonka_path(union, right, left, !start)?;
         debug_assert!(!tail.is_empty());
         debug_assert!(tail.first().unwrap().1 != start);
 
-        let mut out = vec![(union, start)];
+        let mut out = vec![(universe, start)];
         out.extend(tail);
 
         Some(out)
