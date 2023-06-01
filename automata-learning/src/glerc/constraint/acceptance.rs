@@ -94,20 +94,41 @@ impl<'a, S: Symbol> Constraint<S> for BuchiConstraint<'a, S> {
     type Error = String;
 
     fn satisfied(&self, cong: &RightCongruence<S>) -> Result<Self::Output, Self::Error> {
-        let escape_separability = EscapeSeparabilityConstraint(self.0);
-        escape_separability.satisfied(cong).map_err(|e| {
-            format!(
-                "Escape separability constraint not satisfied because of words {} and {}",
-                e.0, e.1
-            )
-        })?;
+        let (positives, negatives) = EscapeSeparabilityConstraint(self.0)
+            .satisfied(cong)
+            .map_err(|e| {
+                format!(
+                    "Escape separability constraint not satisfied because of words {} and {}",
+                    e.0, e.1
+                )
+            })?;
 
-        let (positive, negative) = InducedSeparabilityConstraint(self.0).satisfied(cong).map_err(|err| format!("Induced separability constraint not satisfied, words {} and {} both induce {}!", err.0, err.1, err.2.iter().map(|(c, a, d)| format!("({}, {}, {})", c, a, d)).join(",")))?;
-
-        let neg_union = negative.iter().fold(Set::new(), |mut acc, set| {
+        let neg_union = negatives.iter().fold(Set::new(), |mut acc, set| {
             acc.extend(set.into_iter().map(|(c, a, _)| (c, a)));
             acc
         });
+
+        trace!(
+            "Computed unions of negative loops:\t{}",
+            neg_union
+                .iter()
+                .map(|(c, a)| format!("({c}, {a})"))
+                .join(", ")
+        );
+
+        for positive_induced in positives {
+            let positive_induced_triggers: Set<_> =
+                positive_induced.iter().map(|(p, a, _)| (p, a)).collect();
+            if positive_induced_triggers.is_subset(&neg_union) {
+                return Err(format!(
+                    "Positive word {} is not separated from negative words",
+                    positive_induced
+                        .into_iter()
+                        .map(|(p, a, _)| format!("({p}, {a})"))
+                        .join(", ")
+                ));
+            }
+        }
 
         let alphabet = cong.alphabet();
         let mut mapping = Map::new();

@@ -34,9 +34,12 @@ pub use visit::{Bfs, Path, Visitor, VisitorIter};
 use self::transitionsystem::{States, Transitions};
 
 /// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`
-pub trait State: Clone + PartialEq + Eq + std::hash::Hash + std::fmt::Debug + Ord {}
+pub trait State:
+    Clone + Display + PartialEq + Eq + std::hash::Hash + std::fmt::Debug + Ord
+{
+}
 
-impl<X: Clone + Eq + PartialEq + std::hash::Hash + std::fmt::Debug + Ord> State for X {}
+impl<X: Clone + Eq + PartialEq + std::hash::Hash + std::fmt::Debug + Display + Ord> State for X {}
 
 // The following two type aliases might change in the future to allow for more flexibility, i.e. for example for implementing nondeterminism.
 /// Helper type for getting the symbol type of a transition system.

@@ -10,7 +10,7 @@ use itertools::Itertools;
 use crate::{
     ts::{HasInput, HasStates, InputOf, StateOf},
     words::SymbolIterable,
-    Set, State, Str, Successor, Symbol, Transition, Trigger,
+    Set, State, Str, Successor, Symbol, Transition, Trigger, Word,
 };
 
 use super::Visitor;
@@ -141,6 +141,18 @@ impl<Q: State, S: Symbol> Path<Q, S> {
         states.push(state);
         Path { states, label }
     }
+
+    pub fn into_set(self) -> Set<(Q, S, Q)> {
+        let mut out = Set::new();
+        for i in (0..self.label.len()) {
+            out.insert((
+                self.states[i].clone(),
+                self.label.nth(i).unwrap(),
+                self.states[i + 1].clone(),
+            ));
+        }
+        out
+    }
 }
 
 impl<Q: State, S: Symbol> Extend<(Q, S)> for Path<Q, S> {
@@ -181,13 +193,12 @@ impl<T: Transition> From<Vec<T>> for Path<T::Q, T::S> {
         let mut i = 0;
         let len = value.len();
         for transition in value {
+            // This is a bit ugly but should work, we always push source and target state
+            // but in every iteration, we remove the pushed target state again.
             states.pop();
             states.push(transition.source().clone());
             label.push_back(transition.sym());
-            todo!("Test that this actually makes sense.");
-            if i == len - 1 {
-                states.push(transition.target().clone());
-            }
+            states.push(transition.target().clone());
         }
         Path { states, label }
     }

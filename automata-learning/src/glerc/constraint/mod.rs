@@ -256,7 +256,7 @@ mod tests {
 
     use crate::{
         glerc::{state::GlercState, GlercSignal},
-        passive::{dfa_rpni, Sample},
+        passive::{dba_rpni, dfa_rpni, Sample},
     };
 
     use super::{BuchiConstraint, ConflictConstraint};
@@ -396,6 +396,7 @@ mod tests {
     }
 
     #[test]
+    #[traced_test]
     fn dba_learning() {
         let sample = Sample::from_iters(
             [
@@ -409,12 +410,7 @@ mod tests {
             [upw!("a"), upw!("ba"), upw!("bba")],
         );
 
-        let glerc = GlercState::new(
-            RightCongruence::trivial(),
-            ['a', 'b'],
-            BuchiConstraint(&sample),
-        );
-        // let aut: automata::CongruenceDba = glerc.into();
-        // println!("{}", aut);
+        let aut = dba_rpni(&sample);
+        println!("{}", aut);
     }
 }

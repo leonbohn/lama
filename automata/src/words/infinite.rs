@@ -78,7 +78,7 @@ pub struct UltimatelyPeriodicWord<S>(pub(crate) Str<S>, pub(crate) PeriodicWord<
 
 impl<S: Symbol> Display for UltimatelyPeriodicWord<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}({})", self.0, self.1)
+        write!(f, "{}{}", self.0, self.1)
     }
 }
 

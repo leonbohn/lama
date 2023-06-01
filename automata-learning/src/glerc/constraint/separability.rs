@@ -12,23 +12,45 @@ impl<'a, W> Constraint<W::S> for EscapeSeparabilityConstraint<'a, W>
 where
     W: Runnable,
 {
-    type Output = ();
+    type Output = (
+        Vec<<W as Runnable>::Induces<Class<W::S>>>,
+        Vec<<W as Runnable>::Induces<Class<W::S>>>,
+    );
 
     type Error = (&'a W, &'a W, CongruenceTrigger<W::S>);
 
     fn satisfied(&self, cong: &RightCongruence<W::S>) -> Result<Self::Output, Self::Error> {
+        let mut positive_induceed = Vec::new();
+        let mut negative_induced = Vec::new();
+        let mut positive_escaping = Vec::new();
+
         for pos_word in self.0.positive_iter() {
-            if let Err((path, q, a, pos_suffix)) = pos_word.run_in(cong) {
-                for neg_word in self.0.negative_iter() {
-                    if let Err((_, p, b, neg_suffix)) = neg_word.run_in(cong) {
-                        if p == q && a == b && pos_suffix == neg_suffix {
-                            return Err((pos_word, neg_word, (p, a)));
-                        }
+            match pos_word.run_in(cong) {
+                Ok(induced) => positive_induceed.push(induced),
+                Err((_seq, q, a, suffix)) => {
+                    positive_escaping.push((pos_word, q, a, suffix));
+                }
+            }
+        }
+
+        for neg_word in self.0.negative_iter() {
+            match neg_word.run_in(cong) {
+                Ok(induced) => negative_induced.push(induced),
+                Err((_seq, q, a, suffix)) => {
+                    if let Some((pos_word, _, _, _)) =
+                        positive_escaping
+                            .iter()
+                            .find(|(_pos_word, p, b, known_suffix)| {
+                                p == &q && &a == b && &suffix == known_suffix
+                            })
+                    {
+                        return Err((pos_word, neg_word, (q, a)));
                     }
                 }
             }
         }
-        Ok(())
+
+        Ok((positive_induceed, negative_induced))
     }
 }
 

@@ -210,24 +210,24 @@ impl<'a, S: Symbol> Successor for Prefixes<'a, S, UltimatelyPeriodicWord<S>> {
         let source = from.borrow();
         let sym = on.borrow();
         let successor = source + sym;
-        trace!(
-            "Computing successor of {} on {}, candidate is {}",
-            source,
-            sym,
-            successor
-        );
+        // trace!(
+        //     "Computing successor of {} on {}, candidate is {}",
+        //     source,
+        //     sym,
+        //     successor
+        // );
 
         let words_with_prefix = self.find_words_with_prefix(&successor);
         if words_with_prefix.is_empty() {
-            trace!("No words with prefix {}!", successor);
+            // trace!("No words with prefix {}!", successor);
             return Some(self.sink_or(&successor));
         }
         let count_words_with_prefix = words_with_prefix.len();
-        trace!(
-            "Found {} words with prefix {}",
-            count_words_with_prefix,
-            successor
-        );
+        // trace!(
+        //     "Found {} words with prefix {}",
+        //     count_words_with_prefix,
+        //     successor
+        // );
 
         if words_with_prefix.len() > 1 {
             Some(successor)
@@ -347,6 +347,12 @@ impl<S: Symbol> OmegaSample<S> {
                 })
                 .collect(),
         )
+    }
+
+    /// Constructs a default structure for `self`. In this case, we unroll all positive sample words far
+    /// enough that they separate from each other and we attach loops to each leaf state.
+    pub fn default_structure(&self) -> RightCongruence<S> {
+        build_prefix_dfa_infinite(&self.positive).into_congruence()
     }
 }
 

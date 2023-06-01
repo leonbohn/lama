@@ -1,5 +1,5 @@
 use crate::{
-    ts::{StateOf, Successor, TransitionOf},
+    ts::{Path, StateOf, Successor, TransitionOf},
     words::Word,
 };
 
@@ -36,6 +36,18 @@ impl<'t, 'w, W: Word, TS: Successor<Sigma = W::S>> Walker<'t, 'w, W, TS> {
             state: Some(from),
             position: 0,
             seq: vec![],
+        }
+    }
+
+    pub fn taken_path(&self) -> Path<TS::Q, W::S> {
+        if self.seq.is_empty() {
+            Path::empty(
+                self.state
+                    .clone()
+                    .expect("Must exist if no transition was taken yet!"),
+            )
+        } else {
+            Path::from(self.seq.clone())
         }
     }
 

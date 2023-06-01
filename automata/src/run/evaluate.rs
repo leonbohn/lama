@@ -1,6 +1,7 @@
 use std::{borrow::Borrow, fmt::Debug};
 
 use hoars::State as HoaState;
+use itertools::Itertools;
 use tracing::trace;
 
 use crate::{
@@ -70,12 +71,10 @@ impl<S: Symbol> Runnable for Str<S> {
     where
         TS: Successor<Sigma = S>,
     {
-        trace!("Running from state {:?} on word {:?}", from, self);
         let mut trace = Path::empty(from.clone());
         for run_output in ts.walk(from, &self) {
             match run_output {
                 RunOutput::Transition(q, a, p) => {
-                    trace!("Encountered transition {:?} --{:?}--> {:?}", q, a, p);
                     trace += (q, a, p.clone());
                 }
                 RunOutput::WordEnd(q) => return Ok(q),
@@ -109,7 +108,6 @@ impl<S: Symbol> Runnable for UltimatelyPeriodicWord<S> {
     where
         TS: Successor<Sigma = S>,
     {
-        trace!("Running from state {:?} on word {:?}", from, self);
         let input = self;
         let prefix_length = input.base_length();
         let recur_length = input.recur_length();
@@ -117,6 +115,13 @@ impl<S: Symbol> Runnable for UltimatelyPeriodicWord<S> {
         match prefix.run_in_from(&ts, from) {
             Err((path, q, a, suffix)) => {
                 let suffix = self.skip(path.len());
+                trace!(
+                    "Word {} missing transition {} --{}--> {}",
+                    self,
+                    q,
+                    a,
+                    suffix
+                );
                 Err((path, q, a, suffix))
             }
             Ok(reached) => {
@@ -129,7 +134,13 @@ impl<S: Symbol> Runnable for UltimatelyPeriodicWord<S> {
                         Ok(recur_reached) => {
                             if !seen.insert(recur_reached) {
                                 // We have seen this piece before, so we can stop here.
-                                return Ok(walker.seq.into_iter().collect());
+                                let out = walker.taken_path().into_set();
+                                trace!(
+                                    "Word {} induces {{{}}}",
+                                    self,
+                                    out.iter().map(|(p, a, _)| format!("({p}, {a})")).join(", ")
+                                );
+                                return Ok(out);
                             }
                         }
                         Err(RunOutput::WordEnd(_)) => unreachable!("We are in an infinite run!"),
@@ -138,7 +149,19 @@ impl<S: Symbol> Runnable for UltimatelyPeriodicWord<S> {
                         }
                         Err(RunOutput::Missing(q, a)) => {
                             let suffix = recur.skip(walker.position());
-                            return Err((walker.seq.into(), q, a, suffix));
+                            let path = if walker.seq.is_empty() {
+                                Path::empty(q.clone())
+                            } else {
+                                walker.seq.into()
+                            };
+                            trace!(
+                                "Word {} is missing transition {} --{}--> {}",
+                                self,
+                                q,
+                                a,
+                                suffix
+                            );
+                            return Err((path, q, a, suffix));
                         }
                         Err(RunOutput::FailedBefore) => unreachable!("We would have noticed!"),
                     }

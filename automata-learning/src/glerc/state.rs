@@ -5,9 +5,10 @@ use std::{
 
 use automata::{
     run::{EscapePrefix, Evaluate, Induces, InitialRun, Run},
+    ts::IntoParts,
     AcceptanceCondition, Combined, Growable, Shrinkable, Subword, Symbol, Word,
 };
-use tracing::trace;
+use tracing::{debug, trace, warn};
 
 use crate::passive::Sample;
 use automata::{Class, RightCongruence};
@@ -81,11 +82,12 @@ where
 
     /// Executes a single step of the GLERC algorithm, producing a [`GlercSignal`].
     pub fn step(&mut self) -> GlercSignal<S, C::Output> {
+        self.iteration += 1;
         trace!("Starting iteration {}", self.iteration);
         let (new_status, result) = match &self.get_status() {
             GlercIterationStatus::TryInsertion(from, on, states, index) => {
                 if let Some(target) = states.get(*index) {
-                    trace!(
+                    debug!(
                         "Trying insertion of {} --{}--> {} at index {}, stateslist: [{}]",
                         from,
                         on,
@@ -100,7 +102,10 @@ where
                     self.cong.add_transition(from, on.clone(), target);
                     let res = self.constraint.satisfied(&self.cong);
                     if res.is_ok() {
-                        trace!("\tInsertion successful!");
+                        trace!(
+                            "Insertion successful!, leading to consistent TS\n{}",
+                            self.cong
+                        );
                         (
                             GlercIterationStatus::FindMissing,
                             GlercSignal::SuccessfulInsertion(
@@ -127,22 +132,38 @@ where
                     }
                     // Now we verify if the inserted transition leads to a consistent TS
                 } else {
-                    // We insert a new state since no state is left to try
-                    let new_state = from + on;
-                    self.cong.add_state(&new_state);
-                    self.cong.add_transition(from, on.clone(), &new_state);
+                    // First, we check whether insertion would lead to a TS that is larget than the default
+                    if self.cong.0.size() >= self.default.0.size() {
+                        warn!("Exceeded threshold, returning default");
+                        self.cong = self.default.clone();
+                        (
+                            GlercIterationStatus::Finished,
+                            GlercSignal::Finished(super::GlercOutput::new(
+                                &self.cong,
+                                self.timer.unwrap(),
+                                self.constraint.satisfied(&self.cong).expect(
+                                    "This must not fail, since we already checked it before.",
+                                ),
+                            )),
+                        )
+                    } else {
+                        // We insert a new state since no state is left to try
+                        let new_state = from + on;
+                        self.cong.add_state(&new_state);
+                        self.cong.add_transition(from, on.clone(), &new_state);
 
-                    trace!(
-                        "No fitting target found, inserted new state {} and extending queue.",
-                        new_state
-                    );
-                    // also have to add the new state with all its symbols to the queue
-                    self.extend_queue(&new_state);
+                        trace!(
+                            "No fitting target found, inserted new state {} and extending queue.",
+                            new_state
+                        );
+                        // also have to add the new state with all its symbols to the queue
+                        self.extend_queue(&new_state);
 
-                    (
-                        GlercIterationStatus::FindMissing,
-                        GlercSignal::NewState(from.clone(), on.clone(), new_state.clone()),
-                    )
+                        (
+                            GlercIterationStatus::FindMissing,
+                            GlercSignal::NewState(from.clone(), on.clone(), new_state.clone()),
+                        )
+                    }
                 }
             }
             GlercIterationStatus::FindMissing => {
@@ -214,11 +235,10 @@ where
     pub fn execute(&mut self) -> GlercOutput<S, C::Output> {
         let mut iteration = 0;
         loop {
-            iteration += 1;
             match self.step() {
                 GlercSignal::Finished(out) => return out,
                 signal => {
-                    trace!("Iteration {iteration}, signal: {:?}", signal)
+                    trace!("Iteration {}, signal: {:?}", self.iteration, signal)
                 }
             }
         }
