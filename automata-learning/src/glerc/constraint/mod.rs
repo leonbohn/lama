@@ -256,7 +256,7 @@ mod tests {
 
     use crate::{
         glerc::{state::GlercState, GlercSignal},
-        passive::{dba_rpni, dfa_rpni, Sample},
+        passive::{dba_rpni, dfa_rpni, dpa_rpni, Sample},
     };
 
     use super::{BuchiConstraint, ConflictConstraint};
@@ -396,7 +396,6 @@ mod tests {
     }
 
     #[test]
-    #[traced_test]
     fn dba_learning() {
         let sample = Sample::from_iters(
             [
@@ -411,6 +410,25 @@ mod tests {
         );
 
         let aut = dba_rpni(&sample);
+        println!("{}", aut);
+    }
+
+    #[test]
+    #[traced_test]
+    fn dpa_learning() {
+        let sample = Sample::from_iters(
+            [
+                upw!("b"),
+                upw!("bbbabbaba"),
+                upw!("abbb"),
+                upw!("babb"),
+                upw!("bbab"),
+                upw!("bbba"),
+            ],
+            [upw!("a"), upw!("ba"), upw!("bba")],
+        );
+
+        let aut = dpa_rpni(&sample);
         println!("{}", aut);
     }
 }

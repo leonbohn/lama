@@ -7,7 +7,7 @@ use crate::{
         StateReference, TransitionReference, Trivial,
     },
     words::IsFinite,
-    FiniteKind, Growable, Map, Pointed, Shrinkable, State, Str, Subword, Successor, Symbol,
+    FiniteKind, Growable, Map, Pointed, Set, Shrinkable, State, Str, Subword, Successor, Symbol,
     TransitionSystem, TriggerIterable, Word, DFA,
 };
 use itertools::Itertools;
@@ -270,6 +270,20 @@ impl<S: Symbol> RightCongruence<S> {
 
     pub fn from_parts(ts: TransitionSystem<Class<S>, S>, initial: Class<S>) -> Self {
         Self(ts, initial)
+    }
+
+    pub fn all_potential_triggers<I: IntoIterator<Item = S>>(
+        &self,
+        alphabet_iter: I,
+    ) -> Set<(Class<S>, S)> {
+        let alphabet: Set<_> = alphabet_iter.into_iter().collect();
+        self.states_canonical()
+            .flat_map(|class| {
+                alphabet
+                    .iter()
+                    .map(move |symbol| (class.clone(), symbol.clone()))
+            })
+            .collect()
     }
 }
 
