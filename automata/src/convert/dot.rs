@@ -11,7 +11,41 @@ pub trait ToDot {
     fn to_dot(&self) -> String;
 
     #[cfg(feature = "graphviz")]
-    fn render(&self) -> Result<tempfile::TempPath, Box<dyn std::error::Error>> {
+    fn render(&self) -> Result<Vec<u8>, std::io::Error> {
+        use std::{
+            io::{Read, Write},
+            path::Path,
+        };
+        let dot = self.to_dot();
+
+        let mut child = std::process::Command::new("dot")
+            .arg("-Tpng")
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .spawn()?;
+
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin.write_all(dot.as_bytes())?;
+        }
+
+        let mut output = Vec::new();
+        if let Some(mut stdout) = child.stdout.take() {
+            stdout.read_to_end(&mut output)?;
+        }
+
+        let status = child.wait()?;
+        if !status.success() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("dot process exited with status: {}", status),
+            ));
+        }
+
+        Ok(output)
+    }
+
+    #[cfg(feature = "graphviz")]
+    fn render_tempfile(&self) -> Result<tempfile::TempPath, std::io::Error> {
         use std::{io::Write, path::Path};
         use tracing::trace;
 
@@ -42,23 +76,27 @@ pub trait ToDot {
     }
 
     #[cfg(feature = "graphviz")]
-    fn display_rendered(&self) -> Result<(), Box<dyn std::error::Error>> {
+    fn display_rendered(&self) -> Result<(), std::io::Error> {
         use std::io::Write;
 
-        let rendered_path = self.render()?;
+        let rendered_path = self.render_tempfile()?;
         tracing::trace!("Opening rendered file {}", rendered_path.display());
-
-        #[cfg(target_os = "linux")]
-        let opener = "eog";
-        #[cfg(target_os = "macos")]
-        let opener = "open";
-        let mut child = std::process::Command::new(opener)
-            .arg(&rendered_path)
-            .spawn()?;
-        child.wait()?;
-
-        Ok(())
+        display_png(rendered_path)
     }
+}
+
+fn display_png(rendered_path: tempfile::TempPath) -> Result<(), std::io::Error> {
+    #[cfg(target_os = "linux")]
+    let mut child = std::process::Command::new("eog")
+        .arg(&rendered_path)
+        .spawn()?;
+    #[cfg(target_os = "macos")]
+    let mut child = std::process::Command::new("qlmanage")
+        .arg("-p")
+        .arg(&rendered_path)
+        .spawn()?;
+    child.wait()?;
+    Ok(())
 }
 
 impl<TS, ACC> ToDot for Combined<TS, ACC>
@@ -98,13 +136,13 @@ where
 mod tests {
     use tracing_test::traced_test;
 
-    use crate::tests::one_mod_three_times_a_dfa;
+    use crate::{convert::dot::display_png, tests::one_mod_three_times_a_dfa};
 
     use super::ToDot;
 
     #[test]
     #[traced_test]
-    fn dot_automaton_test() {
+    fn dot_display() {
         let ts = one_mod_three_times_a_dfa();
         ts.display_rendered().unwrap();
     }
