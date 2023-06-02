@@ -179,6 +179,8 @@ impl<S: Symbol> UltimatelyPeriodicWord<S> {
             .all(|(x, y)| x == y)
     }
 
+    /// Turns `self` into a [`RightCongruence`] by building a sequence of transitions
+    /// on the prefix of `self`, which culminates in a state that loops on the looping part of `self`.
     pub fn into_ts(&self) -> RightCongruence<S> {
         let mut transitions = vec![];
         for i in (0..(self.base_length() + self.recur_length())) {

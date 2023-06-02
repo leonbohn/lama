@@ -24,6 +24,17 @@ pub trait Subword: Word {
             .all(|(i, sym)| self.nth(i) == Some(sym))
     }
 
+    /// Splits the word at the given position, returning a tuple consisting of the preceding
+    /// prefix and the following suffix.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use automata::{Str, Subword};
+    /// let w = Str::from("abcba");
+    /// let (prefix, suffix) = w.split_at(2);
+    /// assert_eq!(w.split_at(2), ("ab".into(), "cba".into()));
+    /// ```
     fn split_at(&self, position: usize) -> (Self::PrefixType, Self::SuffixType) {
         (self.prefix(position), self.skip(position))
     }

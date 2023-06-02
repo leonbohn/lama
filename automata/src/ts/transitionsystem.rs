@@ -4,9 +4,9 @@ use tabled::{builder::Builder, settings::Style};
 use crate::{AnonymousGrowable, HasAlphabet, Map, Pair, Pointed, Set, Symbol, Transition};
 
 use super::{
-    successor::Predecessor, transition::TransitionReference, Bfs, Growable, HasInput, HasStates,
-    InputOf, IntoStates, IntoTransitions, Shrinkable, State, StateOf, Successor, TransitionOf,
-    TriggerIterable, Trivial, Visitor,
+    successor::Predecessor, tarjan_scc, transition::TransitionReference, Bfs, Growable, HasInput,
+    HasStates, InputOf, IntoStates, IntoTransitions, Shrinkable, State, StateOf, Successor,
+    TransitionOf, TriggerIterable, Trivial, Visitor,
 };
 
 use std::{
@@ -29,6 +29,11 @@ impl<Q: State, S: Symbol> TransitionSystem<Q, S> {
             edges: Map::new(),
             states: Set::new(),
         }
+    }
+
+    /// Computes the SCC decomposition of `self`. See [`tarjan_scc`] for more details.
+    pub fn sccs(&self) -> Vec<Vec<Q>> {
+        tarjan_scc(self)
     }
 
     /// Returns an iterator over all transitions of `self`.

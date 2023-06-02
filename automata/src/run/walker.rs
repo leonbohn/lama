@@ -39,6 +39,8 @@ impl<'t, 'w, W: Word, TS: Successor<Sigma = W::S>> Walker<'t, 'w, W, TS> {
         }
     }
 
+    /// Returns the [`Path`] that was taken thus far. If no transitions were taken yet,
+    /// this path consists of only the source vertex.
     pub fn taken_path(&self) -> Path<TS::Q, W::S> {
         if self.seq.is_empty() {
             Path::empty(

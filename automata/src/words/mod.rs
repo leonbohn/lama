@@ -32,6 +32,8 @@ pub trait Word: Debug + Eq + std::hash::Hash {
     /// Returns the symbol at the given index, or `None` if the index is out of bounds.
     fn nth(&self, index: usize) -> Option<Self::S>;
 
+    /// Returns the alphabet of `self`, that is the [`Set`] of [`Symbols`] which appear
+    /// in `self`.
     fn alphabet(&self) -> Set<Self::S>;
 }
 

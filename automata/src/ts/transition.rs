@@ -49,6 +49,8 @@ pub trait Transition: Trigger {
     /// The target state of the transition.
     fn target(&self) -> &Self::Q;
 
+    /// Converts `self` to a trigger, that is a tuple consisting of the
+    /// source and symbol.
     fn to_trigger(&self) -> (Self::Q, Self::S) {
         (self.source().clone(), self.sym().clone())
     }

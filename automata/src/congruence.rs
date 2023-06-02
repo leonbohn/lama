@@ -265,15 +265,20 @@ impl<S: Symbol> RightCongruence<S> {
         self.0
     }
 
+    /// Constructs a right congruence relation from its constituent parts, i.e. from a
+    /// [`TransitionSystem`] which uses [`Class`]es as states and an initial state.
     pub fn from_parts(ts: TransitionSystem<Class<S>, S>, initial: Class<S>) -> Self {
         Self(ts, initial)
     }
 
+    /// Returns the set of all potential triggers in `self` over the given `alphabet`.
+    /// This operation essentially boils down to combining each state with all alphabet
+    /// symbols.
     pub fn all_potential_triggers<I: IntoIterator<Item = S>>(
         &self,
-        alphabet_iter: I,
+        alphabet: I,
     ) -> Set<(Class<S>, S)> {
-        let alphabet: Set<_> = alphabet_iter.into_iter().collect();
+        let alphabet: Set<_> = alphabet.into_iter().collect();
         self.states_canonical()
             .flat_map(|class| {
                 alphabet

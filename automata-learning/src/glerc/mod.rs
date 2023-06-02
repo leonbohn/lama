@@ -53,10 +53,12 @@ impl<S: Symbol, X> GlercOutput<S, X> {
         }
     }
 
+    /// Returns the time that was taken by the execution of the algorithm.
     pub fn execution_time_ms(&self) -> u128 {
         self.execution_time.as_millis()
     }
 
+    /// Returns both the learned congruence as well as the object produced by the constraint.
     pub fn learned(self) -> (RightCongruence<S>, X) {
         (self.learned_congruence, self.constraint_produced)
     }
@@ -71,15 +73,19 @@ impl<S: Symbol, X: Display> Display for GlercOutput<S, X> {
     }
 }
 
+/// Runs the GLeRC algorithm for inferring a right congruence relation with the given
+/// `constraint`, over the given `alphabet`, while respecting the given `fallback`. Specifically,
+/// this means that if the size of the `fallback` would be exceeded by the constructed TS, then the
+/// algorithm terminates prematurely, returning `fallback` instead.
 pub fn glerc<S: Symbol, C: Constraint<S>, I: IntoIterator<Item = S>>(
     constraint: C,
     alphabet: I,
     fallback: RightCongruence<S>,
-) -> RightCongruence<S> {
+) -> (RightCongruence<S>, C::Output) {
     let mut glerc = GlercState::new(fallback, alphabet, constraint);
     loop {
         if let GlercSignal::Finished(output) = glerc.step() {
-            return output.learned_congruence;
+            return output.learned();
         }
     }
 }

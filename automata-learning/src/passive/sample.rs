@@ -12,7 +12,11 @@ use tracing::trace;
 
 use crate::glerc::{glerc, ConflictConstraint};
 
+/// This is just a type alias for a [`Sample`] that contains infinite words. We fix the type of word
+/// to be an [`UltimatelyPeriodicWord`] as [`PeriodicWord`]s can simply be converted.
 pub type OmegaSample<S> = Sample<UltimatelyPeriodicWord<S>>;
+/// A type alias for a [`Sample`] consisting of finite words, the type of which is fixed
+/// to be [`Str`], as other word types can readily be converted.
 pub type FiniteSample<S> = Sample<Str<S>>;
 
 /// Represents a finite sample, which is a pair of positive and negative instances.
@@ -101,6 +105,20 @@ impl<W: Word> Sample<W> {
             .iter()
             .map(|w| (true, w))
             .chain(self.negative.iter().map(|w| (false, w)))
+    }
+
+    /// Attempts to find a word in `self` for which the classification (i.e. the membership in either the
+    /// positive or negative component) does not match the classification (i.e. acceptance/rejection) by
+    /// the given [`Acceptor`].
+    pub fn find_inconsistency<A: Acceptor<Word = W>>(&self, acceptor: A) -> Option<(bool, &W)> {
+        self.annotated_iter()
+            .find(|(classification, word)| acceptor.accepts(word) != *classification)
+    }
+
+    /// Verifies whether `self` is consistent with the given [`Acceptor`]. Internally, it calls [`find_inconsistency()`]
+    /// and thereby checks that all positive example words are accepted and all negative sample words are rejected.
+    pub fn consistent_with<A: Acceptor<Word = W>>(&self, acceptor: A) -> bool {
+        self.find_inconsistency(acceptor).is_some()
     }
 }
 
@@ -311,6 +329,9 @@ impl<S: Symbol> OmegaSample<S> {
         self.iter().map(|w| w.recur_length()).max().unwrap_or(0)
     }
 
+    /// Learns a [`RightCongruence`] ~ that is Myhill/Nerode consistent with `self`. Specifically, this
+    /// means that ~ separates two words u and v if there exists a common suffix w such that uw and
+    /// vw have opposing classification in the sample.
     pub fn underlying_right_congruence(&self) -> RightCongruence<S> {
         let fallback = Prefixes::new(&self.positive).bfs().iter().collect();
         glerc(
@@ -318,6 +339,7 @@ impl<S: Symbol> OmegaSample<S> {
             self.alphabet().clone(),
             fallback,
         )
+        .0
     }
 
     /// Builds a [`DFA`] that accepts all finite words which are a prefix of some positive
@@ -385,11 +407,6 @@ impl<S: Symbol> FiniteSample<S> {
     /// which naturally separates all positive words from each negative word.
     pub fn default_structure(&self) -> RightCongruence<S> {
         build_prefix_dfa_finite(&self.positive).into_congruence()
-    }
-
-    pub fn consistent_with<A: Acceptor<Word = Str<S>>>(&self, dfa: &A) -> bool {
-        self.positive_iter().all(|pos| dfa.accepts(pos))
-            && self.negative_iter().all(|neg| !dfa.accepts(neg))
     }
 }
 

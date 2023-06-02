@@ -13,37 +13,36 @@ use crate::{
 
 use super::{RunOutput, Walk};
 
+pub type RunnableResult<TS, Induced, Suffix> = Result<
+    Induced,
+    (
+        Path<StateOf<TS>, InputOf<TS>>,
+        StateOf<TS>,
+        InputOf<TS>,
+        Suffix,
+    ),
+>;
+
+/// Implementors of this trait can be run in a transition system, producing either an induced
+/// object or a failed partial run.
+/// The induced oject is either a single reached state, if `Self` is a finite word, or a [`Set`]
+/// of transitions (state-symbol-state triples) which are taken infinitely often.
 pub trait Runnable: Subword {
+    /// The type of object induced by a successful run. Parameterized on the [`State`] type of
+    /// the transition system that `self` is run in.
     type Induces<Q: State>: Eq + Clone + Debug;
 
+    /// Runs `self` in `ts` starting in `from`.
     fn run_in_from<TS>(
         &self,
         ts: TS,
         from: StateOf<TS>,
-    ) -> Result<
-        Self::Induces<StateOf<TS>>,
-        (
-            Path<StateOf<TS>, Self::S>,
-            StateOf<TS>,
-            InputOf<TS>,
-            Self::SuffixType,
-        ),
-    >
+    ) -> RunnableResult<TS, Self::Induces<StateOf<TS>>, Self::SuffixType>
     where
         TS: Successor<Sigma = Self::S>;
 
-    fn run_in<TS>(
-        &self,
-        ts: TS,
-    ) -> Result<
-        Self::Induces<StateOf<TS>>,
-        (
-            Path<StateOf<TS>, Self::S>,
-            StateOf<TS>,
-            InputOf<TS>,
-            Self::SuffixType,
-        ),
-    >
+    /// Runs `self` in `ts` from the initial state of `ts`.
+    fn run_in<TS>(&self, ts: TS) -> RunnableResult<TS, Self::Induces<StateOf<TS>>, Self::SuffixType>
     where
         TS: Successor<Sigma = Self::S> + Pointed,
     {
@@ -134,7 +133,7 @@ impl<S: Symbol> Runnable for UltimatelyPeriodicWord<S> {
                         Ok(recur_reached) => {
                             if !seen.insert(recur_reached) {
                                 // We have seen this piece before, so we can stop here.
-                                let out = walker.taken_path().into_set();
+                                let out = walker.taken_path().into_transitions();
                                 trace!(
                                     "Word {} induces {{{}}}",
                                     self,
@@ -171,14 +170,24 @@ impl<S: Symbol> Runnable for UltimatelyPeriodicWord<S> {
     }
 }
 
+/// Type alias for failed evaluations, i.e. ones that try to take a transition which does not exist.
 pub type EvaluateErr<TS> = (Vec<TransitionOf<TS>>, StateOf<TS>, InputOf<TS>);
+
+/// Implementors can be evaluated. In case this evaluation is successful, an object of type
+/// [`Self::Induces`] is returned, otherwise, an [`EvaluateErr`] is returned.
 pub trait Evaluate {
+    /// The type of transition system in which the evaluation happens.
     type TS: Successor;
+
+    /// The type of object that is produced if the evaluation is successful.
     type Induces: Clone + Eq;
 
+    /// Perform the evaluation, producing an object of type [`Self::Induces`] in case of success
+    /// and an [`EvaluateErr`] otherwise.
     fn evaluate(&self) -> Result<Self::Induces, EvaluateErr<Self::TS>>;
 }
 
+/// Encapsulates the run of a transition system on a word starting from a designated origin state.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Run<TS: Successor, W> {
     ts: TS,

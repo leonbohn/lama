@@ -1,7 +1,12 @@
 use crate::{ts::IntoParts, Acceptor, Pair, State, Successor, Symbol, DFA};
 
+/// For implementors, the union with another [`Acceptor`] of type `Rhs` can be computed.
 pub trait Union<Rhs: Acceptor = Self>: Acceptor {
+    /// The type of acceptor that the [`union`] operation returns.
     type UnionAcceptor: Acceptor;
+
+    /// Computes an [`Acceptor`] which accepts precisely those words which are
+    /// either accepted by `self` or by `rhs`.
     fn union(&self, rhs: &Rhs) -> Self::UnionAcceptor;
 }
 

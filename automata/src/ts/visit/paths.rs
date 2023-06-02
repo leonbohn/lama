@@ -15,6 +15,9 @@ use crate::{
 
 use super::Visitor;
 
+/// Encapsulates a path in a transition system. Consists of a non-empty sequence of states
+/// and a possibly empty sequence of symbols making up the label. Note, that the length of
+/// the label is always one less than the length of the state sequence.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Path<Q, S> {
     states: Vec<Q>,
@@ -36,6 +39,8 @@ impl<Q: Display, S: Symbol + Display> std::fmt::Display for Path<Q, S> {
 }
 
 impl<Q: State, S: Symbol> Path<Q, S> {
+    /// Constructs a new path with an empty label and a state sequence consisting of only the source
+    /// vertex, `from`.
     pub fn empty(from: Q) -> Self {
         Self {
             states: vec![from],
@@ -75,8 +80,15 @@ impl<Q: State, S: Symbol> Path<Q, S> {
             .expect("We consider only non-empty paths!")
     }
 
+    /// Computes the length of `self`, which corresponds to the number of symbols in
+    /// the label, i.e. the number of transitions making up the path.
     pub fn len(&self) -> usize {
         self.label.len()
+    }
+
+    /// Checks if the path is empty (i.e. consists of only a single origin state).
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Returns the state at which the path starts. We consider only non-empty paths,
@@ -132,6 +144,8 @@ impl<Q: State, S: Symbol> Path<Q, S> {
         it.fold(initial, |acc, state| acc && ts.contains_state(state))
     }
 
+    /// Extends the path with the given symbol-state pair, corresponding to the label and the
+    /// target of a taken transition.
     pub fn extend_with(self, symbol: S, state: Q) -> Self {
         let Path {
             mut states,
@@ -142,7 +156,17 @@ impl<Q: State, S: Symbol> Path<Q, S> {
         Path { states, label }
     }
 
-    pub fn into_set(self) -> Set<(Q, S, Q)> {
+    /// Turns `self` into a [`Set`] of triggers (state-symbol pairs).
+    pub fn into_triggers(self) -> Set<(Q, S)> {
+        let mut out = Set::new();
+        for i in (0..self.label.len()) {
+            out.insert((self.states[i].clone(), self.label.nth(i).unwrap()));
+        }
+        out
+    }
+
+    /// Turns `self` into a [`Set`] of transitions (state-symbol-state triples).
+    pub fn into_transitions(self) -> Set<(Q, S, Q)> {
         let mut out = Set::new();
         for i in (0..self.label.len()) {
             out.insert((

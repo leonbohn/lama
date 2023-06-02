@@ -115,6 +115,15 @@ impl<Q: State> Tarjan<Q> {
     }
 }
 
+/// Decompopses `ts` into its strongly connected components (SCCs). An SCC is a set of states X
+/// such that all states in X are mutually reachable via edges through X.
+///
+/// # Example
+/// ```
+/// let ts = automata::TransitionSystem::from_iter([(0,0,0), (0,1,1), (1,0,0), (1,1,0)]);
+/// let sccs = ts.sccs();
+/// assert_eq!(sccs.len(), 1);
+/// ```
 pub fn tarjan_scc<T>(ts: T) -> Vec<Vec<StateOf<T>>>
 where
     T: IntoStates,
