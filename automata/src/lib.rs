@@ -31,7 +31,7 @@ pub use ts::{
 };
 use ts::{InputOf, IntoTransitions, TriggerOf};
 
-mod convert;
+pub mod convert;
 #[cfg(feature = "hoa")]
 pub use convert::{parse_dba, parse_dpa, parse_hoa};
 

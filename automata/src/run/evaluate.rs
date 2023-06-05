@@ -1,5 +1,6 @@
 use std::{borrow::Borrow, fmt::Debug};
 
+#[cfg(feature = "hoa")]
 use hoars::State as HoaState;
 use itertools::Itertools;
 use tracing::trace;

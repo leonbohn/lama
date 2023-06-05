@@ -3,7 +3,7 @@ members = [
   "automata",
   "automata-learning",
   "bin",
-  "browser",
+  "lama-web",
   "xtask"
 ]
 

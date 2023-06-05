@@ -1,6 +1,7 @@
-mod dot;
+pub mod dot;
 mod fmt;
 
+pub use dot::ToDot;
 use std::hash::Hash;
 use std::{fmt::Display, ops::Rem};
 

@@ -1,5 +1,6 @@
 use std::{borrow::Borrow, collections::BTreeSet};
 
+#[cfg(feature = "hoa")]
 use hoars::HoaSymbol;
 use itertools::Itertools;
 
@@ -384,8 +385,10 @@ pub type Dba<Q = u32, S = char> = Combined<TransitionSystem<Q, S>, BuchiConditio
 pub type Dpa<Q = u32, S = char> = Combined<TransitionSystem<Q, S>, ParityCondition<(Q, S)>>;
 
 /// Alias that makes working with HOA easier. This is the same as a [`Dpa`], but with [`HoaSymbol`] as the symbol type.
+#[cfg(feature = "hoa")]
 pub type HoaDpa<Q = u32, S = HoaSymbol> = Combined<TransitionSystem<Q, S>, ParityCondition<(Q, S)>>;
 /// Alias that makes working with HOA easier. This is the same as a [`Dba`], but with [`HoaSymbol`] as the symbol type.
+#[cfg(feature = "hoa")]
 pub type HoaDba<Q = u32, S = HoaSymbol> = Combined<TransitionSystem<Q, S>, BuchiCondition<(Q, S)>>;
 
 /// Alias that makes working with congruences easier, using [`RightCongruence`] as the transition system.

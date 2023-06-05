@@ -87,15 +87,16 @@ pub trait ToDot {
 
 fn display_png(rendered_path: tempfile::TempPath) -> Result<(), std::io::Error> {
     #[cfg(target_os = "linux")]
-    let mut child = std::process::Command::new("eog")
+    std::process::Command::new("eog")
         .arg(&rendered_path)
-        .spawn()?;
+        .spawn()?
+        .wait()?;
     #[cfg(target_os = "macos")]
-    let mut child = std::process::Command::new("qlmanage")
+    std::process::Command::new("qlmanage")
         .arg("-p")
         .arg(&rendered_path)
-        .spawn()?;
-    child.wait()?;
+        .spawn()?
+        .wait()?;
     Ok(())
 }
 
