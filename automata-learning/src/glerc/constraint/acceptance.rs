@@ -1,12 +1,8 @@
 use std::borrow::Borrow;
 
 use automata::{
-    congruence::CongruenceTrigger,
-    output::Mapping,
-    run::{Evaluate, Induces},
-    words::{IsFinite, WordKind},
-    BuchiCondition, Class, HasAlphabet, Map, RightCongruence, Run, Set, Str, Subword, Successor,
-    Symbol, TriggerIterable, Word,
+    congruence::CongruenceTrigger, output::Mapping, BuchiCondition, Class, HasAlphabet, Map,
+    RightCongruence, Set, Str, Subword, Successor, Symbol, TriggerIterable, Word,
 };
 use itertools::Itertools;
 use tracing::trace;

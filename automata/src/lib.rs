@@ -50,8 +50,10 @@ pub use acceptance::{
     ReachabilityCondition,
 };
 
-pub use run::{Run, Runnable};
-use std::{fmt::Display, hash::Hash};
+use std::{
+    fmt::{Debug, Display},
+    hash::Hash,
+};
 
 mod combined;
 pub use combined::Combined;
@@ -63,7 +65,6 @@ pub use combined::{HoaDba, HoaDpa};
 /// Module in which traits for working with runs of transition systems are defined.
 /// A run of a transition system on a given word is a sequence of states, where each state is the successor of the previous state, and the transition between the states is triggered by a symbol as given in the input word.
 pub mod run;
-pub use run::Evaluate;
 
 /// Module in which traits for working with Mealy machines are defined.
 pub mod output;
@@ -77,9 +78,9 @@ mod boundedness;
 pub use boundedness::{Boundedness, FiniteKind, InfiniteKind};
 
 /// Trait for types that are used as values in a [`Mapping`], for example.
-pub trait Value: Clone + Eq + Hash {}
+pub trait Value: Clone + Eq + Hash + Debug {}
 
-impl<T> Value for T where T: Clone + Eq + Hash {}
+impl<T> Value for T where T: Clone + Eq + Hash + Debug {}
 
 /// A trait for the symbols of a [`Word`] and the trigger of a transition in a [`TransitionSystem`].
 pub trait Symbol: Clone + Eq + std::fmt::Debug + PartialEq + Hash + Display + Ord {}

@@ -1,9 +1,7 @@
 use std::{cell::RefCell, collections::BTreeSet, hash::Hash};
 
 use automata::{
-    run::Evaluate,
     ts::{Bfs, HasInput, HasStates, IntoTransitions, TransitionOf, Trivial, Visitor},
-    words::{IsFinite, IsInfinite},
     Acceptor, Class, FiniteKind, Pointed, RightCongruence, Set, State, Str, Subword, Successor,
     Symbol, TransitionSystem, UltimatelyPeriodicWord, Word, DFA,
 };

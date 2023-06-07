@@ -8,8 +8,6 @@ mod reachability;
 pub use reachability::{ReachabilityCondition, SafetyAcceptance};
 
 use crate::{
-    run::{Induces, InitialRun},
-    words::{IsFinite, IsInfinite},
     BuchiAcceptance, FiniteKind, InfiniteKind, ParityAcceptance, Pointed, ReachabilityAcceptance,
     Set, State, Symbol, Transformer, TransitionSystem, Word, DBA, DFA, DPA,
 };

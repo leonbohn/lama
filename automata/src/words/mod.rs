@@ -1,8 +1,13 @@
-use std::fmt::Debug;
+use std::{
+    cmp::Ordering,
+    fmt::{Debug, Display},
+    hash::Hash,
+};
 
 use crate::{
-    congruence::CongruenceTransition, ts::IntoTransitions, Boundedness, Class, FiniteKind,
-    RightCongruence, Set, Successor, Symbol,
+    congruence::CongruenceTransition,
+    ts::{IntoTransitions, Path, StateOf, TransitionOf},
+    Boundedness, Class, FiniteKind, RightCongruence, Set, State, Successor, Symbol, Value,
 };
 mod append;
 pub use append::Append;
@@ -13,21 +18,111 @@ pub use prepend::Prepend;
 
 mod finite;
 mod infinite;
+mod represent;
 mod subword;
 
 pub use finite::Str;
 pub use infinite::{PeriodicWord, UltimatelyPeriodicWord};
+pub use represent::{Repr, Representable};
 pub use subword::Subword;
 use tracing::trace;
 
+pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
+    fn is_finite(&self) -> bool;
+    fn calculate_raw_position(&self, position: usize) -> Option<usize>;
+    fn is_end(&self, position: usize) -> bool {
+        self.calculate_raw_position(position).is_none()
+    }
+}
+
+impl Length for usize {
+    fn is_finite(&self) -> bool {
+        true
+    }
+    fn calculate_raw_position(&self, position: usize) -> Option<usize> {
+        if position >= *self {
+            None
+        } else {
+            Some(position)
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct InfiniteLength(usize, usize);
+impl Length for InfiniteLength {
+    fn is_finite(&self) -> bool {
+        false
+    }
+    fn calculate_raw_position(&self, position: usize) -> Option<usize> {
+        if position >= self.0 {
+            Some(self.1)
+        } else {
+            Some(position)
+        }
+    }
+}
+impl Display for InfiniteLength {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{},{}", self.0, self.1)
+    }
+}
+
+pub trait InducesFromPath: Length {
+    type Induces<Q: State, S: Symbol>: Eq;
+
+    fn induces_from_path<TS: Successor>(
+        &self,
+        path: &Path<TS::Q, TS::Sigma>,
+    ) -> Self::Induces<TS::Q, TS::Sigma>;
+}
+
+impl InducesFromPath for usize {
+    type Induces<Q: State, S: Symbol> = Q;
+
+    fn induces_from_path<TS: Successor>(
+        &self,
+        path: &Path<TS::Q, TS::Sigma>,
+    ) -> Self::Induces<TS::Q, TS::Sigma> {
+        todo!()
+    }
+}
+
+impl InducesFromPath for InfiniteLength {
+    type Induces<Q: State, S: Symbol> = Set<(Q, S, Q)>;
+
+    fn induces_from_path<TS: Successor>(
+        &self,
+        path: &Path<TS::Q, TS::Sigma>,
+    ) -> Self::Induces<TS::Q, TS::Sigma> {
+        todo!()
+    }
+}
+
+pub trait HasLength {
+    type Len: Length;
+    fn length(&self) -> Self::Len;
+}
+
+impl<HL: HasLength> HasLength for &HL {
+    type Len = HL::Len;
+    fn length(&self) -> Self::Len {
+        (*self).length()
+    }
+}
+
+impl<HL: HasLength> HasLength for &mut HL {
+    type Len = HL::Len;
+    fn length(&self) -> Self::Len {
+        (*self).length()
+    }
+}
+
 /// Abstracts a word over some given alphabet. The type parameter `S` is the alphabet, and `Kind` is a marker type which indicates whether the word is finite or infinite.
 #[autoimpl(for<T: trait> &T, &mut T)]
-pub trait Word: Debug + Eq + std::hash::Hash {
+pub trait Word: Debug + Eq + std::hash::Hash + HasLength {
     /// The type of the symbols making up the word.
     type S: Symbol;
-
-    /// Indicates whether the word is finite or infinite.
-    type Kind: Boundedness;
 
     /// Returns the symbol at the given index, or `None` if the index is out of bounds.
     fn nth(&self, index: usize) -> Option<Self::S>;
@@ -35,34 +130,6 @@ pub trait Word: Debug + Eq + std::hash::Hash {
     /// Returns the alphabet of `self`, that is the [`Set`] of [`Symbols`] which appear
     /// in `self`.
     fn alphabet(&self) -> Set<Self::S>;
-}
-
-/// Alias to extract the kind of the word.
-pub type WordKind<W> = <W as Word>::Kind;
-
-/// A trait which indicates that a word is finite.
-#[autoimpl(for<T: trait> &T, &mut T)]
-pub trait IsFinite: Word {
-    /// Returns the length of the word.
-    fn length(&self) -> usize;
-}
-
-/// Marker trait for infinite words, assumes the implementor is finitely representable as an ultimately periodic word, i.e. a base word followed by an infinitely looping non-empty word.
-pub trait IsInfinite: Word {
-    /// Returns the length of the base word.
-    fn base_length(&self) -> usize;
-    /// Returns the length of the recurring word.
-    fn recur_length(&self) -> usize;
-}
-
-impl<F: IsInfinite> IsInfinite for &F {
-    fn base_length(&self) -> usize {
-        IsInfinite::base_length(*self)
-    }
-
-    fn recur_length(&self) -> usize {
-        IsInfinite::recur_length(*self)
-    }
 }
 
 /// A trait which allows iterating over the symbols of a word. For an infinite word, this is an infinite iterator.
@@ -74,8 +141,14 @@ pub trait SymbolIterable: Word + Copy {
     fn symbol_iter(self) -> Self::SymbolIter;
 }
 
+impl HasLength for String {
+    type Len = usize;
+    fn length(&self) -> Self::Len {
+        self.len()
+    }
+}
+
 impl Word for String {
-    type Kind = FiniteKind;
     type S = char;
 
     fn nth(&self, index: usize) -> Option<Self::S> {
@@ -87,14 +160,14 @@ impl Word for String {
     }
 }
 
-impl IsFinite for String {
-    fn length(&self) -> usize {
+impl HasLength for &str {
+    type Len = usize;
+    fn length(&self) -> Self::Len {
         self.len()
     }
 }
 
 impl Word for &str {
-    type Kind = FiniteKind;
     type S = char;
 
     fn nth(&self, index: usize) -> Option<Self::S> {
@@ -106,20 +179,14 @@ impl Word for &str {
     }
 }
 
-impl IsFinite for &str {
-    fn length(&self) -> usize {
-        self.len()
-    }
-}
-
-impl<S: Symbol> IsFinite for Vec<S> {
-    fn length(&self) -> usize {
+impl<S> HasLength for Vec<S> {
+    type Len = usize;
+    fn length(&self) -> Self::Len {
         self.len()
     }
 }
 
 impl<S: Symbol> Word for Vec<S> {
-    type Kind = FiniteKind;
     type S = S;
 
     fn nth(&self, index: usize) -> Option<Self::S> {
@@ -187,12 +254,8 @@ impl<W: Subword> WordTransitions<W> {
     }
 }
 
-impl<W> Iterator for WordTransitions<W>
-where
-    W: Subword + IsFinite,
-    W::PrefixType: Into<Class<W::S>>,
-{
-    type Item = CongruenceTransition<W::S>;
+impl<S: Symbol> Iterator for WordTransitions<&Str<S>> {
+    type Item = CongruenceTransition<S>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let ret = if self.pos < self.word.length() {

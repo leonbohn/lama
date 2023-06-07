@@ -1,14 +1,17 @@
 [package]
 name = "lama-web"
 version = "0.1.0"
+authors = ["León Bohn <bohn@lics.rwth-aachen.de>"]
 edition = "2021"
 
-[profile.release]
-lto = true
-opt-level = 's'
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-yew = { version = "0.20", features = ["csr"] }
-automata = { version = "0.1", path = "../automata", default-features = false, features = ["det", "ahash", "graphviz"] }
-automata-learning = { version = "0.1", path = "../automata-learning" }
-getrandom = { version = "0.2", features = ["js"] }
+dioxus = "0.3"
+dioxus-web = "0.3"
+
+log = "0.4.6"
+
+# WebAssembly Debug
+wasm-logger = "0.2.0"
+console_error_panic_hook = "0.1.7"

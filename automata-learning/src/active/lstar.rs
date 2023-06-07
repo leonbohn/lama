@@ -46,7 +46,7 @@ impl<Input: Symbol, Output: Symbol, T: Oracle<Input = Input, Output = Output>>
 
 #[cfg(test)]
 mod tests {
-    use automata::{words::IsFinite, Class, Pointed, TransitionOutput};
+    use automata::{Class, Pointed, TransitionOutput};
     use tracing_test::traced_test;
 
     use crate::active::Oracle;

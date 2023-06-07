@@ -7,9 +7,8 @@ mod separability;
 use std::fmt::{Debug, Display};
 
 use automata::{
-    run::{EscapePrefix, Induces},
+    run::EscapePrefix,
     ts::{IntoParts, IntoStates, IntoTransitions},
-    words::{IsFinite, WordKind},
     Class, Pair, Predecessor, RightCongruence, Set, Str, Subword, Successor, Symbol, Transformer,
     TransitionSystem, UltimatelyPeriodicWord, Word,
 };

@@ -1,6 +1,6 @@
 use automata::{
-    congruence::CongruenceTrigger, run::Induces, words::WordKind, Class, Dfa, Pair,
-    RightCongruence, Set, State, Subword, Symbol, TransitionSystem, UltimatelyPeriodicWord, DFA,
+    congruence::CongruenceTrigger, Class, Dfa, Pair, RightCongruence, Set, State, Subword, Symbol,
+    TransitionSystem, UltimatelyPeriodicWord, DFA,
 };
 
 use crate::passive::Sample;

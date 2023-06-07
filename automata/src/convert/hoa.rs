@@ -10,7 +10,7 @@ use tracing::{debug, info, trace};
 use crate::{
     ts::{HasInput, HasStates, IntoStates, StateReference},
     BuchiCondition, Combined, Dba, Dpa, Growable, HasAlphabet, OmegaAutomaton, OmegaCondition,
-    ParityCondition, Pointed, Set, Successor, Symbol, Transformer, TransitionSystem,
+    ParityCondition, Pointed, Set, Successor, Symbol, Transformer, TransitionSystem, Value,
 };
 
 pub trait ToHoaAcceptance {
@@ -67,7 +67,7 @@ impl<X, Y> ToHoaAcceptance for OmegaCondition<(X, Y)>
 where
     X: Display,
     Y: Display,
-    (X, Y): PartialEq + Eq + std::hash::Hash + Clone,
+    (X, Y): Value,
 {
     type Trigger = (X, Y);
 

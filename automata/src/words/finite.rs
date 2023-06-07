@@ -6,7 +6,7 @@ use std::{
 
 use itertools::Itertools;
 
-use super::{IsFinite, SymbolIterable, Word, WordTransitions};
+use super::{HasLength, Length, SymbolIterable, Word, WordTransitions};
 use crate::{
     congruence::CongruenceTransition,
     ts::{transitionsystem::States, HasInput, HasStates, IntoStates, IntoTransitions},
@@ -125,12 +125,6 @@ impl Str<char> {
     }
 }
 
-impl<S: Symbol> IsFinite for Str<S> {
-    fn length(&self) -> usize {
-        self.symbols.len()
-    }
-}
-
 impl<S: Clone> FromIterator<S> for Str<S> {
     fn from_iter<T: IntoIterator<Item = S>>(iter: T) -> Self {
         Self {
@@ -195,6 +189,13 @@ impl<S: Symbol> AddAssign<&S> for Str<S> {
     }
 }
 
+impl<S: Symbol> HasLength for Str<S> {
+    type Len = usize;
+    fn length(&self) -> Self::Len {
+        self.symbols.len()
+    }
+}
+
 impl<'a, S: Symbol> SymbolIterable for &'a Str<S> {
     type SymbolIter = std::vec::IntoIter<S>;
 
@@ -204,7 +205,6 @@ impl<'a, S: Symbol> SymbolIterable for &'a Str<S> {
 }
 
 impl<S: Symbol> Word for Str<S> {
-    type Kind = FiniteKind;
     type S = S;
     fn nth(&self, index: usize) -> Option<Self::S> {
         self.symbols.get(index).cloned()

@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use itertools::Itertools;
 
-use super::{IsFinite, IsInfinite, Str, SymbolIterable, Word, WordTransitions};
+use super::{HasLength, InfiniteLength, Str, SymbolIterable, Word, WordTransitions};
 use crate::{
     congruence::CongruenceTransition,
     ts::{transitionsystem::States, HasInput, HasStates, IntoStates, IntoTransitions},
@@ -23,18 +23,14 @@ impl<S: Symbol> Display for PeriodicWord<S> {
     }
 }
 
-impl<S: Symbol> IsInfinite for PeriodicWord<S> {
-    fn base_length(&self) -> usize {
-        0
-    }
-
-    fn recur_length(&self) -> usize {
-        self.0.symbols.len()
+impl<S: Symbol> HasLength for PeriodicWord<S> {
+    type Len = InfiniteLength;
+    fn length(&self) -> Self::Len {
+        InfiniteLength(self.0.len(), 0)
     }
 }
 
 impl<S: Symbol> Word for PeriodicWord<S> {
-    type Kind = InfiniteKind;
     type S = S;
 
     fn nth(&self, index: usize) -> Option<Self::S> {
@@ -82,18 +78,14 @@ impl<S: Symbol> Display for UltimatelyPeriodicWord<S> {
     }
 }
 
-impl<S: Symbol> IsInfinite for UltimatelyPeriodicWord<S> {
-    fn base_length(&self) -> usize {
-        self.0.symbols.len()
-    }
-
-    fn recur_length(&self) -> usize {
-        self.1 .0.symbols.len()
+impl<S: Symbol> HasLength for UltimatelyPeriodicWord<S> {
+    type Len = InfiniteLength;
+    fn length(&self) -> Self::Len {
+        InfiniteLength(self.0.len() + self.1 .0.len(), self.0.len())
     }
 }
 
 impl<S: Symbol> Word for UltimatelyPeriodicWord<S> {
-    type Kind = InfiniteKind;
     type S = S;
 
     fn nth(&self, index: usize) -> Option<Self::S> {
@@ -177,6 +169,14 @@ impl<S: Symbol> UltimatelyPeriodicWord<S> {
         self.symbol_iter()
             .zip(prefix.symbol_iter())
             .all(|(x, y)| x == y)
+    }
+
+    pub fn base_length(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn recur_length(&self) -> usize {
+        self.1 .0.len()
     }
 
     /// Turns `self` into a [`RightCongruence`] by building a sequence of transitions

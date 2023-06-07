@@ -8,7 +8,7 @@ use itertools::Itertools;
 
 use crate::{
     output::{Parity, Priority, Transformer},
-    Set,
+    Set, Value,
 };
 
 use super::AcceptanceCondition;
@@ -21,7 +21,7 @@ pub enum OmegaCondition<X> {
     Buchi(BuchiCondition<X>),
 }
 
-impl<X: Clone + Hash + Eq> AcceptanceCondition for OmegaCondition<X> {
+impl<X: Value> AcceptanceCondition for OmegaCondition<X> {
     type Induced = Set<X>;
 
     fn is_accepting(&self, induced: &Self::Induced) -> bool {
@@ -42,14 +42,14 @@ pub trait ToOmega {
 #[derive(Debug, Clone)]
 pub struct ParityCondition<X>(pub Vec<Set<X>>);
 
-impl<X: Hash + Eq + Clone> ToOmega for ParityCondition<X> {
+impl<X: Value> ToOmega for ParityCondition<X> {
     type X = X;
     fn to_omega(&self) -> OmegaCondition<Self::X> {
         OmegaCondition::Parity(self.clone())
     }
 }
 
-impl<X: Eq + Hash + Clone> AcceptanceCondition for ParityCondition<X> {
+impl<X: Value> AcceptanceCondition for ParityCondition<X> {
     type Induced = Set<X>;
 
     fn is_accepting(&self, induced: &Self::Induced) -> bool {
@@ -61,7 +61,7 @@ impl<X: Eq + Hash + Clone> AcceptanceCondition for ParityCondition<X> {
     }
 }
 
-impl<X: Eq + Hash> ParityCondition<X> {
+impl<X: Value> ParityCondition<X> {
     /// Creates a new `ParityCondition` from the given vector of sets.
     pub fn new(parity: Vec<Set<X>>) -> Self {
         Self(parity)
@@ -73,7 +73,7 @@ impl<X: Eq + Hash> ParityCondition<X> {
     }
 }
 
-impl<X: Eq + Hash> Default for ParityCondition<X> {
+impl<X: Value> Default for ParityCondition<X> {
     fn default() -> Self {
         Self::new(vec![Set::new()])
     }
@@ -97,7 +97,7 @@ impl<'a> Iterator for ParityConditionRangeIter<'a> {
 
 impl<X> Transformer for ParityCondition<X>
 where
-    X: Clone + Eq + std::hash::Hash,
+    X: Value,
 {
     type Range = usize;
     type Domain = X;
@@ -169,7 +169,7 @@ pub struct BuchiConditionRangeIter<'a>(&'a std::ops::Range<usize>);
 
 impl<X> Transformer for BuchiCondition<X>
 where
-    X: Eq + Hash + Clone,
+    X: Value,
 {
     type Range = bool;
     type Domain = X;

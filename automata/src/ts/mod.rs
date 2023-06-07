@@ -1,8 +1,8 @@
 use std::{borrow::Borrow, fmt::Display};
 
 use crate::{
-    helpers::MooreMachine, output::IntoAssignments, run::Configuration, Combined, MealyMachine,
-    RightCongruence, Set, Str, Symbol, Word, DFA,
+    helpers::MooreMachine, output::IntoAssignments, Combined, MealyMachine, RightCongruence, Set,
+    Str, Symbol, Word, DFA,
 };
 
 mod restricted;

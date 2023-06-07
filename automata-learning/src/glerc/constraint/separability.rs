@@ -1,8 +1,7 @@
 use automata::{
     congruence::CongruenceTrigger,
-    run::{EscapePrefix, Evaluate, Induces},
-    words::WordKind,
-    Class, Equivalent, RightCongruence, Run, Runnable, Set, Subword, Successor, Symbol, Word,
+    run::{EscapePrefix, Runnable},
+    Class, Equivalent, RightCongruence, Set, Subword, Successor, Symbol, Word,
 };
 use itertools::Itertools;
 
@@ -59,8 +58,8 @@ where
     W: Runnable,
 {
     type Output = (
-        Vec<<W as Runnable>::Induces<Class<W::S>>>,
-        Vec<<W as Runnable>::Induces<Class<W::S>>>,
+        Vec<<W as Runnable>::Induces<RightCongruence<W::S>>>,
+        Vec<<W as Runnable>::Induces<RightCongruence<W::S>>>,
     );
 
     type Error = (&'a W, &'a W, <W as Runnable>::Induces<Class<W::S>>);

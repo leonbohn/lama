@@ -1,40 +1,20 @@
-use automata::convert::ToDot;
-use automata::DFA;
-use yew::prelude::*;
-
-fn build_dfa() -> DFA {
-    DFA::from_parts_iters(
-        [
-            (0, 'a', 1),
-            (0, 'b', 0),
-            (1, 'a', 2),
-            (1, 'b', 1),
-            (2, 'a', 0),
-            (2, 'b', 2),
-        ],
-        [1],
-        0,
-    )
-}
-
-fn print_dfa(dfa: DFA) -> Html {
-    let js = dfa.to_dot().replace('"', "\x22");
-    html! {
-        <>
-        <span id="dfa">{js}</span>
-        </>
-    }
-}
-
-#[function_component(App)]
-fn app() -> Html {
-    html! {
-        <div>
-        <h1>{ print_dfa(build_dfa()) }</h1>
-        </div>
-    }
-}
+use dioxus::prelude::*;
 
 fn main() {
-    yew::Renderer::<App>::new().render();
+    // init debug tool for WebAssembly
+    wasm_logger::init(wasm_logger::Config::default());
+    console_error_panic_hook::set_once();
+
+    dioxus_web::launch(app);
+}
+
+fn app(cx: Scope) -> Element {
+    cx.render(rsx! (
+        div {
+            style: "text-align: center;",
+            h1 { "🌗 Dioxus 🚀" }
+            h3 { "Frontend that scales." }
+            p { "Dioxus is a portable, performant, and ergonomic framework for building cross-platform user interfaces in Rust." }
+        }
+    ))
 }

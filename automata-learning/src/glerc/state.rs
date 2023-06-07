@@ -4,9 +4,8 @@ use std::{
 };
 
 use automata::{
-    run::{EscapePrefix, Evaluate, Induces, InitialRun, Run},
-    ts::IntoParts,
-    AcceptanceCondition, Combined, Growable, Shrinkable, Subword, Symbol, Word,
+    run::EscapePrefix, ts::IntoParts, AcceptanceCondition, Combined, Growable, Shrinkable, Subword,
+    Symbol, Word,
 };
 use tracing::{debug, trace, warn};
 

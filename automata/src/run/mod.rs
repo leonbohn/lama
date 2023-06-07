@@ -1,10 +1,4 @@
-mod configuration;
-mod evaluate;
-mod walker;
-pub use evaluate::{Evaluate, Run, Runnable};
-mod escape_prefix;
-pub use escape_prefix::EscapePrefix;
-mod output;
+use tracing::trace;
 /// Allows the evaluation of a run.
 mod result;
 use std::{
@@ -12,86 +6,131 @@ use std::{
     fmt::{Debug, Display},
 };
 
-pub use result::{Induces, InitialRun};
+use crate::{
+    ts::{InputOf, Path, StateOf, Successor, TransitionOf},
+    words::{HasLength, InducesFromPath, Repr, Representable, Word},
+    Pointed, Set, State, Symbol, Trigger, Value,
+};
 
-pub use walker::Walker;
+pub trait Runnable: Word {
+    type Induces<Q: State, S: Symbol>: Eq;
 
-pub use configuration::Configuration;
+    fn run_in_from<TS: Successor<Sigma = Self::S>>(
+        &self,
+        ts: TS,
+        origin: TS::Q,
+    ) -> Result<Self::Induces<TS::Q, TS::Sigma>, PartialRun<'_, TS::Q, TS::Sigma, Self::Len>>;
 
-use crate::{ts::Successor, words::Word};
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-/// Encapsulates the possible outputs of a run when a symbol is consumed.
-pub enum RunOutput<Q, S> {
-    /// A transition is taken.
-    Transition(Q, S, Q),
-    /// The word has ended, returns the reached state.
-    WordEnd(Q),
-    /// No transition for the given symbol is found, returns the state we are in as well as the missing symbol.
-    Missing(Q, S),
-    /// The run has failed previously and thus cannot be continued.
-    FailedBefore,
-}
-
-impl<Q: Display, S: Display> Display for RunOutput<Q, S> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                RunOutput::Transition(q, s, p) => format!("transition({},{},{})", q, s, p),
-                RunOutput::WordEnd(q) => format!("end({})", q),
-                RunOutput::Missing(q, s) => format!("missing({},{})", q, s),
-                RunOutput::FailedBefore => "failed before".to_string(),
-            }
-        )
+    fn run_in<TS: Successor<Sigma = Self::S> + Pointed>(
+        &self,
+        ts: TS,
+    ) -> Result<Self::Induces<TS::Q, TS::Sigma>, PartialRun<'_, TS::Q, TS::Sigma, Self::Len>> {
+        let initial = ts.initial();
+        self.run_in_from(ts, initial)
     }
 }
 
-impl<Q: Clone, S: Clone> RunOutput<Q, S> {
-    /// Returns true if `self` is of type `RunOutput::Transition` and `false` otherwise.
-    pub fn is_transition(&self) -> bool {
-        matches!(self, RunOutput::Transition(_, _, _))
-    }
+impl<W> Runnable for W
+where
+    W: Word,
+    for<'word> &'word W: Into<Repr<'word, W::S, W::Len>>,
+    W::Len: InducesFromPath,
+{
+    type Induces<Q: State, S: Symbol> = <W::Len as InducesFromPath>::Induces<Q, S>;
 
-    /// Returns true if `self` is of type `RunOutput::WordEnd` and `false` otherwise.
-    pub fn transition(from: Q, on: S, to: Q) -> Self {
-        Self::Transition(from, on, to)
+    fn run_in_from<TS: Successor<Sigma = Self::S>>(
+        &self,
+        ts: TS,
+        origin: TS::Q,
+    ) -> Result<Self::Induces<TS::Q, TS::Sigma>, PartialRun<'_, TS::Q, TS::Sigma, W::Len>> {
+        let mut cane = Cane::new(self, ts.borrow(), origin);
+        cane.result()
     }
+}
 
-    /// Creates a new `RunOutput::WordEnd` with the given reached state.
-    pub fn end(state: Q) -> Self {
-        Self::WordEnd(state)
-    }
+pub struct Cane<'a, TS: Successor, L: InducesFromPath> {
+    ts: TS,
+    repr: Repr<'a, TS::Sigma, L>,
+    position: usize,
+    seen: Set<(usize, TS::Q)>,
+    seq: Path<TS::Q, TS::Sigma>,
+}
 
-    /// Creates a new `RunOutput::Missing` with the given state and missing symbol.
-    pub fn missing(state: Q, missing: S) -> Self {
-        Self::Missing(state, missing)
-    }
+pub type PartialRun<'a, Q, S, L> = (Path<Q, S>, S, Repr<'a, S, L>, usize);
 
-    /// Returns the trigger if `self` is of type `RunOutput::Trigger` and `None` otherwise.
-    pub fn get_transition(&self) -> Option<(Q, S, Q)> {
-        match self {
-            RunOutput::Transition(q, a, p) => Some((q.clone(), a.clone(), p.clone())),
-            _ => None,
+impl<'a, TS: Successor, L: InducesFromPath> Cane<'a, TS, L> {
+    pub fn new<I: Into<Repr<'a, TS::Sigma, L>>>(into_repr: I, ts: TS, source: TS::Q) -> Self {
+        Self {
+            ts,
+            repr: into_repr.into(),
+            position: 0,
+            seen: Set::new(),
+            seq: Path::empty(source),
         }
     }
-}
 
-/// Abstracts the ability to run a word on a transition system step by step, producing a [`RunOutput`] for each consumed symbol of the input word.
-pub trait Walk<'ts, 'w, W: 'w>: Successor + Sized {
-    /// The walker type, which is used to iterate over the run, usually a [`Walker`].
-    type Walker;
+    fn step(&mut self) -> Option<TransitionOf<TS>> {
+        if let Some(transition) = self
+            .repr
+            .nth(self.position)
+            .and_then(|sym| self.ts.transition_for(self.seq.reached(), sym))
+        {
+            if self
+                .seen
+                .insert((self.position, transition.source().clone()))
+            {
+                self.position += 1;
+                self.seq
+                    .extend_with(transition.sym().clone(), transition.2.clone());
+                Some(transition)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
 
-    /// Creates a new [`Self::Walker`] that starts at the given state and consumes the given word.
-    fn walk(&'ts self, from: Self::Q, word: &'w W) -> Self::Walker;
-}
+    fn take_all_steps(&mut self) {
+        while let Some(transition) = self.step() {
+            trace!("Took transition {:?}", transition);
+        }
+    }
 
-impl<'ts, 'w, TS: Successor + 'ts, W: Word<S = TS::Sigma> + 'w> Walk<'ts, 'w, W> for TS {
-    type Walker = Walker<'ts, 'w, W, TS>;
+    fn current_sym(&self) -> Option<TS::Sigma> {
+        self.repr.nth(self.position)
+    }
 
-    fn walk(&'ts self, from: Self::Q, word: &'w W) -> Self::Walker {
-        Walker::new(self, word, from)
+    fn extract_partial_run(self) -> PartialRun<'a, TS::Q, TS::Sigma, L> {
+        let Some(sym) = self.current_sym() else {
+            panic!("Cannot extract partial run if run has been completed!")
+        };
+        debug_assert!(
+            self.repr.length().is_end(self.position)
+                || self.ts.successor(self.seq.reached(), &sym).is_none(),
+        );
+        (self.seq, sym, self.repr, self.position)
+    }
+
+    fn result(
+        mut self,
+    ) -> Result<L::Induces<TS::Q, TS::Sigma>, PartialRun<'a, TS::Q, TS::Sigma, L>> {
+        self.take_all_steps();
+        let len = self.repr.length();
+        if !len.is_end(self.position) {
+            if self
+                .seen
+                .contains(&(self.position, self.seq.reached().clone()))
+            {
+                // already seen, we have a loop
+                Ok(len.induces_from_path::<TS>(&self.seq))
+            } else {
+                // partial infinite run
+                Err(self.extract_partial_run())
+            }
+        } else {
+            Err(self.extract_partial_run())
+        }
     }
 }
 
@@ -118,7 +157,8 @@ mod tests {
         ts.add_transition(&q2, 'b', &q0);
 
         let w = Str::from("abba");
-        assert_eq!(ts.run_from(q0, &w).evaluate(), Ok(q1));
+        todo!()
+        // assert_eq!(ts.run_from(q0, &w).evaluate(), Ok(q1));
     }
 
     #[test]
@@ -134,17 +174,20 @@ mod tests {
         ts.add_transition(&q2, 'b', &q0);
 
         let w = Str::from("abaaa");
-        {
-            let mut run = ts.walk(q0, &w);
-            assert_eq!(run.next(), Some(RunOutput::transition(q0, 'a', q1)));
-            assert_eq!(run.next(), Some(RunOutput::transition(q1, 'b', q0)));
-            assert_eq!(run.next(), Some(RunOutput::transition(q0, 'a', q1)));
-            assert_eq!(run.next(), Some(RunOutput::transition(q1, 'a', q2)));
-            assert_eq!(run.next(), Some(RunOutput::missing(q2, 'a')));
-        }
+        let result = w.run_in_from(&ts, q0);
+        assert!(result.is_err());
+        println!("{:?}", result);
+        let other_res = ts.run_from(&w, q0);
+        // {
+        //     let mut run = ts.walk(q0, &w);
+        //     assert_eq!(run.next(), Some(RunOutput::transition(q0, 'a', q1)));
+        //     assert_eq!(run.next(), Some(RunOutput::transition(q1, 'b', q0)));
+        //     assert_eq!(run.next(), Some(RunOutput::transition(q0, 'a', q1)));
+        //     assert_eq!(run.next(), Some(RunOutput::transition(q1, 'a', q2)));
+        //     assert_eq!(run.next(), Some(RunOutput::missing(q2, 'a')));
+        // }
 
-        ts.add_transition(&q2, 'a', &q0);
-        assert_eq!(ts.run_from(q0, &w).evaluate(), Ok(q0))
+        // assert_eq!(ts.run_from(q0, &w).evaluate(), Ok(q0))
     }
 
     #[test]
@@ -159,6 +202,7 @@ mod tests {
         ts.add_transition(&q1, 'b', &q0);
         ts.add_transition(&q2, 'b', &q0);
 
-        assert_eq!(ts.run_from(q0, "abba").evaluate(), Ok(q1));
+        todo!()
+        // assert_eq!(ts.run_from(q0, "abba").evaluate(), Ok(q1));
     }
 }

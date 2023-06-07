@@ -6,7 +6,7 @@ use crate::{
         HasInput, HasStates, InputOf, IntoParts, IntoStates, IntoTransitions, StateOf,
         StateReference, TransitionReference, Trivial,
     },
-    words::IsFinite,
+    words::{HasLength, Length},
     FiniteKind, Growable, Map, Pointed, Set, Shrinkable, State, Str, Subword, Successor, Symbol,
     TransitionSystem, TriggerIterable, Word, DFA,
 };
@@ -81,10 +81,15 @@ impl<S: Symbol> PartialOrd for Class<S> {
     }
 }
 
+impl<S: Symbol> HasLength for Class<S> {
+    type Len = usize;
+    fn length(&self) -> Self::Len {
+        self.0.length()
+    }
+}
+
 impl<S: Symbol> Word for Class<S> {
     type S = S;
-
-    type Kind = FiniteKind;
 
     fn nth(&self, index: usize) -> Option<Self::S> {
         self.0.symbols.get(index).cloned()
@@ -92,12 +97,6 @@ impl<S: Symbol> Word for Class<S> {
 
     fn alphabet(&self) -> crate::Set<Self::S> {
         self.0.alphabet()
-    }
-}
-
-impl<S: Symbol> IsFinite for Class<S> {
-    fn length(&self) -> usize {
-        self.0.len()
     }
 }
 

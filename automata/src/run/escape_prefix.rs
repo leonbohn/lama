@@ -5,7 +5,7 @@ use std::{
 
 use itertools::Itertools;
 
-use crate::{words::IsFinite, Equivalent, State, Subword, Word};
+use crate::{Equivalent, State, Subword, Word};
 
 /// An escape prefix for a transition system is a triple `(u, q, a)`, where `u` is a finite sequence of triggers for the transition system, `q` is a state of the transition system and `a` is a symbol such that:
 /// - the last trigger in `u` brings the transition system into the state `q`
@@ -78,20 +78,6 @@ impl<Q: State, W: Word + Subword> EscapePrefix<Q, W> {
             prefix,
             state,
             symbol,
-            suffix: word.skip(length),
-        }
-    }
-
-    /// Helper function for converting a finite escape prefix into an infinite one.
-    pub fn from_finite<F: Subword + IsFinite<S = W::S>>(
-        word: &W,
-        escape_prefix: EscapePrefix<Q, F>,
-    ) -> Self {
-        let length = escape_prefix.prefix.len();
-        Self {
-            prefix: escape_prefix.prefix,
-            state: escape_prefix.state,
-            symbol: escape_prefix.symbol,
             suffix: word.skip(length),
         }
     }

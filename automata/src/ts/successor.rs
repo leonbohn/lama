@@ -7,7 +7,7 @@ use tabled::{builder::Builder, settings::Style};
 
 use crate::{
     output::Mapping,
-    run::{Configuration, Run},
+    run::{PartialRun, Runnable},
     Map, Pointed, Set, Str, Transition, TransitionSystem, Trigger, Word,
 };
 
@@ -30,16 +30,27 @@ pub trait Successor: HasStates + HasInput {
         on: Y,
     ) -> Option<Self::Q>;
 
-    /// Starts a run on the `input` from the given `origin`.
-    fn run_from<W: Word<S = Self::Sigma>, X: Borrow<Self::Q>>(
+    fn run_from<'a, R>(
         &self,
-        origin: X,
-        input: W,
-    ) -> Run<&Self, W>
+        on: &'a R,
+        from: Self::Q,
+    ) -> Result<R::Induces<Self::Q, Self::Sigma>, PartialRun<'a, Self::Q, Self::Sigma, R::Len>>
     where
         Self: Sized,
+        R: Runnable<S = Self::Sigma>,
     {
-        Run::new(self, origin, input)
+        on.run_in_from(self, from)
+    }
+
+    fn run<'a, R>(
+        &self,
+        on: &'a R,
+    ) -> Result<R::Induces<Self::Q, Self::Sigma>, PartialRun<'a, Self::Q, Self::Sigma, R::Len>>
+    where
+        Self: Sized + Pointed,
+        R: Runnable<S = Self::Sigma> + 'a,
+    {
+        on.run_in(self)
     }
 
     /// Returns the [`Transition`] corresponding to taking the `on`-transition starting in `from`.
@@ -51,14 +62,6 @@ pub trait Successor: HasStates + HasInput {
         let (from, on) = (from.borrow(), on.borrow());
         self.successor(from, on)
             .map(|to| (from.clone(), on.clone(), to))
-    }
-
-    /// Starts a run on the `input` from the initial state.
-    fn run<W: Word<S = Self::Sigma>>(&self, input: W) -> Run<&Self, W>
-    where
-        Self: Sized + Pointed,
-    {
-        Run::new(self, self.initial(), input)
     }
 
     /// Returns the successor state for the given trigger through calling [`Self::succ`].
@@ -108,20 +111,6 @@ pub trait Successor: HasStates + HasInput {
             to.borrow().clone(),
         )
     }
-
-    /// Starts a run from the given state. A run is given by a [`Configuration`] object, which keeps track
-    /// of the current state.
-    fn run_word_from<W: Word<S = Self::Sigma>, X: Borrow<Self::Q>>(
-        &self,
-        on: W,
-        from: X,
-    ) -> Configuration<&Self, W>
-    where
-        Self: Sized,
-    {
-        Configuration::from_state(self, from.borrow().clone(), on)
-    }
-
     /// Creates a copy of the current TS which has its initial state set.
     fn start(self, start: Self::Q) -> (Self, Self::Q)
     where

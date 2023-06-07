@@ -24,20 +24,6 @@ pub struct Path<Q, S> {
     label: Str<S>,
 }
 
-impl<Q: Display, S: Symbol + Display> std::fmt::Display for Path<Q, S> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Path: [ ")?;
-        for x in self.states.iter().zip_longest(self.label.symbol_iter()) {
-            match x {
-                itertools::EitherOrBoth::Both(q, s) => write!(f, "{}-{}->", q, s)?,
-                itertools::EitherOrBoth::Left(q) => write!(f, "{} ]", q)?,
-                itertools::EitherOrBoth::Right(s) => unreachable!(),
-            }
-        }
-        Ok(())
-    }
-}
-
 impl<Q: State, S: Symbol> Path<Q, S> {
     /// Constructs a new path with an empty label and a state sequence consisting of only the source
     /// vertex, `from`.
@@ -78,6 +64,10 @@ impl<Q: State, S: Symbol> Path<Q, S> {
         self.states
             .last()
             .expect("We consider only non-empty paths!")
+    }
+
+    pub fn infinity_set(&self) -> Set<(Q, S, Q)> {
+        todo!()
     }
 
     /// Computes the length of `self`, which corresponds to the number of symbols in
@@ -146,7 +136,7 @@ impl<Q: State, S: Symbol> Path<Q, S> {
 
     /// Extends the path with the given symbol-state pair, corresponding to the label and the
     /// target of a taken transition.
-    pub fn extend_with(self, symbol: S, state: Q) -> Self {
+    pub fn build_extended_with(self, symbol: S, state: Q) -> Self {
         let Path {
             mut states,
             mut label,
@@ -154,6 +144,11 @@ impl<Q: State, S: Symbol> Path<Q, S> {
         label.push_back(symbol);
         states.push(state);
         Path { states, label }
+    }
+
+    pub fn extend_with(&mut self, symbol: S, state: Q) {
+        self.label.push_back(symbol);
+        self.states.push(state);
     }
 
     /// Turns `self` into a [`Set`] of triggers (state-symbol pairs).
@@ -176,6 +171,20 @@ impl<Q: State, S: Symbol> Path<Q, S> {
             ));
         }
         out
+    }
+}
+
+impl<Q: Display, S: Symbol + Display> std::fmt::Display for Path<Q, S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Path: [ ")?;
+        for x in self.states.iter().zip_longest(self.label.symbol_iter()) {
+            match x {
+                itertools::EitherOrBoth::Both(q, s) => write!(f, "{}-{}->", q, s)?,
+                itertools::EitherOrBoth::Left(q) => write!(f, "{} ]", q)?,
+                itertools::EitherOrBoth::Right(s) => unreachable!(),
+            }
+        }
+        Ok(())
     }
 }
 
@@ -271,7 +280,7 @@ where
     fn visit_next(&mut self) -> Option<Self::Place> {
         while let Some((mut path, sym)) = self.queue.pop_front() {
             if let Some(successor) = self.ts.successor(path.reached(), &sym) {
-                let extended = path.extend_with(sym, successor.clone());
+                let extended = path.build_extended_with(sym, successor.clone());
                 if self.seen.insert(successor) {
                     for sym in &self.alphabet {
                         self.queue.push_back((extended.clone(), sym.clone()));

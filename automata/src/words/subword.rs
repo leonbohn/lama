@@ -1,6 +1,6 @@
 use crate::{Set, Symbol};
 
-use super::{IsFinite, PeriodicWord, Str, SymbolIterable, UltimatelyPeriodicWord, Word};
+use super::{PeriodicWord, Str, SymbolIterable, UltimatelyPeriodicWord, Word};
 
 /// A trait which allows accessing a finite prefix of a given length as well as a finite suffix of a word which is obtained by skipping a number of symbols from the start.
 pub trait Subword: Word {
@@ -8,7 +8,7 @@ pub trait Subword: Word {
     type SuffixType: Word<S = Self::S> + Subword + Clone;
 
     /// The type of the prefix of the word.
-    type PrefixType: Word<S = Self::S> + Subword + IsFinite;
+    type PrefixType: Word<S = Self::S> + Subword;
 
     /// Returns a prefix of length `length` of the word.
     fn prefix(&self, length: usize) -> Self::PrefixType;
