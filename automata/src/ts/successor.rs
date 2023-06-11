@@ -7,7 +7,8 @@ use tabled::{builder::Builder, settings::Style};
 
 use crate::{
     output::Mapping,
-    run::{InducedPath, PartialRun, Runnable},
+    run::{Cane, InducedPath, PartialRun, Runnable},
+    words::{Length, Repr},
     Map, Pointed, Set, Str, Transition, TransitionSystem, Trigger, Word,
 };
 
@@ -21,7 +22,6 @@ use super::{
 /// States of a transition system are generic, and can be any type that implements the [`StateIndex`] trait.
 /// Also the symbols of a transition system are generic, and can be any type that implements the [`Alphabet`] trait.
 /// The [`TransitionTrigger`] trait is used to represent an outgoing transition. Note, that such a trigger is a pair consisting of a state and a symbol, meaning the target state is not included in a trigger.
-#[autoimpl(for<T: trait> &T, &mut T)]
 pub trait Successor: HasStates + HasInput {
     /// Returns the successor state of the given state on the given symbol. The transition function is deterministic, meaning that if a transition exists, it is unique. On the other hand there may not be a transition for a given state and symbol, in which case `succ` returns `None`.
     fn successor<X: Borrow<Self::Q>, Y: Borrow<Self::Sigma>>(
@@ -30,33 +30,30 @@ pub trait Successor: HasStates + HasInput {
         on: Y,
     ) -> Option<Self::Q>;
 
-    fn run_from<'a, R>(
+    fn run_from<'a, L, R>(
         &self,
-        on: &'a R,
+        on: R,
         from: Self::Q,
-    ) -> Result<
-        InducedPath<Self::Q, Self::Sigma, R::Len>,
-        PartialRun<'a, Self::Q, Self::Sigma, R::Len>,
-    >
+    ) -> Result<L::Induces<Self::Q, Self::Sigma>, PartialRun<'a, Self::Q, Self::Sigma, L>>
     where
-        Self: Sized,
-        R: Runnable<S = Self::Sigma>,
+        L: Length,
+        // Self: Sized,
+        R: Into<Repr<'a, Self::Sigma, L>>,
     {
-        on.run_in_from(self, from)
+        let mut cane = Cane::new(on, self, from);
+        cane.result().map(|induced_path| induced_path.induces())
     }
 
-    fn run<'a, R>(
+    fn run<'a, R, L>(
         &self,
-        on: &'a R,
-    ) -> Result<
-        InducedPath<Self::Q, Self::Sigma, R::Len>,
-        PartialRun<'a, Self::Q, Self::Sigma, R::Len>,
-    >
+        on: R,
+    ) -> Result<L::Induces<Self::Q, Self::Sigma>, PartialRun<'a, Self::Q, Self::Sigma, L>>
     where
+        L: Length,
+        R: Into<Repr<'a, Self::Sigma, L>>,
         Self: Sized + Pointed,
-        R: Runnable<S = Self::Sigma> + 'a,
     {
-        on.run_in(self)
+        self.run_from(on, self.initial())
     }
 
     /// Returns the [`Transition`] corresponding to taking the `on`-transition starting in `from`.
@@ -264,6 +261,16 @@ pub trait Successor: HasStates + HasInput {
             state: origin,
             alphabet_iter: self.input_alphabet().unique(),
         }
+    }
+}
+
+impl<TS: Successor + ?Sized> Successor for &TS {
+    fn successor<X: Borrow<Self::Q>, Y: Borrow<Self::Sigma>>(
+        &self,
+        from: X,
+        on: Y,
+    ) -> Option<Self::Q> {
+        TS::successor(self, from, on)
     }
 }
 

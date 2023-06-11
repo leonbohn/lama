@@ -16,19 +16,24 @@ use crate::{
 pub use self::induced_path::{InducedPath, InfinitySet, ReachedState};
 
 pub trait Runnable: Word {
-    fn run_in_from<TS: Successor<Sigma = Self::S>>(
+    fn induced_run_in_from<TS: Successor<Sigma = Self::S>>(
         &self,
         ts: TS,
         origin: TS::Q,
-    ) -> Result<InducedPath<TS::Q, TS::Sigma, Self::Len>, PartialRun<'_, TS::Q, TS::Sigma, Self::Len>>;
+    ) -> Result<
+        <Self::Len as Length>::Induces<TS::Q, TS::Sigma>,
+        PartialRun<'_, TS::Q, TS::Sigma, Self::Len>,
+    >;
 
-    fn run_in<TS: Successor<Sigma = Self::S> + Pointed>(
+    fn induced_run_in<TS: Successor<Sigma = Self::S> + Pointed>(
         &self,
         ts: TS,
-    ) -> Result<InducedPath<TS::Q, TS::Sigma, Self::Len>, PartialRun<'_, TS::Q, TS::Sigma, Self::Len>>
-    {
+    ) -> Result<
+        <Self::Len as Length>::Induces<TS::Q, TS::Sigma>,
+        PartialRun<'_, TS::Q, TS::Sigma, Self::Len>,
+    > {
         let initial = ts.initial();
-        self.run_in_from(ts, initial)
+        self.induced_run_in_from(ts, initial)
     }
 }
 
@@ -38,14 +43,16 @@ where
     for<'word> &'word W: Into<Repr<'word, W::S, W::Len>>,
     W::Len: Length,
 {
-    fn run_in_from<TS: Successor<Sigma = Self::S>>(
+    fn induced_run_in_from<TS: Successor<Sigma = Self::S>>(
         &self,
         ts: TS,
         origin: TS::Q,
-    ) -> Result<InducedPath<TS::Q, TS::Sigma, W::Len>, PartialRun<'_, TS::Q, TS::Sigma, W::Len>>
-    {
+    ) -> Result<
+        <Self::Len as Length>::Induces<TS::Q, TS::Sigma>,
+        PartialRun<'_, TS::Q, TS::Sigma, W::Len>,
+    > {
         let mut cane = Cane::new(self, ts.borrow(), origin);
-        cane.result()
+        cane.result().map(|induced_path| induced_path.induces())
     }
 }
 
@@ -71,6 +78,9 @@ impl<'a, TS: Successor, L: Length> Cane<'a, TS, L> {
     }
 
     fn step(&mut self) -> Option<TransitionOf<TS>> {
+        // fail if the end of the input was reached
+        self.position = self.repr.length().calculate_raw_position(self.position)?;
+
         if let Some(transition) = self
             .repr
             .nth(self.position)
@@ -113,7 +123,7 @@ impl<'a, TS: Successor, L: Length> Cane<'a, TS, L> {
         (self.seq, sym, self.repr, self.position)
     }
 
-    fn result(
+    pub fn result(
         mut self,
     ) -> Result<InducedPath<TS::Q, TS::Sigma, L>, PartialRun<'a, TS::Q, TS::Sigma, L>> {
         self.take_all_steps();
@@ -141,6 +151,7 @@ impl<'a, TS: Successor, L: Length> Cane<'a, TS, L> {
 mod tests {
     use crate::{
         ts::{transitionsystem::TransitionSystem, AnonymousGrowable, Growable},
+        upw,
         words::Str,
     };
 
@@ -177,7 +188,7 @@ mod tests {
         ts.add_transition(&q2, 'b', &q0);
 
         let w = Str::from("abaaa");
-        let result = w.run_in_from(&ts, q0);
+        let result = w.induced_run_in_from(&ts, q0);
         assert!(result.is_err());
         println!("{:?}", result);
         let other_res = ts.run_from(&w, q0);
@@ -205,6 +216,11 @@ mod tests {
         ts.add_transition(&q1, 'b', &q0);
         ts.add_transition(&q2, 'b', &q0);
 
-        assert_eq!(ts.run_from(&"abba", q0), Ok(q1));
+        let upw = upw!("a", "b");
+        assert_eq!(ts.run_from("abba", q0), Ok(ReachedState(q1)));
+        assert_eq!(
+            ts.run_from(upw, q0),
+            Ok(InfinitySet(Set::from_iter([(q0, 'b')])))
+        )
     }
 }

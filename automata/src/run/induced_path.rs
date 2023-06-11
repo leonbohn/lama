@@ -30,7 +30,7 @@ impl<Q: State, S: Symbol, L> InducedPath<Q, S, L> {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[autoimpl(Deref using self.0)]
-pub struct ReachedState<Q>(Q);
+pub struct ReachedState<Q>(pub Q);
 
 impl<Q, S> From<InducedPath<Q, S, FiniteLength>> for ReachedState<Q>
 where
@@ -50,7 +50,7 @@ impl<Q: Display> Display for ReachedState<Q> {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[autoimpl(Deref using self.0)]
-pub struct InfinitySet<Q: State, S: Symbol>(Set<(Q, S)>);
+pub struct InfinitySet<Q: State, S: Symbol>(pub Set<(Q, S)>);
 
 impl<Q, S> From<InducedPath<Q, S, InfiniteLength>> for InfinitySet<Q, S>
 where

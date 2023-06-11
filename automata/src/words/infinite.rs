@@ -1,8 +1,8 @@
-use std::fmt::Display;
+use std::{borrow::Borrow, fmt::Display};
 
 use itertools::Itertools;
 
-use super::{HasLength, InfiniteLength, Str, SymbolIterable, Word, WordTransitions};
+use super::{HasLength, InfiniteLength, Repr, Str, SymbolIterable, Word, WordTransitions};
 use crate::{
     congruence::CongruenceTransition,
     ts::{transitionsystem::States, HasInput, HasStates, IntoStates, IntoTransitions},

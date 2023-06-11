@@ -11,7 +11,6 @@ use crate::{
 };
 
 /// Implemented by objects which can accept a word. We use `W` as an ipnut type parameter to allow for different implementations based on the type of word.
-#[autoimpl(for<T: trait> &T, &mut T)]
 pub trait Acceptor: Successor {
     /// The type of object accepted.
     type Word: Word<S = Self::Sigma>;

@@ -24,7 +24,7 @@ where
         let mut positive_escaping = Vec::new();
 
         for pos_word in self.0.positive_iter() {
-            match pos_word.run_in(cong) {
+            match pos_word.induced_run_in(cong) {
                 Ok(induced) => positive_induceed.push(induced),
                 Err((_seq, q, a, suffix)) => {
                     positive_escaping.push((pos_word, q, a, suffix));
@@ -33,7 +33,7 @@ where
         }
 
         for neg_word in self.0.negative_iter() {
-            match neg_word.run_in(cong) {
+            match neg_word.induced_run_in(cong) {
                 Ok(induced) => negative_induced.push(induced),
                 Err((_seq, q, a, suffix)) => {
                     if let Some((pos_word, _, _, _)) =
@@ -68,10 +68,10 @@ where
         let mut positives = Vec::new();
         let mut negatives = Vec::new();
         for pos_word in self.0.positive_iter() {
-            if let Ok(pos_induced) = pos_word.run_in(cong) {
+            if let Ok(pos_induced) = pos_word.induced_run_in(cong) {
                 positives.push(pos_induced.clone());
                 for neg_word in self.0.negative_iter() {
-                    if let Ok(neg_induced) = neg_word.run_in(cong) {
+                    if let Ok(neg_induced) = neg_word.induced_run_in(cong) {
                         negatives.push(neg_induced.clone());
                         if pos_induced == neg_induced {
                             return Err((pos_word, neg_word, pos_induced));

@@ -55,6 +55,15 @@ impl<'a, S: Symbol, L: Length> Word for Repr<'a, S, L> {
     }
 }
 
+impl<'a> From<&'a str> for Repr<'a, char, FiniteLength> {
+    fn from(value: &'a str) -> Self {
+        Repr::new(
+            value.chars().collect::<Vec<char>>(),
+            FiniteLength(value.len()),
+        )
+    }
+}
+
 impl<'a, S: Symbol> From<&'a Str<S>> for Repr<'a, S, FiniteLength> {
     fn from(value: &'a Str<S>) -> Self {
         Repr::new(&value.symbols, FiniteLength(value.len()))

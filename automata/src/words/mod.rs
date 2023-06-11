@@ -265,6 +265,9 @@ impl<S: Symbol> Iterator for WordTransitions<&Str<S>> {
 }
 
 /// A macro for constructing an ultimately periodic word from string(s).
+/// # Usage
+/// - `upw!(v)` to create the periodic word $ v^\omega $
+/// - `upw!(u, v)` to create the ultimately periodic word $ uv^\omega $.
 #[macro_export]
 macro_rules! upw {
     ($cyc:expr) => {

@@ -52,7 +52,6 @@ pub type TriggerOf<TS> = (StateOf<TS>, InputOf<TS>);
 pub type TransitionOf<TS> = (StateOf<TS>, InputOf<TS>, StateOf<TS>);
 
 /// Trait that encapsulates things which have a set of states. The states can be generic, as long as they implement the [`StateIndex`] trait.
-#[autoimpl(for<T: trait> &T, &mut T)]
 pub trait HasStates {
     /// The type of states of the object.
     type Q: State;
@@ -61,8 +60,14 @@ pub trait HasStates {
     fn contains_state<X: Borrow<Self::Q>>(&self, state: X) -> bool;
 }
 
+impl<H: HasStates + ?Sized> HasStates for &H {
+    type Q = H::Q;
+    fn contains_state<X: Borrow<Self::Q>>(&self, state: X) -> bool {
+        HasStates::contains_state(&self, state)
+    }
+}
+
 /// Trait that encapsulates things which have a set of input symbols, such as a transition system or transducer. The symbols can be generic, as long as they implement the [`Symbol`] trait.
-#[autoimpl(for<T: trait> &T, &mut T)]
 pub trait HasInput {
     /// The type of input symbol.
     type Sigma: Symbol;
@@ -75,6 +80,15 @@ pub trait HasInput {
     fn input_alphabet(&self) -> Self::Input<'_>;
 }
 
+impl<I: HasInput + ?Sized> HasInput for &I {
+    type Sigma = I::Sigma;
+    type Input<'me> = I::Input<'me> where Self: 'me;
+
+    fn input_alphabet(&self) -> Self::Input<'_> {
+        I::input_alphabet(self)
+    }
+}
+
 /// Creates a new trivial transition system, which could either be empty (for [`TransitionSystem`]) or contain a single initial state (for [`InitializedDeterministic`]).
 pub trait Trivial: Successor {
     /// Creates the trivial object
@@ -82,14 +96,18 @@ pub trait Trivial: Successor {
 }
 
 /// Implemented by objects which have a designated initial state.
-#[autoimpl(for<T: trait> &T, &mut T)]
 pub trait Pointed: Successor {
     /// Get the initial state of the automaton.
     fn initial(&self) -> Self::Q;
 }
 
+impl<P: Pointed + ?Sized> Pointed for &P {
+    fn initial(&self) -> Self::Q {
+        P::initial(self)
+    }
+}
+
 /// Trait that allows iterating over all edges in a [`TransitionSystem`].
-#[autoimpl(for<T: trait> &T, &mut T)]
 pub trait TransitionIterable: Successor {
     /// Type of the iterator over all edges.
     type TransitionIter<'me>: Iterator<Item = &'me (Self::Q, Self::Sigma, Self::Q)>
