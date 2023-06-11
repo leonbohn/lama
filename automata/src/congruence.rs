@@ -6,7 +6,7 @@ use crate::{
         HasInput, HasStates, InputOf, IntoParts, IntoStates, IntoTransitions, StateOf,
         StateReference, TransitionReference, Trivial,
     },
-    words::{HasLength, Length},
+    words::{FiniteLength, HasLength, Length},
     FiniteKind, Growable, Map, Pointed, Set, Shrinkable, State, Str, Subword, Successor, Symbol,
     TransitionSystem, TriggerIterable, Word, DFA,
 };
@@ -82,7 +82,7 @@ impl<S: Symbol> PartialOrd for Class<S> {
 }
 
 impl<S: Symbol> HasLength for Class<S> {
-    type Len = usize;
+    type Len = FiniteLength;
     fn length(&self) -> Self::Len {
         self.0.length()
     }

@@ -6,6 +6,7 @@ use std::{
 
 use crate::{
     congruence::CongruenceTransition,
+    run::{InducedPath, InfinitySet, ReachedState},
     ts::{IntoTransitions, Path, StateOf, TransitionOf},
     Boundedness, Class, FiniteKind, RightCongruence, Set, State, Successor, Symbol, Value,
 };
@@ -28,6 +29,7 @@ pub use subword::Subword;
 use tracing::trace;
 
 pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
+    type Induces<Q: State, S: Symbol>: Eq + From<InducedPath<Q, S, Self>>;
     fn is_finite(&self) -> bool;
     fn calculate_raw_position(&self, position: usize) -> Option<usize>;
     fn is_end(&self, position: usize) -> bool {
@@ -35,12 +37,17 @@ pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
     }
 }
 
-impl Length for usize {
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[autoimpl(Deref using self.0)]
+pub struct FiniteLength(pub usize);
+
+impl Length for FiniteLength {
+    type Induces<Q: State, S: Symbol> = ReachedState<Q>;
     fn is_finite(&self) -> bool {
         true
     }
     fn calculate_raw_position(&self, position: usize) -> Option<usize> {
-        if position >= *self {
+        if position >= **self {
             None
         } else {
             Some(position)
@@ -48,9 +55,16 @@ impl Length for usize {
     }
 }
 
+impl Display for FiniteLength {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct InfiniteLength(usize, usize);
+pub struct InfiniteLength(pub usize, pub usize);
 impl Length for InfiniteLength {
+    type Induces<Q: State, S: Symbol> = InfinitySet<Q, S>;
     fn is_finite(&self) -> bool {
         false
     }
@@ -62,40 +76,15 @@ impl Length for InfiniteLength {
         }
     }
 }
+
+impl InfiniteLength {
+    pub fn loop_index(&self) -> usize {
+        self.1
+    }
+}
 impl Display for InfiniteLength {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{},{}", self.0, self.1)
-    }
-}
-
-pub trait InducesFromPath: Length {
-    type Induces<Q: State, S: Symbol>: Eq;
-
-    fn induces_from_path<TS: Successor>(
-        &self,
-        path: &Path<TS::Q, TS::Sigma>,
-    ) -> Self::Induces<TS::Q, TS::Sigma>;
-}
-
-impl InducesFromPath for usize {
-    type Induces<Q: State, S: Symbol> = Q;
-
-    fn induces_from_path<TS: Successor>(
-        &self,
-        path: &Path<TS::Q, TS::Sigma>,
-    ) -> Self::Induces<TS::Q, TS::Sigma> {
-        todo!()
-    }
-}
-
-impl InducesFromPath for InfiniteLength {
-    type Induces<Q: State, S: Symbol> = Set<(Q, S, Q)>;
-
-    fn induces_from_path<TS: Successor>(
-        &self,
-        path: &Path<TS::Q, TS::Sigma>,
-    ) -> Self::Induces<TS::Q, TS::Sigma> {
-        todo!()
     }
 }
 
@@ -142,9 +131,9 @@ pub trait SymbolIterable: Word + Copy {
 }
 
 impl HasLength for String {
-    type Len = usize;
+    type Len = FiniteLength;
     fn length(&self) -> Self::Len {
-        self.len()
+        FiniteLength(self.len())
     }
 }
 
@@ -161,9 +150,9 @@ impl Word for String {
 }
 
 impl HasLength for &str {
-    type Len = usize;
+    type Len = FiniteLength;
     fn length(&self) -> Self::Len {
-        self.len()
+        FiniteLength(self.len())
     }
 }
 
@@ -180,9 +169,9 @@ impl Word for &str {
 }
 
 impl<S> HasLength for Vec<S> {
-    type Len = usize;
+    type Len = FiniteLength;
     fn length(&self) -> Self::Len {
-        self.len()
+        FiniteLength(self.len())
     }
 }
 
@@ -258,7 +247,7 @@ impl<S: Symbol> Iterator for WordTransitions<&Str<S>> {
     type Item = CongruenceTransition<S>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let ret = if self.pos < self.word.length() {
+        let ret = if self.pos < *self.word.length() {
             trace!("Pos is {}", self.pos);
             Some((
                 self.word.prefix(self.pos).into(),

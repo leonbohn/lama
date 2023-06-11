@@ -66,10 +66,6 @@ impl<Q: State, S: Symbol> Path<Q, S> {
             .expect("We consider only non-empty paths!")
     }
 
-    pub fn infinity_set(&self) -> Set<(Q, S, Q)> {
-        todo!()
-    }
-
     /// Computes the length of `self`, which corresponds to the number of symbols in
     /// the label, i.e. the number of transitions making up the path.
     pub fn len(&self) -> usize {

@@ -8,7 +8,7 @@ use crate::{
     PeriodicWord, Set, Str, Successor, Symbol, Trigger, UltimatelyPeriodicWord, Value, Word,
 };
 
-use super::{HasLength, InducesFromPath, InfiniteLength, Length, SymbolIterable};
+use super::{FiniteLength, HasLength, InfiniteLength, Length, SymbolIterable};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Repr<'a, S: Value, L: Length> {
@@ -55,16 +55,16 @@ impl<'a, S: Symbol, L: Length> Word for Repr<'a, S, L> {
     }
 }
 
-impl<'a, S: Symbol> From<&'a Str<S>> for Repr<'a, S, usize> {
+impl<'a, S: Symbol> From<&'a Str<S>> for Repr<'a, S, FiniteLength> {
     fn from(value: &'a Str<S>) -> Self {
-        Repr::new(&value.symbols, value.len())
+        Repr::new(&value.symbols, FiniteLength(value.len()))
     }
 }
 
-impl<'a, S: Symbol> From<Str<S>> for Repr<'a, S, usize> {
+impl<'a, S: Symbol> From<Str<S>> for Repr<'a, S, FiniteLength> {
     fn from(value: Str<S>) -> Self {
         let len = value.len();
-        Repr::new(value.symbols, len)
+        Repr::new(value.symbols, FiniteLength(len))
     }
 }
 

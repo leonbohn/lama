@@ -6,7 +6,7 @@ use std::{
 
 use itertools::Itertools;
 
-use super::{HasLength, Length, SymbolIterable, Word, WordTransitions};
+use super::{FiniteLength, HasLength, Length, SymbolIterable, Word, WordTransitions};
 use crate::{
     congruence::CongruenceTransition,
     ts::{transitionsystem::States, HasInput, HasStates, IntoStates, IntoTransitions},
@@ -190,9 +190,9 @@ impl<S: Symbol> AddAssign<&S> for Str<S> {
 }
 
 impl<S: Symbol> HasLength for Str<S> {
-    type Len = usize;
+    type Len = FiniteLength;
     fn length(&self) -> Self::Len {
-        self.symbols.len()
+        FiniteLength(self.symbols.len())
     }
 }
 

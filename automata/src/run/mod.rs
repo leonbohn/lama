@@ -1,4 +1,5 @@
 use tracing::trace;
+mod induced_path;
 /// Allows the evaluation of a run.
 mod result;
 use std::{
@@ -8,23 +9,24 @@ use std::{
 
 use crate::{
     ts::{InputOf, Path, StateOf, Successor, TransitionOf},
-    words::{HasLength, InducesFromPath, Repr, Representable, Word},
+    words::{HasLength, Length, Repr, Representable, Word},
     Pointed, Set, State, Symbol, Trigger, Value,
 };
 
-pub trait Runnable: Word {
-    type Induces<Q: State, S: Symbol>: Eq;
+pub use self::induced_path::{InducedPath, InfinitySet, ReachedState};
 
+pub trait Runnable: Word {
     fn run_in_from<TS: Successor<Sigma = Self::S>>(
         &self,
         ts: TS,
         origin: TS::Q,
-    ) -> Result<Self::Induces<TS::Q, TS::Sigma>, PartialRun<'_, TS::Q, TS::Sigma, Self::Len>>;
+    ) -> Result<InducedPath<TS::Q, TS::Sigma, Self::Len>, PartialRun<'_, TS::Q, TS::Sigma, Self::Len>>;
 
     fn run_in<TS: Successor<Sigma = Self::S> + Pointed>(
         &self,
         ts: TS,
-    ) -> Result<Self::Induces<TS::Q, TS::Sigma>, PartialRun<'_, TS::Q, TS::Sigma, Self::Len>> {
+    ) -> Result<InducedPath<TS::Q, TS::Sigma, Self::Len>, PartialRun<'_, TS::Q, TS::Sigma, Self::Len>>
+    {
         let initial = ts.initial();
         self.run_in_from(ts, initial)
     }
@@ -34,21 +36,20 @@ impl<W> Runnable for W
 where
     W: Word,
     for<'word> &'word W: Into<Repr<'word, W::S, W::Len>>,
-    W::Len: InducesFromPath,
+    W::Len: Length,
 {
-    type Induces<Q: State, S: Symbol> = <W::Len as InducesFromPath>::Induces<Q, S>;
-
     fn run_in_from<TS: Successor<Sigma = Self::S>>(
         &self,
         ts: TS,
         origin: TS::Q,
-    ) -> Result<Self::Induces<TS::Q, TS::Sigma>, PartialRun<'_, TS::Q, TS::Sigma, W::Len>> {
+    ) -> Result<InducedPath<TS::Q, TS::Sigma, W::Len>, PartialRun<'_, TS::Q, TS::Sigma, W::Len>>
+    {
         let mut cane = Cane::new(self, ts.borrow(), origin);
         cane.result()
     }
 }
 
-pub struct Cane<'a, TS: Successor, L: InducesFromPath> {
+pub struct Cane<'a, TS: Successor, L: Length> {
     ts: TS,
     repr: Repr<'a, TS::Sigma, L>,
     position: usize,
@@ -58,7 +59,7 @@ pub struct Cane<'a, TS: Successor, L: InducesFromPath> {
 
 pub type PartialRun<'a, Q, S, L> = (Path<Q, S>, S, Repr<'a, S, L>, usize);
 
-impl<'a, TS: Successor, L: InducesFromPath> Cane<'a, TS, L> {
+impl<'a, TS: Successor, L: Length> Cane<'a, TS, L> {
     pub fn new<I: Into<Repr<'a, TS::Sigma, L>>>(into_repr: I, ts: TS, source: TS::Q) -> Self {
         Self {
             ts,
@@ -114,21 +115,23 @@ impl<'a, TS: Successor, L: InducesFromPath> Cane<'a, TS, L> {
 
     fn result(
         mut self,
-    ) -> Result<L::Induces<TS::Q, TS::Sigma>, PartialRun<'a, TS::Q, TS::Sigma, L>> {
+    ) -> Result<InducedPath<TS::Q, TS::Sigma, L>, PartialRun<'a, TS::Q, TS::Sigma, L>> {
         self.take_all_steps();
         let len = self.repr.length();
-        if !len.is_end(self.position) {
-            if self
+        if len.is_end(self.position)
+            || self
                 .seen
                 .contains(&(self.position, self.seq.reached().clone()))
-            {
-                // already seen, we have a loop
-                Ok(len.induces_from_path::<TS>(&self.seq))
-            } else {
-                // partial infinite run
-                Err(self.extract_partial_run())
-            }
+        {
+            // Either we are at the end of the word, which means the
+            // input is finite and we are done reading it, or we have
+            // reached a point where we are at the 'same' position of
+            // the input and in the same state and thus we have per-
+            // formed a full loop. Either way we can return the
+            // induced path.
+            Ok(InducedPath::new(self.seq, len))
         } else {
+            // partial infinite run
             Err(self.extract_partial_run())
         }
     }
@@ -202,7 +205,6 @@ mod tests {
         ts.add_transition(&q1, 'b', &q0);
         ts.add_transition(&q2, 'b', &q0);
 
-        todo!()
-        // assert_eq!(ts.run_from(q0, "abba").evaluate(), Ok(q1));
+        assert_eq!(ts.run_from(&"abba", q0), Ok(q1));
     }
 }

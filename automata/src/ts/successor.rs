@@ -7,7 +7,7 @@ use tabled::{builder::Builder, settings::Style};
 
 use crate::{
     output::Mapping,
-    run::{PartialRun, Runnable},
+    run::{InducedPath, PartialRun, Runnable},
     Map, Pointed, Set, Str, Transition, TransitionSystem, Trigger, Word,
 };
 
@@ -34,7 +34,10 @@ pub trait Successor: HasStates + HasInput {
         &self,
         on: &'a R,
         from: Self::Q,
-    ) -> Result<R::Induces<Self::Q, Self::Sigma>, PartialRun<'a, Self::Q, Self::Sigma, R::Len>>
+    ) -> Result<
+        InducedPath<Self::Q, Self::Sigma, R::Len>,
+        PartialRun<'a, Self::Q, Self::Sigma, R::Len>,
+    >
     where
         Self: Sized,
         R: Runnable<S = Self::Sigma>,
@@ -45,7 +48,10 @@ pub trait Successor: HasStates + HasInput {
     fn run<'a, R>(
         &self,
         on: &'a R,
-    ) -> Result<R::Induces<Self::Q, Self::Sigma>, PartialRun<'a, Self::Q, Self::Sigma, R::Len>>
+    ) -> Result<
+        InducedPath<Self::Q, Self::Sigma, R::Len>,
+        PartialRun<'a, Self::Q, Self::Sigma, R::Len>,
+    >
     where
         Self: Sized + Pointed,
         R: Runnable<S = Self::Sigma> + 'a,
