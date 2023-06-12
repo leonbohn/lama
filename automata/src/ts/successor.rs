@@ -7,7 +7,7 @@ use tabled::{builder::Builder, settings::Style};
 
 use crate::{
     output::Mapping,
-    run::{Cane, InducedPath, PartialRun, Runnable},
+    run::{Cane, InducedPath, PartialRun},
     words::{Length, Repr},
     Map, Pointed, Set, Str, Transition, TransitionSystem, Trigger, Word,
 };

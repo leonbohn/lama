@@ -40,6 +40,10 @@ impl<S: Symbol> Word for PeriodicWord<S> {
     fn alphabet(&self) -> Set<Self::S> {
         self.0.symbol_iter().collect()
     }
+
+    fn as_repr<'a>(&'a self) -> Repr<'a, Self::S, Self::Len> {
+        Repr::from(self)
+    }
 }
 
 impl<S, I: Into<Str<S>>> From<I> for PeriodicWord<S> {
@@ -103,6 +107,10 @@ impl<S: Symbol> Word for UltimatelyPeriodicWord<S> {
             .union(&self.1.alphabet())
             .cloned()
             .collect()
+    }
+
+    fn as_repr<'a>(&'a self) -> Repr<'a, Self::S, Self::Len> {
+        Repr::from(self)
     }
 }
 

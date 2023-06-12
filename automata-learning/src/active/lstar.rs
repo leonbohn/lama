@@ -46,7 +46,7 @@ impl<Input: Symbol, Output: Symbol, T: Oracle<Input = Input, Output = Output>>
 
 #[cfg(test)]
 mod tests {
-    use automata::{Class, Pointed, TransitionOutput};
+    use automata::{words::HasLength, Class, Pointed, TransitionOutput};
     use tracing_test::traced_test;
 
     use crate::active::Oracle;
@@ -90,7 +90,7 @@ mod tests {
         type Output = usize;
 
         fn output(&mut self, word: &Class<Self::Input>) -> Self::Output {
-            word.length() % 3
+            (*word.length()) % 3
         }
 
         fn equivalence<M: Pointed + TransitionOutput<Sigma = Self::Input, Gamma = Self::Output>>(

@@ -11,54 +11,12 @@ use std::{
 
 use crate::{
     ts::{InputOf, Path, StateOf, Successor, TransitionOf},
-    words::{HasLength, Length, Repr, Representable, Word},
+    words::{HasLength, Length, Repr, Word},
     Pointed, Set, State, Symbol, Trigger, Value,
 };
 
 pub use self::induced_path::{InducedPath, InfinitySet, ReachedState};
 pub use partial_run::PartialRun;
-
-pub trait Runnable: Word {
-    fn induced_run_in_from<TS: Successor<Sigma = Self::S>>(
-        &self,
-        ts: TS,
-        origin: TS::Q,
-    ) -> Result<
-        <Self::Len as Length>::Induces<TS::Q, TS::Sigma>,
-        PartialRun<'_, TS::Q, TS::Sigma, Self::Len>,
-    >;
-
-    fn induced_run_in<TS: Successor<Sigma = Self::S> + Pointed>(
-        &self,
-        ts: TS,
-    ) -> Result<
-        <Self::Len as Length>::Induces<TS::Q, TS::Sigma>,
-        PartialRun<'_, TS::Q, TS::Sigma, Self::Len>,
-    > {
-        let initial = ts.initial();
-        self.induced_run_in_from(ts, initial)
-    }
-}
-
-impl<W> Runnable for W
-where
-    W: Word,
-    for<'word> &'word W: Into<Repr<'word, W::S, W::Len>>,
-    W::Len: Length,
-{
-    fn induced_run_in_from<TS: Successor<Sigma = Self::S>>(
-        &self,
-        ts: TS,
-        origin: TS::Q,
-    ) -> Result<
-        <Self::Len as Length>::Induces<TS::Q, TS::Sigma>,
-        PartialRun<'_, TS::Q, TS::Sigma, W::Len>,
-    > {
-        let mut cane = Cane::new(self, ts.borrow(), origin);
-        cane.result().map(|induced_path| induced_path.induces())
-    }
-}
-
 pub struct Cane<'a, TS: Successor, L: Length> {
     ts: TS,
     repr: Repr<'a, TS::Sigma, L>,
@@ -157,53 +115,6 @@ mod tests {
     };
 
     use super::*;
-
-    #[test]
-    fn basic_run() {
-        let mut ts: TransitionSystem<u32> = TransitionSystem::new();
-        let q0 = ts.add_new_state();
-        let q1 = ts.add_new_state();
-        let q2 = ts.add_new_state();
-        ts.add_transition(&q0, 'a', &q1);
-        ts.add_transition(&q0, 'b', &q0);
-        ts.add_transition(&q1, 'a', &q2);
-        ts.add_transition(&q1, 'b', &q0);
-        ts.add_transition(&q2, 'a', &q2);
-        ts.add_transition(&q2, 'b', &q0);
-
-        let w = Str::from("abba");
-        todo!()
-        // assert_eq!(ts.run_from(q0, &w).evaluate(), Ok(q1));
-    }
-
-    #[test]
-    fn basic_run_with_missing() {
-        let mut ts: TransitionSystem<u32> = TransitionSystem::new();
-        let q0 = ts.add_new_state();
-        let q1 = ts.add_new_state();
-        let q2 = ts.add_new_state();
-        ts.add_transition(&q0, 'a', &q1);
-        ts.add_transition(&q0, 'b', &q0);
-        ts.add_transition(&q1, 'a', &q2);
-        ts.add_transition(&q1, 'b', &q0);
-        ts.add_transition(&q2, 'b', &q0);
-
-        let w = Str::from("abaaa");
-        let result = w.induced_run_in_from(&ts, q0);
-        assert!(result.is_err());
-        println!("{:?}", result);
-        let other_res = ts.run_from(&w, q0);
-        // {
-        //     let mut run = ts.walk(q0, &w);
-        //     assert_eq!(run.next(), Some(RunOutput::transition(q0, 'a', q1)));
-        //     assert_eq!(run.next(), Some(RunOutput::transition(q1, 'b', q0)));
-        //     assert_eq!(run.next(), Some(RunOutput::transition(q0, 'a', q1)));
-        //     assert_eq!(run.next(), Some(RunOutput::transition(q1, 'a', q2)));
-        //     assert_eq!(run.next(), Some(RunOutput::missing(q2, 'a')));
-        // }
-
-        // assert_eq!(ts.run_from(q0, &w).evaluate(), Ok(q0))
-    }
 
     #[test]
     fn input_to_run() {

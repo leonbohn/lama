@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     cmp::Ordering,
     fmt::{Debug, Display},
     hash::Hash,
@@ -24,19 +25,24 @@ mod subword;
 
 pub use finite::Str;
 pub use infinite::{PeriodicWord, UltimatelyPeriodicWord};
-pub use represent::{Repr, Representable};
+pub use represent::Repr;
 pub use subword::Subword;
 use tracing::trace;
 
 pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
-    type Induces<Q: State, S: Symbol>: Eq + From<InducedPath<Q, S, Self>>;
+    type Induces<Q: State, S: Symbol>: Debug + Eq + From<InducedPath<Q, S, Self>>;
     fn is_finite(&self) -> bool;
     fn calculate_raw_position(&self, position: usize) -> Option<usize>;
     fn is_end(&self, position: usize) -> bool {
         self.calculate_raw_position(position).is_none()
     }
+    fn normalize<'a, S, I>(&mut self, raw: I) -> Cow<'a, [S]>
+    where
+        S: Value,
+        I: Into<Cow<'a, [S]>>;
 }
 
+/// Wrapper for things/words that have a finite length, which is simply an `usize`.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[autoimpl(Deref using self.0)]
 pub struct FiniteLength(pub usize);
@@ -53,6 +59,14 @@ impl Length for FiniteLength {
             Some(position)
         }
     }
+
+    fn normalize<'a, S, I>(&mut self, raw: I) -> Cow<'a, [S]>
+    where
+        S: Value,
+        I: Into<Cow<'a, [S]>>,
+    {
+        raw.into()
+    }
 }
 
 impl Display for FiniteLength {
@@ -61,6 +75,23 @@ impl Display for FiniteLength {
     }
 }
 
+fn deduplicate_and_check<S>(u: &[S]) -> Option<&[S]>
+where
+    S: Eq,
+{
+    let n = u.len();
+    let mut i = 1;
+    while i < n {
+        if n % i == 0 && u[i..] == u[..n - i] {
+            return Some(&u[..i]);
+        }
+        i += 1;
+    }
+    None
+}
+
+/// Wrapper type for things of infinite length. The first field is the length of
+/// the raw representation, while the second field is the loop index.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct InfiniteLength(pub usize, pub usize);
 impl Length for InfiniteLength {
@@ -75,11 +106,61 @@ impl Length for InfiniteLength {
             Some(position)
         }
     }
+
+    fn normalize<'a, S, I>(&mut self, raw: I) -> Cow<'a, [S]>
+    where
+        S: Value,
+        I: Into<Cow<'a, [S]>>,
+    {
+        let mut repr = raw.into();
+
+        if self.is_ultimately_periodic() {
+            // we need to do the shift, i.e. move the split position as far to the left
+            // as possible and delete trailing symbols.
+            let mut i = self.loop_index();
+            while i > 0 && repr.get(i - 1) == repr.get(self.last_raw_position()) {
+                i -= 1;
+                self.0 -= 1;
+                self.1 -= 1;
+            }
+        }
+
+        if let Some(deduped) = deduplicate_and_check(self.suffix_of(&repr)) {
+            self.0 = self.1 + deduped.len();
+            self.prefix_of(&repr)
+                .iter()
+                .chain(deduped.iter())
+                .cloned()
+                .collect()
+        } else {
+            repr
+        }
+    }
 }
 
 impl InfiniteLength {
     pub fn loop_index(&self) -> usize {
         self.1
+    }
+
+    pub fn last_raw_position(&self) -> usize {
+        self.0 - 1
+    }
+
+    pub fn is_periodic(&self) -> bool {
+        self.loop_index() == 0
+    }
+
+    pub fn is_ultimately_periodic(&self) -> bool {
+        self.loop_index() > 0
+    }
+
+    pub fn prefix_of<'a, S>(&self, raw: &'a [S]) -> &'a [S] {
+        &raw[..self.1]
+    }
+
+    pub fn suffix_of<'a, S>(&self, raw: &'a [S]) -> &'a [S] {
+        &raw[self.1..self.0]
     }
 }
 impl Display for InfiniteLength {
@@ -112,6 +193,8 @@ impl<HL: HasLength> HasLength for &mut HL {
 pub trait Word: Debug + Eq + std::hash::Hash + HasLength {
     /// The type of the symbols making up the word.
     type S: Symbol;
+
+    fn as_repr(&self) -> Repr<'_, Self::S, Self::Len>;
 
     /// Returns the symbol at the given index, or `None` if the index is out of bounds.
     fn nth(&self, index: usize) -> Option<Self::S>;
@@ -147,6 +230,10 @@ impl Word for String {
     fn alphabet(&self) -> Set<Self::S> {
         self.chars().collect()
     }
+
+    fn as_repr(&self) -> Repr<'_, Self::S, Self::Len> {
+        Repr::from(self)
+    }
 }
 
 impl HasLength for &str {
@@ -166,6 +253,10 @@ impl Word for &str {
     fn alphabet(&self) -> Set<Self::S> {
         self.chars().collect()
     }
+
+    fn as_repr(&self) -> Repr<'_, Self::S, Self::Len> {
+        Repr::from(*self)
+    }
 }
 
 impl<S> HasLength for Vec<S> {
@@ -184,6 +275,10 @@ impl<S: Symbol> Word for Vec<S> {
 
     fn alphabet(&self) -> Set<Self::S> {
         self.iter().cloned().collect()
+    }
+
+    fn as_repr(&self) -> Repr<'_, Self::S, Self::Len> {
+        Repr::from(self)
     }
 }
 
@@ -317,5 +412,13 @@ mod tests {
         let word = upw!("aa", "bb");
         let ts = word.into_ts();
         println!("{}", ts);
+    }
+
+    #[test]
+    fn deduplicate_test() {
+        let raw = [0, 1, 2, 0, 1, 2, 0, 1, 2];
+        assert_eq!(deduplicate_and_check(&raw), Some(&raw[0..3]));
+        let raw = [0, 0, 0, 0, 0];
+        assert_eq!(deduplicate_and_check(&raw), Some(&raw[..1]));
     }
 }

@@ -10,26 +10,18 @@ use crate::{
 
 use super::{FiniteLength, HasLength, InfiniteLength, Length, SymbolIterable};
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Repr<'a, S: Value, L: Length> {
     raw: Cow<'a, [S]>,
     length: L,
 }
 
-pub trait Representable<S: Value>: HasLength {
-    fn represent(&self) -> Repr<'_, S, Self::Len>;
-}
-impl<S: Value, R: Representable<S>> Representable<S> for &R {
-    fn represent(&self) -> Repr<'_, S, Self::Len> {
-        (*self).represent()
-    }
-}
-
 impl<'a, S: Value, L: Length> Repr<'a, S, L> {
     pub fn new<I: Into<Cow<'a, [S]>>>(raw_representation: I, mode: L) -> Self {
+        let mut length = mode;
         Self {
-            raw: raw_representation.into(),
-            length: mode,
+            raw: length.normalize(raw_representation),
+            length,
         }
     }
 }
@@ -52,6 +44,19 @@ impl<'a, S: Symbol, L: Length> Word for Repr<'a, S, L> {
 
     fn alphabet(&self) -> crate::Set<Self::S> {
         self.raw.iter().cloned().collect()
+    }
+
+    fn as_repr(&self) -> Repr<'_, Self::S, Self::Len> {
+        self.clone()
+    }
+}
+
+impl<'a> From<&'a String> for Repr<'a, char, FiniteLength> {
+    fn from(value: &'a String) -> Self {
+        Repr::new(
+            value.chars().collect::<Vec<char>>(),
+            FiniteLength(value.len()),
+        )
     }
 }
 
@@ -116,9 +121,31 @@ impl<'a, S: Symbol> From<&'a UltimatelyPeriodicWord<S>> for Repr<'a, S, Infinite
             .chain(value.1 .0.symbols.iter())
             .cloned()
             .collect_vec();
-        Self {
-            length: InfiniteLength(raw.len(), split),
-            raw: raw.into(),
-        }
+        let len = raw.len();
+        Repr::new(raw, InfiniteLength(len, split))
+    }
+}
+
+impl<'a, S: Symbol> From<Vec<S>> for Repr<'a, S, FiniteLength> {
+    fn from(value: Vec<S>) -> Self {
+        let length = FiniteLength(value.len());
+        Repr::new(value, length)
+    }
+}
+
+impl<'a, S: Symbol> From<&'a Vec<S>> for Repr<'a, S, FiniteLength> {
+    fn from(value: &'a Vec<S>) -> Self {
+        let length = FiniteLength(value.len());
+        Repr::new(value, length)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{upw, Word};
+
+    #[test]
+    fn repr_upw() {
+        println!("{:?}", upw!("abab").as_repr());
     }
 }

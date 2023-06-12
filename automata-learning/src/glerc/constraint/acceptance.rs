@@ -100,7 +100,7 @@ impl<'a, S: Symbol> Constraint<S> for BuchiConstraint<'a, S> {
             })?;
 
         let neg_union = negatives.iter().fold(Set::new(), |mut acc, set| {
-            acc.extend(set.into_iter().map(|(c, a, _)| (c, a)));
+            acc.extend(set.into_iter().map(|(c, a)| (c, a)));
             acc
         });
 
@@ -114,13 +114,13 @@ impl<'a, S: Symbol> Constraint<S> for BuchiConstraint<'a, S> {
 
         for positive_induced in positives {
             let positive_induced_triggers: Set<_> =
-                positive_induced.iter().map(|(p, a, _)| (p, a)).collect();
+                positive_induced.into_iter().map(|(p, a)| (p, a)).collect();
             if positive_induced_triggers.is_subset(&neg_union) {
                 return Err(format!(
                     "Positive word {} is not separated from negative words",
                     positive_induced
                         .into_iter()
-                        .map(|(p, a, _)| format!("({p}, {a})"))
+                        .map(|(p, a)| format!("({p}, {a})"))
                         .join(", ")
                 ));
             }
@@ -129,7 +129,7 @@ impl<'a, S: Symbol> Constraint<S> for BuchiConstraint<'a, S> {
         let alphabet = cong.alphabet();
         let mut mapping = Map::new();
         for (state, sym) in cong.all_potential_triggers(self.0.alphabet.clone()) {
-            if neg_union.contains(&(&state, &sym)) {
+            if neg_union.contains(&(state, sym)) {
                 mapping.insert((state.clone(), sym.clone()), false);
             } else {
                 mapping.insert((state.clone(), sym.clone()), true);
@@ -158,11 +158,11 @@ impl<'a, S: Symbol> Constraint<S> for ParityConstraint<'a, S> {
 
         let positives = positives
             .into_iter()
-            .map(|set| set.into_iter().map(|(p, a, _)| (p, a)).collect())
+            .map(|set| set.into_iter().map(|(p, a)| (p, a)).collect())
             .collect();
         let negatives: Vec<_> = negatives
             .into_iter()
-            .map(|set| set.into_iter().map(|(p, a, _)| (p, a)).collect())
+            .map(|set| set.into_iter().map(|(p, a)| (p, a)).collect())
             .collect();
 
         let (start, left, right) = if negatives.contains(&universe) {

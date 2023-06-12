@@ -1,7 +1,6 @@
 use automata::{
-    congruence::CongruenceTrigger,
-    run::{EscapePrefix, Runnable},
-    Class, Equivalent, RightCongruence, Set, Subword, Successor, Symbol, Word,
+    congruence::CongruenceTrigger, words::Length, Class, Equivalent, RightCongruence, Set, Subword,
+    Successor, Symbol, Word,
 };
 use itertools::Itertools;
 
@@ -9,11 +8,11 @@ use super::{Constraint, EscapeSeparabilityConstraint, InducedSeparabilityConstra
 
 impl<'a, W> Constraint<W::S> for EscapeSeparabilityConstraint<'a, W>
 where
-    W: Runnable,
+    W: Word,
 {
     type Output = (
-        Vec<<W as Runnable>::Induces<Class<W::S>>>,
-        Vec<<W as Runnable>::Induces<Class<W::S>>>,
+        Vec<<W::Len as Length>::Induces<Class<W::S>, W::S>>,
+        Vec<<W::Len as Length>::Induces<Class<W::S>, W::S>>,
     );
 
     type Error = (&'a W, &'a W, CongruenceTrigger<W::S>);
@@ -24,16 +23,16 @@ where
         let mut positive_escaping = Vec::new();
 
         for pos_word in self.0.positive_iter() {
-            match pos_word.induced_run_in(cong) {
+            match cong.run(pos_word.as_repr()) {
                 Ok(induced) => positive_induceed.push(induced),
-                Err((_seq, q, a, suffix)) => {
-                    positive_escaping.push((pos_word, q, a, suffix));
+                Err(partial_run) => {
+                    positive_escaping.push(partial_run);
                 }
             }
         }
 
         for neg_word in self.0.negative_iter() {
-            match neg_word.induced_run_in(cong) {
+            match cong.run(neg_word.as_repr()) {
                 Ok(induced) => negative_induced.push(induced),
                 Err((_seq, q, a, suffix)) => {
                     if let Some((pos_word, _, _, _)) =
@@ -55,23 +54,23 @@ where
 
 impl<'a, W> Constraint<W::S> for InducedSeparabilityConstraint<'a, W>
 where
-    W: Runnable,
+    W: Word,
 {
     type Output = (
-        Vec<<W as Runnable>::Induces<RightCongruence<W::S>>>,
-        Vec<<W as Runnable>::Induces<RightCongruence<W::S>>>,
+        Vec<<W::Len as Length>::Induces<Class<W::S>, W::S>>,
+        Vec<<W::Len as Length>::Induces<Class<W::S>, W::S>>,
     );
 
-    type Error = (&'a W, &'a W, <W as Runnable>::Induces<Class<W::S>>);
+    type Error = (&'a W, &'a W, <W::Len as Length>::Induces<Class<W::S>, W::S>);
 
     fn satisfied(&self, cong: &RightCongruence<W::S>) -> Result<Self::Output, Self::Error> {
         let mut positives = Vec::new();
         let mut negatives = Vec::new();
         for pos_word in self.0.positive_iter() {
-            if let Ok(pos_induced) = pos_word.induced_run_in(cong) {
+            if let Ok(pos_induced) = cong.run(pos_word.as_repr()) {
                 positives.push(pos_induced.clone());
                 for neg_word in self.0.negative_iter() {
-                    if let Ok(neg_induced) = neg_word.induced_run_in(cong) {
+                    if let Ok(neg_induced) = cong.run(neg_word.as_repr()) {
                         negatives.push(neg_induced.clone());
                         if pos_induced == neg_induced {
                             return Err((pos_word, neg_word, pos_induced));

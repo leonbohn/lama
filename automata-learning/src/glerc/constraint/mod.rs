@@ -7,7 +7,6 @@ mod separability;
 use std::fmt::{Debug, Display};
 
 use automata::{
-    run::EscapePrefix,
     ts::{IntoParts, IntoStates, IntoTransitions},
     Class, Pair, Predecessor, RightCongruence, Set, Str, Subword, Successor, Symbol, Transformer,
     TransitionSystem, UltimatelyPeriodicWord, Word,
@@ -294,7 +293,7 @@ mod tests {
         );
         let dfa = dfa_rpni(&sample);
         println!("{}", dfa);
-        assert!(sample.consistent_with(&dfa))
+        assert!(sample.consistent_with(dfa))
     }
 
     #[test]
