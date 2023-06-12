@@ -39,6 +39,65 @@ pub trait AnnotatesState<X> {
     fn annotate_state(&self, x: &X) -> String;
 }
 
+impl<X, Y> AnnotatesState<X> for BuchiCondition<(X, Y)>
+where
+    X: Eq + Hash + Display,
+    Y: Eq + Hash + Display,
+{
+    fn annotate_state(&self, x: &X) -> String {
+        x.to_string()
+    }
+}
+
+impl<X, Y> AnnotatesState<X> for ParityCondition<(X, Y)>
+where
+    X: Eq + Hash + Display,
+    Y: Eq + Hash + Display,
+{
+    fn annotate_state(&self, x: &X) -> String {
+        x.to_string()
+    }
+}
+
+impl<I: Symbol, O> AnnotatesState<Class<I>> for Map<CongruenceTrigger<I>, O> {
+    fn annotate_state(&self, x: &Class<I>) -> String {
+        x.to_string()
+    }
+}
+
+impl<X, Y> AnnotatesState<X> for OmegaCondition<(X, Y)>
+where
+    X: Eq + Hash + Display,
+    Y: Eq + Hash + Display,
+{
+    fn annotate_state(&self, x: &X) -> String {
+        x.to_string()
+    }
+}
+impl<X, Y, O> AnnotatesState<X> for Mapping<(X, Y), O>
+where
+    (X, Y): Value,
+    Y: Display,
+    X: Display,
+    O: Display + Value,
+{
+    fn annotate_state(&self, x: &X) -> String {
+        x.to_string()
+    }
+}
+impl<X> AnnotatesState<X> for Mapping<X, bool>
+where
+    X: Value + Display,
+{
+    fn annotate_state(&self, x: &X) -> String {
+        // if self.apply(x) {
+        //     x.green().to_string()
+        // } else {
+        x.to_string()
+        // }
+    }
+}
+
 /// Implementors have the ability of displaying their states.
 pub trait DisplayState: Successor {
     /// Display the given state, i.e. turn it into a string representation.
@@ -67,33 +126,6 @@ where
         )
     }
 }
-
-impl<X, Y> AnnotatesState<X> for BuchiCondition<(X, Y)>
-where
-    X: Eq + Hash + Display,
-    Y: Eq + Hash + Display,
-{
-    fn annotate_state(&self, x: &X) -> String {
-        x.to_string()
-    }
-}
-
-impl<X, Y> AnnotatesState<X> for ParityCondition<(X, Y)>
-where
-    X: Eq + Hash + Display,
-    Y: Eq + Hash + Display,
-{
-    fn annotate_state(&self, x: &X) -> String {
-        x.to_string()
-    }
-}
-
-impl<I: Symbol, O> AnnotatesState<Class<I>> for Map<CongruenceTrigger<I>, O> {
-    fn annotate_state(&self, x: &Class<I>) -> String {
-        x.to_string()
-    }
-}
-
 impl<X, Y> AnnotatesTransition<X, Y> for ParityCondition<(X, Y)>
 where
     X: Eq + Hash + Display,
@@ -196,16 +228,6 @@ where
     }
 }
 
-impl<X, Y> AnnotatesState<X> for OmegaCondition<(X, Y)>
-where
-    X: Eq + Hash + Display,
-    Y: Eq + Hash + Display,
-{
-    fn annotate_state(&self, x: &X) -> String {
-        x.to_string()
-    }
-}
-
 impl<X, Y> AnnotatesTransition<X, Y> for OmegaCondition<(X, Y)>
 where
     X: Eq + Hash + Display,
@@ -262,18 +284,6 @@ where
     }
 }
 
-impl<X, Y, O> AnnotatesState<X> for Mapping<(X, Y), O>
-where
-    (X, Y): Value,
-    Y: Display,
-    X: Display,
-    O: Display + Value,
-{
-    fn annotate_state(&self, x: &X) -> String {
-        x.to_string()
-    }
-}
-
 impl<X, Y> AnnotatesTransition<X, Y> for Mapping<X, bool>
 where
     X: Value,
@@ -282,18 +292,5 @@ where
 {
     fn annotate_transition(&self, _x: &(X, Y), z: &X) -> String {
         format!("{}", z)
-    }
-}
-
-impl<X> AnnotatesState<X> for Mapping<X, bool>
-where
-    X: Value + Display,
-{
-    fn annotate_state(&self, x: &X) -> String {
-        // if self.apply(x) {
-        //     x.green().to_string()
-        // } else {
-        x.to_string()
-        // }
     }
 }

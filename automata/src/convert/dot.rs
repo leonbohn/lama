@@ -1,8 +1,11 @@
+use std::fmt::Display;
+
 use itertools::Itertools;
 
 use crate::{
-    ts::{InputOf, IntoTransitions, StateOf, Transition, Trigger},
-    Combined, Successor,
+    output::Mapping,
+    ts::{InputOf, IntoTransitions, StateOf, Transition, Trigger, TriggerOf},
+    Combined, MealyMachine, Successor, Symbol, Transformer, Value,
 };
 
 use super::{AnnotatesState, AnnotatesTransition, DisplayState, DisplaySymbol};
@@ -72,7 +75,8 @@ pub trait ToDot {
         let image_tempfile_name = image_tempfile.into_temp_path();
 
         tracing::trace!(
-            "Rendering dot \n{}\n to png ({})",
+            "Rendering {}\n{}\n to {}",
+            tempfile_name.display(),
             dot,
             image_tempfile_name.display()
         );
@@ -125,19 +129,20 @@ fn display_png(rendered_path: tempfile::TempPath) -> Result<(), std::io::Error> 
         .spawn()?
         .wait()?;
     #[cfg(target_os = "windows")]
-    std::process::Command::new("ImageViewer")
-        .arg(&rendered_path)
+    std::process::Command::new("cmd")
+        .arg("/c")
+        .arg(format!("start {}", rendered_path.display()))
         .spawn()?
         .wait()?;
-    std::thread::sleep(std::time::Duration::from_secs(2));
-    println!("DFKLJDFJK");
+    #[cfg(target_os = "windows")]
+    std::thread::sleep(std::time::Duration::from_secs(1));
     Ok(())
 }
 
-impl<TS, ACC> ToDot for Combined<TS, ACC>
+impl<TS, V> ToDot for Combined<TS, Mapping<TS::Q, V>>
 where
-    TS: Successor + DisplayState + DisplaySymbol,
-    ACC: AnnotatesTransition<TS::Q, TS::Sigma> + AnnotatesState<TS::Q>,
+    TS: Successor,
+    V: Value + Display,
     for<'a> &'a TS: IntoTransitions<Q = StateOf<TS>, Sigma = InputOf<TS>>,
 {
     fn to_dot(&self) -> String {
@@ -145,7 +150,11 @@ where
             "fontname=\"Helvetica,Arial,sans-serif\"\nrankdir=LR".to_string(),
             "init [label=\"\", shape=none]".into(),
             "node [shape=circle]".into(),
-            format!("init -> {} [style=\"solid\"]", self.initial),
+            format!(
+                "init -> \"{}|{}\" [style=\"solid\"]",
+                self.initial,
+                self.acceptance().apply(&self.initial)
+            ),
         ];
 
         for transition in self.ts().into_transitions() {
@@ -153,9 +162,11 @@ where
             let sym = transition.sym().clone();
             let target = transition.target().clone();
             lines.push(format!(
-                "{} -> {} [label = \"{}\"]",
-                self.acceptance().annotate_state(&source),
-                self.acceptance().annotate_state(&target),
+                "\"{}|{}\" -> \"{}|{}\" [label = \"{}\"]",
+                &source,
+                self.acceptance().apply(&source),
+                &target,
+                self.acceptance().apply(&target),
                 sym
             ));
         }
