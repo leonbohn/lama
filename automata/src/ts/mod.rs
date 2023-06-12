@@ -63,7 +63,7 @@ pub trait HasStates {
 impl<H: HasStates + ?Sized> HasStates for &H {
     type Q = H::Q;
     fn contains_state<X: Borrow<Self::Q>>(&self, state: X) -> bool {
-        HasStates::contains_state(&self, state)
+        H::contains_state(*self, state)
     }
 }
 

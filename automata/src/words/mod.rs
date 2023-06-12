@@ -96,14 +96,14 @@ pub trait HasLength {
 impl<HL: HasLength> HasLength for &HL {
     type Len = HL::Len;
     fn length(&self) -> Self::Len {
-        (*self).length()
+        HL::length(*self)
     }
 }
 
 impl<HL: HasLength> HasLength for &mut HL {
     type Len = HL::Len;
     fn length(&self) -> Self::Len {
-        (*self).length()
+        HL::length(*self)
     }
 }
 

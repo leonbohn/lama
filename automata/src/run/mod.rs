@@ -1,7 +1,9 @@
 use tracing::trace;
 mod induced_path;
+mod partial_run;
 /// Allows the evaluation of a run.
 mod result;
+
 use std::{
     borrow::Borrow,
     fmt::{Debug, Display},
@@ -14,6 +16,7 @@ use crate::{
 };
 
 pub use self::induced_path::{InducedPath, InfinitySet, ReachedState};
+pub use partial_run::PartialRun;
 
 pub trait Runnable: Word {
     fn induced_run_in_from<TS: Successor<Sigma = Self::S>>(
@@ -64,8 +67,6 @@ pub struct Cane<'a, TS: Successor, L: Length> {
     seq: Path<TS::Q, TS::Sigma>,
 }
 
-pub type PartialRun<'a, Q, S, L> = (Path<Q, S>, S, Repr<'a, S, L>, usize);
-
 impl<'a, TS: Successor, L: Length> Cane<'a, TS, L> {
     pub fn new<I: Into<Repr<'a, TS::Sigma, L>>>(into_repr: I, ts: TS, source: TS::Q) -> Self {
         Self {
@@ -86,11 +87,11 @@ impl<'a, TS: Successor, L: Length> Cane<'a, TS, L> {
             .nth(self.position)
             .and_then(|sym| self.ts.transition_for(self.seq.reached(), sym))
         {
+            self.position += 1;
             if self
                 .seen
                 .insert((self.position, transition.source().clone()))
             {
-                self.position += 1;
                 self.seq
                     .extend_with(transition.sym().clone(), transition.2.clone());
                 Some(transition)
@@ -120,7 +121,7 @@ impl<'a, TS: Successor, L: Length> Cane<'a, TS, L> {
             self.repr.length().is_end(self.position)
                 || self.ts.successor(self.seq.reached(), &sym).is_none(),
         );
-        (self.seq, sym, self.repr, self.position)
+        PartialRun::new(self.seq, sym, self.repr)
     }
 
     pub fn result(
@@ -139,7 +140,7 @@ impl<'a, TS: Successor, L: Length> Cane<'a, TS, L> {
             // the input and in the same state and thus we have per-
             // formed a full loop. Either way we can return the
             // induced path.
-            Ok(InducedPath::new(self.seq, len))
+            Ok(InducedPath::new(self.seq, len, self.position))
         } else {
             // partial infinite run
             Err(self.extract_partial_run())
@@ -221,6 +222,15 @@ mod tests {
         assert_eq!(
             ts.run_from(upw, q0),
             Ok(InfinitySet(Set::from_iter([(q0, 'b')])))
-        )
+        );
+
+        assert_eq!(
+            ts.run_from("aaa", q0),
+            Err(PartialRun::new(
+                Path::new([q0, q1, q2], ['a', 'a']),
+                'a',
+                "aaa"
+            ))
+        );
     }
 }

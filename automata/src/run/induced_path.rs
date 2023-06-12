@@ -13,17 +13,19 @@ use crate::{
 pub struct InducedPath<Q, S, L> {
     path: Path<Q, S>,
     length: L,
+    position: usize,
 }
 
-impl<Q: State, S: Symbol, L> InducedPath<Q, S, L> {
-    pub fn new(path: Path<Q, S>, length: L) -> Self {
-        Self { path, length }
+impl<Q: State, S: Symbol, L: Length> InducedPath<Q, S, L> {
+    pub fn new(path: Path<Q, S>, length: L, position: usize) -> Self {
+        Self {
+            path,
+            position,
+            length,
+        }
     }
 
-    pub fn induces(self) -> L::Induces<Q, S>
-    where
-        L: Length,
-    {
+    pub fn induces(self) -> L::Induces<Q, S> {
         L::Induces::from(self)
     }
 }
@@ -58,12 +60,17 @@ where
     S: Symbol,
 {
     fn from(value: InducedPath<Q, S, InfiniteLength>) -> Self {
+        debug_assert!(
+            value.position < value.path.len(),
+            "This would be a weird loop otherwise"
+        );
+        println!("{:?}", value);
         InfinitySet(
             value
                 .path
                 .into_triggers()
                 .into_iter()
-                .skip(value.length.loop_index())
+                .skip(value.position)
                 .collect(),
         )
     }

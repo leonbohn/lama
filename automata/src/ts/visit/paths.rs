@@ -148,25 +148,16 @@ impl<Q: State, S: Symbol> Path<Q, S> {
     }
 
     /// Turns `self` into a [`Set`] of triggers (state-symbol pairs).
-    pub fn into_triggers(self) -> Set<(Q, S)> {
-        let mut out = Set::new();
-        for i in (0..self.label.len()) {
-            out.insert((self.states[i].clone(), self.label.nth(i).unwrap()));
-        }
-        out
+    pub fn into_triggers(self) -> impl Iterator<Item = (Q, S)> {
+        self.into_transitions().map(|(q, a, _)| (q, a))
     }
 
     /// Turns `self` into a [`Set`] of transitions (state-symbol-state triples).
-    pub fn into_transitions(self) -> Set<(Q, S, Q)> {
-        let mut out = Set::new();
-        for i in (0..self.label.len()) {
-            out.insert((
-                self.states[i].clone(),
-                self.label.nth(i).unwrap(),
-                self.states[i + 1].clone(),
-            ));
-        }
-        out
+    pub fn into_transitions(self) -> impl Iterator<Item = (Q, S, Q)> {
+        let (mut it, it2) = self.states.into_iter().tee();
+        it.zip(self.label.symbols.into_iter())
+            .zip(it2.skip(1))
+            .map(|((q, a), p)| (q, a, p))
     }
 }
 
