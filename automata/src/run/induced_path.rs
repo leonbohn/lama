@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{collections::BTreeSet, fmt::Display, hash::Hash};
 
 use impl_tools::autoimpl;
 use itertools::Itertools;
@@ -20,10 +20,10 @@ pub struct InducedPath<Q, S, L> {
 
 impl<Q: State, S: Symbol, L: Length> InducedPath<Q, S, L> {
     /// Creates a new [`InducedPath`] from the given parameters.
-    pub fn new(path: Path<Q, S>, length: L, position: usize) -> Self {
+    pub fn new<I: Into<usize>>(path: Path<Q, S>, length: L, position: I) -> Self {
         Self {
             path,
-            position,
+            position: position.into(),
             length,
         }
     }
@@ -36,8 +36,21 @@ impl<Q: State, S: Symbol, L: Length> InducedPath<Q, S, L> {
 
 /// This is the type of object that is induced by inputs of [`FiniteLength`].
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[autoimpl(Deref using self.0)]
+#[autoimpl(Deref, DerefMut using self.0)]
 pub struct ReachedState<Q>(pub Q);
+
+impl<Q> ReachedState<Q> {
+    /// Consumes the object and returns the inner state.
+    pub fn into_inner(self) -> Q {
+        self.0
+    }
+}
+
+impl<Q: State> std::borrow::Borrow<Q> for ReachedState<Q> {
+    fn borrow(&self) -> &Q {
+        &self.0
+    }
+}
 
 impl<Q, S> From<InducedPath<Q, S, FiniteLength>> for ReachedState<Q>
 where
@@ -57,9 +70,25 @@ impl<Q: Display> Display for ReachedState<Q> {
 
 /// The type of object induced by inputs of [`InfiniteLength`], the set of triggers
 /// that are used infinitely often.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 #[autoimpl(Deref using self.0)]
-pub struct InfinitySet<Q: State, S: Symbol>(pub Set<(Q, S)>);
+pub struct InfinitySet<Q: State, S: Symbol>(pub BTreeSet<(Q, S)>);
+
+impl<Q: State, S: Symbol> IntoIterator for InfinitySet<Q, S> {
+    type Item = (Q, S);
+    type IntoIter = std::collections::btree_set::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<Q: State, S: Symbol> InfinitySet<Q, S> {
+    /// Consumes the infinity set and gives the underlying set
+    pub fn into_inner(self) -> BTreeSet<(Q, S)> {
+        self.0
+    }
+}
 
 impl<Q, S> From<InducedPath<Q, S, InfiniteLength>> for InfinitySet<Q, S>
 where

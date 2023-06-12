@@ -74,11 +74,11 @@ impl<S: Symbol> Constraint<S> for ReachabilityConstraint<S> {
         Ok(Mapping::from_iter(
             positive_induced
                 .into_iter()
-                .map(|(_, reached)| (*reached, true))
+                .map(|(_, reached)| (reached.into_inner(), true))
                 .chain(
                     negative_induced
                         .into_iter()
-                        .map(|(_, reached)| (*reached, false)),
+                        .map(|(_, reached)| (reached.into_inner(), false)),
                 ),
         ))
     }
@@ -100,7 +100,7 @@ impl<'a, S: Symbol> Constraint<S> for BuchiConstraint<'a, S> {
             })?;
 
         let neg_union = negatives.iter().fold(Set::new(), |mut acc, set| {
-            acc.extend(set.into_iter().map(|(c, a)| (c, a)));
+            acc.extend(set.iter().map(|(c, a)| (c.clone(), a.clone())));
             acc
         });
 
@@ -113,13 +113,15 @@ impl<'a, S: Symbol> Constraint<S> for BuchiConstraint<'a, S> {
         );
 
         for positive_induced in positives {
-            let positive_induced_triggers: Set<_> =
-                positive_induced.into_iter().map(|(p, a)| (p, a)).collect();
+            let positive_induced_triggers: Set<_> = positive_induced
+                .iter()
+                .map(|(p, a)| (p.clone(), a.clone()))
+                .collect();
             if positive_induced_triggers.is_subset(&neg_union) {
                 return Err(format!(
                     "Positive word {} is not separated from negative words",
                     positive_induced
-                        .into_iter()
+                        .iter()
                         .map(|(p, a)| format!("({p}, {a})"))
                         .join(", ")
                 ));
@@ -129,10 +131,10 @@ impl<'a, S: Symbol> Constraint<S> for BuchiConstraint<'a, S> {
         let alphabet = cong.alphabet();
         let mut mapping = Map::new();
         for (state, sym) in cong.all_potential_triggers(self.0.alphabet.clone()) {
-            if neg_union.contains(&(state, sym)) {
+            if neg_union.contains(&(state.clone(), sym.clone())) {
                 mapping.insert((state.clone(), sym.clone()), false);
             } else {
-                mapping.insert((state.clone(), sym.clone()), true);
+                mapping.insert((state, sym), true);
             }
         }
         Ok(mapping.into())

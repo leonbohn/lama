@@ -55,7 +55,10 @@ pub trait ToDot {
     /// of a buffer of bytes.
     #[cfg(feature = "graphviz")]
     fn render_tempfile(&self) -> Result<tempfile::TempPath, std::io::Error> {
-        use std::{io::Write, path::Path};
+        use std::{
+            io::{Read, Write},
+            path::Path,
+        };
         use tracing::trace;
 
         trace!("Outputting dot and rendering to png");
@@ -69,8 +72,8 @@ pub trait ToDot {
         let image_tempfile_name = image_tempfile.into_temp_path();
 
         tracing::trace!(
-            "Rendering dot ({}) to png ({})",
-            tempfile_name.display(),
+            "Rendering dot \n{}\n to png ({})",
+            dot,
             image_tempfile_name.display()
         );
         let mut child = std::process::Command::new("dot")
@@ -80,8 +83,20 @@ pub trait ToDot {
             .arg(tempfile_name)
             .spawn()?;
 
-        child.wait()?;
-        Ok(image_tempfile_name)
+        if !child.wait()?.success() {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                child
+                    .stdout
+                    .map_or("Error in dot...".to_string(), |mut err| {
+                        let mut buf = String::new();
+                        err.read_to_string(&mut buf);
+                        buf
+                    }),
+            ))
+        } else {
+            Ok(image_tempfile_name)
+        }
     }
 
     /// First creates a rendered PNG using [`render_tempfile`], after which the rendered
@@ -109,6 +124,13 @@ fn display_png(rendered_path: tempfile::TempPath) -> Result<(), std::io::Error> 
         .arg(&rendered_path)
         .spawn()?
         .wait()?;
+    #[cfg(target_os = "windows")]
+    std::process::Command::new("ImageViewer")
+        .arg(&rendered_path)
+        .spawn()?
+        .wait()?;
+    std::thread::sleep(std::time::Duration::from_secs(2));
+    println!("DFKLJDFJK");
     Ok(())
 }
 

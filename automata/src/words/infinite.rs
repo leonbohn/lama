@@ -33,8 +33,8 @@ impl<S: Symbol> HasLength for PeriodicWord<S> {
 impl<S: Symbol> Word for PeriodicWord<S> {
     type S = S;
 
-    fn nth(&self, index: usize) -> Option<Self::S> {
-        self.0.nth(index % self.0.symbols.len())
+    fn nth<I: Into<usize>>(&self, index: I) -> Option<Self::S> {
+        self.0.nth(index.into() % self.0.symbols.len())
     }
 
     fn alphabet(&self) -> Set<Self::S> {
@@ -88,7 +88,8 @@ impl<S: Symbol> HasLength for UltimatelyPeriodicWord<S> {
 impl<S: Symbol> Word for UltimatelyPeriodicWord<S> {
     type S = S;
 
-    fn nth(&self, index: usize) -> Option<Self::S> {
+    fn nth<I: Into<usize>>(&self, index: I) -> Option<Self::S> {
+        let index = index.into();
         let prefix_length = self.0.symbols.len();
         if index < prefix_length {
             self.0.nth(index)

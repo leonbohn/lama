@@ -261,7 +261,8 @@ impl<S: Symbol + Display> Constraint<S> for ConflictConstraint<S> {
 mod tests {
 
     use automata::{
-        ts::Trivial, upw, word, Class, Growable, Pointed, RightCongruence, Str, Transformer,
+        convert::ToDot, ts::Trivial, upw, word, Class, Growable, Pointed, RightCongruence, Str,
+        Transformer,
     };
     use tracing_test::traced_test;
 
@@ -293,6 +294,7 @@ mod tests {
         );
         let dfa = dfa_rpni(&sample);
         println!("{}", dfa);
+        dfa.display_rendered().unwrap();
         assert!(sample.consistent_with(dfa))
     }
 

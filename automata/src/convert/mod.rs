@@ -290,6 +290,10 @@ where
     X: Value + Display,
 {
     fn annotate_state(&self, x: &X) -> String {
+        // if self.apply(x) {
+        //     x.green().to_string()
+        // } else {
         x.to_string()
+        // }
     }
 }

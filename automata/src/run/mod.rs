@@ -11,7 +11,7 @@ use std::{
 
 use crate::{
     ts::{InputOf, Path, StateOf, Successor, TransitionOf},
-    words::{HasLength, Length, LengthOf, Word},
+    words::{HasLength, Length, LengthOf, RawPosition, Word},
     Pointed, Set, State, Subword, Symbol, Trigger, Value,
 };
 
@@ -43,8 +43,8 @@ pub use partial_run::FailedRun;
 pub struct Cane<TS: Successor, W: Subword<S = TS::Sigma>> {
     ts: TS,
     word: W,
-    position: usize,
-    seen: Set<(usize, TS::Q)>,
+    position: RawPosition,
+    seen: Set<(RawPosition, TS::Q)>,
     seq: Path<TS::Q, TS::Sigma>,
 }
 
@@ -57,7 +57,7 @@ impl<TS: Successor, W: Subword<S = TS::Sigma>> Cane<TS, W> {
         Self {
             ts,
             word,
-            position: 0,
+            position: 0.into(),
             seen: Set::new(),
             seq: Path::empty(source),
         }
@@ -137,6 +137,8 @@ impl<TS: Successor, W: Subword<S = TS::Sigma>> Cane<TS, W> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use crate::{
         ts::{transitionsystem::TransitionSystem, AnonymousGrowable, Growable},
         upw,
@@ -161,7 +163,7 @@ mod tests {
         assert_eq!(ts.run_from("abba", q0), Ok(ReachedState(q1)));
         assert_eq!(
             ts.run_from(upw, q0),
-            Ok(InfinitySet(Set::from_iter([(q0, 'b')])))
+            Ok(InfinitySet(BTreeSet::from_iter([(q0, 'b')])))
         );
 
         assert_eq!(

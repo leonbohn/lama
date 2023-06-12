@@ -42,12 +42,18 @@ impl<Q: State, W: Subword> FailedRun<Q, W> {
 
     /// Returns a reference to the state from which the transition system is left,
     /// i.e. the state for which a missing transition was encountered.
-    pub fn exit_state(&self) -> &Q {
+    pub fn reached(&self) -> &Q {
         self.path.reached()
     }
 
     /// Gives a reference to the input (word).
     pub fn input(&self) -> &W {
         &self.word
+    }
+
+    /// Returns the escaping suffix, that is whatever from the word is left and cannot be
+    /// run on.
+    pub fn suffix(&self) -> W::SuffixType {
+        self.word.skip(self.len())
     }
 }

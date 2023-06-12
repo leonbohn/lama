@@ -123,7 +123,17 @@ impl<W: Word> Sample<W> {
     /// Verifies whether `self` is consistent with the given [`Acceptor`]. Internally, it calls [`find_inconsistency()`]
     /// and thereby checks that all positive example words are accepted and all negative sample words are rejected.
     pub fn consistent_with<A: Acceptor<Word = W>>(&self, acceptor: A) -> bool {
-        self.find_inconsistency(acceptor).is_some()
+        if let Some((wanted_classification, word)) = self.find_inconsistency(acceptor) {
+            trace!(
+                "{} {:?} should be classified {}",
+                owo_colors::OwoColorize::red(&"Found inconsistency:"),
+                word,
+                wanted_classification
+            );
+            false
+        } else {
+            true
+        }
     }
 
     pub fn annotated_induced_from<TS>(

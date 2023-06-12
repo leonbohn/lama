@@ -91,8 +91,8 @@ impl<S: Symbol> HasLength for Class<S> {
 impl<S: Symbol> Word for Class<S> {
     type S = S;
 
-    fn nth(&self, index: usize) -> Option<Self::S> {
-        self.0.symbols.get(index).cloned()
+    fn nth<I: Into<usize>>(&self, index: I) -> Option<Self::S> {
+        self.0.symbols.get(index.into()).cloned()
     }
 
     fn alphabet(&self) -> crate::Set<Self::S> {

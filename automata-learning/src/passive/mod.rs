@@ -27,6 +27,7 @@ pub fn dfa_rpni<S: Symbol>(sample: &FiniteSample<S>) -> DFA<Class<S>, S> {
     );
 
     let (congruence, constraint_produced) = executed.learned();
+    println!("{:?}", constraint_produced);
     DFA::from_parts(
         congruence.extract_ts(),
         Class::epsilon(),

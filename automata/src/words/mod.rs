@@ -3,6 +3,7 @@ use std::{
     cmp::Ordering,
     fmt::{Debug, Display},
     hash::Hash,
+    ops::AddAssign,
 };
 
 use crate::{
@@ -40,12 +41,36 @@ pub type WordInduces<W, TS> = <<W as HasLength>::Len as Length>::Induces<StateOf
 /// Auxiliary type alias that allows easy access to the length of an input/word.
 pub type LengthOf<W> = <W as HasLength>::Len;
 
+/// Wrapper type for positions, this makes it a bit more explicit that this may not be an accurate
+/// position along a run and is rather used for representing positions in the raw representation
+/// of a word.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Copy)]
+pub struct RawPosition(usize);
+
+impl From<RawPosition> for usize {
+    fn from(value: RawPosition) -> Self {
+        value.0
+    }
+}
+
+impl From<usize> for RawPosition {
+    fn from(value: usize) -> Self {
+        RawPosition(value)
+    }
+}
+
+impl<I: Into<i32>> AddAssign<I> for RawPosition {
+    fn add_assign(&mut self, rhs: I) {
+        self.0 += rhs.into() as usize
+    }
+}
+
 /// Abstracts the concept of length, allowing us to work with finite and infinite words in a
 /// somewhat similar fashion.
 pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
     /// The type of object that is induced by inputs of this length. This type is naturally
     /// parameterized on the state and symbol type.
-    type Induces<Q: State, S: Symbol>: Debug + Eq + From<InducedPath<Q, S, Self>>;
+    type Induces<Q: State, S: Symbol>: Value + From<InducedPath<Q, S, Self>>;
     /// Returns true if the length is finite.
     fn is_finite(&self) -> bool;
     /// Heavily used in the computation of a run (which is done by [`crate::run::Cane`]). For
@@ -60,12 +85,12 @@ pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
     /// `Some(j)`, where $ j = i + ((i - |u|) \bmod |v|) $. In other words whenever i exceeds or
     /// equals |uv|, we reset the position to the loop index l = |u|, i.e. the first position
     /// after the finite prefix.
-    fn calculate_raw_position(&self, position: usize) -> Option<usize>;
+    fn calculate_raw_position<I: Into<usize>>(&self, position: I) -> Option<RawPosition>;
     /// Returns `true` if `position` is the last position (wrt. the length defined by `self`).
     /// This method will always return `false` for infinite words and `true` for objects of
     /// [`FiniteLength`] n if `position` is larger or equal to n.
-    fn is_end(&self, position: usize) -> bool {
-        self.calculate_raw_position(position).is_none()
+    fn is_end<I: Into<usize>>(&self, position: I) -> bool {
+        self.calculate_raw_position(position.into()).is_none()
     }
 }
 
@@ -79,11 +104,12 @@ impl Length for FiniteLength {
     fn is_finite(&self) -> bool {
         true
     }
-    fn calculate_raw_position(&self, position: usize) -> Option<usize> {
+    fn calculate_raw_position<I: Into<usize>>(&self, position: I) -> Option<RawPosition> {
+        let position = position.into();
         if position >= **self {
             None
         } else {
-            Some(position)
+            Some(position.into())
         }
     }
 }
@@ -146,11 +172,12 @@ impl Length for InfiniteLength {
     fn is_finite(&self) -> bool {
         false
     }
-    fn calculate_raw_position(&self, position: usize) -> Option<usize> {
+    fn calculate_raw_position<I: Into<usize>>(&self, position: I) -> Option<RawPosition> {
+        let position = position.into();
         if position >= self.0 {
-            Some(self.1)
+            Some(self.1.into())
         } else {
-            Some(position)
+            Some(position.into())
         }
     }
 }
@@ -225,7 +252,7 @@ pub trait Word: Debug + Eq + std::hash::Hash + HasLength {
     type S: Symbol;
 
     /// Returns the symbol at the given index, or `None` if the index is out of bounds.
-    fn nth(&self, index: usize) -> Option<Self::S>;
+    fn nth<I: Into<usize>>(&self, index: I) -> Option<Self::S>;
 
     /// Returns the alphabet of `self`, that is the [`Set`] of [`Symbols`] which appear
     /// in `self`.
@@ -251,8 +278,8 @@ impl HasLength for String {
 impl Word for String {
     type S = char;
 
-    fn nth(&self, index: usize) -> Option<Self::S> {
-        self.chars().nth(index)
+    fn nth<I: Into<usize>>(&self, index: I) -> Option<Self::S> {
+        self.chars().nth(index.into())
     }
 
     fn alphabet(&self) -> Set<Self::S> {
@@ -270,8 +297,8 @@ impl HasLength for &str {
 impl Word for &str {
     type S = char;
 
-    fn nth(&self, index: usize) -> Option<Self::S> {
-        self.chars().nth(index)
+    fn nth<I: Into<usize>>(&self, index: I) -> Option<Self::S> {
+        self.chars().nth(index.into())
     }
 
     fn alphabet(&self) -> Set<Self::S> {
@@ -289,8 +316,8 @@ impl<S> HasLength for Vec<S> {
 impl<S: Symbol> Word for Vec<S> {
     type S = S;
 
-    fn nth(&self, index: usize) -> Option<Self::S> {
-        self.get(index).cloned()
+    fn nth<I: Into<usize>>(&self, index: I) -> Option<Self::S> {
+        self.get(index.into()).cloned()
     }
 
     fn alphabet(&self) -> Set<Self::S> {

@@ -15,16 +15,16 @@ where
         Vec<<W::Len as Length>::Induces<Class<W::S>, W::S>>,
     );
 
-    type Error = (&'a W, &'a W, CongruenceTrigger<W::S>);
+    type Error = (&'a W, &'a W, W::SuffixType);
 
     fn satisfied(&self, cong: &RightCongruence<W::S>) -> Result<Self::Output, Self::Error> {
-        let mut positive_induceed = Vec::new();
+        let mut positive_induced = Vec::new();
         let mut negative_induced = Vec::new();
         let mut positive_escaping = Vec::new();
 
         for pos_word in self.0.positive_iter() {
             match cong.run(pos_word) {
-                Ok(induced) => positive_induceed.push(induced),
+                Ok(induced) => positive_induced.push(induced),
                 Err(partial_run) => {
                     positive_escaping.push(partial_run);
                 }
@@ -34,27 +34,29 @@ where
         for neg_word in self.0.negative_iter() {
             match cong.run(neg_word) {
                 Ok(induced) => negative_induced.push(induced),
-                Err((_seq, q, a, suffix)) => {
-                    if let Some((pos_word, _, _, _)) =
-                        positive_escaping
-                            .iter()
-                            .find(|(_pos_word, p, b, known_suffix)| {
-                                p == &q && &a == b && &suffix == known_suffix
-                            })
-                    {
-                        return Err((pos_word, neg_word, (q, a)));
+                Err(negative_partial_run) => {
+                    for positive_partial_run in &positive_escaping {
+                        if negative_partial_run.reached() == positive_partial_run.reached()
+                            && negative_partial_run.suffix() == positive_partial_run.suffix()
+                        {
+                            return Err((
+                                positive_partial_run.input(),
+                                negative_partial_run.input(),
+                                positive_partial_run.suffix(),
+                            ));
+                        }
                     }
                 }
             }
         }
 
-        Ok((positive_induceed, negative_induced))
+        Ok((positive_induced, negative_induced))
     }
 }
 
 impl<'a, W> Constraint<W::S> for InducedSeparabilityConstraint<'a, W>
 where
-    W: Word,
+    W: Subword,
 {
     type Output = (
         Vec<<W::Len as Length>::Induces<Class<W::S>, W::S>>,
@@ -67,10 +69,10 @@ where
         let mut positives = Vec::new();
         let mut negatives = Vec::new();
         for pos_word in self.0.positive_iter() {
-            if let Ok(pos_induced) = cong.run(pos_word.as_repr()) {
+            if let Ok(pos_induced) = cong.run(pos_word) {
                 positives.push(pos_induced.clone());
                 for neg_word in self.0.negative_iter() {
-                    if let Ok(neg_induced) = cong.run(neg_word.as_repr()) {
+                    if let Ok(neg_induced) = cong.run(neg_word) {
                         negatives.push(neg_induced.clone());
                         if pos_induced == neg_induced {
                             return Err((pos_word, neg_word, pos_induced));

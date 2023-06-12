@@ -206,8 +206,8 @@ impl<'a, S: Symbol> SymbolIterable for &'a Str<S> {
 
 impl<S: Symbol> Word for Str<S> {
     type S = S;
-    fn nth(&self, index: usize) -> Option<Self::S> {
-        self.symbols.get(index).cloned()
+    fn nth<I: Into<usize>>(&self, index: I) -> Option<Self::S> {
+        self.symbols.get(index.into()).cloned()
     }
 
     fn alphabet(&self) -> Set<Self::S> {

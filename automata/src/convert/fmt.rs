@@ -44,7 +44,7 @@ where
         );
         for state in self.ts().into_states().map(|s| s.state()).sorted() {
             let state_label = if state == self.initial() {
-                format!("{}", self.acceptance().annotate_state(&state).underline())
+                format!("{}", self.acceptance().annotate_state(&state))
             } else {
                 self.acceptance().annotate_state(&state)
             };

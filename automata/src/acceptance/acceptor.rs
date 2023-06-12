@@ -1,6 +1,7 @@
 use std::borrow::Borrow;
 
 use impl_tools::autoimpl;
+use owo_colors::OwoColorize;
 use tracing::trace;
 
 use crate::{
@@ -28,12 +29,16 @@ impl<Q: State, S: Symbol> Acceptor for DFA<Q, S> {
     type Word = Str<S>;
 
     fn accepts(&self, input: &Self::Word) -> bool {
-        trace!("Seeing if the word {} is accepted", input);
-        todo!()
-        // self.run(input).evaluate().map_or(false, |q| {
-        //     trace!("Evaluating acceptance for state {:?}", q);
-        //     self.acceptance().apply(&q)
-        // })
+        if self
+            .run(input)
+            .map_or(false, |q| self.acceptance().apply(q))
+        {
+            trace!("{} is {}", input, "accepted".green());
+            true
+        } else {
+            trace!("{} is {}", input, "rejected".red());
+            false
+        }
     }
 }
 
