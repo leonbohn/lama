@@ -6,8 +6,8 @@ use crate::{
         HasInput, HasStates, InputOf, IntoParts, IntoStates, IntoTransitions, StateOf,
         StateReference, TransitionReference, Trivial,
     },
-    words::{FiniteLength, HasLength, Length, Repr},
-    FiniteKind, Growable, Map, Pointed, Set, Shrinkable, State, Str, Subword, Successor, Symbol,
+    words::{FiniteLength, HasLength, Length},
+    Growable, Map, Pointed, Set, Shrinkable, State, Str, Subword, Successor, Symbol,
     TransitionSystem, TriggerIterable, Word, DFA,
 };
 use itertools::Itertools;
@@ -97,10 +97,6 @@ impl<S: Symbol> Word for Class<S> {
 
     fn alphabet(&self) -> crate::Set<Self::S> {
         self.0.alphabet()
-    }
-
-    fn as_repr<'a>(&'a self) -> crate::words::Repr<'a, Self::S, Self::Len> {
-        Repr::from(&self.0)
     }
 }
 

@@ -8,8 +8,8 @@ mod reachability;
 pub use reachability::{ReachabilityCondition, SafetyAcceptance};
 
 use crate::{
-    BuchiAcceptance, FiniteKind, InfiniteKind, ParityAcceptance, Pointed, ReachabilityAcceptance,
-    Set, State, Symbol, Transformer, TransitionSystem, Word, DBA, DFA, DPA,
+    BuchiAcceptance, ParityAcceptance, Pointed, ReachabilityAcceptance, Set, State, Symbol,
+    Transformer, TransitionSystem, Word, DBA, DFA, DPA,
 };
 
 /// Abstracts the finiteness of the type `X`.

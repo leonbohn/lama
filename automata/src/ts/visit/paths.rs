@@ -142,6 +142,8 @@ impl<Q: State, S: Symbol> Path<Q, S> {
         Path { states, label }
     }
 
+    /// Extends `self` with the given input symbol and state, corresponding to taking a 
+    /// transition from [`Self::reached()`] on `symbol` with target `state`.
     pub fn extend_with(&mut self, symbol: S, state: Q) {
         self.label.push_back(symbol);
         self.states.push(state);

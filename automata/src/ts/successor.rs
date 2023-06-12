@@ -7,9 +7,9 @@ use tabled::{builder::Builder, settings::Style};
 
 use crate::{
     output::Mapping,
-    run::{Cane, InducedPath, PartialRun},
-    words::{Length, Repr},
-    Map, Pointed, Set, Str, Transition, TransitionSystem, Trigger, Word,
+    run::{Cane, FailedRun, InducedPath},
+    words::{Length, WordInduces},
+    Map, Pointed, Set, Str, Subword, Transition, TransitionSystem, Trigger, Word,
 };
 
 use super::{
@@ -30,30 +30,30 @@ pub trait Successor: HasStates + HasInput {
         on: Y,
     ) -> Option<Self::Q>;
 
-    fn run_from<'a, L, R>(
+    /// Runs the given `input` on `self` from the given `origin` state. If the run is successful,
+    /// the method returns the induced object (the type of which is determined by the
+    /// [`Length`] associated with `input`).
+    /// If unsuccessful, it returns a [`FailedRun`], giving access to the partial computation
+    /// that was successful as well as to the missing symbol and remaining suffix.
+    fn run_from<W>(
         &self,
-        on: R,
-        from: Self::Q,
-    ) -> Result<L::Induces<Self::Q, Self::Sigma>, PartialRun<'a, Self::Q, Self::Sigma, L>>
+        input: W,
+        origin: Self::Q,
+    ) -> Result<WordInduces<W, Self>, FailedRun<Self::Q, W>>
     where
-        L: Length,
-        // Self: Sized,
-        R: Into<Repr<'a, Self::Sigma, L>>,
+        W: Subword<S = Self::Sigma>,
     {
-        let mut cane = Cane::new(on, self, from);
+        let mut cane = Cane::new(input, self, origin);
         cane.result().map(|induced_path| induced_path.induces())
     }
 
-    fn run<'a, R, L>(
-        &self,
-        on: R,
-    ) -> Result<L::Induces<Self::Q, Self::Sigma>, PartialRun<'a, Self::Q, Self::Sigma, L>>
+    /// Runs the given `input` word in `self` from the initial state, see also [`run_from`].
+    fn run<W>(&self, input: W) -> Result<WordInduces<W, Self>, FailedRun<Self::Q, W>>
     where
-        L: Length,
-        R: Into<Repr<'a, Self::Sigma, L>>,
+        W: Subword<S = Self::Sigma>,
         Self: Sized + Pointed,
     {
-        self.run_from(on, self.initial())
+        self.run_from(input, self.initial())
     }
 
     /// Returns the [`Transition`] corresponding to taking the `on`-transition starting in `from`.

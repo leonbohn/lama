@@ -7,9 +7,16 @@ use crate::{
 
 use super::{AnnotatesState, AnnotatesTransition, DisplayState, DisplaySymbol};
 
+/// Trait that encapsulates the functionality of converting an object
+/// into a [graphviz](https://graphviz.org/) representation.
 pub trait ToDot {
+    /// Compute the graphviz representation, for more information on the DOT format,
+    /// see the [graphviz documentation](https://graphviz.org/doc/info/lang.html).
     fn to_dot(&self) -> String;
 
+    /// Renders the object visually (as PNG) and returns a vec of bytes/u8s encoding
+    /// the rendered image. This method is only available on the `graphviz` crate feature
+    /// and makes use of temporary files.
     #[cfg(feature = "graphviz")]
     fn render(&self) -> Result<Vec<u8>, std::io::Error> {
         use std::{
@@ -44,6 +51,8 @@ pub trait ToDot {
         Ok(output)
     }
 
+    /// Similar to the [`render`] method, but returns a [`tempfile::TempPath`] instead
+    /// of a buffer of bytes.
     #[cfg(feature = "graphviz")]
     fn render_tempfile(&self) -> Result<tempfile::TempPath, std::io::Error> {
         use std::{io::Write, path::Path};
@@ -75,6 +84,9 @@ pub trait ToDot {
         Ok(image_tempfile_name)
     }
 
+    /// First creates a rendered PNG using [`render_tempfile`], after which the rendered
+    /// image is displayed using a locally installed image viewer (`eog` on linux, `qlmanage`
+    /// i.e. quicklook on macos and nothing yet on windows).
     #[cfg(feature = "graphviz")]
     fn display_rendered(&self) -> Result<(), std::io::Error> {
         use std::io::Write;

@@ -2,11 +2,11 @@ use std::{borrow::Borrow, fmt::Display};
 
 use itertools::Itertools;
 
-use super::{HasLength, InfiniteLength, Repr, Str, SymbolIterable, Word, WordTransitions};
+use super::{HasLength, InfiniteLength, Str, SymbolIterable, Word, WordTransitions};
 use crate::{
     congruence::CongruenceTransition,
     ts::{transitionsystem::States, HasInput, HasStates, IntoStates, IntoTransitions},
-    Class, InfiniteKind, RightCongruence, Set, Subword, Successor, Symbol, TransitionSystem,
+    Class, RightCongruence, Set, Subword, Successor, Symbol, TransitionSystem,
 };
 
 pub trait InfiniteWord {
@@ -39,10 +39,6 @@ impl<S: Symbol> Word for PeriodicWord<S> {
 
     fn alphabet(&self) -> Set<Self::S> {
         self.0.symbol_iter().collect()
-    }
-
-    fn as_repr<'a>(&'a self) -> Repr<'a, Self::S, Self::Len> {
-        Repr::from(self)
     }
 }
 
@@ -107,10 +103,6 @@ impl<S: Symbol> Word for UltimatelyPeriodicWord<S> {
             .union(&self.1.alphabet())
             .cloned()
             .collect()
-    }
-
-    fn as_repr<'a>(&'a self) -> Repr<'a, Self::S, Self::Len> {
-        Repr::from(self)
     }
 }
 
@@ -179,10 +171,12 @@ impl<S: Symbol> UltimatelyPeriodicWord<S> {
             .all(|(x, y)| x == y)
     }
 
+    /// The base length, i.e. the length of the finite prefix before the looping part is entered.
     pub fn base_length(&self) -> usize {
         self.0.len()
     }
 
+    /// The length of the looping part.
     pub fn recur_length(&self) -> usize {
         self.1 .0.len()
     }

@@ -2,8 +2,9 @@ use std::{cell::RefCell, collections::BTreeSet, hash::Hash};
 
 use automata::{
     ts::{Bfs, HasInput, HasStates, IntoTransitions, TransitionOf, Trivial, Visitor},
-    Acceptor, Class, FiniteKind, Pointed, RightCongruence, Set, State, Str, Subword, Successor,
-    Symbol, TransitionSystem, UltimatelyPeriodicWord, Word, DFA,
+    words::{HasLength, WordInduces},
+    Acceptor, Class, Pointed, RightCongruence, Set, State, Str, Subword, Successor, Symbol,
+    TransitionSystem, UltimatelyPeriodicWord, Word, DFA,
 };
 use itertools::Itertools;
 use tracing::trace;
@@ -33,6 +34,12 @@ impl<W: Word> PartialEq for Sample<W> {
 }
 
 impl<W: Word> Eq for Sample<W> {}
+
+type AnnotatedInduced<'input, W, TS> = (&'input W, WordInduces<W, TS>);
+type AnnotatedInducedPair<'input, W, TS> = (
+    Vec<AnnotatedInduced<'input, W, TS>>,
+    Vec<AnnotatedInduced<'input, W, TS>>,
+);
 
 impl<W: Word> Sample<W> {
     /// Creates a new sample from the given data.
@@ -117,6 +124,34 @@ impl<W: Word> Sample<W> {
     /// and thereby checks that all positive example words are accepted and all negative sample words are rejected.
     pub fn consistent_with<A: Acceptor<Word = W>>(&self, acceptor: A) -> bool {
         self.find_inconsistency(acceptor).is_some()
+    }
+
+    pub fn annotated_induced_from<TS>(
+        &self,
+        ts: TS,
+        origin: TS::Q,
+    ) -> AnnotatedInducedPair<'_, W, TS>
+    where
+        W: Subword,
+        TS: Successor<Sigma = W::S>,
+    {
+        (
+            self.positive_iter()
+                .filter_map(|pos| ts.run_from(pos, origin.clone()).ok().map(|res| (pos, res)))
+                .collect(),
+            self.negative_iter()
+                .filter_map(|neg| ts.run_from(neg, origin.clone()).ok().map(|res| (neg, res)))
+                .collect(),
+        )
+    }
+
+    pub fn annotated_induced<TS>(&self, ts: TS) -> AnnotatedInducedPair<'_, W, TS>
+    where
+        W: Subword,
+        TS: Successor<Sigma = W::S> + Pointed,
+    {
+        let origin = ts.initial();
+        self.annotated_induced_from(ts, origin)
     }
 }
 
@@ -251,11 +286,11 @@ impl<'a, S: Symbol> Successor for Prefixes<'a, S, UltimatelyPeriodicWord<S>> {
             assert!(words_with_prefix.len() == 1);
             let word = words_with_prefix[0];
 
-            if word.recur_length() > successor.length() {
+            if word.recur_length() > *successor.length() {
                 return Some(successor);
             }
 
-            let base = successor.prefix(successor.length() - word.recur_length());
+            let base = successor.prefix(*successor.length() - word.recur_length());
 
             let words_with_prefix_for_base = self.find_words_with_prefix(&base);
             debug_assert!(!words_with_prefix_for_base.is_empty(), "Cannot happen!");
@@ -351,24 +386,6 @@ impl<S: Symbol> OmegaSample<S> {
         build_prefix_dfa_infinite(&self.negative)
     }
 
-    /// Computes what the positive sample words induce in `cong`.
-    pub fn induced(&self, cong: &RightCongruence<S>) -> OmegaSampleInduced<'_, S> {
-        (
-            self.positive_iter()
-                .filter_map(|word| {
-                    let ind = cong.run(word).evaluate().ok()?;
-                    Some((word, ind))
-                })
-                .collect(),
-            self.negative_iter()
-                .filter_map(|word| {
-                    let ind = cong.run(word).evaluate().ok()?;
-                    Some((word, ind))
-                })
-                .collect(),
-        )
-    }
-
     /// Constructs a default structure for `self`. In this case, we unroll all positive sample words far
     /// enough that they separate from each other and we attach loops to each leaf state.
     pub fn default_structure(&self) -> RightCongruence<S> {
@@ -386,19 +403,6 @@ impl<S: Symbol> FiniteSample<S> {
     /// Does the same as [`positive_prefixes`], but for negative sample words.
     pub fn negative_prefixes(&self) -> DFA<Class<S>, S> {
         build_prefix_dfa_finite(&self.negative)
-    }
-
-    /// Computes what is induced by the finite sample, that is the function runs
-    /// each positive word and collects what it induces in `cong`.
-    pub fn induced(&self, cong: &RightCongruence<S>) -> FiniteSampleInduced<'_, S> {
-        (
-            self.positive_iter()
-                .filter_map(|pos| cong.run(pos).evaluate().ok().map(|ind| (pos, ind)))
-                .collect(),
-            self.negative_iter()
-                .filter_map(|neg| cong.run(neg).evaluate().ok().map(|ind| (neg, ind)))
-                .collect(),
-        )
     }
 
     /// Returns a default structure for `self`. In this case, that is a prefix tree

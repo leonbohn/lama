@@ -8,7 +8,7 @@ use super::{Constraint, EscapeSeparabilityConstraint, InducedSeparabilityConstra
 
 impl<'a, W> Constraint<W::S> for EscapeSeparabilityConstraint<'a, W>
 where
-    W: Word,
+    W: Subword,
 {
     type Output = (
         Vec<<W::Len as Length>::Induces<Class<W::S>, W::S>>,
@@ -23,7 +23,7 @@ where
         let mut positive_escaping = Vec::new();
 
         for pos_word in self.0.positive_iter() {
-            match cong.run(pos_word.as_repr()) {
+            match cong.run(pos_word) {
                 Ok(induced) => positive_induceed.push(induced),
                 Err(partial_run) => {
                     positive_escaping.push(partial_run);
@@ -32,7 +32,7 @@ where
         }
 
         for neg_word in self.0.negative_iter() {
-            match cong.run(neg_word.as_repr()) {
+            match cong.run(neg_word) {
                 Ok(induced) => negative_induced.push(induced),
                 Err((_seq, q, a, suffix)) => {
                     if let Some((pos_word, _, _, _)) =

@@ -1,25 +1,21 @@
-use crate::{
-    ts::Path,
-    words::{Length, Repr},
-    State, Symbol,
-};
+use crate::{ts::Path, words::Length, State, Subword, Symbol};
 
+/// Encapsulates an unsuccessful run of a transition system on some input, which is a run
+/// that reaches a state such that no transition is available for the current input symbol.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct PartialRun<'a, Q, S: Symbol, L: Length> {
-    path: Path<Q, S>,
-    missing: S,
-    repr: Repr<'a, S, L>,
+pub struct FailedRun<Q, W: Subword> {
+    path: Path<Q, W::S>,
+    missing: W::S,
+    word: W,
 }
 
-impl<'a, Q: State, S: Symbol, L: Length> PartialRun<'a, Q, S, L> {
-    pub fn new<R>(path: Path<Q, S>, missing: S, repr: R) -> Self
-    where
-        R: Into<Repr<'a, S, L>>,
-    {
+impl<Q: State, W: Subword> FailedRun<Q, W> {
+    /// Creates a new [`FailedRun`] from a path, missing symbol and input word.
+    pub fn new(path: Path<Q, W::S>, missing: W::S, word: W) -> Self {
         Self {
             path,
             missing,
-            repr: repr.into(),
+            word,
         }
     }
 
@@ -34,15 +30,24 @@ impl<'a, Q: State, S: Symbol, L: Length> PartialRun<'a, Q, S, L> {
         self.len() == 0
     }
 
-    pub fn successful_path(&self) -> &Path<Q, S> {
+    /// Returns a reference to the successful (partial) computation.
+    pub fn successful_path(&self) -> &Path<Q, W::S> {
         &self.path
     }
 
-    pub fn missing_symbol(&self) -> &S {
+    /// Returns a reference to the missing transition.
+    pub fn missing_symbol(&self) -> &W::S {
         &self.missing
     }
 
-    pub fn input_representation(&self) -> &Repr<'a, S, L> {
-        &self.repr
+    /// Returns a reference to the state from which the transition system is left,
+    /// i.e. the state for which a missing transition was encountered.
+    pub fn exit_state(&self) -> &Q {
+        self.path.reached()
+    }
+
+    /// Gives a reference to the input (word).
+    pub fn input(&self) -> &W {
+        &self.word
     }
 }

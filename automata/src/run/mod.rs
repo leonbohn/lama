@@ -11,25 +11,52 @@ use std::{
 
 use crate::{
     ts::{InputOf, Path, StateOf, Successor, TransitionOf},
-    words::{HasLength, Length, Repr, Word},
-    Pointed, Set, State, Symbol, Trigger, Value,
+    words::{HasLength, Length, LengthOf, Word},
+    Pointed, Set, State, Subword, Symbol, Trigger, Value,
 };
 
 pub use self::induced_path::{InducedPath, InfinitySet, ReachedState};
-pub use partial_run::PartialRun;
-pub struct Cane<'a, TS: Successor, L: Length> {
+pub use partial_run::FailedRun;
+
+/// A struct which deals with running words (be they finite or infinite) in a
+/// transition system (implementor of [`Successor`]). For this purpose, it maintains
+/// a position (in the raw representation of the input), a path representing the
+/// successful computation that was already made and a set of position-state pairs
+/// which were already encountered.
+///
+/// # Finite inputs
+/// In this case, the computation is straightforward, we simply walk along the input
+/// until we have reached the terminal position (this is checked via the [`Length`] of
+/// the word, specifically via the [`Length::is_end()`] method).
+///
+/// # Infinite inputs
+/// The situation is more involved in this case. As we assume the input to be representable,
+/// it has an [`super::InfiniteLength`] associated with it. This is used to calculate an
+/// updated raw position after taking a transition. We merely increment the current position
+/// and subsequently use the [`Length::calculate_raw_position`] method to compute the update.
+/// If a missing transition is encountered, we proceed as for the finite case and extract
+/// the partial (unsuccessful) run that was already done. Otherwise, it must be that at some
+/// point, the computation revisits a state while being in the same (raw) position in the
+/// input, meaning that the computation has entered a loop. In this case, we can extract
+/// the infinity set of the (successful) run and return it.
+#[derive(Debug, Clone)]
+pub struct Cane<TS: Successor, W: Subword<S = TS::Sigma>> {
     ts: TS,
-    repr: Repr<'a, TS::Sigma, L>,
+    word: W,
     position: usize,
     seen: Set<(usize, TS::Q)>,
     seq: Path<TS::Q, TS::Sigma>,
 }
 
-impl<'a, TS: Successor, L: Length> Cane<'a, TS, L> {
-    pub fn new<I: Into<Repr<'a, TS::Sigma, L>>>(into_repr: I, ts: TS, source: TS::Q) -> Self {
+type RunResult<TS, W> =
+    Result<InducedPath<StateOf<TS>, InputOf<TS>, LengthOf<W>>, FailedRun<StateOf<TS>, W>>;
+
+impl<TS: Successor, W: Subword<S = TS::Sigma>> Cane<TS, W> {
+    /// Create a new struct from the given word, transition system and source state.
+    pub fn new(word: W, ts: TS, source: TS::Q) -> Self {
         Self {
             ts,
-            repr: into_repr.into(),
+            word,
             position: 0,
             seen: Set::new(),
             seq: Path::empty(source),
@@ -38,10 +65,10 @@ impl<'a, TS: Successor, L: Length> Cane<'a, TS, L> {
 
     fn step(&mut self) -> Option<TransitionOf<TS>> {
         // fail if the end of the input was reached
-        self.position = self.repr.length().calculate_raw_position(self.position)?;
+        self.position = self.word.length().calculate_raw_position(self.position)?;
 
         if let Some(transition) = self
-            .repr
+            .word
             .nth(self.position)
             .and_then(|sym| self.ts.transition_for(self.seq.reached(), sym))
         {
@@ -68,25 +95,27 @@ impl<'a, TS: Successor, L: Length> Cane<'a, TS, L> {
     }
 
     fn current_sym(&self) -> Option<TS::Sigma> {
-        self.repr.nth(self.position)
+        self.word.nth(self.position)
     }
 
-    fn extract_partial_run(self) -> PartialRun<'a, TS::Q, TS::Sigma, L> {
+    fn extract_partial_run(self) -> FailedRun<TS::Q, W> {
         let Some(sym) = self.current_sym() else {
             panic!("Cannot extract partial run if run has been completed!")
         };
         debug_assert!(
-            self.repr.length().is_end(self.position)
+            self.word.length().is_end(self.position)
                 || self.ts.successor(self.seq.reached(), &sym).is_none(),
         );
-        PartialRun::new(self.seq, sym, self.repr)
+        FailedRun::new(self.seq, sym, self.word)
     }
 
-    pub fn result(
-        mut self,
-    ) -> Result<InducedPath<TS::Q, TS::Sigma, L>, PartialRun<'a, TS::Q, TS::Sigma, L>> {
+    /// Performs as many computation steps as possible and returns the result of evaluating
+    /// the run. If successful (i.e. all transitions exist), the function returns an
+    /// [`InducedPath`] of the same [`Length`] as the input that was given. Otherwise,
+    /// it returns a [`PartialRun`] containing all transitions that were successfully taken.
+    pub fn result(mut self) -> RunResult<TS, W> {
         self.take_all_steps();
-        let len = self.repr.length();
+        let len = self.word.length();
         if len.is_end(self.position)
             || self
                 .seen
@@ -137,7 +166,7 @@ mod tests {
 
         assert_eq!(
             ts.run_from("aaa", q0),
-            Err(PartialRun::new(
+            Err(FailedRun::new(
                 Path::new([q0, q1, q2], ['a', 'a']),
                 'a',
                 "aaa"

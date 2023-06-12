@@ -31,6 +31,9 @@ pub use ts::{
 };
 use ts::{InputOf, IntoTransitions, TriggerOf};
 
+/// Handles the conversion of transition systems and automata, either to strings as in
+/// [`std::fmt::Display`] or to other formats such as the [Hanoi Omega-Automata Format (HOA)](https://adl.github.io/hoaf/)
+/// or to [Graphviz's DOT representation](https://graphviz.org/doc/info/lang.html).
 pub mod convert;
 #[cfg(feature = "hoa")]
 pub use convert::{parse_dba, parse_dpa, parse_hoa};
@@ -72,10 +75,6 @@ pub use output::{OutputOf, Priority, Transformer, TransitionOutput};
 
 /// Module in which traits for working with operations on transition systems/automata are defined.
 pub mod operations;
-
-/// Module in which traits for working with boundedness of inputs for transition systems are defined.
-mod boundedness;
-pub use boundedness::{Boundedness, FiniteKind, InfiniteKind};
 
 /// Trait for types that are used as values in a [`Mapping`], for example.
 pub trait Value: Clone + Eq + Hash + Debug {}

@@ -8,8 +8,8 @@ use std::{
 use crate::{
     congruence::CongruenceTransition,
     run::{InducedPath, InfinitySet, ReachedState},
-    ts::{IntoTransitions, Path, StateOf, TransitionOf},
-    Boundedness, Class, FiniteKind, RightCongruence, Set, State, Successor, Symbol, Value,
+    ts::{InputOf, IntoTransitions, Path, StateOf, TransitionOf},
+    Class, RightCongruence, Set, State, Successor, Symbol, Value,
 };
 mod append;
 pub use append::Append;
@@ -20,26 +20,53 @@ pub use prepend::Prepend;
 
 mod finite;
 mod infinite;
-mod represent;
 mod subword;
 
 pub use finite::Str;
 pub use infinite::{PeriodicWord, UltimatelyPeriodicWord};
-pub use represent::Repr;
 pub use subword::Subword;
 use tracing::trace;
 
+/// Auxiliary type alias that simplifies referring to the object that running a word of
+/// type `W` in a transition system of type `TS` induces.
+///
+/// # Examples
+/// - If `W` is a word of [`FiniteLength`], then `WordInduces<W, TS>` is simply the state
+/// reached in `TS` after reading `W`.
+/// - If `W` is of [`InfiniteLength`], then this is instead the infinity set of the run, which
+/// is the set of triggers that are used infinitely often.
+pub type WordInduces<W, TS> = <<W as HasLength>::Len as Length>::Induces<StateOf<TS>, InputOf<TS>>;
+
+/// Auxiliary type alias that allows easy access to the length of an input/word.
+pub type LengthOf<W> = <W as HasLength>::Len;
+
+/// Abstracts the concept of length, allowing us to work with finite and infinite words in a
+/// somewhat similar fashion.
 pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
+    /// The type of object that is induced by inputs of this length. This type is naturally
+    /// parameterized on the state and symbol type.
     type Induces<Q: State, S: Symbol>: Debug + Eq + From<InducedPath<Q, S, Self>>;
+    /// Returns true if the length is finite.
     fn is_finite(&self) -> bool;
+    /// Heavily used in the computation of a run (which is done by [`crate::run::Cane`]). For
+    /// finite words, this method always either returns `None` (if the given `position` is out
+    /// of bounds) or `Some(position)`. More interestingly, if the length is infinite, this
+    /// method takes the reset point/loop index of the input into account.
+    ///
+    /// # Examples
+    /// If we have an ultimately periodic word w = uv, then the loop index of w is l = |u|, which
+    /// is the point to which we reset after going through the loop once. Thus for i < |uv|,
+    /// `calculate_raw_position` returns `Some(i)`. Now if `i >= |uv|`, then the method returns
+    /// `Some(j)`, where $ j = i + ((i - |u|) \bmod |v|) $. In other words whenever i exceeds or
+    /// equals |uv|, we reset the position to the loop index l = |u|, i.e. the first position
+    /// after the finite prefix.
     fn calculate_raw_position(&self, position: usize) -> Option<usize>;
+    /// Returns `true` if `position` is the last position (wrt. the length defined by `self`).
+    /// This method will always return `false` for infinite words and `true` for objects of
+    /// [`FiniteLength`] n if `position` is larger or equal to n.
     fn is_end(&self, position: usize) -> bool {
         self.calculate_raw_position(position).is_none()
     }
-    fn normalize<'a, S, I>(&mut self, raw: I) -> Cow<'a, [S]>
-    where
-        S: Value,
-        I: Into<Cow<'a, [S]>>;
 }
 
 /// Wrapper for things/words that have a finite length, which is simply an `usize`.
@@ -58,14 +85,6 @@ impl Length for FiniteLength {
         } else {
             Some(position)
         }
-    }
-
-    fn normalize<'a, S, I>(&mut self, raw: I) -> Cow<'a, [S]>
-    where
-        S: Value,
-        I: Into<Cow<'a, [S]>>,
-    {
-        raw.into()
     }
 }
 
@@ -90,6 +109,34 @@ where
     None
 }
 
+fn normalize<'a, S>(length: &mut InfiniteLength, raw: &'a [S]) -> Cow<'a, [S]>
+where
+    S: Value,
+{
+    if length.is_ultimately_periodic() {
+        // we need to do the shift, i.e. move the split position as far to the left
+        // as possible and delete trailing symbols.
+        let mut i = length.loop_index();
+        while i > 0 && raw.get(i - 1) == raw.get(length.last_raw_position()) {
+            i -= 1;
+            length.0 -= 1;
+            length.1 -= 1;
+        }
+    }
+
+    if let Some(deduped) = deduplicate_and_check(length.suffix_of(raw)) {
+        length.0 = length.1 + deduped.len();
+        length
+            .prefix_of(raw)
+            .iter()
+            .chain(deduped.iter())
+            .cloned()
+            .collect()
+    } else {
+        Cow::Borrowed(raw)
+    }
+}
+
 /// Wrapper type for things of infinite length. The first field is the length of
 /// the raw representation, while the second field is the loop index.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -106,59 +153,39 @@ impl Length for InfiniteLength {
             Some(position)
         }
     }
-
-    fn normalize<'a, S, I>(&mut self, raw: I) -> Cow<'a, [S]>
-    where
-        S: Value,
-        I: Into<Cow<'a, [S]>>,
-    {
-        let mut repr = raw.into();
-
-        if self.is_ultimately_periodic() {
-            // we need to do the shift, i.e. move the split position as far to the left
-            // as possible and delete trailing symbols.
-            let mut i = self.loop_index();
-            while i > 0 && repr.get(i - 1) == repr.get(self.last_raw_position()) {
-                i -= 1;
-                self.0 -= 1;
-                self.1 -= 1;
-            }
-        }
-
-        if let Some(deduped) = deduplicate_and_check(self.suffix_of(&repr)) {
-            self.0 = self.1 + deduped.len();
-            self.prefix_of(&repr)
-                .iter()
-                .chain(deduped.iter())
-                .cloned()
-                .collect()
-        } else {
-            repr
-        }
-    }
 }
 
 impl InfiniteLength {
+    /// Returns the loop index, which is the position that the looping part resets to.
+    /// If you imagine an infinite, ultimately periodic word $ w = uv^\omega $, then the
+    /// loop index is simply $ |u| $.
     pub fn loop_index(&self) -> usize {
         self.1
     }
 
+    /// Get the raw index of the last position.
     pub fn last_raw_position(&self) -> usize {
         self.0 - 1
     }
 
+    /// Returns true if the word is periodic, or equivalently the loop index is equal to zero.
     pub fn is_periodic(&self) -> bool {
         self.loop_index() == 0
     }
 
+    /// Returns true if the word is ultimately periodic, but not periodic.
     pub fn is_ultimately_periodic(&self) -> bool {
         self.loop_index() > 0
     }
 
+    /// Auxiliary method which considers `raw` as a word with [`Length`] self and extracts
+    /// the prefix part. For a periodic word, this prefix is empty, while for an ultimately
+    /// periodic word $ uv^\omega $, it corresponds to $ u $.
     pub fn prefix_of<'a, S>(&self, raw: &'a [S]) -> &'a [S] {
         &raw[..self.1]
     }
 
+    /// Operates similarly to [`prefix_of`], but returns the looping part instead.
     pub fn suffix_of<'a, S>(&self, raw: &'a [S]) -> &'a [S] {
         &raw[self.1..self.0]
     }
@@ -169,8 +196,11 @@ impl Display for InfiniteLength {
     }
 }
 
+/// Implementors of this trait have a [`Length`] associated with them, for example words.
 pub trait HasLength {
+    /// The type of [`Length`] that is associated with `self`.
     type Len: Length;
+    /// Returns the [`Length`] of `self`.
     fn length(&self) -> Self::Len;
 }
 
@@ -193,8 +223,6 @@ impl<HL: HasLength> HasLength for &mut HL {
 pub trait Word: Debug + Eq + std::hash::Hash + HasLength {
     /// The type of the symbols making up the word.
     type S: Symbol;
-
-    fn as_repr(&self) -> Repr<'_, Self::S, Self::Len>;
 
     /// Returns the symbol at the given index, or `None` if the index is out of bounds.
     fn nth(&self, index: usize) -> Option<Self::S>;
@@ -230,10 +258,6 @@ impl Word for String {
     fn alphabet(&self) -> Set<Self::S> {
         self.chars().collect()
     }
-
-    fn as_repr(&self) -> Repr<'_, Self::S, Self::Len> {
-        Repr::from(self)
-    }
 }
 
 impl HasLength for &str {
@@ -253,10 +277,6 @@ impl Word for &str {
     fn alphabet(&self) -> Set<Self::S> {
         self.chars().collect()
     }
-
-    fn as_repr(&self) -> Repr<'_, Self::S, Self::Len> {
-        Repr::from(*self)
-    }
 }
 
 impl<S> HasLength for Vec<S> {
@@ -275,10 +295,6 @@ impl<S: Symbol> Word for Vec<S> {
 
     fn alphabet(&self) -> Set<Self::S> {
         self.iter().cloned().collect()
-    }
-
-    fn as_repr(&self) -> Repr<'_, Self::S, Self::Len> {
-        Repr::from(self)
     }
 }
 

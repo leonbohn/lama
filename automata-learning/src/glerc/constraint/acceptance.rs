@@ -56,7 +56,7 @@ impl<S: Symbol> Constraint<S> for ReachabilityConstraint<S> {
             )
         })?;
 
-        let (positive_induced, negative_induced) = self.1.induced(cong);
+        let (positive_induced, negative_induced) = self.1.annotated_induced(cong);
 
         trace!("Verifying that positive and negative words do not reach the same state");
         for (pos_word, pos_ind) in &positive_induced {
@@ -74,11 +74,11 @@ impl<S: Symbol> Constraint<S> for ReachabilityConstraint<S> {
         Ok(Mapping::from_iter(
             positive_induced
                 .into_iter()
-                .map(|(_, reached)| (reached, true))
+                .map(|(_, reached)| (*reached, true))
                 .chain(
                     negative_induced
                         .into_iter()
-                        .map(|(_, reached)| (reached, false)),
+                        .map(|(_, reached)| (*reached, false)),
                 ),
         ))
     }

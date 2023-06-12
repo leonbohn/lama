@@ -1,3 +1,4 @@
+/// Contains the code that allows conversion of objects to a [Graphviz DOT representation](https://graphviz.org/doc/info/lang.html).
 pub mod dot;
 mod fmt;
 
@@ -17,23 +18,36 @@ use crate::{
     ParityCondition, Successor, Symbol, Transformer, Value,
 };
 
+/// Implementors of this trait possess the ability to annotate a transition, i.e. to endow
+/// it with additional information (like an associated priority). This happens at the
+/// edge and not at the target level.
 pub trait AnnotatesTransition<X, Y> {
+    /// Performs the annotation of a transition.
     fn annotate_transition(&self, x: &(X, Y), z: &X) -> String;
 }
 
+/// Implementors can annotate transitions, but on the target level not on the edge level.
 pub trait AnnotatesTransitionTarget<X, Y> {
+    /// Produces the target annotation.
     fn annotate_transition_target<T: Transition<Q = X, S = Y>>(&self, transition: T) -> String;
 }
 
+/// Abstracts the ability of annotating a state directly, for example with a flag indicating
+/// whether or not it is accepting (in a DFA).
 pub trait AnnotatesState<X> {
+    /// Produces a state-level annotation for the given state.
     fn annotate_state(&self, x: &X) -> String;
 }
 
+/// Implementors have the ability of displaying their states.
 pub trait DisplayState: Successor {
+    /// Display the given state, i.e. turn it into a string representation.
     fn display_state(&self, state: &Self::Q) -> String;
 }
 
+/// Implementors can display [`Symbol`]s, i.e. transition labels.
 pub trait DisplaySymbol: Successor {
+    /// Display the transition label.
     fn display_symbol(&self, sym: &Self::Sigma) -> String;
 }
 
