@@ -4,7 +4,10 @@
 
 mod alphabet;
 pub use alphabet::Alphabet;
+mod length;
+pub use length::{FiniteLength, InfiniteLength, Length};
 
 mod ts;
 
-pub mod word {}
+/// Module that contains definitions for dealing with words.
+pub mod word;

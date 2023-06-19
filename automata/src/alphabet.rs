@@ -1,6 +1,9 @@
-use std::borrow::Borrow;
+use std::{borrow::Borrow, hash::Hash};
 
-pub trait Expression<S> {
+pub trait Symbol: PartialEq + Copy + PartialOrd + Hash {}
+impl<S: PartialEq + Copy + PartialOrd + Hash> Symbol for S {}
+
+pub trait Expression<S: Symbol> {
     type SymbolsIter: Iterator<Item = S>;
     fn symbols(&self) -> Self::SymbolsIter;
 
@@ -8,7 +11,7 @@ pub trait Expression<S> {
 }
 
 pub trait Alphabet {
-    type Symbol: PartialEq + Copy;
+    type Symbol: Symbol;
     type Expression: Expression<Self::Symbol>;
     type Universe<'this>: Iterator<Item = &'this Self::Symbol>
     where
@@ -17,17 +20,30 @@ pub trait Alphabet {
     fn universe(&self) -> Self::Universe<'_>;
     fn contains(&self, symbol: Self::Symbol) -> bool;
 
-    fn matches<E>(&self, expression: &E, symbol: Self::Symbol) -> bool
-    where
-        E: Borrow<Self::Expression>;
+    fn matches(&self, expression: &Self::Expression, symbol: Self::Symbol) -> bool;
 }
 
+#[derive(Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
 pub struct Propositional {
     aps: Vec<String>,
 }
 
-pub struct Simple {
-    symbols: Vec<char>,
+#[derive(Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
+pub struct Simple(Vec<char>);
+
+impl FromIterator<char> for Simple {
+    fn from_iter<T: IntoIterator<Item = char>>(iter: T) -> Self {
+        Self(iter.into_iter().collect())
+    }
+}
+
+impl Simple {
+    pub fn new<I>(symbols: I) -> Self
+    where
+        I: IntoIterator<Item = char>,
+    {
+        Self(symbols.into_iter().collect())
+    }
 }
 
 impl Expression<char> for char {
@@ -51,17 +67,14 @@ impl Alphabet for Simple {
             Self: 'this;
 
     fn universe(&self) -> Self::Universe<'_> {
-        self.symbols.iter()
+        self.0.iter()
     }
 
     fn contains(&self, symbol: Self::Symbol) -> bool {
-        self.symbols.contains(&symbol)
+        self.0.contains(&symbol)
     }
 
-    fn matches<E>(&self, expression: &E, symbol: Self::Symbol) -> bool
-    where
-        E: Borrow<Self::Expression>,
-    {
-        expression.borrow() == &symbol
+    fn matches(&self, expression: &Self::Expression, symbol: Self::Symbol) -> bool {
+        expression == &symbol
     }
 }
