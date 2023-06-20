@@ -1,7 +1,7 @@
 //! Library for working with finite automata in Rust.
 //!
 #![warn(missing_docs)]
-
+#![allow(unused)]
 mod alphabet;
 pub use alphabet::Alphabet;
 mod length;

@@ -1,54 +1,59 @@
-use super::Representable;
+use super::Sequence;
 
-pub struct Suffix<'a, R: Representable> {
-    representable: &'a R,
+/// A suffix of a [`Sequence`] which skips the first `offset` symbols.
+#[derive(Clone, PartialEq, Debug)]
+pub struct Suffix<'a, S: Sequence> {
+    sequence: &'a S,
     offset: usize,
 }
 
-impl<'a, R: Representable> Representable for Suffix<'a, R> {
-    type Alphabet = R::Alphabet;
-    fn nth<P: super::AsPosition>(
-        &self,
-        position: P,
-    ) -> Option<<Self::Alphabet as crate::Alphabet>::Symbol> {
-        self.representable
-            .nth(*position.as_position() + self.offset)
+impl<'a, S: Sequence> Sequence for Suffix<'a, S> {
+    type Raw = S::Raw;
+    type Symbol = S::Symbol;
+
+    fn rawpresentation(&self) -> &Self::Raw {
+        self.sequence.rawpresentation()
+    }
+
+    fn get(&self, position: usize) -> Option<Self::Symbol> {
+        self.sequence.get(position + self.offset)
     }
 }
 
-impl<'a, R: Representable> Suffix<'a, R> {
-    pub fn new(representable: &'a R, offset: usize) -> Self {
-        Self {
-            representable,
-            offset,
-        }
+impl<'a, S: Sequence> Suffix<'a, S> {
+    /// Creates a new suffix, which skips the first `offset` symbols of the given sequence.
+    pub fn new(sequence: &'a S, offset: usize) -> Self {
+        Self { sequence, offset }
     }
 }
 
-pub struct Prefix<'a, R: Representable> {
-    representable: &'a R,
+/// A prefix of a [`Sequence`] which only contains the first `length` symbols.
+#[derive(Clone, PartialEq, Debug)]
+pub struct Prefix<'a, S: Sequence> {
+    sequence: &'a S,
     length: usize,
 }
 
-impl<'a, R: Representable> Representable for Prefix<'a, R> {
-    type Alphabet = R::Alphabet;
-    fn nth<P: super::AsPosition>(
-        &self,
-        position: P,
-    ) -> Option<<Self::Alphabet as crate::Alphabet>::Symbol> {
-        if *position.as_position() < self.length {
-            self.representable.nth(position)
+impl<'a, S: Sequence> Sequence for Prefix<'a, S> {
+    type Raw = S::Raw;
+    type Symbol = S::Symbol;
+
+    fn rawpresentation(&self) -> &Self::Raw {
+        self.sequence.rawpresentation()
+    }
+
+    fn get(&self, position: usize) -> Option<Self::Symbol> {
+        if position < self.length {
+            self.sequence.get(position)
         } else {
             None
         }
     }
 }
 
-impl<'a, R: Representable> Prefix<'a, R> {
-    pub fn new(representable: &'a R, length: usize) -> Self {
-        Self {
-            representable,
-            length,
-        }
+impl<'a, S: Sequence> Prefix<'a, S> {
+    /// Creates a new prefix of the given length.
+    pub fn new(sequence: &'a S, length: usize) -> Self {
+        Self { sequence, length }
     }
 }

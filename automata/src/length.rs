@@ -2,39 +2,16 @@ use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::ops::Deref;
 
-use crate::word::AsPosition;
-
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub struct RawPosition(usize);
 
-impl Deref for RawPosition {
-    type Target = usize;
-    fn deref(&self) -> &Self::Target {
-        &self.0
+impl RawPosition {
+    pub fn new(position: usize) -> Self {
+        Self(position)
     }
-}
 
-impl From<RawPosition> for usize {
-    fn from(value: RawPosition) -> Self {
-        value.0
-    }
-}
-
-impl From<&RawPosition> for usize {
-    fn from(value: &RawPosition) -> Self {
-        value.0
-    }
-}
-
-impl From<usize> for RawPosition {
-    fn from(value: usize) -> Self {
-        Self(value)
-    }
-}
-
-impl From<&usize> for RawPosition {
-    fn from(value: &usize) -> Self {
-        Self(*value)
+    pub fn position(&self) -> usize {
+        self.0
     }
 }
 
@@ -55,13 +32,12 @@ pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
     /// `Some(j)`, where $ j = i + ((i - |u|) \bmod |v|) $. In other words whenever i exceeds or
     /// equals |uv|, we reset the position to the loop index l = |u|, i.e. the first position
     /// after the finite prefix.
-    fn calculate_raw_position<P: AsPosition>(&self, position: P) -> Option<RawPosition>;
+    fn calculate_raw_position<P: Into<usize>>(&self, position: P) -> Option<RawPosition>;
     /// Returns `true` if `position` is the last position (wrt. the length defined by `self`).
     /// This method will always return `false` for infinite words and `true` for objects of
     /// [`FiniteLength`] n if `position` is larger or equal to n.
-    fn is_end<P: AsPosition>(&self, position: P) -> bool {
-        self.calculate_raw_position(position.as_position())
-            .is_none()
+    fn is_end<P: Into<usize>>(&self, position: P) -> bool {
+        self.calculate_raw_position(position.into()).is_none()
     }
 }
 
@@ -69,16 +45,23 @@ pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct FiniteLength(pub usize);
 
+impl FiniteLength {
+    /// Create a new [`FiniteLength`] object.
+    pub fn new(length: usize) -> Self {
+        Self(length)
+    }
+}
+
 impl Length for FiniteLength {
     fn is_finite(&self) -> bool {
         true
     }
-    fn calculate_raw_position<P: AsPosition>(&self, position: P) -> Option<RawPosition> {
-        let position = *position.as_position();
+    fn calculate_raw_position<P: Into<usize>>(&self, position: P) -> Option<RawPosition> {
+        let position = position.into();
         if position >= self.0 {
             None
         } else {
-            Some(position.into())
+            Some(RawPosition::new(position))
         }
     }
 }
@@ -93,16 +76,30 @@ impl Display for FiniteLength {
 /// the raw representation, while the second field is the loop index.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct InfiniteLength(pub usize, pub usize);
+
+impl InfiniteLength {
+    /// Create a new [`InfiniteLength`] object.
+    pub fn new(raw_length: usize, loop_index: usize) -> Self {
+        Self(raw_length, loop_index)
+    }
+
+    pub fn loop_length(&self) -> usize {
+        self.0 - self.1
+    }
+}
+
 impl Length for InfiniteLength {
     fn is_finite(&self) -> bool {
         false
     }
-    fn calculate_raw_position<P: AsPosition>(&self, position: P) -> Option<RawPosition> {
-        let position = *position.as_position();
+    fn calculate_raw_position<P: Into<usize>>(&self, position: P) -> Option<RawPosition> {
+        let position = position.into();
         if position >= self.0 {
-            Some(self.1.into())
+            Some(RawPosition::new(
+                self.1 + (position - self.0) % self.loop_length(),
+            ))
         } else {
-            Some(position.into())
+            Some(RawPosition::new(position))
         }
     }
 }
@@ -155,7 +152,7 @@ pub trait HasLength {
     /// Returns the [`Length`] of `self`.
     fn length(&self) -> Self::Len;
 
-    fn to_raw_position<P: AsPosition>(&self, position: P) -> Option<RawPosition> {
+    fn to_raw_position<P: Into<usize>>(&self, position: P) -> Option<RawPosition> {
         self.length().calculate_raw_position(position)
     }
 }

@@ -80,20 +80,6 @@ pub trait Representable {
         }
     }
 
-    fn skip(&self, count: usize) -> Suffix<'_, Self>
-    where
-        Self: Sized,
-    {
-        Suffix::new(self, count)
-    }
-
-    fn prefix(&self, count: usize) -> Prefix<'_, Self>
-    where
-        Self: Sized,
-    {
-        Prefix::new(self, count)
-    }
-
     fn nth<P: AsPosition>(&self, position: P) -> Option<<Self::Alphabet as Alphabet>::Symbol>;
 }
 
