@@ -4,6 +4,7 @@
 #![allow(unused)]
 mod alphabet;
 pub use alphabet::Alphabet;
+
 mod length;
 pub use length::{FiniteLength, InfiniteLength, Length};
 

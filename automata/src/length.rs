@@ -15,6 +15,12 @@ impl RawPosition {
     }
 }
 
+macro_rules! rawpos {
+    ($position:expr) => {
+        RawPosition::new($position)
+    };
+}
+
 /// Abstracts the concept of length, allowing us to work with finite and infinite words in a
 /// somewhat similar fashion.
 pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
@@ -83,6 +89,7 @@ impl InfiniteLength {
         Self(raw_length, loop_index)
     }
 
+    /// Returns the length of the looping part of the word.
     pub fn loop_length(&self) -> usize {
         self.0 - self.1
     }
