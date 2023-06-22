@@ -4,9 +4,8 @@ use crate::{
 };
 
 use super::{
-    edge::{EdgeIndicesFrom, EdgesFrom},
-    has_states::StateColored,
-    Edge, EdgeIndex, HasStates, Index, Indexes, State, StateIndex, Successor, Transition,
+    Edge, EdgeIndex, EdgeIndicesFrom, EdgesFrom, HasStates, Index, State, StateColored, StateIndex,
+    Successor, Transition,
 };
 
 #[derive(Clone, Debug)]
@@ -30,15 +29,17 @@ impl<A: Alphabet, Q, C> IndexTS<A, Q, C> {
     pub fn alphabet(&self) -> &A {
         &self.alphabet
     }
+}
 
+impl<A: Alphabet, Q: Color, C: Color> IndexTS<A, Q, C> {
     /// Returns an iterator over the [`EdgeIndex`]es of the edges leaving the given state.
     pub fn edge_indices_from(&self, source: StateIndex) -> EdgeIndicesFrom<'_, A::Expression, C> {
-        EdgeIndicesFrom::new(&self.edges, self.get(source).and_then(|s| s.first_edge()))
+        EdgeIndicesFrom::new(&self.edges, self.state(source).and_then(|s| s.first_edge()))
     }
 
     /// Returns an iterator over references to the edges leaving the given state.
     pub fn edges_from(&self, source: StateIndex) -> EdgesFrom<'_, A::Expression, C> {
-        EdgesFrom::new(&self.edges, self.get(source).and_then(|s| s.first_edge()))
+        EdgesFrom::new(&self.edges, self.state(source).and_then(|s| s.first_edge()))
     }
 
     /// Adds a state with given `color` to the transition system, returning the [`StateIndex`] of
@@ -50,12 +51,9 @@ impl<A: Alphabet, Q, C> IndexTS<A, Q, C> {
         id.as_state_index()
     }
 
-    /// Checks whether [`index`] points to a valid object in `self`.
-    pub fn contains<I>(&self, index: I) -> bool
-    where
-        I: Indexes<Self>,
-    {
-        self.get(index).is_some()
+    /// Checks whether the state exists.
+    pub fn contains_state<I: Into<StateIndex>>(&self, index: I) -> bool {
+        (self.states.len() > index.into().index())
     }
 
     fn last_edge_from(&self, source: StateIndex) -> Option<EdgeIndex> {
@@ -71,66 +69,36 @@ impl<A: Alphabet, Q, C> IndexTS<A, Q, C> {
         trigger: A::Expression,
         target: StateIndex,
         color: C,
-    ) -> EdgeIndex {
+    ) -> EdgeIndex
+    where
+        Q: Color,
+    {
         assert!(
-            self.contains(source) && self.contains(target),
+            self.contains_state(source) && self.contains_state(target),
             "Source or target vertex does not exist in the graph."
         );
         let new_edge_id = self.edges.len().as_edge_index();
 
-        let edge = if let Some(last_edge_id) = self.last_edge_from(source) {
-            self.get_mut(last_edge_id).unwrap().set_next(new_edge_id);
-            Edge::new(source, target, color, trigger).with_prev(last_edge_id)
-        } else {
-            self.get_mut(source).unwrap().set_first_edge(new_edge_id);
-            Edge::new(source, target, color, trigger)
-        };
+        let edge: Edge<<A as Alphabet>::Expression, C> =
+            if let Some(last_edge_id) = self.last_edge_from(source) {
+                self.get_edge_mut(last_edge_id)
+                    .unwrap()
+                    .set_next(new_edge_id);
+                Edge::new(source, target, color, trigger).with_prev(last_edge_id)
+            } else {
+                self.state_mut(source).unwrap().set_first_edge(new_edge_id);
+                Edge::new(source, target, color, trigger)
+            };
         self.edges.push(edge);
         new_edge_id
     }
 
-    /// Returns an immutable reference to the object indexed by `index` if it exists.
-    pub fn get<I>(&self, index: I) -> Option<<I as Indexes<Self>>::Ref<'_>>
-    where
-        I: Indexes<Self>,
-    {
-        index.get_from(self)
+    fn get_edge(&self, index: EdgeIndex) -> Option<&Edge<A::Expression, C>> {
+        self.edges.get(index.index())
     }
 
-    /// Returns a mutable reference to the object indexed by `index` if it exists.
-    pub fn get_mut<I>(&mut self, index: I) -> Option<<I as Indexes<Self>>::MutRef<'_>>
-    where
-        I: Indexes<Self>,
-    {
-        index.get_mut_from(self)
-    }
-}
-
-impl<A: Alphabet, Q, C> Indexes<IndexTS<A, Q, C>> for StateIndex {
-    type Ref<'a> = &'a State<Q> where IndexTS<A, Q, C>: 'a, Self: 'a;
-
-    type MutRef<'a> = &'a mut State<Q> where IndexTS<A, Q, C>: 'a, Self: 'a;
-
-    fn get_from(self, ts: &IndexTS<A, Q, C>) -> Option<Self::Ref<'_>> {
-        ts.states.get(self.index())
-    }
-
-    fn get_mut_from(self, ts: &mut IndexTS<A, Q, C>) -> Option<Self::MutRef<'_>> {
-        ts.states.get_mut(self.index())
-    }
-}
-
-impl<A: Alphabet, Q, C> Indexes<IndexTS<A, Q, C>> for EdgeIndex {
-    type Ref<'a> = &'a Edge<A::Expression, C> where IndexTS<A, Q, C>: 'a, Self: 'a;
-
-    type MutRef<'a> = &'a mut Edge<A::Expression, C> where IndexTS<A, Q, C>: 'a, Self: 'a;
-
-    fn get_from(self, ts: &IndexTS<A, Q, C>) -> Option<Self::Ref<'_>> {
-        ts.edges.get(self.index())
-    }
-
-    fn get_mut_from(self, ts: &mut IndexTS<A, Q, C>) -> Option<Self::MutRef<'_>> {
-        ts.edges.get_mut(self.index())
+    fn get_edge_mut(&mut self, index: EdgeIndex) -> Option<&mut Edge<A::Expression, C>> {
+        self.edges.get_mut(index.index())
     }
 }
 
@@ -163,14 +131,14 @@ impl<'a, Q> IndexTSStates<'a, Q> {
 }
 
 impl<'a, Q> Iterator for IndexTSStates<'a, Q> {
-    type Item = (StateIndex, &'a Q);
+    type Item = (StateIndex, &'a State<Q>);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.position < self.states.len() {
             let index = self.position.as_state_index();
             let state = &self.states[self.position];
             self.position += 1;
-            Some((index, state.color()))
+            Some((index, state))
         } else {
             None
         }
@@ -181,20 +149,29 @@ impl<A: Alphabet, Q: Color, C> StateColored for IndexTS<A, Q, C> {
     type StateColor = Q;
 
     fn state_color(&self, index: StateIndex) -> &Self::StateColor {
-        assert!(self.contains(index), "State does not exist in the graph.");
-        self.get(index)
+        self.state(index)
             .map(|s| s.color())
             .expect("cannot be called if state does not exist!")
     }
 }
 
 impl<A: Alphabet, Q: Color, C> HasStates for IndexTS<A, Q, C> {
-    type States<'this> = IndexTSStates<'this, Q>
+    type State<'this> = &'this State<Q> where Self: 'this;
+
+    type StateMut<'this> = &'this mut State<Q> where Self: 'this;
+
+    type StatesIter<'this> = IndexTSStates<'this, Q>
     where
         Self: 'this;
 
-    fn states_iter(&self) -> Self::States<'_> {
+    fn states_iter(&self) -> Self::StatesIter<'_> {
         IndexTSStates::new(&self.states, 0)
+    }
+    fn state(&self, index: StateIndex) -> Option<Self::State<'_>> {
+        self.states.get(index.index())
+    }
+    fn state_mut(&mut self, index: StateIndex) -> Option<Self::StateMut<'_>> {
+        self.states.get_mut(index.index())
     }
 }
 

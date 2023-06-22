@@ -8,7 +8,7 @@ use crate::{
 
 use self::walker::RunResult;
 
-use super::{has_states::StateColored, CanInduce, IndexTS, Path, StateIndex, Transition};
+use super::{CanInduce, IndexTS, Path, StateColored, StateIndex, Transition};
 
 mod partial;
 pub use partial::Partial;
