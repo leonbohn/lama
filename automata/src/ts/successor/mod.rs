@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use crate::{
     alphabet::{HasAlphabet, Symbol, SymbolOf},
+    word::{Induces, RawWithLength},
     Color, Word,
 };
 
@@ -42,6 +43,20 @@ pub trait Successor: StateColor + HasAlphabet {
         self.walk(word, state).result()
     }
 
+    fn induced<'a, 'b, R: Word<Symbol = SymbolOf<Self>>>(
+        &'a self,
+        word: &'b R,
+        state: StateIndex,
+    ) -> Option<<R::Length as Induces>::Induced<Self::EdgeColor>>
+    where
+        Self: Sized,
+        Self::EdgeColor: Symbol,
+    {
+        self.run(word, state)
+            .ok()
+            .map(|result| result.colors().reached())
+    }
+
     fn walk<'a, 'b, R: Word<Symbol = SymbolOf<Self>>>(
         &'a self,
         word: &'b R,
@@ -58,9 +73,8 @@ pub trait Successor: StateColor + HasAlphabet {
 mod tests {
     use tracing_test::traced_test;
 
-    use crate::{alphabet, ts::IndexTS, word::RawWithLength, FiniteLength};
-
     use super::Successor;
+    use crate::{alphabet, ts::IndexTS, word::RawWithLength, FiniteLength, Word};
 
     #[test]
     #[traced_test]
@@ -77,6 +91,8 @@ mod tests {
         let res = ts.run(&input, s0);
         assert!(matches!(res, Ok(_)));
 
-        println!("{}", res.unwrap().colors());
+        let Ok(result) = res else {panic!("Run should be successful!")};
+        println!("{}", result.colors());
+        println!("{}", result.colors().reached());
     }
 }

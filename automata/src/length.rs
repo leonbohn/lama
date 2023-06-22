@@ -2,9 +2,11 @@ use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::ops::Deref;
 
+use crate::word::Induces;
+
 /// Abstracts the concept of length, allowing us to work with finite and infinite words in a
 /// somewhat similar fashion.
-pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
+pub trait Length: Eq + Ord + Hash + Debug + Display + Copy + Induces {
     type RawPositions: Iterator<Item = RawPosition>;
 
     /// Heavily used in the computation of a run (which is done by [`crate::run::Cane`]). For
@@ -28,6 +30,8 @@ pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
     }
 
     fn raw_positions(&self) -> Self::RawPositions;
+
+    fn last_position(&self) -> Option<usize>;
 
     fn is_finite() -> bool;
     fn is_infinite() -> bool {
@@ -77,6 +81,10 @@ impl Length for FiniteLength {
             Some(RawPosition::new(position))
         }
     }
+
+    fn last_position(&self) -> Option<usize> {
+        Some(self.0 - 1)
+    }
 }
 
 impl Display for FiniteLength {
@@ -106,31 +114,12 @@ impl InfiniteLength {
     pub fn loop_length(&self) -> usize {
         self.0 - self.1
     }
-}
 
-impl Length for InfiniteLength {
-    type RawPositions = std::iter::Map<std::ops::Range<usize>, fn(usize) -> RawPosition>;
-
-    fn raw_positions(&self) -> Self::RawPositions {
-        (0..self.0).map(RawPosition::new)
+    /// Returns an iterator over the positions that belong to the looping part.
+    pub fn loop_positions(&self) -> impl Iterator<Item = usize> {
+        (self.loop_index()..self.0)
     }
 
-    fn is_finite() -> bool {
-        false
-    }
-    fn calculate_raw_position<P: Into<usize>>(&self, position: P) -> Option<RawPosition> {
-        let position = position.into();
-        if position >= self.0 {
-            Some(RawPosition::new(
-                self.1 + (position - self.0) % self.loop_length(),
-            ))
-        } else {
-            Some(RawPosition::new(position))
-        }
-    }
-}
-
-impl InfiniteLength {
     /// Returns the loop index, which is the position that the looping part resets to.
     /// If you imagine an infinite, ultimately periodic word $ w = uv^\omega $, then the
     /// loop index is simply $ |u| $.
@@ -163,6 +152,33 @@ impl InfiniteLength {
     /// Operates similarly to [`prefix_of`], but returns the looping part instead.
     pub fn suffix_of<'a, S>(&self, raw: &'a [S]) -> &'a [S] {
         &raw[self.1..self.0]
+    }
+}
+
+impl Length for InfiniteLength {
+    type RawPositions = std::iter::Map<std::ops::Range<usize>, fn(usize) -> RawPosition>;
+
+    fn raw_positions(&self) -> Self::RawPositions {
+        (0..self.0).map(RawPosition::new)
+    }
+
+    fn is_finite() -> bool {
+        false
+    }
+
+    fn last_position(&self) -> Option<usize> {
+        None
+    }
+
+    fn calculate_raw_position<P: Into<usize>>(&self, position: P) -> Option<RawPosition> {
+        let position = position.into();
+        if position >= self.0 {
+            Some(RawPosition::new(
+                self.1 + (position - self.0) % self.loop_length(),
+            ))
+        } else {
+            Some(RawPosition::new(position))
+        }
     }
 }
 

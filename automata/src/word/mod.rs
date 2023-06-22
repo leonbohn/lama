@@ -8,10 +8,13 @@ use crate::{
     length::{HasLength, RawPosition},
     FiniteLength, InfiniteLength, Length,
 };
+use itertools::Itertools;
 
 mod subword;
-use itertools::Itertools;
 pub use subword::{Prefix, Suffix};
+
+mod induces;
+pub use induces::Induces;
 
 /// Encapsulates the raw representation of a [`Word`], which is essentially just a sequence of [`Symbol`]s
 /// which can be accessed by a [`RawPosition`] and whose length can be queried.
@@ -96,6 +99,13 @@ pub trait Word: HasLength {
     /// Returns an iterator over the symbols making up `self`.
     fn symbols(&self) -> RawpresentationIter<'_, Self::Raw, Self::Length> {
         RawpresentationIter::new(self.rawpresentation(), self.length(), 0)
+    }
+
+    fn reached(&self) -> <Self::Length as Induces>::Induced<Self::Symbol>
+    where
+        Self: Sized,
+    {
+        self.length().induces(self)
     }
 }
 
