@@ -5,29 +5,28 @@ use crate::{
     Color, FiniteLength,
 };
 
+use super::Successor;
+
 #[derive(Debug, Clone, PartialEq)]
-pub struct Partial<'a, 'b, R, A: Alphabet, C> {
+pub struct Partial<'a, 'b, R, Ts: Successor> {
     word: &'b R,
+    ts: &'a Ts,
     position: usize,
-    path: Path<'a, A, C>,
+    path: Path<'a, Ts::Alphabet, Ts::StateColor, Ts::EdgeColor>,
 }
 
-impl<'a, 'b, R, A: Alphabet, C: Color> Partial<'a, 'b, R, A, C> {
-    pub fn new(word: &'b R, position: usize, path: Path<'a, A, C>) -> Self {
+impl<'a, 'b, R, Ts: Successor> Partial<'a, 'b, R, Ts> {
+    pub fn new(
+        word: &'b R,
+        ts: &'a Ts,
+        position: usize,
+        path: Path<'a, Ts::Alphabet, Ts::StateColor, Ts::EdgeColor>,
+    ) -> Self {
         Self {
             word,
+            ts,
             position,
             path,
         }
-    }
-
-    pub fn colors(&self) -> RawWithLength<Vec<C>, FiniteLength>
-    where
-        C: Clone + Symbol,
-    {
-        RawWithLength::new(
-            self.path.color_sequence().map(Clone::clone).collect(),
-            FiniteLength::new(self.position),
-        )
     }
 }

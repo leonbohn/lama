@@ -26,6 +26,9 @@ pub use index_ts::IndexTS;
 mod path;
 pub use path::Path;
 
+mod induces;
+pub use induces::{finite, infinite, CanInduce};
+
 /// Implementors of this trait have a distinguished (initial) state.
 pub trait Pointed {
     /// Returns the index of the initial state.

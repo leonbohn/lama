@@ -40,7 +40,7 @@ pub trait Indexes<TS> {
         Self: 'a;
 
     /// Returns an immutable reference to the indexed type.
-    fn get(self, ts: &TS) -> Option<Self::Ref<'_>>;
+    fn get_from(self, ts: &TS) -> Option<Self::Ref<'_>>;
     /// Returns a mutable reference to the indexed type.
-    fn get_mut(self, ts: &mut TS) -> Option<Self::MutRef<'_>>;
+    fn get_mut_from(self, ts: &mut TS) -> Option<Self::MutRef<'_>>;
 }

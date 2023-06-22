@@ -26,6 +26,7 @@ pub trait Expression<S: Symbol> {
     fn matches(&self, symbol: S) -> bool;
 }
 
+/// Implementors of this trait are able to return an iterator over all possible symbols in the alphabet.
 pub trait HasUniverse: Alphabet {
     /// Type for an iterator over all possible symbols in the alphabet. For [`Propositional`] alphabets,
     /// this may return quite a few symbols (exponential in the number of atomic propositions).

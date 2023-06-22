@@ -1,16 +1,16 @@
 use crate::Color;
 
-use super::{State, StateIndex};
+use super::{Indexes, State, StateIndex};
 
-pub trait StateColor {
+pub trait StateColored {
     type StateColor: Color;
-    fn color(&self, index: StateIndex) -> Option<&Self::StateColor>;
+    fn state_color(&self, index: StateIndex) -> &Self::StateColor;
 }
 
-pub trait HasStates: StateColor {
+pub trait HasStates: StateColored + Sized {
     type States<'this>: Iterator<Item = (StateIndex, &'this Self::StateColor)>
     where
         Self: 'this;
 
-    fn states(&self) -> Self::States<'_>;
+    fn states_iter(&self) -> Self::States<'_>;
 }

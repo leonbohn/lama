@@ -17,7 +17,7 @@ pub struct Transition<'a, S, C> {
     source: StateIndex,
     target: StateIndex,
     symbol: S,
-    color: &'a C,
+    emits: &'a C,
 }
 
 impl<'a, S: Symbol, C: Color> Transition<'a, S, C> {
@@ -27,7 +27,7 @@ impl<'a, S: Symbol, C: Color> Transition<'a, S, C> {
             source,
             target,
             symbol,
-            color,
+            emits: color,
         }
     }
 
@@ -43,7 +43,7 @@ impl<'a, S: Symbol, C: Color> Transition<'a, S, C> {
 
     /// Returns the color of the transition.
     pub fn color(&self) -> &C {
-        self.color
+        self.emits
     }
 
     /// Returns the target state index.
@@ -57,7 +57,7 @@ impl<'a, S: Display, C: Display> Display for Transition<'a, S, C> {
         write!(
             f,
             "{} --{}:{}--> {}",
-            self.source, self.symbol, self.color, self.target
+            self.source, self.symbol, self.emits, self.target
         )
     }
 }
@@ -67,7 +67,7 @@ impl<'a, S: Debug, C: Debug> Debug for Transition<'a, S, C> {
         write!(
             f,
             "{} --{:?}:{:?}--> {}",
-            self.source, self.symbol, self.color, self.target
+            self.source, self.symbol, self.emits, self.target
         )
     }
 }

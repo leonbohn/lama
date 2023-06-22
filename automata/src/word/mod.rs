@@ -13,9 +13,6 @@ use itertools::Itertools;
 mod subword;
 pub use subword::{Prefix, Suffix};
 
-mod induces;
-pub use induces::Induces;
-
 /// Encapsulates the raw representation of a [`Word`], which is essentially just a sequence of [`Symbol`]s
 /// which can be accessed by a [`RawPosition`] and whose length can be queried.
 pub trait Rawpresentation: ToOwned<Owned = Self> {
@@ -50,6 +47,16 @@ impl<S: Symbol> Rawpresentation for Vec<S> {
     type Symbol = S;
     fn raw_get(&self, position: RawPosition) -> Option<Self::Symbol> {
         self.get(position.position()).cloned()
+    }
+    fn raw_length(&self) -> usize {
+        self.len()
+    }
+}
+
+impl<'a> Rawpresentation for &'a str {
+    type Symbol = char;
+    fn raw_get(&self, position: RawPosition) -> Option<Self::Symbol> {
+        self.chars().nth(position.position())
     }
     fn raw_length(&self) -> usize {
         self.len()
@@ -101,11 +108,12 @@ pub trait Word: HasLength {
         RawpresentationIter::new(self.rawpresentation(), self.length(), 0)
     }
 
-    fn reached(&self) -> <Self::Length as Induces>::Induced<Self::Symbol>
-    where
-        Self: Sized,
-    {
-        self.length().induces(self)
+    fn is_finite(&self) -> bool {
+        Self::Length::is_finite()
+    }
+
+    fn is_infinite(&self) -> bool {
+        !self.is_finite()
     }
 }
 
@@ -172,6 +180,28 @@ where
             .map(|p| self.raw.raw_get(p).unwrap())
             .join("");
         write!(f, "(\"{}\", {})", repr, self.length)
+    }
+}
+
+impl HasLength for &str {
+    type Length = FiniteLength;
+
+    fn length(&self) -> Self::Length {
+        FiniteLength::new(self.len())
+    }
+}
+
+impl Word for &str {
+    type Raw = Self;
+
+    type Symbol = char;
+
+    fn get(&self, position: usize) -> Option<Self::Symbol> {
+        self.chars().nth(position)
+    }
+
+    fn rawpresentation(&self) -> &Self::Raw {
+        self
     }
 }
 

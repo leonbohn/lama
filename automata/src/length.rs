@@ -2,11 +2,9 @@ use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::ops::Deref;
 
-use crate::word::Induces;
-
 /// Abstracts the concept of length, allowing us to work with finite and infinite words in a
 /// somewhat similar fashion.
-pub trait Length: Eq + Ord + Hash + Debug + Display + Copy + Induces {
+pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
     type RawPositions: Iterator<Item = RawPosition>;
 
     /// Heavily used in the computation of a run (which is done by [`crate::run::Cane`]). For
@@ -116,8 +114,8 @@ impl InfiniteLength {
     }
 
     /// Returns an iterator over the positions that belong to the looping part.
-    pub fn loop_positions(&self) -> impl Iterator<Item = usize> {
-        (self.loop_index()..self.0)
+    pub fn loop_positions(&self) -> impl Iterator<Item = RawPosition> {
+        (self.loop_index()..self.0).map(RawPosition::new)
     }
 
     /// Returns the loop index, which is the position that the looping part resets to.

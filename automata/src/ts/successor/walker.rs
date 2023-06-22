@@ -5,7 +5,7 @@ use tracing::trace;
 use crate::{
     alphabet::{HasAlphabet, SymbolOf},
     length::RawPosition,
-    ts::{Path, StateIndex, Transition, TransitionSystem},
+    ts::{has_states::StateColored, Path, StateIndex, Transition, TransitionSystem},
     word::Rawpresentation,
     Length, Word,
 };
@@ -18,13 +18,10 @@ pub struct Walker<'a, 'b, Ts: Successor, R> {
     word: &'b R,
     position: usize,
     seen: BTreeSet<(RawPosition, StateIndex)>,
-    seq: Path<'a, Ts::Alphabet, Ts::EdgeColor>,
+    seq: Path<'a, Ts::Alphabet, Ts::StateColor, Ts::EdgeColor>,
 }
 
-pub type RunResult<'a, 'b, Ts, R> = Result<
-    Successful<'a, 'b, R, <Ts as HasAlphabet>::Alphabet, <Ts as Successor>::EdgeColor>,
-    Partial<'a, 'b, R, <Ts as HasAlphabet>::Alphabet, <Ts as Successor>::EdgeColor>,
->;
+pub type RunResult<'a, 'b, Ts, R> = Result<Successful<'a, 'b, R, Ts>, Partial<'a, 'b, R, Ts>>;
 
 pub enum WalkerStep<'a, Ts: Successor> {
     Transition(Transition<'a, SymbolOf<Ts>, Ts::EdgeColor>),
@@ -46,7 +43,7 @@ impl<'a, 'b, Ts: Successor, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b, Ts, R
             word,
             position: 0,
             seen: BTreeSet::new(),
-            seq: Path::empty(origin),
+            seq: Path::empty(origin, ts.state_color(origin)),
         }
     }
 
@@ -54,9 +51,9 @@ impl<'a, 'b, Ts: Successor, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b, Ts, R
         self.take_all_steps();
 
         if self.is_successful() {
-            Ok(Successful::new(self.word, self.seq))
+            Ok(Successful::new(self.word, self.ts, self.seq))
         } else {
-            Err(Partial::new(self.word, self.position, self.seq))
+            Err(Partial::new(self.word, self.ts, self.position, self.seq))
         }
     }
 
