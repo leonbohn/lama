@@ -98,6 +98,18 @@ pub trait Successor: StateColored + HasAlphabet {
     }
 }
 
+impl<S: Successor> Successor for &S {
+    type EdgeColor = S::EdgeColor;
+
+    fn successor(
+        &self,
+        state: StateIndex,
+        symbol: SymbolOf<Self>,
+    ) -> Option<Transition<'_, SymbolOf<Self>, Self::EdgeColor>> {
+        (**self).successor(state, symbol)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use tracing_test::traced_test;

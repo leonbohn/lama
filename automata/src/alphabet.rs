@@ -64,6 +64,14 @@ pub trait HasAlphabet {
     fn alphabet(&self) -> &Self::Alphabet;
 }
 
+impl<H: HasAlphabet> HasAlphabet for &H {
+    type Alphabet = H::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        H::alphabet(self)
+    }
+}
+
 /// Helper trait for extracting the [`Symbol`] type from an an object which implements [`HasAlphabet`].
 pub type SymbolOf<A> = <<A as HasAlphabet>::Alphabet as Alphabet>::Symbol;
 

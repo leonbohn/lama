@@ -13,6 +13,7 @@ owo-colors = "3.5"
 hoars = { version = "0.1", path = "../hoars", optional = true }
 tracing-test = "0.2"
 tempfile = { version = "3.5", optional = true }
+impl-tools = "0.8.0"
 
 [features]
 default = ["det", "ahash", "hoa", "graphviz"]

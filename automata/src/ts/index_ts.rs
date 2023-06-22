@@ -4,8 +4,8 @@ use crate::{
 };
 
 use super::{
-    Edge, EdgeIndex, EdgeIndicesFrom, EdgesFrom, HasStates, Index, State, StateColored, StateIndex,
-    Successor, Transition,
+    Edge, EdgeIndex, EdgeIndicesFrom, EdgesFrom, HasMutableStates, HasStates, Index, State,
+    StateColored, StateIndex, Successor, Transition,
 };
 
 #[derive(Clone, Debug)]
@@ -158,8 +158,6 @@ impl<A: Alphabet, Q: Color, C> StateColored for IndexTS<A, Q, C> {
 impl<A: Alphabet, Q: Color, C> HasStates for IndexTS<A, Q, C> {
     type State<'this> = &'this State<Q> where Self: 'this;
 
-    type StateMut<'this> = &'this mut State<Q> where Self: 'this;
-
     type StatesIter<'this> = IndexTSStates<'this, Q>
     where
         Self: 'this;
@@ -170,6 +168,11 @@ impl<A: Alphabet, Q: Color, C> HasStates for IndexTS<A, Q, C> {
     fn state(&self, index: StateIndex) -> Option<Self::State<'_>> {
         self.states.get(index.index())
     }
+}
+
+impl<A: Alphabet, Q: Color, C> HasMutableStates for IndexTS<A, Q, C> {
+    type StateMut<'this> = &'this mut State<Q> where Self: 'this;
+
     fn state_mut(&mut self, index: StateIndex) -> Option<Self::StateMut<'_>> {
         self.states.get_mut(index.index())
     }

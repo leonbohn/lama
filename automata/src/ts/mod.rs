@@ -62,6 +62,18 @@ pub struct State<Q> {
     first_edge: Option<EdgeIndex>,
 }
 
+impl<Q: Color> HasColorMut<Q> for State<Q> {
+    fn set_color(&mut self, color: Q) {
+        self.color = color;
+    }
+}
+
+impl<Q: Color> HasColor<Q> for State<Q> {
+    fn color(&self) -> &Q {
+        &self.color
+    }
+}
+
 impl<Q> State<Q> {
     /// Creates a new state with the given color.
     pub fn new(color: Q) -> Self {
@@ -87,34 +99,19 @@ impl<Q> State<Q> {
     }
 }
 
-impl<'a, C: Color> HasColor<C> for &'a State<C> {
-    fn color(&self) -> &C {
-        &self.color
-    }
-}
-
-impl<'a, C: Color> HasColor<C> for &'a mut State<C> {
-    fn color(&self) -> &C {
-        &self.color
-    }
-}
-impl<'a, C: Color> HasColorMut<C> for &'a mut State<C> {
-    fn set_color(&mut self, color: C) {
-        self.color = color;
-    }
-}
-
 impl<Q: Display> Display for State<Q> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.color)
     }
 }
 
-pub trait HasColor<C: Color> {
+#[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
+pub trait HasColor<C> {
     fn color(&self) -> &C;
 }
 
-pub trait HasColorMut<C: Color>: HasColor<C> {
+#[autoimpl(for<T: trait + ?Sized> &mut T)]
+pub trait HasColorMut<C>: HasColor<C> {
     fn set_color(&mut self, color: C);
 }
 
@@ -133,17 +130,17 @@ impl<'a, Q> StateReference<'a, Q> {
     }
 }
 
+#[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
+
 pub trait StateColored {
     type StateColor: Color;
 
     fn state_color(&self, index: StateIndex) -> &Self::StateColor;
 }
 
+#[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
 pub trait HasStates: StateColored + Sized {
     type State<'this>: HasColor<Self::StateColor>
-    where
-        Self: 'this;
-    type StateMut<'this>: HasColorMut<Self::StateColor>
     where
         Self: 'this;
 
@@ -152,14 +149,23 @@ pub trait HasStates: StateColored + Sized {
         Self: 'this;
 
     fn state(&self, index: StateIndex) -> Option<Self::State<'_>>;
-    fn state_mut(&mut self, index: StateIndex) -> Option<Self::StateMut<'_>>;
 
     fn states_iter(&self) -> Self::StatesIter<'_>;
+}
+
+#[autoimpl(for<T: trait + ?Sized> &mut T)]
+
+pub trait HasMutableStates: HasStates {
+    type StateMut<'this>: HasColorMut<Self::StateColor>
+    where
+        Self: 'this;
+    fn state_mut(&mut self, index: StateIndex) -> Option<Self::StateMut<'_>>;
 }
 
 mod successor;
 use std::{fmt::Display, ops::Deref};
 
+use impl_tools::autoimpl;
 pub use successor::Successor;
 
 mod transition;
