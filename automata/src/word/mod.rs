@@ -1,10 +1,16 @@
+use std::{
+    borrow::Cow,
+    fmt::{Debug, Display},
+};
+
 use crate::{
-    alphabet::Symbol,
+    alphabet::{Alphabet, Symbol},
     length::{HasLength, RawPosition},
-    Alphabet, FiniteLength, InfiniteLength, Length,
+    FiniteLength, InfiniteLength, Length,
 };
 
 mod subword;
+use itertools::Itertools;
 pub use subword::{Prefix, Suffix};
 
 /// Encapsulates the raw representation of a [`Word`], which is essentially just a sequence of [`Symbol`]s
@@ -25,7 +31,7 @@ pub trait Rawpresentation: ToOwned<Owned = Self> {
     /// # Example
     /// If `self` is the word `a b c`, then `self.loop_back_to(1)` is the infinite word `abc bc bc ...`.
     /// If `self` is `abba` and we run `self.loop_back_to(2)`, then we get `abba ba ba ba ba...`.
-    fn loop_back_to(&self, position: RawPosition) -> Representation<Self, InfiniteLength>
+    fn loop_back_to(&self, position: RawPosition) -> RawWithLength<Self, InfiniteLength>
     where
         Self: Sized,
     {
@@ -33,7 +39,7 @@ pub trait Rawpresentation: ToOwned<Owned = Self> {
         assert!(loop_index < self.raw_length(), "Loop index out of bounds!");
 
         let length = InfiniteLength::new(self.raw_length(), loop_index);
-        Representation::new(self.to_owned(), length)
+        RawWithLength::new(self.to_owned(), length)
     }
 }
 
@@ -47,22 +53,26 @@ impl<S: Symbol> Rawpresentation for Vec<S> {
     }
 }
 
+impl<'a, S: Symbol> Rawpresentation for Cow<'a, [S]> {
+    type Symbol = S;
+    fn raw_get(&self, position: RawPosition) -> Option<Self::Symbol> {
+        self.get(position.position()).cloned()
+    }
+    fn raw_length(&self) -> usize {
+        self.len()
+    }
+}
+
 /// A word is a sequence of symbols which can be accessed positionally. This trait tries to fully abstract
 /// away whether a word is finite or infinite, by relying on raw positions.
-pub trait Word {
+pub trait Word: HasLength {
     /// The type of raw representation that is used to store the symbols of this word.
     type Raw: Rawpresentation;
     /// The type of symbol that is stored in this word.
     type Symbol: Symbol;
 
-    /// The length type of this word.
-    type Length: Length;
-
     /// Accesses the symbol at the given position, if it exists.
     fn get(&self, position: usize) -> Option<Self::Symbol>;
-
-    /// Returns the length of this word.
-    fn length(&self) -> Self::Length;
 
     /// Returns a reference to the raw representation of `self`.
     fn rawpresentation(&self) -> &Self::Raw;
@@ -91,13 +101,13 @@ pub trait Word {
 
 /// Stores the actual representation of a [`Word`] as well as [`Length`], which determines the way
 /// that the raw representation is accessed.
-#[derive(Clone, PartialEq, Debug)]
-pub struct Representation<R, L> {
+#[derive(Clone, PartialEq)]
+pub struct RawWithLength<R, L> {
     raw: R,
     length: L,
 }
 
-impl<R, L> Representation<R, L> {
+impl<R, L> RawWithLength<R, L> {
     /// Create a new
     pub fn new(raw: R, length: L) -> Self
     where
@@ -108,14 +118,21 @@ impl<R, L> Representation<R, L> {
     }
 }
 
-impl<R, L> Word for Representation<R, L>
+impl<R, L: Length> HasLength for RawWithLength<R, L> {
+    type Length = L;
+
+    fn length(&self) -> Self::Length {
+        self.length
+    }
+}
+
+impl<R, L> Word for RawWithLength<R, L>
 where
     R: Rawpresentation,
     L: Length,
 {
     type Raw = R;
     type Symbol = R::Symbol;
-    type Length = L;
 
     fn get(&self, position: usize) -> Option<R::Symbol> {
         let raw_position = self.length.calculate_raw_position(position)?;
@@ -124,9 +141,27 @@ where
     fn rawpresentation(&self) -> &Self::Raw {
         &self.raw
     }
+}
 
-    fn length(&self) -> Self::Length {
-        self.length
+impl<R: Debug, L: Length> Debug for RawWithLength<R, L> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({:?}, {})", self.raw, self.length)
+    }
+}
+
+impl<R, L> Display for RawWithLength<R, L>
+where
+    R: Rawpresentation,
+    R::Symbol: Display,
+    L: Length,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let repr = self
+            .length
+            .raw_positions()
+            .map(|p| self.raw.raw_get(p).unwrap())
+            .join("");
+        write!(f, "(\"{}\", {})", repr, self.length)
     }
 }
 
@@ -174,7 +209,7 @@ where
 mod tests {
     use crate::{
         length::RawPosition,
-        word::{Rawpresentation, Representation, Word},
+        word::{RawWithLength, Rawpresentation, Word},
         FiniteLength,
     };
 
@@ -183,7 +218,7 @@ mod tests {
         let raw = vec!['a', 'b', 'a', 'b'];
         assert_eq!(raw.raw_get(RawPosition::new(0)), Some('a'));
 
-        let word = Representation::new(raw, FiniteLength::new(4));
+        let word = RawWithLength::new(raw, FiniteLength::new(4));
         assert_eq!(word.get(1), Some('b'));
         assert_eq!(word.get(4), None);
 

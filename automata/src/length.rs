@@ -2,30 +2,11 @@ use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::ops::Deref;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
-pub struct RawPosition(usize);
-
-impl RawPosition {
-    pub fn new(position: usize) -> Self {
-        Self(position)
-    }
-
-    pub fn position(&self) -> usize {
-        self.0
-    }
-}
-
-macro_rules! rawpos {
-    ($position:expr) => {
-        RawPosition::new($position)
-    };
-}
-
 /// Abstracts the concept of length, allowing us to work with finite and infinite words in a
 /// somewhat similar fashion.
 pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
-    /// Returns true if the length is finite.
-    fn is_finite(&self) -> bool;
+    type RawPositions: Iterator<Item = RawPosition>;
+
     /// Heavily used in the computation of a run (which is done by [`crate::run::Cane`]). For
     /// finite words, this method always either returns `None` (if the given `position` is out
     /// of bounds) or `Some(position)`. More interestingly, if the length is infinite, this
@@ -45,10 +26,30 @@ pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
     fn is_end<P: Into<usize>>(&self, position: P) -> bool {
         self.calculate_raw_position(position.into()).is_none()
     }
+
+    fn raw_positions(&self) -> Self::RawPositions;
+
+    fn is_finite() -> bool;
+    fn is_infinite() -> bool {
+        !Self::is_finite()
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, Hash, PartialOrd)]
+pub struct RawPosition(usize);
+
+impl RawPosition {
+    pub fn new(position: usize) -> Self {
+        Self(position)
+    }
+
+    pub fn position(&self) -> usize {
+        self.0
+    }
 }
 
 /// Wrapper for things/words that have a finite length, which is simply an `usize`.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct FiniteLength(pub usize);
 
 impl FiniteLength {
@@ -59,7 +60,13 @@ impl FiniteLength {
 }
 
 impl Length for FiniteLength {
-    fn is_finite(&self) -> bool {
+    type RawPositions = std::iter::Map<std::ops::Range<usize>, fn(usize) -> RawPosition>;
+
+    fn raw_positions(&self) -> Self::RawPositions {
+        (0..self.0).map(RawPosition::new)
+    }
+
+    fn is_finite() -> bool {
         true
     }
     fn calculate_raw_position<P: Into<usize>>(&self, position: P) -> Option<RawPosition> {
@@ -78,9 +85,15 @@ impl Display for FiniteLength {
     }
 }
 
+impl Debug for FiniteLength {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Finite({})", self.0)
+    }
+}
+
 /// Wrapper type for things of infinite length. The first field is the length of
 /// the raw representation, while the second field is the loop index.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct InfiniteLength(pub usize, pub usize);
 
 impl InfiniteLength {
@@ -96,7 +109,13 @@ impl InfiniteLength {
 }
 
 impl Length for InfiniteLength {
-    fn is_finite(&self) -> bool {
+    type RawPositions = std::iter::Map<std::ops::Range<usize>, fn(usize) -> RawPosition>;
+
+    fn raw_positions(&self) -> Self::RawPositions {
+        (0..self.0).map(RawPosition::new)
+    }
+
+    fn is_finite() -> bool {
         false
     }
     fn calculate_raw_position<P: Into<usize>>(&self, position: P) -> Option<RawPosition> {
@@ -146,18 +165,25 @@ impl InfiniteLength {
         &raw[self.1..self.0]
     }
 }
+
 impl Display for InfiniteLength {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{},{}", self.0, self.1)
     }
 }
 
+impl Debug for InfiniteLength {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Infinite({}|{})", self.0, self.1)
+    }
+}
+
 /// Implementors of this trait have a [`Length`] associated with them, for example words.
 pub trait HasLength {
     /// The type of [`Length`] that is associated with `self`.
-    type Len: Length;
+    type Length: Length;
     /// Returns the [`Length`] of `self`.
-    fn length(&self) -> Self::Len;
+    fn length(&self) -> Self::Length;
 
     fn to_raw_position<P: Into<usize>>(&self, position: P) -> Option<RawPosition> {
         self.length().calculate_raw_position(position)
@@ -165,15 +191,15 @@ pub trait HasLength {
 }
 
 impl<HL: HasLength> HasLength for &HL {
-    type Len = HL::Len;
-    fn length(&self) -> Self::Len {
+    type Length = HL::Length;
+    fn length(&self) -> Self::Length {
         HL::length(*self)
     }
 }
 
 impl<HL: HasLength> HasLength for &mut HL {
-    type Len = HL::Len;
-    fn length(&self) -> Self::Len {
+    type Length = HL::Length;
+    fn length(&self) -> Self::Length {
         HL::length(*self)
     }
 }

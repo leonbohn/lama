@@ -1,8 +1,8 @@
-use std::ops::Deref;
+use std::{fmt::Display, ops::Deref};
 
-use crate::Alphabet;
+use crate::alphabet::Alphabet;
 
-use super::{EdgeIndex, Idx, Index, Indexes, TransitionSystem};
+use super::{EdgeIndex, Idx, Index, IndexTS, Indexes};
 
 /// Wrapper type for indices of states in a transition system.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
@@ -29,17 +29,9 @@ impl Index for StateIndex {
     }
 }
 
-impl<A: Alphabet, Q, C> Indexes<TransitionSystem<A, Q, C>> for StateIndex {
-    type Ref<'a> = &'a State<Q> where TransitionSystem<A, Q, C>: 'a, Self: 'a;
-
-    type MutRef<'a> = &'a mut State<Q> where TransitionSystem<A, Q, C>: 'a, Self: 'a;
-
-    fn get(self, ts: &TransitionSystem<A, Q, C>) -> Option<Self::Ref<'_>> {
-        ts.states.get(self.index())
-    }
-
-    fn get_mut(self, ts: &mut TransitionSystem<A, Q, C>) -> Option<Self::MutRef<'_>> {
-        ts.states.get_mut(self.index())
+impl Display for StateIndex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0.index())
     }
 }
 
@@ -60,6 +52,11 @@ impl<Q> State<Q> {
         }
     }
 
+    /// Obtains a reference to the color of the state.
+    pub fn color(&self) -> &Q {
+        &self.color
+    }
+
     /// Sets the first outgoing edge of the state to the given index.
     pub fn set_first_edge(&mut self, index: EdgeIndex) {
         self.first_edge = Some(index);
@@ -68,5 +65,11 @@ impl<Q> State<Q> {
     /// Obtains the index of the first outgoing edge.
     pub fn first_edge(&self) -> Option<EdgeIndex> {
         self.first_edge
+    }
+}
+
+impl<Q: Display> Display for State<Q> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.color)
     }
 }

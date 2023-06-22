@@ -1,8 +1,8 @@
 use std::ops::Deref;
 
-use crate::Alphabet;
+use crate::alphabet::Alphabet;
 
-use super::{Idx, Index, Indexes, StateIndex, TransitionSystem};
+use super::{Idx, Index, IndexTS, Indexes, StateIndex};
 
 /// Wrapper type for indices of edges in a transition system.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
@@ -25,20 +25,6 @@ impl Deref for EdgeIndex {
 impl Index for EdgeIndex {
     fn index(&self) -> Idx {
         self.0
-    }
-}
-
-impl<A: Alphabet, Q, C> Indexes<TransitionSystem<A, Q, C>> for EdgeIndex {
-    type Ref<'a> = &'a Edge<A::Expression, C> where TransitionSystem<A, Q, C>: 'a, Self: 'a;
-
-    type MutRef<'a> = &'a mut Edge<A::Expression, C> where TransitionSystem<A, Q, C>: 'a, Self: 'a;
-
-    fn get(self, ts: &TransitionSystem<A, Q, C>) -> Option<Self::Ref<'_>> {
-        ts.edges.get(self.index())
-    }
-
-    fn get_mut(self, ts: &mut TransitionSystem<A, Q, C>) -> Option<Self::MutRef<'_>> {
-        ts.edges.get_mut(self.index())
     }
 }
 

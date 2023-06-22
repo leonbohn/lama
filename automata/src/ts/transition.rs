@@ -1,4 +1,6 @@
-use crate::alphabet::Symbol;
+use std::fmt::{Debug, Display};
+
+use crate::{alphabet::Symbol, Color};
 
 use super::StateIndex;
 
@@ -10,15 +12,15 @@ use super::StateIndex;
 /// atomic propositions, e.g. `a | b`. This edge can be instantiated with the symbols
 /// `a & b`, `a & !b` and `!a & b`, which are all concrete symbols from the alphabet
 /// that match the expression.
-#[derive(Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
-pub struct Transition<'a, S: Symbol, C> {
+#[derive(Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct Transition<'a, S, C> {
     source: StateIndex,
     target: StateIndex,
     symbol: S,
     color: &'a C,
 }
 
-impl<'a, S: Symbol, C> Transition<'a, S, C> {
+impl<'a, S: Symbol, C: Color> Transition<'a, S, C> {
     /// Creates a new transition with the given source and target state, symbol and color.
     pub fn new(source: StateIndex, symbol: S, target: StateIndex, color: &'a C) -> Self {
         Self {
@@ -47,5 +49,25 @@ impl<'a, S: Symbol, C> Transition<'a, S, C> {
     /// Returns the target state index.
     pub fn target(&self) -> StateIndex {
         self.target
+    }
+}
+
+impl<'a, S: Display, C: Display> Display for Transition<'a, S, C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} --{}:{}--> {}",
+            self.source, self.symbol, self.color, self.target
+        )
+    }
+}
+
+impl<'a, S: Debug, C: Debug> Debug for Transition<'a, S, C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} --{:?}:{:?}--> {}",
+            self.source, self.symbol, self.color, self.target
+        )
     }
 }

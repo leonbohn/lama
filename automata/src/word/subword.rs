@@ -1,4 +1,4 @@
-use crate::FiniteLength;
+use crate::{length::HasLength, FiniteLength};
 
 use super::Word;
 
@@ -9,10 +9,17 @@ pub struct Suffix<'a, S: Word> {
     offset: usize,
 }
 
+impl<'a, S: Word> HasLength for Suffix<'a, S> {
+    type Length = S::Length;
+
+    fn length(&self) -> Self::Length {
+        self.sequence.length()
+    }
+}
+
 impl<'a, S: Word> Word for Suffix<'a, S> {
     type Raw = S::Raw;
     type Symbol = S::Symbol;
-    type Length = S::Length;
 
     fn rawpresentation(&self) -> &Self::Raw {
         self.sequence.rawpresentation()
@@ -24,10 +31,6 @@ impl<'a, S: Word> Word for Suffix<'a, S> {
 
     fn symbols(&self) -> super::RawpresentationIter<'_, Self::Raw, Self::Length> {
         super::RawpresentationIter::new(self.rawpresentation(), self.length(), self.offset)
-    }
-
-    fn length(&self) -> Self::Length {
-        self.sequence.length()
     }
 }
 
@@ -45,10 +48,17 @@ pub struct Prefix<'a, S: Word> {
     length: usize,
 }
 
+impl<'a, S: Word> HasLength for Prefix<'a, S> {
+    type Length = FiniteLength;
+
+    fn length(&self) -> Self::Length {
+        FiniteLength::new(self.length)
+    }
+}
+
 impl<'a, S: Word> Word for Prefix<'a, S> {
     type Raw = S::Raw;
     type Symbol = S::Symbol;
-    type Length = FiniteLength;
 
     fn rawpresentation(&self) -> &Self::Raw {
         self.sequence.rawpresentation()
@@ -60,10 +70,6 @@ impl<'a, S: Word> Word for Prefix<'a, S> {
         } else {
             None
         }
-    }
-
-    fn length(&self) -> Self::Length {
-        FiniteLength::new(self.length)
     }
 }
 
@@ -79,13 +85,13 @@ mod tests {
     use itertools::Itertools;
 
     use crate::{
-        word::{Representation, Word},
+        word::{RawWithLength, Word},
         FiniteLength,
     };
 
     #[test]
     fn subwords() {
-        let word = Representation::new(vec!['a', 'b', 'a', 'b'], FiniteLength::new(4));
+        let word = RawWithLength::new(vec!['a', 'b', 'a', 'b'], FiniteLength::new(4));
         let pref = word.prefix(2);
         assert_eq!(pref.symbols().collect_vec(), vec!['a', 'b']);
         assert_eq!(

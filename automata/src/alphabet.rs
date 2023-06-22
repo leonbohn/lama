@@ -1,11 +1,15 @@
-use std::{borrow::Borrow, hash::Hash};
+use std::{
+    borrow::Borrow,
+    fmt::{Debug, Display},
+    hash::Hash,
+};
 
 /// A symbol of an alphabet, which is also the type of the symbols in a word. We consider different types
 /// of alphabets:
 /// - [`Simple`] alphabets, which are just a set of symbols.
 /// - [`Propositional`] alphabets, where a symbol is a valuation of all propositional variables.
-pub trait Symbol: PartialEq + Copy + PartialOrd + Hash {}
-impl<S: PartialEq + Copy + PartialOrd + Hash> Symbol for S {}
+pub trait Symbol: PartialEq + Debug + Copy + PartialOrd + Hash {}
+impl<T: PartialEq + Debug + Copy + PartialOrd + Hash> Symbol for T {}
 
 /// An expression is used to label [`crate::ts::Edge`]s of a [`crate::ts::TransitionSystem`]. For [`Simple`]
 /// alphabets, an expression is simply a single symbol, whereas for a [`Propositional`] alphabet, an expression
@@ -22,12 +26,7 @@ pub trait Expression<S: Symbol> {
     fn matches(&self, symbol: S) -> bool;
 }
 
-/// An alphabet abstracts a collection of [`Symbol`]s and complex [`Expression`]s over those.
-pub trait Alphabet {
-    /// The type of symbols in this alphabet.
-    type Symbol: Symbol;
-    /// The type of expressions in this alphabet.
-    type Expression: Expression<Self::Symbol>;
+pub trait HasUniverse: Alphabet {
     /// Type for an iterator over all possible symbols in the alphabet. For [`Propositional`] alphabets,
     /// this may return quite a few symbols (exponential in the number of atomic propositions).
     type Universe<'this>: Iterator<Item = &'this Self::Symbol>
@@ -40,12 +39,32 @@ pub trait Alphabet {
 
     /// Returns true if the given symbol is present in the alphabet.
     fn contains(&self, symbol: Self::Symbol) -> bool;
+}
+
+/// An alphabet abstracts a collection of [`Symbol`]s and complex [`Expression`]s over those.
+pub trait Alphabet {
+    /// The type of symbols in this alphabet.
+    type Symbol: Symbol;
+    /// The type of expressions in this alphabet.
+    type Expression: Expression<Self::Symbol>;
 
     /// Checks whether the given expression matches the given symbol. For [`Simple`] alphabets, this just
     /// means that the expression equals the given symbol. For a [`Propositional`] alphabet, this means that
     /// the expression is satisfied by the given symbol, an example of this is illustrated in [`Propositional`].
     fn matches(&self, expression: &Self::Expression, symbol: Self::Symbol) -> bool;
 }
+
+/// Abstracts posessing an [`Alphabet`], which can then be accessed via [`HasAlphabet::alphabet`].
+pub trait HasAlphabet {
+    /// The type of alphabet posessed by the object
+    type Alphabet: Alphabet;
+
+    /// Returns a reference to the alphabet posessed by the object.
+    fn alphabet(&self) -> &Self::Alphabet;
+}
+
+/// Helper trait for extracting the [`Symbol`] type from an an object which implements [`HasAlphabet`].
+pub type SymbolOf<A> = <<A as HasAlphabet>::Alphabet as Alphabet>::Symbol;
 
 /// A propositional alphabet is an alphabet where a [`Symbol`] is a valuation of all propositional variables.
 ///
@@ -106,6 +125,12 @@ impl Alphabet for Simple {
 
     type Expression = char;
 
+    fn matches(&self, expression: &Self::Expression, symbol: Self::Symbol) -> bool {
+        expression == &symbol
+    }
+}
+
+impl HasUniverse for Simple {
     type Universe<'this> = std::slice::Iter<'this, char>
         where
             Self: 'this;
@@ -116,9 +141,5 @@ impl Alphabet for Simple {
 
     fn contains(&self, symbol: Self::Symbol) -> bool {
         self.0.contains(&symbol)
-    }
-
-    fn matches(&self, expression: &Self::Expression, symbol: Self::Symbol) -> bool {
-        expression == &symbol
     }
 }
