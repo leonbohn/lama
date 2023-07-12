@@ -1,11 +1,12 @@
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
+    automaton::Automaton,
     Color,
 };
 
 use super::{
-    Edge, EdgeIndex, EdgeIndicesFrom, EdgesFrom, HasMutableStates, HasStates, Index, State,
-    StateColored, StateIndex, Successor, Transition,
+    Edge, EdgeIndex, EdgeIndicesFrom, EdgesFrom, HasMutableStates, HasStates, Index, Sproutable,
+    State, StateColored, StateIndex, Successor, Transition,
 };
 
 #[derive(Clone, Debug)]
@@ -42,15 +43,6 @@ impl<A: Alphabet, Q: Color, C: Color> IndexTS<A, Q, C> {
         EdgesFrom::new(&self.edges, self.state(source).and_then(|s| s.first_edge()))
     }
 
-    /// Adds a state with given `color` to the transition system, returning the [`StateIndex`] of
-    /// the new state.
-    pub fn add_state(&mut self, color: Q) -> StateIndex {
-        let id = self.states.len();
-        let state = State::new(color);
-        self.states.push(state);
-        id.as_state_index()
-    }
-
     /// Checks whether the state exists.
     pub fn contains_state<I: Into<StateIndex>>(&self, index: I) -> bool {
         (self.states.len() > index.into().index())
@@ -60,19 +52,45 @@ impl<A: Alphabet, Q: Color, C: Color> IndexTS<A, Q, C> {
         self.edge_indices_from(source).last()
     }
 
+    fn get_edge(&self, index: EdgeIndex) -> Option<&Edge<A::Expression, C>> {
+        self.edges.get(index.index())
+    }
+
+    fn get_edge_mut(&mut self, index: EdgeIndex) -> Option<&mut Edge<A::Expression, C>> {
+        self.edges.get_mut(index.index())
+    }
+
+    pub fn to_automaton<Acc>(self, initial: StateIndex) -> Automaton<A, Q, C, Acc> {
+        Automaton::from_ts(self, initial)
+    }
+}
+
+impl<A: Alphabet, Q: Color, C: Color> Sproutable for IndexTS<A, Q, C> {
+    /// Adds a state with given `color` to the transition system, returning the [`StateIndex`] of
+    /// the new state.
+    fn add_state(&mut self, color: Q) -> StateIndex {
+        let id = self.states.len();
+        let state = State::new(color);
+        self.states.push(state);
+        id.as_state_index()
+    }
+
     /// Adds an edge from `source` to `target` with the given `trigger` and `color`, returning the
     /// [`EdgeIndex`] of the new edge. This method panics if `source` or `target` do not exist in
     /// the graph.
-    pub fn add_edge(
+    fn add_edge<X, Y>(
         &mut self,
-        source: StateIndex,
-        trigger: A::Expression,
-        target: StateIndex,
-        color: C,
+        from: X,
+        on: <Self::Alphabet as Alphabet>::Expression,
+        to: Y,
+        color: Self::EdgeColor,
     ) -> EdgeIndex
     where
-        Q: Color,
+        X: Into<StateIndex>,
+        Y: Into<StateIndex>,
     {
+        let source = from.into();
+        let target = to.into();
         assert!(
             self.contains_state(source) && self.contains_state(target),
             "Source or target vertex does not exist in the graph."
@@ -84,21 +102,13 @@ impl<A: Alphabet, Q: Color, C: Color> IndexTS<A, Q, C> {
                 self.get_edge_mut(last_edge_id)
                     .unwrap()
                     .set_next(new_edge_id);
-                Edge::new(source, target, color, trigger).with_prev(last_edge_id)
+                Edge::new(source, target, color, on).with_prev(last_edge_id)
             } else {
                 self.state_mut(source).unwrap().set_first_edge(new_edge_id);
-                Edge::new(source, target, color, trigger)
+                Edge::new(source, target, color, on)
             };
         self.edges.push(edge);
         new_edge_id
-    }
-
-    fn get_edge(&self, index: EdgeIndex) -> Option<&Edge<A::Expression, C>> {
-        self.edges.get(index.index())
-    }
-
-    fn get_edge_mut(&mut self, index: EdgeIndex) -> Option<&mut Edge<A::Expression, C>> {
-        self.edges.get_mut(index.index())
     }
 }
 
@@ -189,7 +199,7 @@ impl<A: Alphabet, Q, C> HasAlphabet for IndexTS<A, Q, C> {
 mod tests {
     use crate::{
         alphabet,
-        ts::{Successor, Transition},
+        ts::{Sproutable, Successor, Transition},
     };
 
     use super::IndexTS;

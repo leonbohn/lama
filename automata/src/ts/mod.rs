@@ -162,6 +162,20 @@ pub trait HasMutableStates: HasStates {
     fn state_mut(&mut self, index: StateIndex) -> Option<Self::StateMut<'_>>;
 }
 
+pub trait Sproutable: HasMutableStates + Successor {
+    fn add_state(&mut self, color: Self::StateColor) -> StateIndex;
+    fn add_edge<X, Y>(
+        &mut self,
+        from: X,
+        on: <Self::Alphabet as Alphabet>::Expression,
+        to: Y,
+        color: Self::EdgeColor,
+    ) -> EdgeIndex
+    where
+        X: Into<StateIndex>,
+        Y: Into<StateIndex>;
+}
+
 mod successor;
 use std::{fmt::Display, ops::Deref};
 
@@ -171,10 +185,13 @@ pub use successor::Successor;
 mod transition;
 pub use transition::{Edge, EdgeIndex, EdgeIndicesFrom, EdgesFrom, Transition};
 
-use crate::{alphabet::HasAlphabet, Color};
+use crate::{
+    alphabet::{Alphabet, HasAlphabet},
+    Color,
+};
 
 mod index_ts;
-pub use index_ts::IndexTS;
+pub use index_ts::{IndexTS, IndexTSStates};
 
 mod path;
 pub use path::Path;

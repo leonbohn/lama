@@ -46,7 +46,7 @@ pub mod infinite {
     use std::collections::BTreeSet;
 
     #[derive(Debug, Clone, PartialEq)]
-    pub struct InfinitySet<C>(BTreeSet<C>);
+    pub struct InfinitySet<C>(pub BTreeSet<C>);
 
     impl<C> std::ops::Deref for InfinitySet<C> {
         type Target = BTreeSet<C>;

@@ -48,17 +48,38 @@ impl<'a, 'b, Ts: Successor, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b, Ts, R
     }
 
     pub fn result(mut self) -> RunResult<'a, 'b, Ts, R> {
-        self.take_all_steps();
-
-        if self.is_successful() {
-            Ok(Successful::new(self.word, self.ts, self.seq))
-        } else {
-            Err(Partial::new(self.word, self.ts, self.position, self.seq))
+        loop {
+            match self.take_transition() {
+                WalkerStep::Transition(_) => continue,
+                WalkerStep::Missing(_, _) => {
+                    return Err(Partial::new(self.word, self.ts, self.position, self.seq))
+                }
+                WalkerStep::End => return Ok(Successful::new(self.word, self.ts, None, self.seq)),
+                WalkerStep::Cycle => {
+                    return Ok(Successful::new(
+                        self.word,
+                        self.ts,
+                        self.word
+                            .length()
+                            .calculate_raw_position(self.position)
+                            .map(|pos| pos.position()),
+                        self.seq,
+                    ))
+                }
+            }
         }
     }
 
     fn is_successful(&mut self) -> bool {
         self.take_transition().is_successful()
+    }
+
+    fn loop_index(&self) -> Option<usize> {
+        self.raw_position().map(|pos| pos.position())
+    }
+
+    fn raw_position(&self) -> Option<RawPosition> {
+        self.word.length().calculate_raw_position(self.position)
     }
 
     fn take_transition(&mut self) -> WalkerStep<'a, Ts> {
@@ -74,6 +95,7 @@ impl<'a, 'b, Ts: Successor, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b, Ts, R
             }
 
             if let Some(transition) = self.seq.extend_in(self.ts, symbol) {
+                self.position += 1;
                 WalkerStep::Transition(transition)
             } else {
                 WalkerStep::Missing(self.seq.reached(), symbol)
@@ -87,15 +109,10 @@ impl<'a, 'b, Ts: Successor, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b, Ts, R
         match self.take_transition() {
             WalkerStep::Transition(t) => {
                 trace!("Took transition {:?} at position {}", t, self.position);
-                self.position += 1;
                 Some(t)
             }
             _ => None,
         }
-    }
-
-    pub fn take_all_steps(&mut self) {
-        while let Some(transition) = self.step() {}
     }
 
     fn current_sym(&self) -> Option<SymbolOf<Ts>> {

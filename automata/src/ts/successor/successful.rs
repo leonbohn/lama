@@ -3,6 +3,7 @@ use crate::{
     length::{HasLength, RawPosition},
     ts::{
         finite::{ReachedColor, ReachedState, StateColorSequence, TransitionColorSequence},
+        infinite::InfinitySet,
         CanInduce, Path, StateIndex, TransitionSystem,
     },
     word::RawWithLength,
@@ -16,6 +17,22 @@ pub struct Successful<'a, 'b, R, Ts: Successor> {
     word: &'b R,
     ts: &'a Ts,
     path: Path<'a, Ts::Alphabet, Ts::StateColor, Ts::EdgeColor>,
+    loop_index: Option<usize>,
+}
+
+impl<'a, 'b, R, Ts: Successor> CanInduce<InfinitySet<Ts::EdgeColor>> for Successful<'a, 'b, R, Ts> {
+    fn induce(&self) -> InfinitySet<Ts::EdgeColor> {
+        InfinitySet(
+            self.path
+                .transition_colors()
+                .skip(
+                    self.loop_index
+                        .expect("Do not try to get the infinity set of a finite run!"),
+                )
+                .cloned()
+                .collect(),
+        )
+    }
 }
 
 impl<'a, 'b, R, Ts: Successor> CanInduce<TransitionColorSequence<Ts::EdgeColor>>
@@ -52,8 +69,14 @@ impl<'a, 'b, R, Ts: Successor> Successful<'a, 'b, R, Ts> {
     pub fn new(
         word: &'b R,
         ts: &'a Ts,
+        loop_index: Option<usize>,
         path: Path<'a, Ts::Alphabet, Ts::StateColor, Ts::EdgeColor>,
     ) -> Self {
-        Self { word, ts, path }
+        Self {
+            word,
+            ts,
+            path,
+            loop_index,
+        }
     }
 }

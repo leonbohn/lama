@@ -119,7 +119,7 @@ mod tests {
         alphabet,
         ts::{
             finite::{self, ReachedColor, ReachedState},
-            IndexTS,
+            IndexTS, Sproutable,
         },
         word::RawWithLength,
         FiniteLength, Word,
