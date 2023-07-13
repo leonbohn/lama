@@ -65,6 +65,12 @@ impl<'a, 'b, R, Ts: Successor> CanInduce<ReachedState> for Successful<'a, 'b, R,
     }
 }
 
+impl<'a, 'b, R, Ts: Successor> CanInduce<InfinitySet<Ts::EdgeColor>> for Successful<'a, 'b, R, Ts> {
+    fn induce(&self) -> InfinitySet<Ts::EdgeColor> {
+        todo!()
+    }
+}
+
 impl<'a, 'b, R, Ts: Successor> Successful<'a, 'b, R, Ts> {
     pub fn new(
         word: &'b R,

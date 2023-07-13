@@ -107,14 +107,6 @@ pub trait Word: HasLength {
     fn symbols(&self) -> RawpresentationIter<'_, Self::Raw, Self::Length> {
         RawpresentationIter::new(self.rawpresentation(), self.length(), 0)
     }
-
-    fn is_finite(&self) -> bool {
-        Self::Length::is_finite()
-    }
-
-    fn is_infinite(&self) -> bool {
-        !self.is_finite()
-    }
 }
 
 /// Stores the actual representation of a [`Word`] as well as [`Length`], which determines the way

@@ -5,6 +5,7 @@ use std::ops::Deref;
 /// Abstracts the concept of length, allowing us to work with finite and infinite words in a
 /// somewhat similar fashion.
 pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
+    /// The type of iterator over the set of raw positions.
     type RawPositions: Iterator<Item = RawPosition>;
 
     /// Heavily used in the computation of a run (which is done by [`crate::run::Cane`]). For
@@ -27,24 +28,35 @@ pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
         self.calculate_raw_position(position.into()).is_none()
     }
 
+    /// Returns an iterator over the raw positions.
     fn raw_positions(&self) -> Self::RawPositions;
 
+    /// Returns the last position, if it exists.
     fn last_position(&self) -> Option<usize>;
 
+    /// Returns true if and only if the length is finite.
     fn is_finite() -> bool;
+
+    /// Returns true if and only if the length is infinite.
     fn is_infinite() -> bool {
         !Self::is_finite()
     }
 }
 
+/// A position in a word is simply an index into the sequence of symbols (an `usize`). On the other hand
+/// a raw position is an index into the sequence of symbols, which takes the reset point/loop index of
+/// the input into account. This is only relevant for infinite words. We use raw positions to allow
+/// computation of runs for both finite and infinite words in a similar fashion.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, Hash, PartialOrd)]
 pub struct RawPosition(usize);
 
 impl RawPosition {
+    /// Creates a new [`RawPosition`] object from a given `usize`.
     pub fn new(position: usize) -> Self {
         Self(position)
     }
 
+    /// Obtain the underlying `usize` value.
     pub fn position(&self) -> usize {
         self.0
     }
@@ -201,6 +213,16 @@ pub trait HasLength {
 
     fn to_raw_position<P: Into<usize>>(&self, position: P) -> Option<RawPosition> {
         self.length().calculate_raw_position(position)
+    }
+
+    /// Returns true if the associated [`Length`] is finite.
+    fn is_finite(&self) -> bool {
+        Self::Length::is_finite()
+    }
+
+    /// Returns true if the associated [`Length`] is infinite.
+    fn is_infinite(&self) -> bool {
+        !self.is_finite()
     }
 }
 

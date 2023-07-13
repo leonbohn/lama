@@ -12,6 +12,7 @@ use super::{Idx, Index, StateIndex};
 pub struct EdgeIndex(Idx);
 
 impl EdgeIndex {
+    /// Creates a new edge index.
     pub fn new(index: Idx) -> Self {
         Self(index)
     }
@@ -143,6 +144,8 @@ impl<'a, E, C> EdgesFrom<'a, E, C> {
     }
 }
 
+/// Struct which allows iterating over all edges originating in a given state.
+#[derive(Debug, Clone)]
 pub struct EdgeIndicesFrom<'a, E, C> {
     edges: &'a [Edge<E, C>],
     next: Option<EdgeIndex>,

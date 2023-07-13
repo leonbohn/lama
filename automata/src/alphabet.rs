@@ -110,6 +110,7 @@ impl FromIterator<char> for Simple {
 }
 
 impl Simple {
+    /// Creates a new [`Simple`] alphabet from an iterator over the symbols.
     pub fn new<I>(symbols: I) -> Self
     where
         I: IntoIterator<Item = char>,

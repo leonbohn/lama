@@ -1,8 +1,21 @@
+use impl_tools::autoimpl;
+
 use crate::Color;
 
 use super::{State, StateIndex, Transition};
 
-pub trait CanInduce<I> {
+/// Abstracts induced objects. Induced objects are objects that are induced by a run of a transition
+/// system. For example, a run of a transition system can induce a [`State`] or a [`StateColorSequence`].
+/// The trait [`CanInduce`] allows to convert runs of a transition system into induced objects.
+pub trait Induced: Eq {}
+impl<T: Eq> Induced for T {}
+
+/// Allows converting runs of a transition system into induced objects (of type `I`). The type `I`
+/// is given as a generic parameter since the same run might induce different objects, for example
+/// a [`ReachedState`] or a [`StateColorSequence`].
+#[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
+pub trait CanInduce<I: Induced> {
+    /// Induces an object of type `I` from the given run.
     fn induce(&self) -> I;
 }
 
@@ -10,17 +23,17 @@ pub trait CanInduce<I> {
 pub mod finite {
     use crate::ts::StateIndex;
 
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct ReachedColor<Q>(pub Q);
 
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct ReachedState(pub StateIndex);
 
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
 
     pub struct StateColorSequence<C>(pub Vec<C>);
 
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
 
     pub struct TransitionColorSequence<C>(pub Vec<C>);
 
@@ -45,8 +58,8 @@ pub mod finite {
 pub mod infinite {
     use std::collections::BTreeSet;
 
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct InfinitySet<C>(pub BTreeSet<C>);
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub struct InfinitySet<C>(pub pub BTreeSet<C>);
 
     impl<C> std::ops::Deref for InfinitySet<C> {
         type Target = BTreeSet<C>;

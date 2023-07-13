@@ -9,6 +9,9 @@ use super::{
     State, StateColored, StateIndex, Successor, Transition,
 };
 
+/// An implementation of a transition system with states of type `Q` and colors of type `C`. It stores
+/// the states and edges in a vector, which allows for fast access and iteration. The states and edges
+/// are indexed by their position in the respective vector.
 #[derive(Clone, Debug)]
 pub struct IndexTS<A: Alphabet, Q, C> {
     alphabet: A,

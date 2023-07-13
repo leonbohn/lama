@@ -1,3 +1,23 @@
+mod successor;
+use std::{fmt::Display, ops::Deref};
+
+use impl_tools::autoimpl;
+pub use successor::Successor;
+
+mod transition;
+pub use transition::{Edge, EdgeIndex, EdgeIndicesFrom, EdgesFrom, Transition};
+
+use crate::{alphabet::HasAlphabet, Color};
+
+mod index_ts;
+pub use index_ts::IndexTS;
+
+mod path;
+pub use path::Path;
+
+mod induces;
+pub use induces::{finite, infinite, CanInduce, Induced};
+
 /// Type for indices of states and edges.
 pub type Idx = usize;
 
@@ -62,13 +82,14 @@ pub struct State<Q> {
     first_edge: Option<EdgeIndex>,
 }
 
-impl<Q: Color> HasColorMut<Q> for State<Q> {
+impl<Q: Color> HasColorMut for State<Q> {
     fn set_color(&mut self, color: Q) {
         self.color = color;
     }
 }
 
-impl<Q: Color> HasColor<Q> for State<Q> {
+impl<Q: Color> HasColor for State<Q> {
+    type Color = Q;
     fn color(&self) -> &Q {
         &self.color
     }
@@ -105,60 +126,89 @@ impl<Q: Display> Display for State<Q> {
     }
 }
 
+/// Implementors of this trait have a color, which can be obtained.
 #[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
-pub trait HasColor<C> {
-    fn color(&self) -> &C;
+pub trait HasColor {
+    /// The color type of the implementor.
+    type Color: Color;
+    /// Returns a reference to the color of the implementor.
+    fn color(&self) -> &Self::Color;
 }
 
+/// Implementors of this trait have a color, which can be obtained and set.
 #[autoimpl(for<T: trait + ?Sized> &mut T)]
-pub trait HasColorMut<C>: HasColor<C> {
-    fn set_color(&mut self, color: C);
+pub trait HasColorMut: HasColor {
+    /// Sets the color of the implementor to the given color.
+    fn set_color(&mut self, color: Self::Color);
 }
 
+/// A reference to a state in a transition system. This stores the index of the state and a
+/// reference to the color of the state.
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
 pub struct StateReference<'a, Q> {
+    /// The [`StateIndex`] of the state that is referenced.
     pub index: StateIndex,
+    /// A reference to the color of the state.
     pub color: &'a Q,
 }
 
-impl<'a, Q> StateReference<'a, Q> {
-    pub fn new(index: StateIndex, color: &'a Q) -> Self {
-        Self { index, color }
-    }
-
-    pub fn color(&self) -> &'a Q {
+impl<'a, Q: Color> HasColor for StateReference<'a, Q> {
+    type Color = Q;
+    fn color(&self) -> &Q {
         self.color
     }
 }
 
+impl<'a, Q> StateReference<'a, Q> {
+    /// Creates a new state reference.
+    pub fn new(index: StateIndex, color: &'a Q) -> Self {
+        Self { index, color }
+    }
+}
+
+/// Implemented by things/objects that have a coloring on the state level.
 #[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
 
 pub trait StateColored {
+    /// The color type of the implementor.
     type StateColor: Color;
 
+    /// Returns a reference to the color of the state with the given index.
     fn state_color(&self, index: StateIndex) -> &Self::StateColor;
 }
 
+/// Abstracts possessing a set of states. Note, that implementors of this trait must
+/// be able to iterate over the set of states.
 #[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
 pub trait HasStates: StateColored + Sized {
-    type State<'this>: HasColor<Self::StateColor>
+    /// The type of the states.
+    type State<'this>: HasColor<Color = Self::StateColor>
     where
         Self: 'this;
 
+    /// The type of the iterator over the states.
     type StatesIter<'this>: Iterator<Item = (StateIndex, Self::State<'this>)>
     where
         Self: 'this;
 
+    /// Returns a reference to the state with the given index, if it exists and `None` otherwise.
     fn state(&self, index: StateIndex) -> Option<Self::State<'_>>;
 
+    /// Returns an iterator over the states of the implementor.
     fn states_iter(&self) -> Self::StatesIter<'_>;
 }
 
+/// Abstracts possessing a set of states, which can be mutated. Note, that implementors of this
+/// trait must be able to iterate over the set of states.
 #[autoimpl(for<T: trait + ?Sized> &mut T)]
 
 pub trait HasMutableStates: HasStates {
-    type StateMut<'this>: HasColorMut<Self::StateColor>
+    /// The type of the mutable iterator over the states.
+    type StateMut<'this>: HasColorMut<Color = Self::StateColor>
     where
         Self: 'this;
+
+    /// Returns an iterator over mutable references to the states of the implementor.
     fn state_mut(&mut self, index: StateIndex) -> Option<Self::StateMut<'_>>;
 }
 
@@ -205,8 +255,14 @@ pub trait Pointed {
     fn initial(&self) -> StateIndex;
 }
 
+/// One of the main exported traits of this module. A Transition system is a collection of states,
+/// between which there exist directed transitions that are annotated with an expression from an
+/// alphabet. This trait merely combines the traits [`HasStates`], [`Successor`] and [`HasAlphabet`]
+/// and is automatically implemented.
 pub trait TransitionSystem: HasStates + Successor + HasAlphabet {}
 impl<Ts: HasStates + Successor + HasAlphabet> TransitionSystem for Ts {}
 
+/// A congruence is a [`TransitionSystem`], which additionally has a distinguished initial state. This
+/// functionality is abstracted in [`Pointed`]. This trait is automatically implemented.
 pub trait Congruence: TransitionSystem + Pointed {}
 impl<Sim: TransitionSystem + Pointed> Congruence for Sim {}

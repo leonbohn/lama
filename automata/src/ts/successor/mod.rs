@@ -8,7 +8,7 @@ use crate::{
 
 use self::walker::RunResult;
 
-use super::{CanInduce, IndexTS, Path, StateColored, StateIndex, Transition};
+use super::{CanInduce, IndexTS, Induced, Path, StateColored, StateIndex, Transition};
 
 mod partial;
 pub use partial::Partial;
@@ -85,14 +85,12 @@ pub trait Successor: StateColored + HasAlphabet {
     /// If the run is successful (i.e. for all symbols of `word` a suitable transition can be taken),
     /// this returns whatever is *induced* by the run. For a [`Word`] of finite length, this is
     /// simply
-    fn induced<'a, 'b, R: Word<Symbol = SymbolOf<Self>>, I>(
-        &'a self,
-        word: &'b R,
-        state: StateIndex,
-    ) -> Option<I>
+    fn induced<'a, 'b, R, I>(&'a self, word: &'b R, state: StateIndex) -> Option<I>
     where
+        I: Induced,
         Successful<'a, 'b, R, Self>: CanInduce<I>,
         Self: Sized,
+        R: Word<Symbol = SymbolOf<Self>>,
     {
         self.run(word, state).ok().map(|r| r.induce())
     }
