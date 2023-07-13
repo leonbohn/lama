@@ -27,7 +27,7 @@ pub mod finite {
     pub struct ReachedColor<Q>(pub Q);
 
     #[derive(Debug, Clone, PartialEq, Eq)]
-    pub struct ReachedState(pub StateIndex);
+    pub struct ReachedState<Idx>(pub Idx);
 
     #[derive(Debug, Clone, PartialEq, Eq)]
 
@@ -45,8 +45,8 @@ pub mod finite {
         }
     }
 
-    impl std::ops::Deref for ReachedState {
-        type Target = StateIndex;
+    impl<Idx> std::ops::Deref for ReachedState<Idx> {
+        type Target = Idx;
 
         fn deref(&self) -> &Self::Target {
             &self.0
@@ -59,7 +59,7 @@ pub mod infinite {
     use std::collections::BTreeSet;
 
     #[derive(Debug, Clone, PartialEq, Eq)]
-    pub struct InfinitySet<C>(pub pub BTreeSet<C>);
+    pub struct InfinitySet<C>(pub BTreeSet<C>);
 
     impl<C> std::ops::Deref for InfinitySet<C> {
         type Target = BTreeSet<C>;

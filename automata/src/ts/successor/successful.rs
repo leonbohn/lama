@@ -16,7 +16,7 @@ use super::Successor;
 pub struct Successful<'a, 'b, R, Ts: Successor> {
     word: &'b R,
     ts: &'a Ts,
-    path: Path<'a, Ts::Alphabet, Ts::StateColor, Ts::EdgeColor>,
+    path: Path<'a, Ts::Alphabet, Ts::Index, Ts::StateColor, Ts::EdgeColor>,
     loop_index: Option<usize>,
 }
 
@@ -59,15 +59,9 @@ impl<'a, 'b, R, Ts: Successor> CanInduce<ReachedColor<Ts::StateColor>>
     }
 }
 
-impl<'a, 'b, R, Ts: Successor> CanInduce<ReachedState> for Successful<'a, 'b, R, Ts> {
-    fn induce(&self) -> ReachedState {
+impl<'a, 'b, R, Ts: Successor> CanInduce<ReachedState<Ts::Index>> for Successful<'a, 'b, R, Ts> {
+    fn induce(&self) -> ReachedState<Ts::Index> {
         ReachedState(self.path.reached())
-    }
-}
-
-impl<'a, 'b, R, Ts: Successor> CanInduce<InfinitySet<Ts::EdgeColor>> for Successful<'a, 'b, R, Ts> {
-    fn induce(&self) -> InfinitySet<Ts::EdgeColor> {
-        todo!()
     }
 }
 
@@ -76,7 +70,7 @@ impl<'a, 'b, R, Ts: Successor> Successful<'a, 'b, R, Ts> {
         word: &'b R,
         ts: &'a Ts,
         loop_index: Option<usize>,
-        path: Path<'a, Ts::Alphabet, Ts::StateColor, Ts::EdgeColor>,
+        path: Path<'a, Ts::Alphabet, Ts::Index, Ts::StateColor, Ts::EdgeColor>,
     ) -> Self {
         Self {
             word,

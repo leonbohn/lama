@@ -7,7 +7,10 @@ pub use successor::Successor;
 mod transition;
 pub use transition::{Edge, EdgeIndex, EdgeIndicesFrom, EdgesFrom, Transition};
 
-use crate::{alphabet::HasAlphabet, Color};
+use crate::{
+    alphabet::{Alphabet, HasAlphabet},
+    Color,
+};
 
 mod index_ts;
 pub use index_ts::IndexTS;
@@ -17,6 +20,9 @@ pub use path::Path;
 
 mod induces;
 pub use induces::{finite, infinite, CanInduce, Induced};
+
+pub trait IndexType: Copy + std::hash::Hash + std::fmt::Debug + Eq + Ord + Display {}
+impl<Idx: Copy + std::hash::Hash + std::fmt::Debug + Eq + Ord + Display> IndexType for Idx {}
 
 /// Type for indices of states and edges.
 pub type Idx = usize;
@@ -168,13 +174,15 @@ impl<'a, Q> StateReference<'a, Q> {
 
 /// Implemented by things/objects that have a coloring on the state level.
 #[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
-
 pub trait StateColored {
+    /// The type that can be used to index states.
+    type Index: IndexType;
+
     /// The color type of the implementor.
     type StateColor: Color;
 
     /// Returns a reference to the color of the state with the given index.
-    fn state_color(&self, index: StateIndex) -> &Self::StateColor;
+    fn state_color(&self, index: Self::Index) -> &Self::StateColor;
 }
 
 /// Abstracts possessing a set of states. Note, that implementors of this trait must
@@ -187,12 +195,12 @@ pub trait HasStates: StateColored + Sized {
         Self: 'this;
 
     /// The type of the iterator over the states.
-    type StatesIter<'this>: Iterator<Item = (StateIndex, Self::State<'this>)>
+    type StatesIter<'this>: Iterator<Item = (&'this Self::Index, Self::State<'this>)>
     where
         Self: 'this;
 
     /// Returns a reference to the state with the given index, if it exists and `None` otherwise.
-    fn state(&self, index: StateIndex) -> Option<Self::State<'_>>;
+    fn state(&self, index: Self::Index) -> Option<Self::State<'_>>;
 
     /// Returns an iterator over the states of the implementor.
     fn states_iter(&self) -> Self::StatesIter<'_>;
@@ -209,11 +217,12 @@ pub trait HasMutableStates: HasStates {
         Self: 'this;
 
     /// Returns an iterator over mutable references to the states of the implementor.
-    fn state_mut(&mut self, index: StateIndex) -> Option<Self::StateMut<'_>>;
+    fn state_mut(&mut self, index: Self::Index) -> Option<Self::StateMut<'_>>;
 }
 
 pub trait Sproutable: HasMutableStates + Successor {
-    fn add_state(&mut self, color: Self::StateColor) -> StateIndex;
+    fn new_empty(alphabet: Self::Alphabet) -> Self;
+    fn add_state(&mut self, color: Self::StateColor) -> Self::Index;
     fn add_edge<X, Y>(
         &mut self,
         from: X,
@@ -222,37 +231,14 @@ pub trait Sproutable: HasMutableStates + Successor {
         color: Self::EdgeColor,
     ) -> EdgeIndex
     where
-        X: Into<StateIndex>,
-        Y: Into<StateIndex>;
+        X: Into<Self::Index>,
+        Y: Into<Self::Index>;
 }
 
-mod successor;
-use std::{fmt::Display, ops::Deref};
-
-use impl_tools::autoimpl;
-pub use successor::Successor;
-
-mod transition;
-pub use transition::{Edge, EdgeIndex, EdgeIndicesFrom, EdgesFrom, Transition};
-
-use crate::{
-    alphabet::{Alphabet, HasAlphabet},
-    Color,
-};
-
-mod index_ts;
-pub use index_ts::{IndexTS, IndexTSStates};
-
-mod path;
-pub use path::Path;
-
-mod induces;
-pub use induces::{finite, infinite, CanInduce};
-
 /// Implementors of this trait have a distinguished (initial) state.
-pub trait Pointed {
+pub trait Pointed: StateColored {
     /// Returns the index of the initial state.
-    fn initial(&self) -> StateIndex;
+    fn initial(&self) -> Self::Index;
 }
 
 /// One of the main exported traits of this module. A Transition system is a collection of states,

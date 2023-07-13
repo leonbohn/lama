@@ -5,7 +5,7 @@ use crate::{
     Color,
 };
 
-use super::{State, StateIndex, Successor, Transition};
+use super::{IndexType, State, StateIndex, Successor, Transition};
 
 /// Represents a path through a transition system. Note, that the path itself is decoupled from the
 /// transition system, which allows to use it for multiple transition systems. In particular, it is possible
@@ -15,15 +15,18 @@ use super::{State, StateIndex, Successor, Transition};
 /// A path consists of an `origin`, which is simply the [`StateIndex`] of the state where the path starts. It stores
 /// a sequence of transitions and the colors of the states it visits.
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub struct Path<'a, A: Alphabet, Q, C> {
-    origin: StateIndex,
+pub struct Path<'a, A: Alphabet, Idx, Q, C> {
+    origin: Idx,
     colors: Vec<&'a Q>,
-    transitions: Vec<Transition<'a, A::Symbol, C>>,
+    transitions: Vec<Transition<'a, Idx, A::Symbol, C>>,
 }
 
-impl<'a, A: Alphabet, Q: Color, C: Color> Path<'a, A, Q, C> {
+impl<'a, A: Alphabet, Idx, Q: Color, C: Color> Path<'a, A, Idx, Q, C> {
     /// Returns the index of the state that is reached by the path.
-    pub fn reached(&self) -> StateIndex {
+    pub fn reached(&self) -> Idx
+    where
+        Idx: IndexType,
+    {
         if self.transitions.is_empty() {
             self.origin
         } else {
@@ -32,7 +35,7 @@ impl<'a, A: Alphabet, Q: Color, C: Color> Path<'a, A, Q, C> {
     }
 
     /// Returns true if the path is empty/trivial, meaning it consists of only one state.
-    pub fn empty(state: StateIndex, color: &'a Q) -> Self {
+    pub fn empty(state: Idx, color: &'a Q) -> Self {
         Self {
             origin: state,
             colors: vec![color],
@@ -42,11 +45,14 @@ impl<'a, A: Alphabet, Q: Color, C: Color> Path<'a, A, Q, C> {
 
     /// Attempts to extend the path in the given `ts` by the given `symbol`. If the path can be extended,
     /// the transition is returned. Otherwise, `None` is returned.
-    pub fn extend_in<Ts: Successor<EdgeColor = C, StateColor = Q, Alphabet = A>>(
+    pub fn extend_in<Ts: Successor<EdgeColor = C, StateColor = Q, Alphabet = A, Index = Idx>>(
         &mut self,
         ts: &'a Ts,
         symbol: A::Symbol,
-    ) -> Option<Transition<'a, A::Symbol, C>> {
+    ) -> Option<Transition<'a, Idx, A::Symbol, C>>
+    where
+        Idx: IndexType,
+    {
         let state = self.reached();
         let transition = ts.successor(state, symbol)?;
         self.transitions.push(transition.clone());
@@ -55,7 +61,10 @@ impl<'a, A: Alphabet, Q: Color, C: Color> Path<'a, A, Q, C> {
     }
 
     /// Returns an iterator over the [`StateIndex`]es of the states visited by the path.
-    pub fn state_sequence(&'a self) -> impl Iterator<Item = StateIndex> + 'a {
+    pub fn state_sequence(&'a self) -> impl Iterator<Item = Idx> + 'a
+    where
+        Idx: IndexType,
+    {
         std::iter::once(self.origin).chain(self.transitions.iter().map(|t| t.target()))
     }
 

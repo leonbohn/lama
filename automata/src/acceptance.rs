@@ -61,26 +61,6 @@ impl From<Parity> for u8 {
     }
 }
 
-/// Implementors of this trait can give the parity of their value.
-pub trait GivesParity {
-    /// Returns the parity of this value.
-    fn parity(&self) -> Parity;
-}
-
-impl<T> GivesParity for T
-where
-    T: Copy + std::ops::Rem<u8>,
-    T::Output: PartialEq<u8>,
-{
-    fn parity(&self) -> Parity {
-        if *self % 2 == 0 {
-            Parity::Even
-        } else {
-            Parity::Odd
-        }
-    }
-}
-
 /// A reachability condition simply classifies objects based
 /// on whether they are included in a set or not. Most notably, this is used to
 /// define deterministic finite automata (DFA)s and can be viewed as a predicate
@@ -136,7 +116,8 @@ where
     }
 }
 
-pub type DFA<A, Q = bool, E = ()> = Automaton<IndexTS<A, Q, E>, ReachabilityCondition>;
+pub type DFA<A, Idx = usize, Q = bool, E = ()> =
+    Automaton<IndexTS<A, Idx, Q, E>, ReachabilityCondition>;
 
 impl<Ts> Acceptor<Ts::Alphabet, InfiniteLength> for Automaton<Ts, BuchiCondition>
 where
@@ -155,7 +136,7 @@ where
     }
 }
 
-pub type DBA<A, Q = (), E = bool> = Automaton<IndexTS<A, Q, E>, BuchiCondition>;
+pub type DBA<A, Idx = usize, Q = (), E = bool> = Automaton<IndexTS<A, Idx, Q, E>, BuchiCondition>;
 
 impl<Ts> Acceptor<Ts::Alphabet, InfiniteLength> for Automaton<Ts, ParityCondition>
 where
@@ -178,4 +159,4 @@ where
     }
 }
 
-pub type DPA<A, Q = (), E = u8> = Automaton<IndexTS<A, Q, E>, ParityCondition>;
+pub type DPA<A, Idx = usize, Q = (), E = u8> = Automaton<IndexTS<A, Idx, Q, E>, ParityCondition>;

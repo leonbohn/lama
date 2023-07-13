@@ -16,9 +16,6 @@ pub use length::{FiniteLength, InfiniteLength, Length};
 /// This module defines transition systems and successor functions and such.
 pub mod ts;
 
-/// Acceptance conditions which can be used to turn transition systems into automata.
-pub mod acceptance;
-
 mod automaton;
 
 /// Module that contains definitions for dealing with words.

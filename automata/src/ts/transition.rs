@@ -5,7 +5,7 @@ use std::{
 
 use crate::{alphabet::Symbol, Color};
 
-use super::{Idx, Index, StateIndex};
+use super::{Idx, Index, IndexType, StateIndex};
 
 /// Wrapper type for indices of edges in a transition system.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
@@ -36,18 +36,18 @@ impl Index for EdgeIndex {
 /// associated color as well as a trigger expression (see [`Alphabet`]). Further, it
 /// also maintains the indices of the next and previous edge in the list of edges
 #[derive(Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
-pub struct Edge<E, C> {
-    source: StateIndex,
-    target: StateIndex,
+pub struct Edge<E, C, Idx> {
+    source: Idx,
+    target: Idx,
     color: C,
     trigger: E,
     next_edge: Option<EdgeIndex>,
     prev_edge: Option<EdgeIndex>,
 }
 
-impl<E, C> Edge<E, C> {
+impl<E, C, Idx> Edge<E, C, Idx> {
     /// Creates a new edge with the given source and target state, color and trigger expression.
-    pub fn new(source: StateIndex, target: StateIndex, color: C, trigger: E) -> Self {
+    pub fn new(source: Idx, target: Idx, color: C, trigger: E) -> Self {
         Self {
             source,
             target,
@@ -95,12 +95,18 @@ impl<E, C> Edge<E, C> {
     }
 
     /// Gets the source state index.
-    pub fn source(&self) -> StateIndex {
+    pub fn source(&self) -> Idx
+    where
+        Idx: IndexType,
+    {
         self.source
     }
 
     /// Gets the target state index.
-    pub fn target(&self) -> StateIndex {
+    pub fn target(&self) -> Idx
+    where
+        Idx: IndexType,
+    {
         self.target
     }
 
@@ -118,13 +124,13 @@ impl<E, C> Edge<E, C> {
 /// Struct which stores a reference to the list of edges and an index to the next edge,
 /// to allow iterating over the edge list.
 #[derive(Debug, Clone)]
-pub struct EdgesFrom<'a, E, C> {
-    edges: &'a [Edge<E, C>],
+pub struct EdgesFrom<'a, E, C, Idx> {
+    edges: &'a [Edge<E, C, Idx>],
     next: Option<EdgeIndex>,
 }
 
-impl<'a, E, C> Iterator for EdgesFrom<'a, E, C> {
-    type Item = &'a Edge<E, C>;
+impl<'a, E, C, Idx> Iterator for EdgesFrom<'a, E, C, Idx> {
+    type Item = &'a Edge<E, C, Idx>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let next_id = self.next?;
@@ -137,21 +143,21 @@ impl<'a, E, C> Iterator for EdgesFrom<'a, E, C> {
     }
 }
 
-impl<'a, E, C> EdgesFrom<'a, E, C> {
+impl<'a, E, C, Idx> EdgesFrom<'a, E, C, Idx> {
     /// Creates a new `EdgesFrom` from the given slice of edges and the next edge index.
-    pub fn new(edges: &'a [Edge<E, C>], next: Option<EdgeIndex>) -> Self {
+    pub fn new(edges: &'a [Edge<E, C, Idx>], next: Option<EdgeIndex>) -> Self {
         Self { edges, next }
     }
 }
 
 /// Struct which allows iterating over all edges originating in a given state.
 #[derive(Debug, Clone)]
-pub struct EdgeIndicesFrom<'a, E, C> {
-    edges: &'a [Edge<E, C>],
+pub struct EdgeIndicesFrom<'a, E, C, Idx> {
+    edges: &'a [Edge<E, C, Idx>],
     next: Option<EdgeIndex>,
 }
 
-impl<'a, E, C> Iterator for EdgeIndicesFrom<'a, E, C> {
+impl<'a, E, C, Idx> Iterator for EdgeIndicesFrom<'a, E, C, Idx> {
     type Item = EdgeIndex;
     fn next(&mut self) -> Option<Self::Item> {
         let next_id = self.next?;
@@ -164,9 +170,9 @@ impl<'a, E, C> Iterator for EdgeIndicesFrom<'a, E, C> {
     }
 }
 
-impl<'a, E, C> EdgeIndicesFrom<'a, E, C> {
+impl<'a, E, C, Idx> EdgeIndicesFrom<'a, E, C, Idx> {
     /// Creates a new `EdgeIndicesFrom` from the given slice of edges and the next edge index.
-    pub fn new(edges: &'a [Edge<E, C>], next: Option<EdgeIndex>) -> Self {
+    pub fn new(edges: &'a [Edge<E, C, Idx>], next: Option<EdgeIndex>) -> Self {
         Self { edges, next }
     }
 }
@@ -180,16 +186,16 @@ impl<'a, E, C> EdgeIndicesFrom<'a, E, C> {
 /// `a & b`, `a & !b` and `!a & b`, which are all concrete symbols from the alphabet
 /// that match the expression.
 #[derive(Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct Transition<'a, S, C> {
-    source: StateIndex,
-    target: StateIndex,
+pub struct Transition<'a, Idx, S, C> {
+    source: Idx,
+    target: Idx,
     symbol: S,
     emits: &'a C,
 }
 
-impl<'a, S: Symbol, C: Color> Transition<'a, S, C> {
+impl<'a, Idx, S: Symbol, C: Color> Transition<'a, Idx, S, C> {
     /// Creates a new transition with the given source and target state, symbol and color.
-    pub fn new(source: StateIndex, symbol: S, target: StateIndex, color: &'a C) -> Self {
+    pub fn new(source: Idx, symbol: S, target: Idx, color: &'a C) -> Self {
         Self {
             source,
             target,
@@ -199,7 +205,10 @@ impl<'a, S: Symbol, C: Color> Transition<'a, S, C> {
     }
 
     /// Returns the source state index.
-    pub fn source(&self) -> StateIndex {
+    pub fn source(&self) -> Idx
+    where
+        Idx: IndexType,
+    {
         self.source
     }
 
@@ -214,12 +223,15 @@ impl<'a, S: Symbol, C: Color> Transition<'a, S, C> {
     }
 
     /// Returns the target state index.
-    pub fn target(&self) -> StateIndex {
+    pub fn target(&self) -> Idx
+    where
+        Idx: IndexType,
+    {
         self.target
     }
 }
 
-impl<'a, S: Display, C: Display> Display for Transition<'a, S, C> {
+impl<'a, Idx: Display, S: Display, C: Display> Display for Transition<'a, Idx, S, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -229,11 +241,11 @@ impl<'a, S: Display, C: Display> Display for Transition<'a, S, C> {
     }
 }
 
-impl<'a, S: Debug, C: Debug> Debug for Transition<'a, S, C> {
+impl<'a, Idx: Debug, S: Debug, C: Debug> Debug for Transition<'a, Idx, S, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{} --{:?}:{:?}--> {}",
+            "{:?} --{:?}:{:?}--> {:?}",
             self.source, self.symbol, self.emits, self.target
         )
     }

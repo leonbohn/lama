@@ -39,13 +39,13 @@ pub trait Successor: StateColored + HasAlphabet {
     /// For a given `state` and `symbol`, returns the transition that is taken, if it exists.
     fn successor(
         &self,
-        state: StateIndex,
+        state: Self::Index,
         symbol: SymbolOf<Self>,
-    ) -> Option<Transition<'_, SymbolOf<Self>, Self::EdgeColor>>;
+    ) -> Option<Transition<'_, Self::Index, SymbolOf<Self>, Self::EdgeColor>>;
 
-    /// Returns just the [`StateIndex`] of the successor that is reached on the given `symbol`
+    /// Returns just the [Self::Index] of the successor that is reached on the given `symbol`
     /// from `state`. If no suitable transition exists, `None` is returned.
-    fn successor_index(&self, state: StateIndex, symbol: SymbolOf<Self>) -> Option<StateIndex> {
+    fn successor_index(&self, state: Self::Index, symbol: SymbolOf<Self>) -> Option<Self::Index> {
         self.successor(state, symbol).map(|t| t.target())
     }
 
@@ -54,7 +54,7 @@ pub trait Successor: StateColored + HasAlphabet {
     fn walk<'a, 'b, R: Word<Symbol = SymbolOf<Self>>>(
         &'a self,
         word: &'b R,
-        state: StateIndex,
+        state: Self::Index,
     ) -> Walker<'a, 'b, Self, R>
     where
         Self: Sized,
@@ -73,7 +73,7 @@ pub trait Successor: StateColored + HasAlphabet {
     fn run<'a, 'b, R: Word<Symbol = SymbolOf<Self>>>(
         &'a self,
         word: &'b R,
-        state: StateIndex,
+        state: Self::Index,
     ) -> RunResult<'a, 'b, Self, R>
     where
         Self: Sized,
@@ -85,7 +85,7 @@ pub trait Successor: StateColored + HasAlphabet {
     /// If the run is successful (i.e. for all symbols of `word` a suitable transition can be taken),
     /// this returns whatever is *induced* by the run. For a [`Word`] of finite length, this is
     /// simply
-    fn induced<'a, 'b, R, I>(&'a self, word: &'b R, state: StateIndex) -> Option<I>
+    fn induced<'a, 'b, R, I>(&'a self, word: &'b R, state: Self::Index) -> Option<I>
     where
         I: Induced,
         Successful<'a, 'b, R, Self>: CanInduce<I>,
@@ -101,9 +101,9 @@ impl<S: Successor> Successor for &S {
 
     fn successor(
         &self,
-        state: StateIndex,
+        state: Self::Index,
         symbol: SymbolOf<Self>,
-    ) -> Option<Transition<'_, SymbolOf<Self>, Self::EdgeColor>> {
+    ) -> Option<Transition<'_, Self::Index, SymbolOf<Self>, Self::EdgeColor>> {
         (**self).successor(state, symbol)
     }
 }

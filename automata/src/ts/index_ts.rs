@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
     automaton::Automaton,
@@ -5,26 +7,26 @@ use crate::{
 };
 
 use super::{
-    Edge, EdgeIndex, EdgeIndicesFrom, EdgesFrom, HasMutableStates, HasStates, Index, Sproutable,
-    State, StateColored, StateIndex, Successor, Transition,
+    Edge, EdgeIndex, EdgeIndicesFrom, EdgesFrom, HasMutableStates, HasStates, Index, IndexType,
+    Sproutable, State, StateColored, StateIndex, Successor, Transition,
 };
 
 /// An implementation of a transition system with states of type `Q` and colors of type `C`. It stores
 /// the states and edges in a vector, which allows for fast access and iteration. The states and edges
 /// are indexed by their position in the respective vector.
 #[derive(Clone, Debug)]
-pub struct IndexTS<A: Alphabet, Q, C> {
+pub struct IndexTS<A: Alphabet, Q, C, Idx = usize> {
     alphabet: A,
-    states: Vec<State<Q>>,
-    edges: Vec<Edge<A::Expression, C>>,
+    states: BTreeMap<Idx, State<Q>>,
+    edges: Vec<Edge<A::Expression, C, Idx>>,
 }
 
-impl<A: Alphabet, Q, C> IndexTS<A, Q, C> {
+impl<A: Alphabet, Idx, Q, C> IndexTS<A, Q, C, Idx> {
     /// Creates a new transition system with the given alphabet.
     pub fn new(alphabet: A) -> Self {
         Self {
             alphabet,
-            states: Vec::new(),
+            states: BTreeMap::new(),
             edges: Vec::new(),
         }
     }
@@ -35,47 +37,43 @@ impl<A: Alphabet, Q, C> IndexTS<A, Q, C> {
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> IndexTS<A, Q, C> {
+impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> IndexTS<A, Q, C, Idx> {
     /// Returns an iterator over the [`EdgeIndex`]es of the edges leaving the given state.
-    pub fn edge_indices_from(&self, source: StateIndex) -> EdgeIndicesFrom<'_, A::Expression, C> {
+    pub fn edge_indices_from(&self, source: Idx) -> EdgeIndicesFrom<'_, A::Expression, C, Idx> {
         EdgeIndicesFrom::new(&self.edges, self.state(source).and_then(|s| s.first_edge()))
     }
 
     /// Returns an iterator over references to the edges leaving the given state.
-    pub fn edges_from(&self, source: StateIndex) -> EdgesFrom<'_, A::Expression, C> {
+    pub fn edges_from(&self, source: Idx) -> EdgesFrom<'_, A::Expression, C, Idx> {
         EdgesFrom::new(&self.edges, self.state(source).and_then(|s| s.first_edge()))
     }
 
     /// Checks whether the state exists.
-    pub fn contains_state<I: Into<StateIndex>>(&self, index: I) -> bool {
-        (self.states.len() > index.into().index())
+    pub fn contains_state<I: Into<Idx>>(&self, index: I) -> bool {
+        self.states.contains_key(&index.into())
     }
 
-    fn last_edge_from(&self, source: StateIndex) -> Option<EdgeIndex> {
+    fn last_edge_from(&self, source: Idx) -> Option<EdgeIndex> {
         self.edge_indices_from(source).last()
     }
 
-    fn get_edge(&self, index: EdgeIndex) -> Option<&Edge<A::Expression, C>> {
+    fn get_edge(&self, index: EdgeIndex) -> Option<&Edge<A::Expression, C, Idx>> {
         self.edges.get(index.index())
     }
 
-    fn get_edge_mut(&mut self, index: EdgeIndex) -> Option<&mut Edge<A::Expression, C>> {
+    fn get_edge_mut(&mut self, index: EdgeIndex) -> Option<&mut Edge<A::Expression, C, Idx>> {
         self.edges.get_mut(index.index())
-    }
-
-    pub fn to_automaton<Acc>(self, initial: StateIndex) -> Automaton<A, Q, C, Acc> {
-        Automaton::from_ts(self, initial)
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> Sproutable for IndexTS<A, Q, C> {
-    /// Adds a state with given `color` to the transition system, returning the [`StateIndex`] of
+impl<A: Alphabet, Q: Color, C: Color> Sproutable for IndexTS<A, Q, C, usize> {
+    /// Adds a state with given `color` to the transition system, returning the [Idx] of
     /// the new state.
-    fn add_state(&mut self, color: Q) -> StateIndex {
+    fn add_state(&mut self, color: Q) -> usize {
         let id = self.states.len();
         let state = State::new(color);
-        self.states.push(state);
-        id.as_state_index()
+        self.states.insert(id, state);
+        id
     }
 
     /// Adds an edge from `source` to `target` with the given `trigger` and `color`, returning the
@@ -89,8 +87,8 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for IndexTS<A, Q, C> {
         color: Self::EdgeColor,
     ) -> EdgeIndex
     where
-        X: Into<StateIndex>,
-        Y: Into<StateIndex>,
+        X: Into<usize>,
+        Y: Into<usize>,
     {
         let source = from.into();
         let target = to.into();
@@ -100,7 +98,7 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for IndexTS<A, Q, C> {
         );
         let new_edge_id = self.edges.len().as_edge_index();
 
-        let edge: Edge<<A as Alphabet>::Expression, C> =
+        let edge: Edge<<A as Alphabet>::Expression, C, _> =
             if let Some(last_edge_id) = self.last_edge_from(source) {
                 self.get_edge_mut(last_edge_id)
                     .unwrap()
@@ -113,85 +111,60 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for IndexTS<A, Q, C> {
         self.edges.push(edge);
         new_edge_id
     }
+
+    fn new_empty(alphabet: Self::Alphabet) -> Self {
+        Self::new(alphabet)
+    }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> Successor for IndexTS<A, Q, C> {
+impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Successor for IndexTS<A, Q, C, Idx> {
     type EdgeColor = C;
     fn successor(
         &self,
-        state: StateIndex,
+        state: Idx,
         symbol: A::Symbol,
-    ) -> Option<Transition<'_, A::Symbol, Self::EdgeColor>> {
+    ) -> Option<Transition<'_, Idx, A::Symbol, Self::EdgeColor>> {
         self.edges_from(state)
             .find(|e| self.alphabet().matches(e.trigger(), symbol))
             .map(|e| Transition::new(state, symbol, e.target(), e.color()))
     }
 }
 
-/// An iterator over the states of an [`IndexTS`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct IndexTSStates<'a, Q> {
-    states: &'a [State<Q>],
-    position: usize,
-}
-
-impl<'a, Q> IndexTSStates<'a, Q> {
-    /// Creates a new iterator over the states of an [`IndexTS`]. Stores a reference
-    /// to the slice of states
-    pub fn new(states: &'a [State<Q>], position: usize) -> Self {
-        Self { states, position }
-    }
-}
-
-impl<'a, Q> Iterator for IndexTSStates<'a, Q> {
-    type Item = (StateIndex, &'a State<Q>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.position < self.states.len() {
-            let index = self.position.as_state_index();
-            let state = &self.states[self.position];
-            self.position += 1;
-            Some((index, state))
-        } else {
-            None
-        }
-    }
-}
-
-impl<A: Alphabet, Q: Color, C> StateColored for IndexTS<A, Q, C> {
+impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> StateColored for IndexTS<A, Q, C, Idx> {
     type StateColor = Q;
+    type Index = Idx;
 
-    fn state_color(&self, index: StateIndex) -> &Self::StateColor {
+    fn state_color(&self, index: Idx) -> &Self::StateColor {
         self.state(index)
             .map(|s| s.color())
             .expect("cannot be called if state does not exist!")
     }
 }
 
-impl<A: Alphabet, Q: Color, C> HasStates for IndexTS<A, Q, C> {
+impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> HasStates for IndexTS<A, Q, C, Idx> {
     type State<'this> = &'this State<Q> where Self: 'this;
 
-    type StatesIter<'this> = IndexTSStates<'this, Q>
+    type StatesIter<'this> = std::collections::btree_map::Iter<'this, Idx, State<Q>>
     where
         Self: 'this;
 
     fn states_iter(&self) -> Self::StatesIter<'_> {
-        IndexTSStates::new(&self.states, 0)
+        self.states.iter()
     }
-    fn state(&self, index: StateIndex) -> Option<Self::State<'_>> {
-        self.states.get(index.index())
+    fn state(&self, index: Idx) -> Option<Self::State<'_>> {
+        self.states.get(&index)
     }
 }
 
-impl<A: Alphabet, Q: Color, C> HasMutableStates for IndexTS<A, Q, C> {
+impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> HasMutableStates for IndexTS<A, Q, C, Idx> {
     type StateMut<'this> = &'this mut State<Q> where Self: 'this;
 
-    fn state_mut(&mut self, index: StateIndex) -> Option<Self::StateMut<'_>> {
-        self.states.get_mut(index.index())
+    fn state_mut(&mut self, index: Idx) -> Option<Self::StateMut<'_>> {
+        self.states.get_mut(&index)
     }
 }
 
-impl<A: Alphabet, Q, C> HasAlphabet for IndexTS<A, Q, C> {
+impl<A: Alphabet, Idx: IndexType, Q, C> HasAlphabet for IndexTS<A, Q, C, Idx> {
     type Alphabet = A;
     fn alphabet(&self) -> &Self::Alphabet {
         &self.alphabet
