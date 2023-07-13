@@ -6,9 +6,9 @@ use crate::{
 };
 
 use super::{
-    ColorPosition, Colored, Edge, EdgeColor, EdgeIndex, EdgeIndicesFrom, EdgesFrom,
-    HasMutableStates, HasStates, Index, IndexType, OnEdges, OnStates, Sproutable, State,
-    StateColor, StateIndex, Successor, Transition,
+    ColorPosition, Edge, EdgeColor, EdgeIndex, EdgeIndicesFrom, EdgesFrom, HasMutableStates,
+    HasStates, Index, IndexType, OnEdges, OnStates, Sproutable, State, StateColor, StateIndex,
+    Successor, Transition,
 };
 /// An implementation of a transition system with states of type `Q` and colors of type `C`. It stores
 /// the states and edges in a vector, which allows for fast access and iteration. The states and edges
@@ -22,11 +22,6 @@ pub struct IndexTS<A: Alphabet, C: Color, Pos: ColorPosition, Idx = usize> {
 
 pub type MealyTS<A, C, Idx = usize> = IndexTS<A, C, OnEdges, Idx>;
 pub type MooreTS<A, C, Idx = usize> = IndexTS<A, C, OnStates, Idx>;
-
-impl<A: Alphabet, C: Color, Position: ColorPosition, Idx> Colored for IndexTS<A, C, Position, Idx> {
-    type Position = Position;
-    type Color = C;
-}
 
 impl<A: Alphabet, Idx, C: Color, Position: ColorPosition> IndexTS<A, C, Position, Idx> {
     /// Creates a new transition system with the given alphabet.
@@ -129,20 +124,22 @@ impl<A: Alphabet, Pos: ColorPosition, C: Color> Sproutable for IndexTS<A, C, Pos
 impl<A: Alphabet, Idx: IndexType, Pos: ColorPosition, C: Color> Successor
     for IndexTS<A, C, Pos, Idx>
 {
+    type Position = Pos;
+    type Color = C;
     type StateIndex = Idx;
     fn successor(
         &self,
         state: Idx,
         symbol: A::Symbol,
-    ) -> Option<Transition<'_, Idx, A::Symbol, EdgeColor<Self>>> {
+    ) -> Option<Transition<Idx, A::Symbol, EdgeColor<Self>>> {
         self.edges_from(state)
             .find(|e| self.alphabet().matches(e.trigger(), symbol))
-            .map(|e| Transition::new(state, symbol, e.target(), e.color()))
+            .map(|e| Transition::new(state, symbol, e.target(), e.color().clone()))
     }
 
-    fn state_color(&self, index: Idx) -> &StateColor<Self> {
+    fn state_color(&self, index: Idx) -> StateColor<Self> {
         self.state(index)
-            .map(|s| s.color())
+            .map(|s| s.color().clone())
             .expect("cannot be called if state does not exist!")
     }
 }
@@ -216,10 +213,7 @@ mod tests {
         let _e3 = ts.add_edge(s1, 'b', s0, 1);
         println!("{:?}", ts);
         assert!(ts.successor(s0, 'a').is_some());
-        assert_eq!(
-            ts.successor(s1, 'a'),
-            Some(Transition::new(s1, 'a', s1, &0))
-        );
+        assert_eq!(ts.successor(s1, 'a'), Some(Transition::new(s1, 'a', s1, 0)));
         assert_eq!(ts.edges_from(s0).count(), 2);
     }
 }

@@ -1,11 +1,13 @@
 mod successor;
-use std::{fmt::Display, ops::Deref};
+use std::{fmt::Display, hash::Hash, ops::Deref};
 
 use impl_tools::autoimpl;
 pub use successor::Successor;
 
 mod transition;
 pub use transition::{Edge, EdgeIndex, EdgeIndicesFrom, EdgesFrom, Transition};
+
+mod product;
 
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
@@ -172,9 +174,19 @@ impl<'a, Q> StateReference<'a, Q> {
     }
 }
 
-pub trait ColorPosition {
+pub trait ColorPosition: Ord + Eq + Copy + std::fmt::Debug + Display + Hash {
     type EdgeColor<C: Color>: Color;
+    fn edge_color<C: Color>(color: C) -> Self::EdgeColor<C>;
     type StateColor<C: Color>: Color;
+    fn state_color<C: Color>(color: C) -> Self::StateColor<C>;
+    fn combine_edges<C: Color, D: Color>(
+        left: Self::EdgeColor<C>,
+        right: Self::EdgeColor<D>,
+    ) -> Self::EdgeColor<(C, D)>;
+    fn combine_states<C: Color, D: Color>(
+        left: Self::StateColor<C>,
+        right: Self::StateColor<D>,
+    ) -> Self::StateColor<(C, D)>;
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
@@ -186,23 +198,68 @@ impl ColorPosition for OnEdges {
     type EdgeColor<C: Color> = C;
 
     type StateColor<C: Color> = ();
+
+    fn edge_color<C: Color>(color: C) -> Self::EdgeColor<C> {
+        color
+    }
+
+    fn state_color<C: Color>(_color: C) -> Self::StateColor<C> {}
+
+    fn combine_edges<C: Color, D: Color>(
+        left: Self::EdgeColor<C>,
+        right: Self::EdgeColor<D>,
+    ) -> Self::EdgeColor<(C, D)> {
+        (left, right)
+    }
+
+    fn combine_states<C: Color, D: Color>(
+        left: Self::StateColor<C>,
+        right: Self::StateColor<C>,
+    ) -> Self::StateColor<(C, D)> {
+    }
 }
+
+impl Display for OnEdges {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "on edges")
+    }
+}
+
 impl ColorPosition for OnStates {
     type EdgeColor<C: Color> = ();
 
     type StateColor<C: Color> = C;
+
+    fn edge_color<C: Color>(color: C) -> Self::EdgeColor<C> {}
+
+    fn state_color<C: Color>(color: C) -> Self::StateColor<C> {
+        color
+    }
+
+    fn combine_edges<C: Color, D: Color>(
+        left: Self::EdgeColor<C>,
+        right: Self::EdgeColor<D>,
+    ) -> Self::EdgeColor<(C, D)> {
+    }
+
+    fn combine_states<C: Color, D: Color>(
+        left: Self::StateColor<C>,
+        right: Self::StateColor<D>,
+    ) -> Self::StateColor<(C, D)> {
+        (left, right)
+    }
 }
 
-#[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
-pub trait Colored {
-    type Position: ColorPosition;
-    type Color: Color;
+impl Display for OnStates {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "on states")
+    }
 }
 
 pub type EdgeColor<C> =
-    <<C as Colored>::Position as ColorPosition>::EdgeColor<<C as Colored>::Color>;
+    <<C as Successor>::Position as ColorPosition>::EdgeColor<<C as Successor>::Color>;
 pub type StateColor<C> =
-    <<C as Colored>::Position as ColorPosition>::StateColor<<C as Colored>::Color>;
+    <<C as Successor>::Position as ColorPosition>::StateColor<<C as Successor>::Color>;
 
 /// Abstracts possessing a set of states. Note, that implementors of this trait must
 /// be able to iterate over the set of states.

@@ -9,7 +9,7 @@ use crate::{
 use self::walker::RunResult;
 
 use super::{
-    CanInduce, Colored, EdgeColor, IndexTS, IndexType, Induced, Path, StateColor, StateIndex,
+    CanInduce, ColorPosition, EdgeColor, IndexTS, IndexType, Induced, Path, StateColor, StateIndex,
     Transition,
 };
 
@@ -36,17 +36,19 @@ pub use walker::Walker;
 /// the expression). So a transition is a concrete edge that is taken (usually by the run on a word), while
 /// an edge may represent any different number of transitions.
 #[impl_tools::autoimpl(for<T: trait + ?Sized> &T, &mut T)]
-pub trait Successor: Colored + HasAlphabet {
+pub trait Successor: HasAlphabet {
     type StateIndex: IndexType;
+    type Position: ColorPosition;
+    type Color: Color;
 
     /// For a given `state` and `symbol`, returns the transition that is taken, if it exists.
     fn successor(
         &self,
         state: Self::StateIndex,
         symbol: SymbolOf<Self>,
-    ) -> Option<Transition<'_, Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>>;
+    ) -> Option<Transition<Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>>;
 
-    fn state_color(&self, state: Self::StateIndex) -> &StateColor<Self>;
+    fn state_color(&self, state: Self::StateIndex) -> StateColor<Self>;
 
     /// Returns just the [Self::Index] of the successor that is reached on the given `symbol`
     /// from `state`. If no suitable transition exists, `None` is returned.
@@ -103,6 +105,14 @@ pub trait Successor: Colored + HasAlphabet {
     {
         self.run(word, state).ok().map(|r| r.induce())
     }
+
+    fn make_edge_color(&self, color: Self::Color) -> EdgeColor<Self> {
+        <Self::Position as ColorPosition>::edge_color(color)
+    }
+
+    fn make_state_color(&self, color: Self::Color) -> StateColor<Self> {
+        <Self::Position as ColorPosition>::state_color(color)
+    }
 }
 
 #[cfg(test)]
@@ -139,8 +149,5 @@ mod tests {
         let ReachedState(q) = ts.induced(&"ab", s0).unwrap();
         assert_eq!(q, s0);
         let ReachedColor(c) = ts.induced(&input, s0).unwrap();
-
-        let finite::StateColorSequence(seq) = ts.induced(&"abba", s0).unwrap();
-        assert_eq!(seq, vec![(), (), (), (), ()]);
     }
 }

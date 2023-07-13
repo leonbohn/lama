@@ -186,16 +186,16 @@ impl<'a, E, C, Idx> EdgeIndicesFrom<'a, E, C, Idx> {
 /// `a & b`, `a & !b` and `!a & b`, which are all concrete symbols from the alphabet
 /// that match the expression.
 #[derive(Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct Transition<'a, Idx, S, C> {
+pub struct Transition<Idx, S, C> {
     source: Idx,
     target: Idx,
     symbol: S,
-    emits: &'a C,
+    emits: C,
 }
 
-impl<'a, Idx, S: Symbol, C: Color> Transition<'a, Idx, S, C> {
+impl<Idx, S: Symbol, C: Color> Transition<Idx, S, C> {
     /// Creates a new transition with the given source and target state, symbol and color.
-    pub fn new(source: Idx, symbol: S, target: Idx, color: &'a C) -> Self {
+    pub fn new(source: Idx, symbol: S, target: Idx, color: C) -> Self {
         Self {
             source,
             target,
@@ -219,7 +219,7 @@ impl<'a, Idx, S: Symbol, C: Color> Transition<'a, Idx, S, C> {
 
     /// Returns the color of the transition.
     pub fn color(&self) -> &C {
-        self.emits
+        &self.emits
     }
 
     /// Returns the target state index.
@@ -231,7 +231,7 @@ impl<'a, Idx, S: Symbol, C: Color> Transition<'a, Idx, S, C> {
     }
 }
 
-impl<'a, Idx: Display, S: Display, C: Display> Display for Transition<'a, Idx, S, C> {
+impl<Idx: Display, S: Display, C: Display> Display for Transition<Idx, S, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -241,7 +241,7 @@ impl<'a, Idx: Display, S: Display, C: Display> Display for Transition<'a, Idx, S
     }
 }
 
-impl<'a, Idx: Debug, S: Debug, C: Debug> Debug for Transition<'a, Idx, S, C> {
+impl<Idx: Debug, S: Debug, C: Debug> Debug for Transition<Idx, S, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,

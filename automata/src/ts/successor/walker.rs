@@ -18,19 +18,19 @@ pub struct Walker<'a, 'b, Ts: Successor, R> {
     word: &'b R,
     position: usize,
     seen: BTreeSet<(RawPosition, Ts::StateIndex)>,
-    seq: Path<'a, Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>,
+    seq: Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>,
 }
 
 pub type RunResult<'a, 'b, Ts, R> = Result<Successful<'a, 'b, R, Ts>, Partial<'a, 'b, R, Ts>>;
 
-pub enum WalkerStep<'a, Ts: Successor> {
-    Transition(Transition<'a, Ts::StateIndex, SymbolOf<Ts>, EdgeColor<Ts>>),
+pub enum WalkerStep<Ts: Successor> {
+    Transition(Transition<Ts::StateIndex, SymbolOf<Ts>, EdgeColor<Ts>>),
     Missing(Ts::StateIndex, SymbolOf<Ts>),
     Cycle,
     End,
 }
 
-impl<'a, Ts: Successor> WalkerStep<'a, Ts> {
+impl<'a, Ts: Successor> WalkerStep<Ts> {
     fn is_successful(&self) -> bool {
         matches!(self, Self::End) || matches!(self, Self::Cycle)
     }
@@ -82,7 +82,7 @@ impl<'a, 'b, Ts: Successor, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b, Ts, R
         self.word.length().calculate_raw_position(self.position)
     }
 
-    fn take_transition(&mut self) -> WalkerStep<'a, Ts> {
+    fn take_transition(&mut self) -> WalkerStep<Ts> {
         if let Some(symbol) = self.word.get(self.position) {
             let rawposition = self
                 .word
@@ -105,7 +105,7 @@ impl<'a, 'b, Ts: Successor, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b, Ts, R
         }
     }
 
-    pub fn step(&mut self) -> Option<Transition<'a, Ts::StateIndex, SymbolOf<Ts>, EdgeColor<Ts>>> {
+    pub fn step(&mut self) -> Option<Transition<Ts::StateIndex, SymbolOf<Ts>, EdgeColor<Ts>>> {
         match self.take_transition() {
             WalkerStep::Transition(t) => {
                 trace!("Took transition {:?} at position {}", t, self.position);

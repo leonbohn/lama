@@ -17,14 +17,14 @@ use super::Successor;
 pub struct Successful<'a, 'b, R, Ts: Successor> {
     word: &'b R,
     ts: &'a Ts,
-    path: Path<'a, Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>,
+    path: Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>,
     loop_index: Option<usize>,
 }
 
 impl<'a, 'b, R, Ts> CanInduce<InfinitySet<Ts::Color>> for Successful<'a, 'b, R, Ts>
 where
     Ts: Successor,
-    Path<'a, Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>: ColorSequence<Ts::Color>,
+    Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>: ColorSequence<Ts::Color>,
     Ts::Color: Copy,
 {
     fn induce(&self) -> InfinitySet<Ts::Color> {
@@ -33,25 +33,14 @@ where
                 .loop_index
                 .expect("Cannot get the infinity set of a finite run!")
                 ..self.path.colors_length())
-                .map(|i| *self.path.nth_color(i).expect("The length does not match!"))
+                .map(|i| {
+                    self.path
+                        .nth_color(i)
+                        .expect("The length does not match!")
+                        .clone()
+                })
                 .collect(),
         )
-    }
-}
-
-impl<'a, 'b, R, Ts: Successor> CanInduce<TransitionColorSequence<EdgeColor<Ts>>>
-    for Successful<'a, 'b, R, Ts>
-{
-    fn induce(&self) -> TransitionColorSequence<EdgeColor<Ts>> {
-        TransitionColorSequence(self.path.transition_colors().cloned().collect())
-    }
-}
-
-impl<'a, 'b, R, Ts: Successor> CanInduce<StateColorSequence<StateColor<Ts>>>
-    for Successful<'a, 'b, R, Ts>
-{
-    fn induce(&self) -> StateColorSequence<StateColor<Ts>> {
-        StateColorSequence(self.path.state_colors().cloned().collect())
     }
 }
 
@@ -76,7 +65,7 @@ impl<'a, 'b, R, Ts: Successor> Successful<'a, 'b, R, Ts> {
         word: &'b R,
         ts: &'a Ts,
         loop_index: Option<usize>,
-        path: Path<'a, Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>,
+        path: Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>,
     ) -> Self {
         Self {
             word,

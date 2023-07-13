@@ -7,8 +7,8 @@ use crate::{
     ts::{
         finite::{ReachedColor, ReachedState},
         infinite::InfinitySet,
-        Colored, Congruence, EdgeColor, HasMutableStates, HasStates, IndexTS, IndexType, OnEdges,
-        OnStates, Pointed, Sproutable, State, StateColor, StateIndex, Successor, Transition,
+        Congruence, EdgeColor, HasMutableStates, HasStates, IndexTS, IndexType, OnEdges, OnStates,
+        Pointed, Sproutable, State, StateColor, StateIndex, Successor, Transition,
         TransitionSystem,
     },
     Color, FiniteLength, InfiniteLength, Length, Word,
@@ -116,11 +116,7 @@ mod boilerplate_impls {
             self.0.alphabet()
         }
     }
-    impl<Ts: Successor + Colored> Colored for WithInitial<Ts> {
-        type Position = Ts::Position;
 
-        type Color = Ts::Color;
-    }
     impl<Ts: Successor> Pointed for WithInitial<Ts> {
         fn initial(&self) -> Self::StateIndex {
             self.1
@@ -128,16 +124,18 @@ mod boilerplate_impls {
     }
     impl<Ts: Successor> Successor for WithInitial<Ts> {
         type StateIndex = Ts::StateIndex;
+        type Color = Ts::Color;
+        type Position = Ts::Position;
 
         fn successor(
             &self,
             state: Self::StateIndex,
             symbol: SymbolOf<Self>,
-        ) -> Option<Transition<'_, Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>> {
+        ) -> Option<Transition<Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>> {
             self.ts().successor(state, symbol)
         }
 
-        fn state_color(&self, state: Self::StateIndex) -> &StateColor<Self> {
+        fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
             self.ts().state_color(state)
         }
     }

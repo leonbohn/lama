@@ -8,7 +8,7 @@ use crate::{
 };
 
 use super::{
-    ColorPosition, Colored, EdgeColor, IndexType, OnEdges, OnStates, State, StateColor, StateIndex,
+    ColorPosition, EdgeColor, IndexType, OnEdges, OnStates, State, StateColor, StateIndex,
     Successor, Transition,
 };
 
@@ -20,15 +20,20 @@ use super::{
 /// A path consists of an `origin`, which is simply the [`StateIndex`] of the state where the path starts. It stores
 /// a sequence of transitions and the colors of the states it visits.
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub struct Path<'a, A: Alphabet, Idx, C: Color, Pos: ColorPosition> {
+pub struct Path<A: Alphabet, Idx, C: Color, Pos: ColorPosition> {
     origin: Idx,
-    colors: Vec<&'a Pos::StateColor<C>>,
-    transitions: Vec<Transition<'a, Idx, A::Symbol, Pos::EdgeColor<C>>>,
+    colors: Vec<Pos::StateColor<C>>,
+    transitions: Vec<Transition<Idx, A::Symbol, Pos::EdgeColor<C>>>,
 }
 
-impl<'a, A: Alphabet, Idx, C: Color> ColorSequence<C> for Path<'a, A, Idx, C, OnStates> {
+pub trait ColorSequence<C> {
+    fn nth_color(&self, n: usize) -> Option<&C>;
+    fn colors_length(&self) -> usize;
+}
+
+impl<A: Alphabet, Idx, C: Color> ColorSequence<C> for Path<A, Idx, C, OnStates> {
     fn nth_color(&self, n: usize) -> Option<&C> {
-        self.colors.get(n).copied()
+        self.colors.get(n)
     }
 
     fn colors_length(&self) -> usize {
@@ -36,7 +41,7 @@ impl<'a, A: Alphabet, Idx, C: Color> ColorSequence<C> for Path<'a, A, Idx, C, On
     }
 }
 
-impl<'a, A: Alphabet, Idx, C: Color> ColorSequence<C> for Path<'a, A, Idx, C, OnEdges> {
+impl<A: Alphabet, Idx, C: Color> ColorSequence<C> for Path<A, Idx, C, OnEdges> {
     fn nth_color(&self, n: usize) -> Option<&C> {
         self.transitions.get(n).map(|t| t.color())
     }
@@ -46,12 +51,7 @@ impl<'a, A: Alphabet, Idx, C: Color> ColorSequence<C> for Path<'a, A, Idx, C, On
     }
 }
 
-pub trait ColorSequence<C> {
-    fn nth_color(&self, n: usize) -> Option<&C>;
-    fn colors_length(&self) -> usize;
-}
-
-impl<'a, A: Alphabet, Idx, Pos: ColorPosition, C: Color> Path<'a, A, Idx, C, Pos> {
+impl<A: Alphabet, Idx, Pos: ColorPosition, C: Color> Path<A, Idx, C, Pos> {
     /// Returns the index of the state that is reached by the path.
     pub fn reached(&self) -> Idx
     where
@@ -65,7 +65,7 @@ impl<'a, A: Alphabet, Idx, Pos: ColorPosition, C: Color> Path<'a, A, Idx, C, Pos
     }
 
     /// Returns true if the path is empty/trivial, meaning it consists of only one state.
-    pub fn empty(state: Idx, color: &'a Pos::StateColor<C>) -> Self {
+    pub fn empty(state: Idx, color: Pos::StateColor<C>) -> Self {
         Self {
             origin: state,
             colors: vec![color],
@@ -77,9 +77,9 @@ impl<'a, A: Alphabet, Idx, Pos: ColorPosition, C: Color> Path<'a, A, Idx, C, Pos
     /// the transition is returned. Otherwise, `None` is returned.
     pub fn extend_in<Ts>(
         &mut self,
-        ts: &'a Ts,
+        ts: &Ts,
         symbol: A::Symbol,
-    ) -> Option<Transition<'a, Idx, A::Symbol, EdgeColor<Ts>>>
+    ) -> Option<Transition<Idx, A::Symbol, EdgeColor<Ts>>>
     where
         Idx: IndexType,
         Ts: Successor<Alphabet = A, StateIndex = Idx, Color = C, Position = Pos>,
@@ -92,20 +92,10 @@ impl<'a, A: Alphabet, Idx, Pos: ColorPosition, C: Color> Path<'a, A, Idx, C, Pos
     }
 
     /// Returns an iterator over the [`StateIndex`]es of the states visited by the path.
-    pub fn state_sequence(&'a self) -> impl Iterator<Item = Idx> + 'a
+    pub fn state_sequence(&self) -> impl Iterator<Item = Idx> + '_
     where
         Idx: IndexType,
     {
         std::iter::once(self.origin).chain(self.transitions.iter().map(|t| t.target()))
-    }
-
-    /// Returns an iterator over the colors of the states visited by the path.
-    pub fn transition_colors(&'a self) -> impl Iterator<Item = &'a Pos::EdgeColor<C>> + 'a {
-        self.transitions.iter().map(|t| t.color())
-    }
-
-    /// Returns an iterator over the colors of the states visited by the path.
-    pub fn state_colors(&'a self) -> impl Iterator<Item = &'a Pos::StateColor<C>> + 'a {
-        self.colors.iter().copied()
     }
 }
