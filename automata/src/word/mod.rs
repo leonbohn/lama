@@ -25,6 +25,13 @@ pub trait Rawpresentation: ToOwned<Owned = Self> {
     /// Returns the length of the raw representation.
     fn raw_length(&self) -> usize;
 
+    /// Constructs a vector of all symbols in the raw representation.
+    fn raw_symbols(&self) -> Vec<Self::Symbol> {
+        (0..self.raw_length())
+            .map(|i| self.raw_get(RawPosition::new(i)).unwrap())
+            .collect()
+    }
+
     /// Creates an infinite word from `self`, which loops back to the given `position`. Assumes that the
     /// given position is actually a valid position in the word.
     ///
@@ -118,8 +125,17 @@ pub struct RawWithLength<R, L> {
 }
 
 impl<R, L> RawWithLength<R, L> {
-    /// Create a new
+    /// Create a new `RawWithLength` object from the given raw representation and length.
     pub fn new(raw: R, length: L) -> Self
+    where
+        R: Rawpresentation,
+        L: Length,
+    {
+        Self { raw, length }
+    }
+
+    /// Does the same as [`RawWithLength::new`], but reverses the arguments.
+    pub fn new_reverse_args(length: L, raw: R) -> Self
     where
         R: Rawpresentation,
         L: Length,
@@ -237,13 +253,49 @@ where
     }
 }
 
+/// This macro can be used to create a [`RawWithLength`] object from some representation, it is mainly interesting
+/// for quickly constructing infinite words without having to go through the [`RawWithLength`] struct.
+///
+/// There are essentially three distinct variants of using this macro:
+/// - `upw!(repr, loopindex index)` creates a word with the given representation and the given loopindex.
+/// - `upw!(base, recur)` creates an ultimately word with the representation of `base` followed by the representation of `recur`.
+/// - `upw!(recur)` creates a periodic word that is the repetition of `recur`.
+#[macro_export]
+macro_rules! upw {
+    ($repr:expr, loopindex $index:expr) => {
+        $crate::word::RawWithLength::new_reverse_args(
+            $crate::InfiniteLength::new($repr.len(), $index),
+            $repr,
+        )
+    };
+    ($recur:expr) => {
+        upw!($recur, loopindex 0)
+    };
+    ($base:expr, $recur:expr) => {
+        upw!($base
+            .raw_symbols()
+            .into_iter()
+            .chain($recur.raw_symbols().into_iter())
+            .collect::<Vec<_>>(), loopindex $base.len())
+    };
+}
+
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools;
+
     use crate::{
         length::RawPosition,
         word::{RawWithLength, Rawpresentation, Word},
         FiniteLength,
     };
+
+    #[test]
+    fn macro_upw() {
+        let w = upw!("ab", loopindex 1);
+        let ww = upw!("a", "b");
+        assert!(w.symbols().zip(ww.symbols()).take(20).all(|(a, b)| a == b));
+    }
 
     #[test]
     fn raw_representation() {

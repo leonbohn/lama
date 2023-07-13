@@ -19,6 +19,7 @@ pub mod ts;
 mod automaton;
 
 /// Module that contains definitions for dealing with words.
+#[macro_use]
 pub mod word;
 pub use word::Word;
 

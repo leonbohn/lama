@@ -282,6 +282,7 @@ mod tests {
         alphabet::{self, Simple},
         automaton::{Acceptor, Dfa},
         ts::{HasColorMut, HasMutableStates, IndexTS, Pointed, Sproutable},
+        upw,
         word::RawWithLength,
         InfiniteLength,
     };
@@ -298,7 +299,9 @@ mod tests {
         let _e2 = dba.add_edge(q1, 'a', q1, true);
         let _e3 = dba.add_edge(q1, 'b', q0, false);
         assert!(dba.accepts(RawWithLength::new("abb", InfiniteLength(3, 0))));
-        assert!(!dba.accepts(RawWithLength::new("b", InfiniteLength(1, 0))))
+        assert!(!dba.accepts(RawWithLength::new("b", InfiniteLength(1, 0))));
+        assert!(dba.accepts(upw!("a")));
+        assert!(!dba.accepts(upw!("b")))
     }
 
     #[test]
