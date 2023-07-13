@@ -9,8 +9,8 @@ use crate::{
 use self::walker::RunResult;
 
 use super::{
-    CanInduce, ColorPosition, EdgeColor, IndexTS, IndexType, Induced, Path, StateColor, StateIndex,
-    Transition,
+    product::Product, CanInduce, ColorPosition, EdgeColor, IndexTS, IndexType, Induced, Path,
+    StateColor, StateIndex, Transition,
 };
 
 mod partial;
@@ -35,7 +35,6 @@ pub use walker::Walker;
 /// with an expression, while a [`Transition`] is labelled with an actual symbol (that [`Alphabet::matches`]
 /// the expression). So a transition is a concrete edge that is taken (usually by the run on a word), while
 /// an edge may represent any different number of transitions.
-#[impl_tools::autoimpl(for<T: trait + ?Sized> &T, &mut T)]
 pub trait Successor: HasAlphabet {
     type StateIndex: IndexType;
     type Position: ColorPosition;
@@ -112,6 +111,55 @@ pub trait Successor: HasAlphabet {
 
     fn make_state_color(&self, color: Self::Color) -> StateColor<Self> {
         <Self::Position as ColorPosition>::state_color(color)
+    }
+
+    fn product<Ts: Successor<Alphabet = Self::Alphabet, Position = Self::Position>>(
+        self,
+        other: Ts,
+    ) -> Product<Self, Ts>
+    where
+        Self: Sized,
+    {
+        Product(self, other)
+    }
+}
+
+impl<Ts: Successor> Successor for &Ts {
+    type StateIndex = Ts::StateIndex;
+
+    type Position = Ts::Position;
+
+    type Color = Ts::Color;
+
+    fn successor(
+        &self,
+        state: Self::StateIndex,
+        symbol: SymbolOf<Self>,
+    ) -> Option<Transition<Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>> {
+        Ts::successor(self, state, symbol)
+    }
+
+    fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
+        Ts::state_color(self, state)
+    }
+}
+impl<Ts: Successor> Successor for &mut Ts {
+    type StateIndex = Ts::StateIndex;
+
+    type Position = Ts::Position;
+
+    type Color = Ts::Color;
+
+    fn successor(
+        &self,
+        state: Self::StateIndex,
+        symbol: SymbolOf<Self>,
+    ) -> Option<Transition<Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>> {
+        Ts::successor(self, state, symbol)
+    }
+
+    fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
+        Ts::state_color(self, state)
     }
 }
 

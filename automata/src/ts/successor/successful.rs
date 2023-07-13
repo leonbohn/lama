@@ -25,7 +25,7 @@ impl<'a, 'b, R, Ts> CanInduce<InfinitySet<Ts::Color>> for Successful<'a, 'b, R, 
 where
     Ts: Successor,
     Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>: ColorSequence<Ts::Color>,
-    Ts::Color: Copy,
+    Ts::Color: Clone,
 {
     fn induce(&self) -> InfinitySet<Ts::Color> {
         InfinitySet(
@@ -33,7 +33,12 @@ where
                 .loop_index
                 .expect("Cannot get the infinity set of a finite run!")
                 ..self.path.colors_length())
-                .map(|i| *self.path.nth_color(i).expect("The length does not match!"))
+                .map(|i| {
+                    self.path
+                        .nth_color(i)
+                        .expect("The length does not match!")
+                        .clone()
+                })
                 .collect(),
         )
     }

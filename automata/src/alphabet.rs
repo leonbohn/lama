@@ -43,6 +43,7 @@ pub trait HasUniverse: Alphabet {
 }
 
 /// An alphabet abstracts a collection of [`Symbol`]s and complex [`Expression`]s over those.
+#[impl_tools::autoimpl(for<T: trait + ?Sized> &T)]
 pub trait Alphabet: Clone {
     /// The type of symbols in this alphabet.
     type Symbol: Symbol;

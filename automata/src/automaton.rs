@@ -151,14 +151,6 @@ pub type DPA<A, Idx = usize> = MealyMachine<A, usize, Idx>;
 pub type SBDBA<A, Idx = usize> = MooreMachine<A, bool, Idx>;
 pub type SBDPA<A, Idx = usize> = MooreMachine<A, usize, Idx>;
 
-pub trait Transforms<Domain> {
-    type Codomain;
-    fn transform(&self, domain: Domain) -> Self::Codomain;
-}
-
-pub struct SigmaStar<A>(A);
-pub struct SigmaPlus<A>(A);
-
 pub trait Transformer<S, Len: Length, Pos: ColorPosition> {
     type Output;
     fn transform<W: Word<Symbol = S, Length = Len>>(&self, input: W) -> Self::Output;
@@ -184,7 +176,7 @@ impl<Ts: Successor<Position = OnStates> + Pointed> Transformer<SymbolOf<Ts>, Fin
 impl<Ts> Transformer<SymbolOf<Ts>, InfiniteLength, OnEdges> for Ts
 where
     Ts: Successor<Position = OnEdges> + Pointed,
-    Ts::Color: Copy,
+    Ts::Color: Clone,
 {
     type Output = BTreeSet<Ts::Color>;
 
@@ -203,7 +195,7 @@ where
 impl<Ts> Transformer<SymbolOf<Ts>, FiniteLength, OnEdges> for Ts
 where
     Ts: Successor<Position = OnEdges> + Pointed,
-    Ts::Color: Copy,
+    Ts::Color: Clone,
 {
     type Output = Ts::Color;
 
@@ -212,7 +204,7 @@ where
         input: W,
     ) -> Self::Output {
         if let Some(TransitionColorSequence(cs)) = self.induced(&input, self.initial()) {
-            *cs.last().expect("Must exist")
+            cs.last().expect("Must exist").clone()
         } else {
             unreachable!()
         }
@@ -280,7 +272,7 @@ mod tests {
     use crate::{
         alphabet::{self, Simple},
         automaton::{Acceptor, Transformer},
-        ts::{HasColorMut, HasMutableStates, IndexTS, Pointed, Sproutable},
+        ts::{HasColorMut, HasMutableStates, IndexTS, Pointed, Sproutable, Successor},
         upw,
         word::RawWithLength,
         InfiniteLength,

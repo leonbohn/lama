@@ -18,7 +18,7 @@ pub mod ts;
 
 #[allow(clippy::upper_case_acronyms)]
 mod automaton;
-pub use automaton::{Acceptor, DBA, DFA, DPA, SBDBA, SBDPA};
+pub use automaton::{Acceptor, Transformer, DBA, DFA, DPA, SBDBA, SBDPA};
 
 /// Module that contains definitions for dealing with words.
 #[macro_use]

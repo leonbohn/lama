@@ -311,6 +311,7 @@ pub trait Sproutable: HasMutableStates + Successor {
 }
 
 /// Implementors of this trait have a distinguished (initial) state.
+#[autoimpl(for<T: trait> &T, &mut T)]
 pub trait Pointed: Successor {
     /// Returns the index of the initial state.
     fn initial(&self) -> Self::StateIndex;
