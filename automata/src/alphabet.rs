@@ -43,7 +43,7 @@ pub trait HasUniverse: Alphabet {
 }
 
 /// An alphabet abstracts a collection of [`Symbol`]s and complex [`Expression`]s over those.
-pub trait Alphabet {
+pub trait Alphabet: Clone {
     /// The type of symbols in this alphabet.
     type Symbol: Symbol;
     /// The type of expressions in this alphabet.
@@ -56,20 +56,13 @@ pub trait Alphabet {
 }
 
 /// Abstracts posessing an [`Alphabet`], which can then be accessed via [`HasAlphabet::alphabet`].
+#[impl_tools::autoimpl(for<T: trait + ?Sized> &T, &mut T)]
 pub trait HasAlphabet {
     /// The type of alphabet posessed by the object
     type Alphabet: Alphabet;
 
     /// Returns a reference to the alphabet posessed by the object.
     fn alphabet(&self) -> &Self::Alphabet;
-}
-
-impl<H: HasAlphabet> HasAlphabet for &H {
-    type Alphabet = H::Alphabet;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        H::alphabet(self)
-    }
 }
 
 /// Helper trait for extracting the [`Symbol`] type from an an object which implements [`HasAlphabet`].

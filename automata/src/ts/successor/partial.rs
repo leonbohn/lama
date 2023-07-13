@@ -1,6 +1,6 @@
 use crate::{
     alphabet::{Alphabet, Symbol},
-    ts::Path,
+    ts::{EdgeColor, Path, StateColor},
     word::RawWithLength,
     Color, FiniteLength,
 };
@@ -12,7 +12,7 @@ pub struct Partial<'a, 'b, R, Ts: Successor> {
     word: &'b R,
     ts: &'a Ts,
     position: usize,
-    path: Path<'a, Ts::Alphabet, Ts::Index, Ts::StateColor, Ts::EdgeColor>,
+    path: Path<'a, Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>,
 }
 
 impl<'a, 'b, R, Ts: Successor> Partial<'a, 'b, R, Ts> {
@@ -20,7 +20,7 @@ impl<'a, 'b, R, Ts: Successor> Partial<'a, 'b, R, Ts> {
         word: &'b R,
         ts: &'a Ts,
         position: usize,
-        path: Path<'a, Ts::Alphabet, Ts::Index, Ts::StateColor, Ts::EdgeColor>,
+        path: Path<'a, Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>,
     ) -> Self {
         Self {
             word,

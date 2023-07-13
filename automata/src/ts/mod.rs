@@ -172,35 +172,54 @@ impl<'a, Q> StateReference<'a, Q> {
     }
 }
 
-/// Implemented by things/objects that have a coloring on the state level.
-#[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
-pub trait StateColored {
-    /// The type that can be used to index states.
-    type Index: IndexType;
-
-    /// The color type of the implementor.
-    type StateColor: Color;
-
-    /// Returns a reference to the color of the state with the given index.
-    fn state_color(&self, index: Self::Index) -> &Self::StateColor;
+pub trait ColorPosition {
+    type EdgeColor<C: Color>: Color;
+    type StateColor<C: Color>: Color;
 }
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
+pub struct OnEdges;
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
+pub struct OnStates;
+
+impl ColorPosition for OnEdges {
+    type EdgeColor<C: Color> = C;
+
+    type StateColor<C: Color> = ();
+}
+impl ColorPosition for OnStates {
+    type EdgeColor<C: Color> = ();
+
+    type StateColor<C: Color> = C;
+}
+
+#[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
+pub trait Colored {
+    type Position: ColorPosition;
+    type Color: Color;
+}
+
+pub type EdgeColor<C> =
+    <<C as Colored>::Position as ColorPosition>::EdgeColor<<C as Colored>::Color>;
+pub type StateColor<C> =
+    <<C as Colored>::Position as ColorPosition>::StateColor<<C as Colored>::Color>;
 
 /// Abstracts possessing a set of states. Note, that implementors of this trait must
 /// be able to iterate over the set of states.
 #[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
-pub trait HasStates: StateColored + Sized {
+pub trait HasStates: Successor + Sized {
     /// The type of the states.
-    type State<'this>: HasColor<Color = Self::StateColor>
+    type State<'this>: HasColor<Color = StateColor<Self>>
     where
         Self: 'this;
 
     /// The type of the iterator over the states.
-    type StatesIter<'this>: Iterator<Item = (&'this Self::Index, Self::State<'this>)>
+    type StatesIter<'this>: Iterator<Item = (&'this Self::StateIndex, Self::State<'this>)>
     where
         Self: 'this;
 
     /// Returns a reference to the state with the given index, if it exists and `None` otherwise.
-    fn state(&self, index: Self::Index) -> Option<Self::State<'_>>;
+    fn state(&self, index: Self::StateIndex) -> Option<Self::State<'_>>;
 
     /// Returns an iterator over the states of the implementor.
     fn states_iter(&self) -> Self::StatesIter<'_>;
@@ -212,41 +231,40 @@ pub trait HasStates: StateColored + Sized {
 
 pub trait HasMutableStates: HasStates {
     /// The type of the mutable iterator over the states.
-    type StateMut<'this>: HasColorMut<Color = Self::StateColor>
+    type StateMut<'this>: HasColorMut<Color = StateColor<Self>>
     where
         Self: 'this;
 
     /// Returns an iterator over mutable references to the states of the implementor.
-    fn state_mut(&mut self, index: Self::Index) -> Option<Self::StateMut<'_>>;
+    fn state_mut(&mut self, index: Self::StateIndex) -> Option<Self::StateMut<'_>>;
 }
 
 pub trait Sproutable: HasMutableStates + Successor {
-    fn new_empty(alphabet: Self::Alphabet) -> Self;
-    fn add_state(&mut self, color: Self::StateColor) -> Self::Index;
+    fn add_state(&mut self, color: StateColor<Self>) -> Self::StateIndex;
     fn add_edge<X, Y>(
         &mut self,
         from: X,
         on: <Self::Alphabet as Alphabet>::Expression,
         to: Y,
-        color: Self::EdgeColor,
+        color: EdgeColor<Self>,
     ) -> EdgeIndex
     where
-        X: Into<Self::Index>,
-        Y: Into<Self::Index>;
+        X: Into<Self::StateIndex>,
+        Y: Into<Self::StateIndex>;
 }
 
 /// Implementors of this trait have a distinguished (initial) state.
-pub trait Pointed: StateColored {
+pub trait Pointed: Successor {
     /// Returns the index of the initial state.
-    fn initial(&self) -> Self::Index;
+    fn initial(&self) -> Self::StateIndex;
 }
 
 /// One of the main exported traits of this module. A Transition system is a collection of states,
 /// between which there exist directed transitions that are annotated with an expression from an
 /// alphabet. This trait merely combines the traits [`HasStates`], [`Successor`] and [`HasAlphabet`]
 /// and is automatically implemented.
-pub trait TransitionSystem: HasStates + Successor + HasAlphabet {}
-impl<Ts: HasStates + Successor + HasAlphabet> TransitionSystem for Ts {}
+pub trait TransitionSystem: HasStates + Successor {}
+impl<Ts: HasStates + Successor> TransitionSystem for Ts {}
 
 /// A congruence is a [`TransitionSystem`], which additionally has a distinguished initial state. This
 /// functionality is abstracted in [`Pointed`]. This trait is automatically implemented.

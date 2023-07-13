@@ -4,9 +4,10 @@ use crate::{
     ts::{
         finite::{ReachedColor, ReachedState, StateColorSequence, TransitionColorSequence},
         infinite::InfinitySet,
-        CanInduce, Path, StateIndex, TransitionSystem,
+        path::ColorSequence,
+        CanInduce, EdgeColor, Path, StateColor, StateIndex, TransitionSystem,
     },
-    word::RawWithLength,
+    word::{RawWithLength, Rawpresentation},
     Color, FiniteLength, Length,
 };
 
@@ -16,51 +17,56 @@ use super::Successor;
 pub struct Successful<'a, 'b, R, Ts: Successor> {
     word: &'b R,
     ts: &'a Ts,
-    path: Path<'a, Ts::Alphabet, Ts::Index, Ts::StateColor, Ts::EdgeColor>,
+    path: Path<'a, Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>,
     loop_index: Option<usize>,
 }
 
-impl<'a, 'b, R, Ts: Successor> CanInduce<InfinitySet<Ts::EdgeColor>> for Successful<'a, 'b, R, Ts> {
-    fn induce(&self) -> InfinitySet<Ts::EdgeColor> {
+impl<'a, 'b, R, Ts> CanInduce<InfinitySet<Ts::Color>> for Successful<'a, 'b, R, Ts>
+where
+    Ts: Successor,
+    Path<'a, Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>: ColorSequence<Ts::Color>,
+    Ts::Color: Copy,
+{
+    fn induce(&self) -> InfinitySet<Ts::Color> {
         InfinitySet(
-            self.path
-                .transition_colors()
-                .skip(
-                    self.loop_index
-                        .expect("Do not try to get the infinity set of a finite run!"),
-                )
-                .cloned()
+            (self
+                .loop_index
+                .expect("Cannot get the infinity set of a finite run!")
+                ..self.path.colors_length())
+                .map(|i| *self.path.nth_color(i).expect("The length does not match!"))
                 .collect(),
         )
     }
 }
 
-impl<'a, 'b, R, Ts: Successor> CanInduce<TransitionColorSequence<Ts::EdgeColor>>
+impl<'a, 'b, R, Ts: Successor> CanInduce<TransitionColorSequence<EdgeColor<Ts>>>
     for Successful<'a, 'b, R, Ts>
 {
-    fn induce(&self) -> TransitionColorSequence<Ts::EdgeColor> {
+    fn induce(&self) -> TransitionColorSequence<EdgeColor<Ts>> {
         TransitionColorSequence(self.path.transition_colors().cloned().collect())
     }
 }
 
-impl<'a, 'b, R, Ts: Successor> CanInduce<StateColorSequence<Ts::StateColor>>
+impl<'a, 'b, R, Ts: Successor> CanInduce<StateColorSequence<StateColor<Ts>>>
     for Successful<'a, 'b, R, Ts>
 {
-    fn induce(&self) -> StateColorSequence<Ts::StateColor> {
+    fn induce(&self) -> StateColorSequence<StateColor<Ts>> {
         StateColorSequence(self.path.state_colors().cloned().collect())
     }
 }
 
-impl<'a, 'b, R, Ts: Successor> CanInduce<ReachedColor<Ts::StateColor>>
+impl<'a, 'b, R, Ts: Successor> CanInduce<ReachedColor<StateColor<Ts>>>
     for Successful<'a, 'b, R, Ts>
 {
-    fn induce(&self) -> ReachedColor<Ts::StateColor> {
+    fn induce(&self) -> ReachedColor<StateColor<Ts>> {
         ReachedColor(self.ts.state_color(self.path.reached()).clone())
     }
 }
 
-impl<'a, 'b, R, Ts: Successor> CanInduce<ReachedState<Ts::Index>> for Successful<'a, 'b, R, Ts> {
-    fn induce(&self) -> ReachedState<Ts::Index> {
+impl<'a, 'b, R, Ts: Successor> CanInduce<ReachedState<Ts::StateIndex>>
+    for Successful<'a, 'b, R, Ts>
+{
+    fn induce(&self) -> ReachedState<Ts::StateIndex> {
         ReachedState(self.path.reached())
     }
 }
@@ -70,7 +76,7 @@ impl<'a, 'b, R, Ts: Successor> Successful<'a, 'b, R, Ts> {
         word: &'b R,
         ts: &'a Ts,
         loop_index: Option<usize>,
-        path: Path<'a, Ts::Alphabet, Ts::Index, Ts::StateColor, Ts::EdgeColor>,
+        path: Path<'a, Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>,
     ) -> Self {
         Self {
             word,

@@ -8,7 +8,10 @@ use crate::{
 
 use self::walker::RunResult;
 
-use super::{CanInduce, IndexTS, Induced, Path, StateColored, StateIndex, Transition};
+use super::{
+    CanInduce, Colored, EdgeColor, IndexTS, IndexType, Induced, Path, StateColor, StateIndex,
+    Transition,
+};
 
 mod partial;
 pub use partial::Partial;
@@ -32,20 +35,26 @@ pub use walker::Walker;
 /// with an expression, while a [`Transition`] is labelled with an actual symbol (that [`Alphabet::matches`]
 /// the expression). So a transition is a concrete edge that is taken (usually by the run on a word), while
 /// an edge may represent any different number of transitions.
-pub trait Successor: StateColored + HasAlphabet {
-    /// The type of the color associated with the edges.
-    type EdgeColor: Color;
+#[impl_tools::autoimpl(for<T: trait + ?Sized> &T, &mut T)]
+pub trait Successor: Colored + HasAlphabet {
+    type StateIndex: IndexType;
 
     /// For a given `state` and `symbol`, returns the transition that is taken, if it exists.
     fn successor(
         &self,
-        state: Self::Index,
+        state: Self::StateIndex,
         symbol: SymbolOf<Self>,
-    ) -> Option<Transition<'_, Self::Index, SymbolOf<Self>, Self::EdgeColor>>;
+    ) -> Option<Transition<'_, Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>>;
+
+    fn state_color(&self, state: Self::StateIndex) -> &StateColor<Self>;
 
     /// Returns just the [Self::Index] of the successor that is reached on the given `symbol`
     /// from `state`. If no suitable transition exists, `None` is returned.
-    fn successor_index(&self, state: Self::Index, symbol: SymbolOf<Self>) -> Option<Self::Index> {
+    fn successor_index(
+        &self,
+        state: Self::StateIndex,
+        symbol: SymbolOf<Self>,
+    ) -> Option<Self::StateIndex> {
         self.successor(state, symbol).map(|t| t.target())
     }
 
@@ -54,7 +63,7 @@ pub trait Successor: StateColored + HasAlphabet {
     fn walk<'a, 'b, R: Word<Symbol = SymbolOf<Self>>>(
         &'a self,
         word: &'b R,
-        state: Self::Index,
+        state: Self::StateIndex,
     ) -> Walker<'a, 'b, Self, R>
     where
         Self: Sized,
@@ -73,7 +82,7 @@ pub trait Successor: StateColored + HasAlphabet {
     fn run<'a, 'b, R: Word<Symbol = SymbolOf<Self>>>(
         &'a self,
         word: &'b R,
-        state: Self::Index,
+        state: Self::StateIndex,
     ) -> RunResult<'a, 'b, Self, R>
     where
         Self: Sized,
@@ -85,7 +94,7 @@ pub trait Successor: StateColored + HasAlphabet {
     /// If the run is successful (i.e. for all symbols of `word` a suitable transition can be taken),
     /// this returns whatever is *induced* by the run. For a [`Word`] of finite length, this is
     /// simply
-    fn induced<'a, 'b, R, I>(&'a self, word: &'b R, state: Self::Index) -> Option<I>
+    fn induced<'a, 'b, R, I>(&'a self, word: &'b R, state: Self::StateIndex) -> Option<I>
     where
         I: Induced,
         Successful<'a, 'b, R, Self>: CanInduce<I>,
@@ -93,18 +102,6 @@ pub trait Successor: StateColored + HasAlphabet {
         R: Word<Symbol = SymbolOf<Self>>,
     {
         self.run(word, state).ok().map(|r| r.induce())
-    }
-}
-
-impl<S: Successor> Successor for &S {
-    type EdgeColor = S::EdgeColor;
-
-    fn successor(
-        &self,
-        state: Self::Index,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Transition<'_, Self::Index, SymbolOf<Self>, Self::EdgeColor>> {
-        (**self).successor(state, symbol)
     }
 }
 
@@ -117,6 +114,7 @@ mod tests {
         alphabet,
         ts::{
             finite::{self, ReachedColor, ReachedState},
+            index_ts::MealyTS,
             IndexTS, Sproutable,
         },
         word::RawWithLength,
@@ -126,9 +124,9 @@ mod tests {
     #[test]
     #[traced_test]
     fn run() {
-        let mut ts = IndexTS::new(alphabet::Simple::from_iter(['a', 'b']));
-        let s0 = ts.add_state(1337);
-        let s1 = ts.add_state(42);
+        let mut ts = MealyTS::new(alphabet::Simple::from_iter(['a', 'b']));
+        let s0 = ts.add_state(());
+        let s1 = ts.add_state(());
         let _e0 = ts.add_edge(s0, 'a', s1, 0);
         let _e1 = ts.add_edge(s0, 'b', s0, 1);
         let _e2 = ts.add_edge(s1, 'a', s1, 0);
@@ -141,9 +139,8 @@ mod tests {
         let ReachedState(q) = ts.induced(&"ab", s0).unwrap();
         assert_eq!(q, s0);
         let ReachedColor(c) = ts.induced(&input, s0).unwrap();
-        assert_eq!(c, 42);
 
         let finite::StateColorSequence(seq) = ts.induced(&"abba", s0).unwrap();
-        assert_eq!(seq, vec![1337, 42, 1337, 1337, 42]);
+        assert_eq!(seq, vec![(), (), (), (), ()]);
     }
 }

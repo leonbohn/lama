@@ -3,15 +3,154 @@ use std::marker::PhantomData;
 use tracing::trace;
 
 use crate::{
-    alphabet::{Alphabet, HasAlphabet},
+    alphabet::{Alphabet, HasAlphabet, SymbolOf},
     ts::{
         finite::{ReachedColor, ReachedState},
         infinite::InfinitySet,
-        Congruence, HasMutableStates, HasStates, IndexTS, IndexType, Pointed, Sproutable, State,
-        StateColored, StateIndex, Successor, TransitionSystem,
+        Colored, Congruence, EdgeColor, HasMutableStates, HasStates, IndexTS, IndexType, OnEdges,
+        OnStates, Pointed, Sproutable, State, StateColor, StateIndex, Successor, Transition,
+        TransitionSystem,
     },
     Color, FiniteLength, InfiniteLength, Length, Word,
 };
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WithInitial<Ts: Successor>(Ts, Ts::StateIndex);
+
+mod boilerplate_impls {
+    use crate::ts::ColorPosition;
+
+    use super::*;
+
+    // impl<Ts> std::ops::Deref for WithInitial<Ts>
+    // where
+    //     Ts: Successor,
+    // {
+    //     type Target = Ts;
+
+    //     fn deref(&self) -> &Self::Target {
+    //         &self.0
+    //     }
+    // }
+
+    // impl<Ts> std::ops::DerefMut for WithInitial<Ts>
+    // where
+    //     Ts: Successor,
+    // {
+    //     fn deref_mut(&mut self) -> &mut Self::Target {
+    //         &mut self.0
+    //     }
+    // }
+
+    impl<A, C, Pos> WithInitial<IndexTS<A, C, Pos, usize>>
+    where
+        A: Alphabet,
+        C: Color,
+        Pos: ColorPosition,
+    {
+        pub fn new(alphabet: A) -> Self
+        where
+            StateColor<Self>: Default,
+        {
+            let mut ts = IndexTS::new(alphabet);
+            let initial = ts.add_state(<StateColor<Self> as Default>::default());
+            Self(ts, initial)
+        }
+    }
+
+    impl<Ts: Successor> WithInitial<Ts> {
+        pub fn ts(&self) -> &Ts {
+            &self.0
+        }
+        pub fn ts_mut(&mut self) -> &mut Ts {
+            &mut self.0
+        }
+    }
+    impl<Ts: Successor + Sproutable> Sproutable for WithInitial<Ts> {
+        fn add_state(&mut self, color: StateColor<Self>) -> Self::StateIndex {
+            self.ts_mut().add_state(color)
+        }
+
+        fn add_edge<X, Y>(
+            &mut self,
+            from: X,
+            on: <Self::Alphabet as Alphabet>::Expression,
+            to: Y,
+            color: EdgeColor<Self>,
+        ) -> crate::ts::EdgeIndex
+        where
+            X: Into<Self::StateIndex>,
+            Y: Into<Self::StateIndex>,
+        {
+            self.ts_mut().add_edge(from, on, to, color)
+        }
+    }
+    impl<Ts: Successor + HasStates> HasStates for WithInitial<Ts> {
+        type State<'this> = Ts::State<'this>
+        where
+            Self: 'this;
+
+        type StatesIter<'this> = Ts::StatesIter<'this>
+        where
+            Self: 'this;
+
+        fn state(&self, index: Self::StateIndex) -> Option<Self::State<'_>> {
+            self.ts().state(index)
+        }
+
+        fn states_iter(&self) -> Self::StatesIter<'_> {
+            self.ts().states_iter()
+        }
+    }
+    impl<Ts: Successor + HasMutableStates> HasMutableStates for WithInitial<Ts> {
+        type StateMut<'this>  = Ts::StateMut<'this> where Self:'this;
+
+        fn state_mut(&mut self, index: Self::StateIndex) -> Option<Self::StateMut<'_>> {
+            self.ts_mut().state_mut(index)
+        }
+    }
+    impl<Ts: Successor + HasAlphabet> HasAlphabet for WithInitial<Ts> {
+        type Alphabet = Ts::Alphabet;
+
+        fn alphabet(&self) -> &Self::Alphabet {
+            self.0.alphabet()
+        }
+    }
+    impl<Ts: Successor + Colored> Colored for WithInitial<Ts> {
+        type Position = Ts::Position;
+
+        type Color = Ts::Color;
+    }
+    impl<Ts: Successor> Pointed for WithInitial<Ts> {
+        fn initial(&self) -> Self::StateIndex {
+            self.1
+        }
+    }
+    impl<Ts: Successor> Successor for WithInitial<Ts> {
+        type StateIndex = Ts::StateIndex;
+
+        fn successor(
+            &self,
+            state: Self::StateIndex,
+            symbol: SymbolOf<Self>,
+        ) -> Option<Transition<'_, Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>> {
+            self.ts().successor(state, symbol)
+        }
+
+        fn state_color(&self, state: Self::StateIndex) -> &StateColor<Self> {
+            self.ts().state_color(state)
+        }
+    }
+}
+
+pub type MooreMachine<A, C, Idx = usize> = WithInitial<IndexTS<A, C, OnStates, Idx>>;
+pub type MealyMachine<A, C, Idx = usize> = WithInitial<IndexTS<A, C, OnEdges, Idx>>;
+
+pub type DFA<A, Idx = usize> = MooreMachine<A, bool, Idx>;
+pub type DBA<A, Idx = usize> = MealyMachine<A, bool, Idx>;
+pub type DPA<A, Idx = usize> = MealyMachine<A, usize, Idx>;
+pub type SBDBA<A, Idx = usize> = MooreMachine<A, bool, Idx>;
+pub type SBDPA<A, Idx = usize> = MooreMachine<A, usize, Idx>;
 
 pub trait Acceptor<S, K> {
     fn accepts<W>(&self, word: W) -> bool
@@ -19,228 +158,25 @@ pub trait Acceptor<S, K> {
         W: Word<Length = K, Symbol = S>;
 }
 
-pub struct Automaton<
-    A: Alphabet,
-    Q,
-    C,
-    Acc,
-    Idx = usize,
-    Ts: Successor<Index = Idx, EdgeColor = C, StateColor = Q, Alphabet = A> = IndexTS<A, Q, C, Idx>,
-> {
-    ts: Ts,
-    initial: Idx,
-    _acc: PhantomData<Acc>,
-}
-
-impl<
-        A: Alphabet,
-        Q,
-        C,
-        Acc,
-        Idx,
-        Ts: Successor<Index = Idx, EdgeColor = C, StateColor = Q, Alphabet = A>,
-    > Automaton<A, Q, C, Acc, Idx, Ts>
-{
-    pub fn ts_with_initial(ts: Ts, initial: Idx) -> Self {
-        Self {
-            ts,
-            initial,
-            _acc: PhantomData,
-        }
-    }
-}
-
-impl<
-        A: Alphabet,
-        Q: Color,
-        C,
-        Acc,
-        Idx: IndexType,
-        Ts: Successor<Index = Idx, EdgeColor = C, StateColor = Q, Alphabet = A>,
-    > StateColored for Automaton<A, Q, C, Acc, Idx, Ts>
-{
-    type Index = Idx;
-    type StateColor = Q;
-
-    fn state_color(&self, index: Self::Index) -> &Self::StateColor {
-        self.ts.state_color(index)
-    }
-}
-
-impl<
-        A: Alphabet,
-        Q: Color,
-        C,
-        Acc,
-        Idx: IndexType,
-        Ts: Successor<Index = Idx, EdgeColor = C, StateColor = Q, Alphabet = A>
-            + HasStates<Index = Idx, StateColor = Q>,
-    > HasStates for Automaton<A, Q, C, Acc, Idx, Ts>
-{
-    #[doc = " The type of the states."]
-    type State<'this> = Ts::State<'this>
-    where
-        Self: 'this;
-
-    #[doc = " The type of the iterator over the states."]
-    type StatesIter<'this> = Ts::StatesIter<'this>
-    where
-        Self: 'this;
-
-    #[doc = " Returns a reference to the state with the given index, if it exists and `None` otherwise."]
-    fn state(&self, index: Self::Index) -> Option<Self::State<'_>> {
-        self.ts.state(index)
-    }
-
-    #[doc = " Returns an iterator over the states of the implementor."]
-    fn states_iter(&self) -> Self::StatesIter<'_> {
-        self.ts.states_iter()
-    }
-}
-
-impl<
-        A: Alphabet,
-        Q: Color,
-        C,
-        Acc,
-        Idx: IndexType,
-        Ts: Successor<Index = Idx, EdgeColor = C, StateColor = Q, Alphabet = A>
-            + HasAlphabet<Alphabet = A>,
-    > HasAlphabet for Automaton<A, Q, C, Acc, Idx, Ts>
-{
-    type Alphabet = A;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.ts.alphabet()
-    }
-}
-
-impl<
-        A: Alphabet,
-        Q: Color,
-        C: Color,
-        Acc,
-        Idx: IndexType,
-        Ts: Successor<Index = Idx, EdgeColor = C, StateColor = Q, Alphabet = A>,
-    > Successor for Automaton<A, Q, C, Acc, Idx, Ts>
-{
-    type EdgeColor = C;
-
-    fn successor(
-        &self,
-        state: Self::Index,
-        symbol: crate::alphabet::SymbolOf<Self>,
-    ) -> Option<
-        crate::ts::Transition<'_, Self::Index, crate::alphabet::SymbolOf<Self>, Self::EdgeColor>,
-    > {
-        self.ts.successor(state, symbol)
-    }
-}
-
-impl<
-        A: Alphabet,
-        Q: Color,
-        C: Color,
-        Acc,
-        Idx: IndexType,
-        Ts: Successor<Index = Idx, EdgeColor = C, StateColor = Q, Alphabet = A>,
-    > Pointed for Automaton<A, Q, C, Acc, Idx, Ts>
-{
-    fn initial(&self) -> Self::Index {
-        self.initial
-    }
-}
-
-impl<
-        A: Alphabet,
-        Q: Color,
-        C: Color,
-        Acc,
-        Idx: IndexType,
-        Ts: Successor<Index = Idx, EdgeColor = C, StateColor = Q, Alphabet = A> + HasMutableStates,
-    > HasMutableStates for Automaton<A, Q, C, Acc, Idx, Ts>
-{
-    type StateMut<'this> = Ts::StateMut<'this> where Self:'this;
-
-    fn state_mut(&mut self, index: Self::Index) -> Option<Self::StateMut<'_>> {
-        self.ts.state_mut(index)
-    }
-}
-
-impl<A: Alphabet, Q: Color + Default, C: Color, Acc> Sproutable
-    for Automaton<A, Q, C, Acc, usize, IndexTS<A, Q, C, usize>>
-{
-    fn add_state(&mut self, color: Self::StateColor) -> Self::Index {
-        self.ts.add_state(color)
-    }
-
-    fn add_edge<X, Y>(
-        &mut self,
-        from: X,
-        on: <Self::Alphabet as Alphabet>::Expression,
-        to: Y,
-        color: Self::EdgeColor,
-    ) -> crate::ts::EdgeIndex
-    where
-        X: Into<Self::Index>,
-        Y: Into<Self::Index>,
-    {
-        self.ts.add_edge(from, on, to, color)
-    }
-
-    fn new_empty(alphabet: Self::Alphabet) -> Self {
-        let mut ts = IndexTS::new_empty(alphabet);
-        let initial = ts.add_state(Q::default());
-        Self {
-            initial,
-            ts,
-            _acc: PhantomData,
-        }
-    }
-}
-
-pub struct ReachabilityAcceptance;
-pub type Dfa<A, Idx = usize, C = (), Ts = IndexTS<A, bool, C, Idx>> =
-    Automaton<A, bool, C, ReachabilityAcceptance, Idx, Ts>;
-
-impl<
-        A: Alphabet,
-        Idx: IndexType,
-        C: Color,
-        Ts: Successor<Index = Idx, StateColor = bool, EdgeColor = C, Alphabet = A>,
-    > Acceptor<A::Symbol, FiniteLength> for Automaton<A, bool, C, ReachabilityAcceptance, Idx, Ts>
-{
+impl<A: Alphabet, Idx: IndexType> Acceptor<A::Symbol, FiniteLength> for DFA<A, Idx> {
     fn accepts<W>(&self, word: W) -> bool
     where
         W: Word<Length = FiniteLength, Symbol = A::Symbol>,
     {
-        if let Some(ReachedColor(q)) = self.induced(&word, self.initial) {
-            q
+        if let Some(ReachedColor(c)) = self.induced(&word, self.initial()) {
+            c
         } else {
             false
         }
     }
 }
 
-pub struct BuchiAcceptance;
-pub struct BuchiStateAcceptance;
-pub type Dbsa<A, Idx = usize, C = (), Ts = IndexTS<A, bool, C, Idx>> =
-    Automaton<A, bool, C, BuchiStateAcceptance, Idx, Ts>;
-pub type Dba<A, Idx = usize, C = (), Ts = IndexTS<A, C, bool, Idx>> =
-    Automaton<A, C, bool, BuchiAcceptance, Idx, Ts>;
-
-impl<
-        A: Alphabet,
-        Idx: IndexType,
-        Q: Color,
-        Ts: Successor<Index = Idx, StateColor = Q, EdgeColor = bool, Alphabet = A>,
-    > Acceptor<A::Symbol, InfiniteLength> for Automaton<A, Q, bool, BuchiAcceptance, Idx, Ts>
-{
+impl<A: Alphabet, Idx: IndexType> Acceptor<A::Symbol, InfiniteLength> for DBA<A, Idx> {
     fn accepts<W>(&self, word: W) -> bool
     where
         W: Word<Length = InfiniteLength, Symbol = A::Symbol>,
     {
-        if let Some(InfinitySet(qs)) = self.induced(&word, self.initial) {
+        if let Some(InfinitySet(qs)) = self.induced(&word, self.initial()) {
             qs.into_iter().any(|q| q)
         } else {
             false
@@ -248,39 +184,11 @@ impl<
     }
 }
 
-// impl<A: Alphabet, Idx, C: Color> Acceptor<A::Symbol, InfiniteLength>
-//     for Automaton<A, bool, C, BuchiStateAcceptance, Idx>
-// {
-//     fn accepts<W>(&self, word: W) -> bool
-//     where
-//         W: Word<Length = InfiniteLength, Symbol = A::Symbol>,
-//     {
-//         todo!()
-//     }
-// }
-
-// impl<A: Alphabet, Idx: IndexType, C: Color> Acceptor<A::Symbol, InfiniteLength>
-//     for Automaton<A, C, bool, BuchiAcceptance, Idx>
-// {
-//     fn accepts<W>(&self, word: W) -> bool
-//     where
-//         W: Word<Length = InfiniteLength, Symbol = A::Symbol>,
-//     {
-//         if let Some(InfinitySet(qs)) = self.ts.induced(&word, self.initial) {
-//             trace!("Edge colors in the infinity set are: {qs:?}", qs = qs);
-//             qs.iter().any(|q| *q)
-//         } else {
-//             trace!("No infinite run possible");
-//             false
-//         }
-//     }
-// }
-
 #[cfg(test)]
 mod tests {
     use crate::{
         alphabet::{self, Simple},
-        automaton::{Acceptor, Dfa},
+        automaton::Acceptor,
         ts::{HasColorMut, HasMutableStates, IndexTS, Pointed, Sproutable},
         upw,
         word::RawWithLength,
@@ -290,7 +198,7 @@ mod tests {
     #[test]
     #[tracing_test::traced_test]
     fn dbas() {
-        let mut dba = super::Dba::new_empty(Simple::from_iter(['a', 'b']));
+        let mut dba = super::DBA::new(Simple::from_iter(['a', 'b']));
         let q1 = dba.add_state(());
         let q0 = dba.initial();
 
@@ -307,7 +215,7 @@ mod tests {
     #[test]
     #[tracing_test::traced_test]
     fn dfas() {
-        let mut dfa = Dfa::new_empty(Simple::from_iter(['a', 'b']));
+        let mut dfa = super::DFA::new(Simple::new(['a', 'b']));
         let s0 = dfa.initial();
         dfa.state_mut(s0).unwrap().set_color(true);
         let s1 = dfa.add_state(false);

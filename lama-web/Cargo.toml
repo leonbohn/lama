@@ -10,7 +10,7 @@ edition = "2021"
 dioxus = "0.3"
 dioxus-web = "0.3"
 
-log = "0.4.6"
+log = "0.4.19"
 
 # WebAssembly Debug
 wasm-logger = "0.2.0"

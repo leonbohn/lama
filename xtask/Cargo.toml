@@ -7,6 +7,6 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.71"
-clap = "4.3.1"
+clap = "4.3.11"
 xtask-wasm = "0.1.10"
 xtaskops = "0.4.2"

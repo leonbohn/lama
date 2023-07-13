@@ -16,7 +16,9 @@ pub use length::{FiniteLength, InfiniteLength, Length};
 /// This module defines transition systems and successor functions and such.
 pub mod ts;
 
+#[allow(clippy::upper_case_acronyms)]
 mod automaton;
+pub use automaton::{Acceptor, DBA, DFA, DPA, SBDBA, SBDPA};
 
 /// Module that contains definitions for dealing with words.
 #[macro_use]
