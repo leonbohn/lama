@@ -29,6 +29,17 @@ pub struct Path<A: Alphabet, Idx, C: Color, Pos: ColorPosition> {
 pub trait ColorSequence<C> {
     fn nth_color(&self, n: usize) -> Option<&C>;
     fn colors_length(&self) -> usize;
+    fn last(&self) -> Option<&C> {
+        self.nth_color(self.colors_length() - 1)
+    }
+    fn colors_vec(&self) -> Vec<C>
+    where
+        C: Clone,
+    {
+        (0..self.colors_length())
+            .map(|i| self.nth_color(i).unwrap().clone())
+            .collect()
+    }
 }
 
 impl<A: Alphabet, Idx, C: Color> ColorSequence<C> for Path<A, Idx, C, OnStates> {

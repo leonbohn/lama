@@ -1,15 +1,16 @@
-use std::marker::PhantomData;
+use std::{collections::BTreeSet, marker::PhantomData};
 
+use ahash::HashSet;
 use tracing::trace;
 
 use crate::{
-    alphabet::{Alphabet, HasAlphabet, SymbolOf},
+    alphabet::{Alphabet, HasAlphabet, Symbol, SymbolOf},
     ts::{
-        finite::{ReachedColor, ReachedState},
+        finite::{ReachedColor, ReachedState, TransitionColorSequence},
         infinite::InfinitySet,
-        Congruence, EdgeColor, HasMutableStates, HasStates, IndexTS, IndexType, OnEdges, OnStates,
-        Pointed, Sproutable, State, StateColor, StateIndex, Successor, Transition,
-        TransitionSystem,
+        ColorPosition, Congruence, EdgeColor, HasMutableStates, HasStates, IndexTS, IndexType,
+        OnEdges, OnStates, Pointed, Sproutable, State, StateColor, StateIndex, Successor,
+        Transition, TransitionSystem,
     },
     Color, FiniteLength, InfiniteLength, Length, Word,
 };
@@ -150,35 +151,127 @@ pub type DPA<A, Idx = usize> = MealyMachine<A, usize, Idx>;
 pub type SBDBA<A, Idx = usize> = MooreMachine<A, bool, Idx>;
 pub type SBDPA<A, Idx = usize> = MooreMachine<A, usize, Idx>;
 
+pub trait Transforms<Domain> {
+    type Codomain;
+    fn transform(&self, domain: Domain) -> Self::Codomain;
+}
+
+pub struct SigmaStar<A>(A);
+pub struct SigmaPlus<A>(A);
+
+pub trait Transformer<S, Len: Length, Pos: ColorPosition> {
+    type Output;
+    fn transform<W: Word<Symbol = S, Length = Len>>(&self, input: W) -> Self::Output;
+}
+
+impl<Ts: Successor<Position = OnStates> + Pointed> Transformer<SymbolOf<Ts>, FiniteLength, OnStates>
+    for Ts
+{
+    type Output = Ts::Color;
+
+    fn transform<W: Word<Symbol = SymbolOf<Ts>, Length = FiniteLength>>(
+        &self,
+        input: W,
+    ) -> Self::Output {
+        if let Some(ReachedColor(c)) = self.induced(&input, self.initial()) {
+            c
+        } else {
+            unreachable!()
+        }
+    }
+}
+
+impl<Ts> Transformer<SymbolOf<Ts>, InfiniteLength, OnEdges> for Ts
+where
+    Ts: Successor<Position = OnEdges> + Pointed,
+    Ts::Color: Copy,
+{
+    type Output = BTreeSet<Ts::Color>;
+
+    fn transform<W: Word<Symbol = SymbolOf<Ts>, Length = InfiniteLength>>(
+        &self,
+        input: W,
+    ) -> Self::Output {
+        if let Some(InfinitySet(c)) = self.induced(&input, self.initial()) {
+            c
+        } else {
+            unreachable!()
+        }
+    }
+}
+
+impl<Ts> Transformer<SymbolOf<Ts>, FiniteLength, OnEdges> for Ts
+where
+    Ts: Successor<Position = OnEdges> + Pointed,
+    Ts::Color: Copy,
+{
+    type Output = Ts::Color;
+
+    fn transform<W: Word<Symbol = SymbolOf<Ts>, Length = FiniteLength>>(
+        &self,
+        input: W,
+    ) -> Self::Output {
+        if let Some(TransitionColorSequence(cs)) = self.induced(&input, self.initial()) {
+            *cs.last().expect("Must exist")
+        } else {
+            unreachable!()
+        }
+    }
+}
+
 pub trait Acceptor<S, K> {
     fn accepts<W>(&self, word: W) -> bool
     where
         W: Word<Length = K, Symbol = S>;
 }
 
-impl<A: Alphabet, Idx: IndexType> Acceptor<A::Symbol, FiniteLength> for DFA<A, Idx> {
+impl<S: Symbol, T: Transformer<S, FiniteLength, OnStates, Output = bool>> Acceptor<S, FiniteLength>
+    for T
+{
     fn accepts<W>(&self, word: W) -> bool
     where
-        W: Word<Length = FiniteLength, Symbol = A::Symbol>,
+        W: Word<Length = FiniteLength, Symbol = S>,
     {
-        if let Some(ReachedColor(c)) = self.induced(&word, self.initial()) {
-            c
-        } else {
-            false
-        }
+        self.transform(word)
     }
 }
 
-impl<A: Alphabet, Idx: IndexType> Acceptor<A::Symbol, InfiniteLength> for DBA<A, Idx> {
+pub trait ReducesTo<T = bool> {
+    fn reduce(self) -> T;
+}
+
+impl ReducesTo<bool> for bool {
+    fn reduce(self) -> bool {
+        self
+    }
+}
+
+impl ReducesTo<bool> for usize {
+    fn reduce(self) -> bool {
+        (self % 2) == 0
+    }
+}
+
+impl<X: Default, T: Ord + ReducesTo<X>> ReducesTo<X> for BTreeSet<T> {
+    fn reduce(self) -> X {
+        self.into_iter()
+            .min()
+            .map(|x| x.reduce())
+            .unwrap_or_default()
+    }
+}
+
+impl<S, T> Acceptor<S, InfiniteLength> for T
+where
+    S: Symbol,
+    T: Transformer<S, InfiniteLength, OnEdges>,
+    T::Output: ReducesTo<bool>,
+{
     fn accepts<W>(&self, word: W) -> bool
     where
-        W: Word<Length = InfiniteLength, Symbol = A::Symbol>,
+        W: Word<Length = InfiniteLength, Symbol = S>,
     {
-        if let Some(InfinitySet(qs)) = self.induced(&word, self.initial()) {
-            qs.into_iter().any(|q| q)
-        } else {
-            false
-        }
+        self.transform(word).reduce()
     }
 }
 
@@ -186,7 +279,7 @@ impl<A: Alphabet, Idx: IndexType> Acceptor<A::Symbol, InfiniteLength> for DBA<A,
 mod tests {
     use crate::{
         alphabet::{self, Simple},
-        automaton::Acceptor,
+        automaton::{Acceptor, Transformer},
         ts::{HasColorMut, HasMutableStates, IndexTS, Pointed, Sproutable},
         upw,
         word::RawWithLength,
@@ -207,7 +300,7 @@ mod tests {
         assert!(dba.accepts(RawWithLength::new("abb", InfiniteLength(3, 0))));
         assert!(!dba.accepts(RawWithLength::new("b", InfiniteLength(1, 0))));
         assert!(dba.accepts(upw!("a")));
-        assert!(!dba.accepts(upw!("b")))
+        assert!(!dba.accepts(upw!("b")));
     }
 
     #[test]

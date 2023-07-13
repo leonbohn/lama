@@ -5,7 +5,7 @@ use crate::{
         finite::{ReachedColor, ReachedState, StateColorSequence, TransitionColorSequence},
         infinite::InfinitySet,
         path::ColorSequence,
-        CanInduce, EdgeColor, Path, StateColor, StateIndex, TransitionSystem,
+        CanInduce, EdgeColor, OnEdges, Path, StateColor, StateIndex, TransitionSystem,
     },
     word::{RawWithLength, Rawpresentation},
     Color, FiniteLength, Length,
@@ -33,12 +33,7 @@ where
                 .loop_index
                 .expect("Cannot get the infinity set of a finite run!")
                 ..self.path.colors_length())
-                .map(|i| {
-                    self.path
-                        .nth_color(i)
-                        .expect("The length does not match!")
-                        .clone()
-                })
+                .map(|i| *self.path.nth_color(i).expect("The length does not match!"))
                 .collect(),
         )
     }
@@ -57,6 +52,14 @@ impl<'a, 'b, R, Ts: Successor> CanInduce<ReachedState<Ts::StateIndex>>
 {
     fn induce(&self) -> ReachedState<Ts::StateIndex> {
         ReachedState(self.path.reached())
+    }
+}
+
+impl<'a, 'b, R, Ts: Successor<Position = OnEdges>> CanInduce<TransitionColorSequence<Ts::Color>>
+    for Successful<'a, 'b, R, Ts>
+{
+    fn induce(&self) -> TransitionColorSequence<Ts::Color> {
+        TransitionColorSequence(self.path.colors_vec())
     }
 }
 

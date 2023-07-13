@@ -2,18 +2,9 @@ use std::{fmt::Display, marker::PhantomData};
 
 use crate::alphabet::{Alphabet, Expression, HasAlphabet, SymbolOf};
 
-use super::{ColorPosition, EdgeColor, OnEdges, OnStates, StateColor, Successor, Transition};
-
-#[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Product<L, R>(pub L, pub R);
-
-impl<L: HasAlphabet, R> HasAlphabet for Product<L, R> {
-    type Alphabet = L::Alphabet;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.0.alphabet()
-    }
-}
+use super::{
+    ColorPosition, EdgeColor, OnEdges, OnStates, Pointed, StateColor, Successor, Transition,
+};
 
 #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ProductIndex<L, R>(pub L, pub R);
@@ -25,10 +16,26 @@ impl<L: Display, R: Display> Display for ProductIndex<L, R> {
 }
 
 #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct ProductColors<Pos: ColorPosition, C, D>(pub C, pub D, pub PhantomData<Pos>);
+pub struct Product<L, R>(pub L, pub R);
 
-#[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct ProductPosition<C, D>(pub C, pub D);
+impl<L, R> Pointed for Product<L, R>
+where
+    L: Pointed,
+    R: Pointed<Position = L::Position>,
+    R::Alphabet: Alphabet<Symbol = SymbolOf<L>>,
+{
+    fn initial(&self) -> Self::StateIndex {
+        ProductIndex(self.0.initial(), self.1.initial())
+    }
+}
+
+impl<L: HasAlphabet, R> HasAlphabet for Product<L, R> {
+    type Alphabet = L::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.0.alphabet()
+    }
+}
 
 impl<L, R> Successor for Product<L, R>
 where
@@ -48,8 +55,8 @@ where
         symbol: SymbolOf<Self>,
     ) -> Option<Transition<Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>> {
         let ProductIndex(l, r) = state;
-        let symbol = symbol.clone();
-        let ll = self.0.successor(l, symbol.clone())?;
+        let symbol = symbol;
+        let ll = self.0.successor(l, symbol)?;
         let rr = self.1.successor(r, symbol)?;
         Some(Transition::new(
             state,
