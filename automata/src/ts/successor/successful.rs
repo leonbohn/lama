@@ -44,11 +44,14 @@ where
     }
 }
 
-impl<'a, 'b, R, Ts: Successor> CanInduce<ReachedColor<StateColor<Ts>>>
-    for Successful<'a, 'b, R, Ts>
+impl<'a, 'b, R, Ts> CanInduce<ReachedColor<Ts::Color>> for Successful<'a, 'b, R, Ts>
+where
+    Ts: Successor,
+    Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>: ColorSequence<Ts::Color>,
+    Ts::Color: Clone,
 {
-    fn induce(&self) -> ReachedColor<StateColor<Ts>> {
-        ReachedColor(self.ts.state_color(self.path.reached()).clone())
+    fn induce(&self) -> ReachedColor<Ts::Color> {
+        ReachedColor(self.path.last().unwrap().clone())
     }
 }
 

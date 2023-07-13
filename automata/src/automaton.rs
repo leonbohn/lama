@@ -8,8 +8,9 @@ use crate::{
     ts::{
         finite::{ReachedColor, ReachedState, TransitionColorSequence},
         infinite::InfinitySet,
+        path::ColorSequence,
         ColorPosition, Congruence, EdgeColor, HasMutableStates, HasStates, IndexTS, IndexType,
-        OnEdges, OnStates, Pointed, Sproutable, State, StateColor, StateIndex, Successor,
+        OnEdges, OnStates, Path, Pointed, Sproutable, State, StateColor, StateIndex, Successor,
         Transition, TransitionSystem,
     },
     Color, FiniteLength, InfiniteLength, Length, Word,
@@ -151,13 +152,16 @@ pub type DPA<A, Idx = usize> = MealyMachine<A, usize, Idx>;
 pub type SBDBA<A, Idx = usize> = MooreMachine<A, bool, Idx>;
 pub type SBDPA<A, Idx = usize> = MooreMachine<A, usize, Idx>;
 
-pub trait Transformer<S, Len: Length, Pos: ColorPosition> {
+pub trait Transformer<S, Len: Length> {
     type Output;
     fn transform<W: Word<Symbol = S, Length = Len>>(&self, input: W) -> Self::Output;
 }
 
-impl<Ts: Successor<Position = OnStates> + Pointed> Transformer<SymbolOf<Ts>, FiniteLength, OnStates>
-    for Ts
+impl<Ts> Transformer<SymbolOf<Ts>, FiniteLength> for Ts
+where
+    Ts: Successor + Pointed,
+    Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>: ColorSequence<Ts::Color>,
+    Ts::Color: Clone,
 {
     type Output = Ts::Color;
 
@@ -173,9 +177,10 @@ impl<Ts: Successor<Position = OnStates> + Pointed> Transformer<SymbolOf<Ts>, Fin
     }
 }
 
-impl<Ts> Transformer<SymbolOf<Ts>, InfiniteLength, OnEdges> for Ts
+impl<Ts> Transformer<SymbolOf<Ts>, InfiniteLength> for Ts
 where
-    Ts: Successor<Position = OnEdges> + Pointed,
+    Ts: Successor + Pointed,
+    Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>: ColorSequence<Ts::Color>,
     Ts::Color: Clone,
 {
     type Output = BTreeSet<Ts::Color>;
@@ -192,34 +197,13 @@ where
     }
 }
 
-impl<Ts> Transformer<SymbolOf<Ts>, FiniteLength, OnEdges> for Ts
-where
-    Ts: Successor<Position = OnEdges> + Pointed,
-    Ts::Color: Clone,
-{
-    type Output = Ts::Color;
-
-    fn transform<W: Word<Symbol = SymbolOf<Ts>, Length = FiniteLength>>(
-        &self,
-        input: W,
-    ) -> Self::Output {
-        if let Some(TransitionColorSequence(cs)) = self.induced(&input, self.initial()) {
-            cs.last().expect("Must exist").clone()
-        } else {
-            unreachable!()
-        }
-    }
-}
-
 pub trait Acceptor<S, K> {
     fn accepts<W>(&self, word: W) -> bool
     where
         W: Word<Length = K, Symbol = S>;
 }
 
-impl<S: Symbol, T: Transformer<S, FiniteLength, OnStates, Output = bool>> Acceptor<S, FiniteLength>
-    for T
-{
+impl<S: Symbol, T: Transformer<S, FiniteLength, Output = bool>> Acceptor<S, FiniteLength> for T {
     fn accepts<W>(&self, word: W) -> bool
     where
         W: Word<Length = FiniteLength, Symbol = S>,
@@ -256,7 +240,7 @@ impl<X: Default, T: Ord + ReducesTo<X>> ReducesTo<X> for BTreeSet<T> {
 impl<S, T> Acceptor<S, InfiniteLength> for T
 where
     S: Symbol,
-    T: Transformer<S, InfiniteLength, OnEdges>,
+    T: Transformer<S, InfiniteLength>,
     T::Output: ReducesTo<bool>,
 {
     fn accepts<W>(&self, word: W) -> bool
@@ -306,6 +290,9 @@ mod tests {
         let _e1 = dfa.add_edge(s0, 'b', s0, ());
         let _e2 = dfa.add_edge(s1, 'a', s1, ());
         let _e3 = dfa.add_edge(s1, 'b', s0, ());
+
+        let xxx = (&dfa).product(&dfa);
+        let x = xxx.transform("aaa");
 
         assert!(dfa.accepts("ababab"));
         assert!(!dfa.accepts("a"));

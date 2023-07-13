@@ -17,7 +17,7 @@ use crate::{
 mod index_ts;
 pub use index_ts::IndexTS;
 
-mod path;
+pub mod path;
 pub use path::Path;
 
 mod induces;
