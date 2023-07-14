@@ -7,7 +7,8 @@ pub use successor::Successor;
 mod transition;
 pub use transition::{Edge, EdgeIndex, EdgeIndicesFrom, EdgesFrom, Transition};
 
-mod product;
+mod operations;
+pub use operations::{MatchingProduct, Product, ProductIndex};
 
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
@@ -187,6 +188,14 @@ pub trait ColorPosition: Ord + Eq + Copy + std::fmt::Debug + Display + Hash {
         left: Self::StateColor<C>,
         right: Self::StateColor<D>,
     ) -> Self::StateColor<(C, D)>;
+    fn map_state_color<C: Color, D: Color>(
+        color: Self::StateColor<C>,
+        f: impl FnOnce(C) -> D,
+    ) -> Self::StateColor<D>;
+    fn map_edge_color<C: Color, D: Color>(
+        color: Self::EdgeColor<C>,
+        f: impl FnOnce(C) -> D,
+    ) -> Self::EdgeColor<D>;
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
@@ -216,6 +225,19 @@ impl ColorPosition for OnEdges {
         left: Self::StateColor<C>,
         right: Self::StateColor<C>,
     ) -> Self::StateColor<(C, D)> {
+    }
+
+    fn map_state_color<C: Color, D: Color>(
+        color: Self::StateColor<C>,
+        f: impl FnOnce(C) -> D,
+    ) -> Self::StateColor<D> {
+    }
+
+    fn map_edge_color<C: Color, D: Color>(
+        color: Self::EdgeColor<C>,
+        f: impl FnOnce(C) -> D,
+    ) -> Self::EdgeColor<D> {
+        (f)(color)
     }
 }
 
@@ -247,6 +269,19 @@ impl ColorPosition for OnStates {
         right: Self::StateColor<D>,
     ) -> Self::StateColor<(C, D)> {
         (left, right)
+    }
+
+    fn map_state_color<C: Color, D: Color>(
+        color: Self::StateColor<C>,
+        f: impl FnOnce(C) -> D,
+    ) -> Self::StateColor<D> {
+        (f)(color)
+    }
+
+    fn map_edge_color<C: Color, D: Color>(
+        color: Self::EdgeColor<C>,
+        f: impl FnOnce(C) -> D,
+    ) -> Self::EdgeColor<D> {
     }
 }
 

@@ -256,7 +256,7 @@ mod tests {
     use crate::{
         alphabet::{self, Simple},
         automaton::{Acceptor, Transformer},
-        ts::{HasColorMut, HasMutableStates, IndexTS, Pointed, Sproutable, Successor},
+        ts::{HasColorMut, HasMutableStates, IndexTS, Pointed, Product, Sproutable, Successor},
         upw,
         word::RawWithLength,
         InfiniteLength,
@@ -290,8 +290,9 @@ mod tests {
         let _e1 = dfa.add_edge(s0, 'b', s0, ());
         let _e2 = dfa.add_edge(s1, 'a', s1, ());
         let _e3 = dfa.add_edge(s1, 'b', s0, ());
+        let dfb = dfa.clone();
 
-        let xxx = (&dfa).product(&dfa);
+        let xxx = (&dfa).product(&dfb);
         let x = xxx.transform("aaa");
 
         assert!(dfa.accepts("ababab"));

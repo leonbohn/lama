@@ -204,6 +204,15 @@ impl<Idx, S: Symbol, C: Color> Transition<Idx, S, C> {
         }
     }
 
+    pub fn with_color<D: Color>(self, color: D) -> Transition<Idx, S, D> {
+        Transition {
+            source: self.source,
+            target: self.target,
+            symbol: self.symbol,
+            emits: color,
+        }
+    }
+
     /// Returns the source state index.
     pub fn source(&self) -> Idx
     where

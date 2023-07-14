@@ -9,8 +9,9 @@ use crate::{
 use self::walker::RunResult;
 
 use super::{
-    product::Product, CanInduce, ColorPosition, EdgeColor, IndexTS, IndexType, Induced, Path,
-    StateColor, StateIndex, Transition,
+    operations::{MapColors, MatchingProduct},
+    CanInduce, ColorPosition, EdgeColor, IndexTS, IndexType, Induced, Path, StateColor, StateIndex,
+    Transition,
 };
 
 mod partial;
@@ -48,6 +49,13 @@ pub trait Successor: HasAlphabet {
     ) -> Option<Transition<Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>>;
 
     fn state_color(&self, state: Self::StateIndex) -> StateColor<Self>;
+
+    fn map_colors<D: Color, F: Fn(Self::Color) -> D>(self, f: F) -> MapColors<Self, F>
+    where
+        Self: Sized,
+    {
+        MapColors::new(self, f)
+    }
 
     /// Returns just the [Self::Index] of the successor that is reached on the given `symbol`
     /// from `state`. If no suitable transition exists, `None` is returned.
@@ -111,16 +119,6 @@ pub trait Successor: HasAlphabet {
 
     fn make_state_color(&self, color: Self::Color) -> StateColor<Self> {
         <Self::Position as ColorPosition>::state_color(color)
-    }
-
-    fn product<Ts: Successor<Alphabet = Self::Alphabet, Position = Self::Position>>(
-        self,
-        other: Ts,
-    ) -> Product<Self, Ts>
-    where
-        Self: Sized,
-    {
-        Product(self, other)
     }
 }
 

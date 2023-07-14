@@ -2,12 +2,36 @@ use std::{fmt::Display, marker::PhantomData};
 
 use crate::{
     alphabet::{Alphabet, Expression, HasAlphabet, Symbol, SymbolOf},
-    Acceptor, FiniteLength, Length, Transformer,
+    Acceptor, Color, FiniteLength, Length, Transformer,
 };
 
 use super::{
     ColorPosition, EdgeColor, OnEdges, OnStates, Pointed, StateColor, Successor, Transition,
 };
+
+pub trait Product: Successor + Sized {
+    type Output<Ts: Successor<Alphabet = Self::Alphabet, Position = Self::Position>>: Successor<
+        Alphabet = Self::Alphabet,
+        Position = Self::Position,
+        Color = (Self::Color, Ts::Color),
+    >;
+    fn product<Ts: Successor<Alphabet = Self::Alphabet, Position = Self::Position>>(
+        self,
+        other: Ts,
+    ) -> Self::Output<Ts>;
+}
+
+impl<Lts: Successor + Sized> Product for Lts {
+    type Output<Ts: Successor<Alphabet = Self::Alphabet, Position = Self::Position>> =
+        MatchingProduct<Self, Ts>;
+
+    fn product<Ts: Successor<Alphabet = Self::Alphabet, Position = Self::Position>>(
+        self,
+        other: Ts,
+    ) -> Self::Output<Ts> {
+        MatchingProduct(self, other)
+    }
+}
 
 #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ProductIndex<L, R>(pub L, pub R);
@@ -19,9 +43,9 @@ impl<L: Display, R: Display> Display for ProductIndex<L, R> {
 }
 
 #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Product<L, R>(pub L, pub R);
+pub struct MatchingProduct<L, R>(pub L, pub R);
 
-impl<L, R> Pointed for Product<L, R>
+impl<L, R> Pointed for MatchingProduct<L, R>
 where
     L: Pointed,
     R: Pointed<Position = L::Position>,
@@ -32,7 +56,7 @@ where
     }
 }
 
-impl<L: HasAlphabet, R> HasAlphabet for Product<L, R> {
+impl<L: HasAlphabet, R> HasAlphabet for MatchingProduct<L, R> {
     type Alphabet = L::Alphabet;
 
     fn alphabet(&self) -> &Self::Alphabet {
@@ -40,7 +64,7 @@ impl<L: HasAlphabet, R> HasAlphabet for Product<L, R> {
     }
 }
 
-impl<L, R> Successor for Product<L, R>
+impl<L, R> Successor for MatchingProduct<L, R>
 where
     L: Successor,
     R: Successor<Position = L::Position>,
@@ -77,6 +101,57 @@ where
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapColors<Ts, F> {
+    ts: Ts,
+    f: F,
+}
+
+impl<Ts, F> MapColors<Ts, F> {
+    pub fn new(ts: Ts, f: F) -> Self {
+        Self { ts, f }
+    }
+}
+
+impl<D: Color, Ts: Successor, F: Fn(Ts::Color) -> D> Successor for MapColors<Ts, F> {
+    type StateIndex = Ts::StateIndex;
+
+    type Position = Ts::Position;
+
+    type Color = D;
+
+    fn successor(
+        &self,
+        state: Self::StateIndex,
+        symbol: SymbolOf<Self>,
+    ) -> Option<Transition<Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>> {
+        self.ts.successor(state, symbol).map(|t| {
+            let edge_color =
+                <Ts::Position as ColorPosition>::map_edge_color(t.color().clone(), &self.f);
+            t.with_color(edge_color)
+        })
+    }
+
+    fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
+        let color = self.ts.state_color(state);
+        <Ts::Position as ColorPosition>::map_state_color(color, &self.f)
+    }
+}
+
+impl<D: Color, Ts: Successor + Pointed, F: Fn(Ts::Color) -> D> Pointed for MapColors<Ts, F> {
+    fn initial(&self) -> Self::StateIndex {
+        self.ts.initial()
+    }
+}
+
+impl<Ts: Successor, F> HasAlphabet for MapColors<Ts, F> {
+    type Alphabet = Ts::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.ts.alphabet()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -85,7 +160,7 @@ mod tests {
         Transformer,
     };
 
-    use super::ProductIndex;
+    use super::{Product, ProductIndex};
 
     #[test]
     fn product() {
@@ -110,5 +185,10 @@ mod tests {
         let xxx = dfa.product(dfb);
         if let Some(ReachedState(q)) = xxx.induced(&"abb", ProductIndex(0, 0)) {}
         let c = xxx.transform("aa");
+
+        let yyy = xxx.map_colors(|(a, b)| a || b);
+        let d = yyy.transform("aa");
+
+        assert_eq!(c.0 || c.1, d);
     }
 }
