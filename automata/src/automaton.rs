@@ -8,10 +8,11 @@ use crate::{
     ts::{
         finite::{ReachedColor, ReachedState, TransitionColorSequence},
         infinite::InfinitySet,
+        operations::{MapColors, MatchingProduct},
         path::ColorSequence,
         ColorPosition, Congruence, EdgeColor, HasMutableStates, HasStates, IndexTS, IndexType,
-        OnEdges, OnStates, Path, Pointed, Sproutable, State, StateColor, StateIndex, Successor,
-        Transition, TransitionSystem,
+        OnEdges, OnStates, Path, Pointed, Product, Sproutable, State, StateColor, StateIndex,
+        Successor, Transition, TransitionSystem,
     },
     Color, FiniteLength, InfiniteLength, Length, Word,
 };
@@ -251,8 +252,79 @@ where
     }
 }
 
+type DfaProductReduced<L, R> = MapColors<MatchingProduct<L, R>, fn((bool, bool)) -> bool>;
+
+pub trait IsDfa:
+    Successor<Color = bool, Position = OnStates>
+    + Pointed
+    + Sized
+    + Acceptor<SymbolOf<Self>, FiniteLength>
+    + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>
+{
+    fn union<Ts: IsDfa<Alphabet = Self::Alphabet>>(self, other: Ts) -> DfaProductReduced<Self, Ts> {
+        self.product(other).map_colors(|(a, b)| a || b)
+    }
+
+    fn intersection<Ts: IsDfa<Alphabet = Self::Alphabet>>(
+        self,
+        other: Ts,
+    ) -> DfaProductReduced<Self, Ts> {
+        self.product(other).map_colors(|(a, b)| a && b)
+    }
+
+    fn negation(self) -> MapColors<Self, fn(bool) -> bool> {
+        self.map_colors(|x| !x)
+    }
+}
+
+impl<Ts> IsDfa for Ts where
+    Ts: Successor<Color = bool, Position = OnStates>
+        + Pointed
+        + Sized
+        + Acceptor<SymbolOf<Self>, FiniteLength>
+        + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>
+{
+}
+
+pub trait IsDba:
+    Successor<Color = bool>
+    + Pointed
+    + Sized
+    + Acceptor<SymbolOf<Self>, InfiniteLength>
+    + Transformer<SymbolOf<Self>, InfiniteLength, Output = BTreeSet<bool>>
+{
+}
+
+impl<Ts> IsDba for Ts where
+    Ts: Successor<Color = bool>
+        + Pointed
+        + Sized
+        + Acceptor<SymbolOf<Self>, InfiniteLength>
+        + Transformer<SymbolOf<Self>, InfiniteLength, Output = BTreeSet<bool>>
+{
+}
+
+pub trait IsDpa:
+    Successor<Color = usize>
+    + Pointed
+    + Sized
+    + Acceptor<SymbolOf<Self>, InfiniteLength>
+    + Transformer<SymbolOf<Self>, InfiniteLength, Output = BTreeSet<usize>>
+{
+}
+
+impl<Ts> IsDpa for Ts where
+    Ts: Successor<Color = usize>
+        + Pointed
+        + Sized
+        + Acceptor<SymbolOf<Self>, InfiniteLength>
+        + Transformer<SymbolOf<Self>, InfiniteLength, Output = BTreeSet<usize>>
+{
+}
+
 #[cfg(test)]
 mod tests {
+    use super::IsDfa;
     use crate::{
         alphabet::{self, Simple},
         automaton::{Acceptor, Transformer},
@@ -281,7 +353,7 @@ mod tests {
 
     #[test]
     #[tracing_test::traced_test]
-    fn dfas() {
+    fn dfas_and_boolean_operations() {
         let mut dfa = super::DFA::new(Simple::new(['a', 'b']));
         let s0 = dfa.initial();
         dfa.state_mut(s0).unwrap().set_color(true);
@@ -292,10 +364,19 @@ mod tests {
         let _e3 = dfa.add_edge(s1, 'b', s0, ());
         let dfb = dfa.clone();
 
-        let xxx = (&dfa).product(&dfb);
-        let x = xxx.transform("aaa");
-
         assert!(dfa.accepts("ababab"));
         assert!(!dfa.accepts("a"));
+
+        let notdfa = (&dfa).negation();
+        assert!(!notdfa.accepts("ababab"));
+        assert!(notdfa.accepts("a"));
+
+        let intersection = (&dfa).intersection(&notdfa);
+        assert!(!intersection.accepts("ababab"));
+        assert!(!intersection.accepts("a"));
+
+        let union = (&dfa).union(&notdfa);
+        assert!(union.accepts("ababab"));
+        assert!(union.accepts("a"));
     }
 }

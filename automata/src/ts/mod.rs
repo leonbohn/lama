@@ -7,8 +7,8 @@ pub use successor::Successor;
 mod transition;
 pub use transition::{Edge, EdgeIndex, EdgeIndicesFrom, EdgesFrom, Transition};
 
-mod operations;
-pub use operations::{MatchingProduct, Product, ProductIndex};
+pub mod operations;
+pub use operations::Product;
 
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
