@@ -202,6 +202,24 @@ pub trait ColorPosition: Ord + Eq + Copy + std::fmt::Debug + Display + Hash {
 pub struct OnEdges;
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
 pub struct OnStates;
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
+pub struct OnBoth;
+
+impl Display for OnEdges {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "on edges")
+    }
+}
+impl Display for OnStates {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "on states")
+    }
+}
+impl Display for OnBoth {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "on both")
+    }
+}
 
 impl ColorPosition for OnEdges {
     type EdgeColor<C: Color> = C;
@@ -238,12 +256,6 @@ impl ColorPosition for OnEdges {
         f: impl FnOnce(C) -> D,
     ) -> Self::EdgeColor<D> {
         (f)(color)
-    }
-}
-
-impl Display for OnEdges {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "on edges")
     }
 }
 
@@ -285,9 +297,45 @@ impl ColorPosition for OnStates {
     }
 }
 
-impl Display for OnStates {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "on states")
+impl ColorPosition for OnBoth {
+    type EdgeColor<C: Color> = C;
+
+    fn edge_color<C: Color>(color: C) -> Self::EdgeColor<C> {
+        color
+    }
+
+    type StateColor<C: Color> = C;
+
+    fn state_color<C: Color>(color: C) -> Self::StateColor<C> {
+        color
+    }
+
+    fn combine_edges<C: Color, D: Color>(
+        left: Self::EdgeColor<C>,
+        right: Self::EdgeColor<D>,
+    ) -> Self::EdgeColor<(C, D)> {
+        (left, right)
+    }
+
+    fn combine_states<C: Color, D: Color>(
+        left: Self::StateColor<C>,
+        right: Self::StateColor<D>,
+    ) -> Self::StateColor<(C, D)> {
+        (left, right)
+    }
+
+    fn map_state_color<C: Color, D: Color>(
+        color: Self::StateColor<C>,
+        f: impl FnOnce(C) -> D,
+    ) -> Self::StateColor<D> {
+        (f)(color)
+    }
+
+    fn map_edge_color<C: Color, D: Color>(
+        color: Self::EdgeColor<C>,
+        f: impl FnOnce(C) -> D,
+    ) -> Self::EdgeColor<D> {
+        (f)(color)
     }
 }
 
@@ -359,7 +407,8 @@ pub trait Pointed: Successor {
 pub trait TransitionSystem: HasStates + Successor {}
 impl<Ts: HasStates + Successor> TransitionSystem for Ts {}
 
-/// A congruence is a [`TransitionSystem`], which additionally has a distinguished initial state. This
+/// A congruence is a [`TransitionSystem`], which additionally has a distinguished initial state. On top
+/// of that, a congruence does not have any coloring on either states or symbols. This
 /// functionality is abstracted in [`Pointed`]. This trait is automatically implemented.
-pub trait Congruence: TransitionSystem + Pointed {}
-impl<Sim: TransitionSystem + Pointed> Congruence for Sim {}
+pub trait Congruence: TransitionSystem<Color = (), Position = OnBoth> + Pointed {}
+impl<Sim: TransitionSystem<Color = (), Position = OnBoth> + Pointed> Congruence for Sim {}
