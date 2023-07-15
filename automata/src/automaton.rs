@@ -59,6 +59,15 @@ mod boilerplate_impls {
             let initial = ts.add_state(<StateColor<Self> as Default>::default());
             Self(ts, initial)
         }
+
+        pub fn with_capacity(alphabet: A, size: usize) -> Self
+        where
+            StateColor<Self>: Default,
+        {
+            let mut ts = IndexTS::with_capacity(alphabet, size);
+            let initial = ts.add_state(<StateColor<Self> as Default>::default());
+            Self(ts, initial)
+        }
     }
 
     impl<Ts: Successor> WithInitial<Ts> {

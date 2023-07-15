@@ -18,7 +18,9 @@ pub mod ts;
 
 #[allow(clippy::upper_case_acronyms)]
 mod automaton;
-pub use automaton::{Acceptor, Transformer, DBA, DFA, DPA, SBDBA, SBDPA};
+pub use automaton::{
+    Acceptor, MealyMachine, MooreMachine, Transformer, DBA, DFA, DPA, SBDBA, SBDPA,
+};
 
 /// Module that contains definitions for dealing with words.
 #[macro_use]
@@ -32,3 +34,6 @@ pub mod mapping;
 pub trait Color: std::fmt::Debug + Clone + Eq + Ord + Hash {}
 
 impl<T: Eq + Ord + std::fmt::Debug + Clone + Hash> Color for T {}
+
+pub type Set<S> = std::collections::HashSet<S>;
+pub type Map<K, V> = std::collections::HashMap<K, V>;

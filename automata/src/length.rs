@@ -73,6 +73,22 @@ impl FiniteLength {
     }
 }
 
+impl std::ops::Add<FiniteLength> for FiniteLength {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl std::ops::Add<InfiniteLength> for FiniteLength {
+    type Output = InfiniteLength;
+
+    fn add(self, rhs: InfiniteLength) -> Self::Output {
+        InfiniteLength(self.0 + rhs.0, self.0 + rhs.1)
+    }
+}
+
 impl Length for FiniteLength {
     type RawPositions = std::iter::Map<std::ops::Range<usize>, fn(usize) -> RawPosition>;
 

@@ -8,14 +8,18 @@ use crate::{
     length::{HasLength, RawPosition},
     FiniteLength, InfiniteLength, Length,
 };
+use impl_tools::autoimpl;
 use itertools::Itertools;
 
 mod subword;
 pub use subword::{Prefix, Suffix};
 
+mod concat;
+pub use concat::Concat;
+
 /// Encapsulates the raw representation of a [`Word`], which is essentially just a sequence of [`Symbol`]s
 /// which can be accessed by a [`RawPosition`] and whose length can be queried.
-pub trait Rawpresentation: ToOwned<Owned = Self> {
+pub trait Rawpresentation {
     /// The type of symbol that is stored in the raw representation.
     type Symbol: Symbol;
 
@@ -38,7 +42,10 @@ pub trait Rawpresentation: ToOwned<Owned = Self> {
     /// # Example
     /// If `self` is the word `a b c`, then `self.loop_back_to(1)` is the infinite word `abc bc bc ...`.
     /// If `self` is `abba` and we run `self.loop_back_to(2)`, then we get `abba ba ba ba ba...`.
-    fn loop_back_to(&self, position: RawPosition) -> RawWithLength<Self, InfiniteLength>
+    fn loop_back_to(
+        &self,
+        position: RawPosition,
+    ) -> RawWithLength<Vec<Self::Symbol>, InfiniteLength>
     where
         Self: Sized,
     {
@@ -46,7 +53,7 @@ pub trait Rawpresentation: ToOwned<Owned = Self> {
         assert!(loop_index < self.raw_length(), "Loop index out of bounds!");
 
         let length = InfiniteLength::new(self.raw_length(), loop_index);
-        RawWithLength::new(self.to_owned(), length)
+        RawWithLength::new(self.raw_symbols(), length)
     }
 }
 
@@ -82,9 +89,10 @@ impl<'a, S: Symbol> Rawpresentation for Cow<'a, [S]> {
 
 /// A word is a sequence of symbols which can be accessed positionally. This trait tries to fully abstract
 /// away whether a word is finite or infinite, by relying on raw positions.
+#[autoimpl(for<T: trait> &T, &mut T)]
 pub trait Word: HasLength {
     /// The type of raw representation that is used to store the symbols of this word.
-    type Raw: Rawpresentation;
+    type Raw: Rawpresentation<Symbol = Self::Symbol>;
     /// The type of symbol that is stored in this word.
     type Symbol: Symbol;
 
@@ -100,6 +108,13 @@ pub trait Word: HasLength {
         Self: Sized,
     {
         Prefix::new(self, length)
+    }
+
+    fn concat<W: Word<Symbol = Self::Symbol>>(self, other: W) -> Concat<Self, W>
+    where
+        Self: Sized + HasLength<Length = FiniteLength>,
+    {
+        Concat::new(self, other)
     }
 
     /// Creates a [`Suffix`] object, which is the suffix of `self` that starts at the given `offset`.
@@ -141,6 +156,15 @@ impl<R, L> RawWithLength<R, L> {
         L: Length,
     {
         Self { raw, length }
+    }
+
+    pub fn raw_as_vec(self) -> Vec<R::Symbol>
+    where
+        R: Rawpresentation,
+        L: Length,
+        R::Symbol: Clone,
+    {
+        self.raw.raw_symbols()
     }
 }
 

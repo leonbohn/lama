@@ -33,6 +33,25 @@ impl<A: Alphabet, Idx, C: Color, Position: ColorPosition> IndexTS<A, C, Position
         }
     }
 
+    pub fn with_capacity(alphabet: A, states: usize) -> Self
+    where
+        StateColor<Self>: Default,
+        Idx: From<usize> + IndexType,
+    {
+        Self {
+            alphabet,
+            states: (0..states)
+                .map(|i| {
+                    (
+                        i.into(),
+                        State::new(<StateColor<Self> as Default>::default()),
+                    )
+                })
+                .collect(),
+            edges: Vec::new(),
+        }
+    }
+
     /// Gets a mutable reference to the alphabet of the transition system.
     pub fn alphabet(&self) -> &A {
         &self.alphabet

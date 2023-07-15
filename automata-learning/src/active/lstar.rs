@@ -1,19 +1,25 @@
+use automata::alphabet::{Alphabet, HasUniverse};
+use automata::ts::OnStates;
+use automata::{Color, FiniteLength, MooreMachine};
+
 use super::table::Table;
-use automata::Symbol;
 
 use super::oracle::Oracle;
 
 #[derive(Debug, Clone)]
-pub struct LStar<In: Symbol, Out: Symbol, T: Oracle<Input = In, Output = Out>> {
+pub struct LStar<A: Alphabet, C: Color, T: Oracle<Alphabet = A, Output = C>> {
     teacher: T,
-    alphabet: Vec<In>,
-    table: Table<In, Out>,
+    alphabet: A,
+    table: Table<A, C>,
 }
 
-impl<Input: Symbol, Output: Symbol, T: Oracle<Input = Input, Output = Output>>
-    LStar<Input, Output, T>
+impl<
+        A: HasUniverse,
+        C: Color + Default,
+        T: Oracle<OnStates, Length = FiniteLength, Alphabet = A, Output = C>,
+    > LStar<A, C, T>
 {
-    pub fn new(teacher: T, alphabet: Vec<Input>) -> Self {
+    pub fn new(teacher: T, alphabet: A) -> Self {
         let mut table = Table::new(alphabet.clone());
         let mut teach = teacher;
         table.fill(&mut teach);
@@ -46,21 +52,36 @@ impl<Input: Symbol, Output: Symbol, T: Oracle<Input = Input, Output = Output>>
 
 #[cfg(test)]
 mod tests {
-    use automata::{words::HasLength, Class, Pointed, TransitionOutput};
+    use automata::{
+        alphabet::{Alphabet, HasAlphabet, Simple},
+        word::RawWithLength,
+        FiniteLength, Transformer, Word,
+    };
     use tracing_test::traced_test;
 
     use crate::active::Oracle;
 
-    struct EvenAEvenB();
-    struct WordLenModThree();
+    struct EvenAEvenB(Simple);
+    struct WordLenModThree(Simple);
+
+    impl HasAlphabet for EvenAEvenB {
+        type Alphabet = Simple;
+
+        fn alphabet(&self) -> &Self::Alphabet {
+            &self.0
+        }
+    }
 
     impl Oracle for EvenAEvenB {
-        type Input = char;
-
         type Output = bool;
 
-        fn output(&mut self, word: &automata::Class<Self::Input>) -> Self::Output {
-            let (count_a, count_b) = word.iter().fold((0, 0), |(a, b), c| match c {
+        fn output<
+            W: automata::Word<Symbol = automata::alphabet::SymbolOf<Self>, Length = Self::Length>,
+        >(
+            &self,
+            word: W,
+        ) -> Self::Output {
+            let (count_a, count_b) = word.symbols().fold((0, 0), |(a, b), c| match c {
                 'a' => (a + 1, b),
                 'b' => (a, b + 1),
                 _ => unreachable!(),
@@ -69,40 +90,75 @@ mod tests {
             count_a % 2 == 0 && count_b % 2 == 0
         }
 
-        fn equivalence<M: Pointed + TransitionOutput<Sigma = Self::Input, Gamma = Self::Output>>(
-            &mut self,
-            hypothesis: &M,
-        ) -> Result<(), automata::Class<Self::Input>> {
+        fn equivalence<H>(
+            &self,
+            hypothesis: H,
+        ) -> Result<(), (Vec<automata::alphabet::SymbolOf<Self>>, Self::Output)>
+        where
+            H: automata::ts::Pointed
+                + automata::ts::Successor<
+                    Alphabet = Self::Alphabet,
+                    Position = automata::ts::OnStates,
+                    Color = Self::Output,
+                > + automata::Transformer<
+                    automata::alphabet::SymbolOf<Self>,
+                    FiniteLength,
+                    Output = Self::Output,
+                >,
+        {
             for word in ["aa", "bb", "bab", "aba", "abba", "bbab", "", "b", "a"] {
-                let word = Class::from_display(word);
-                if Some(self.output(&word)) != hypothesis.output(word.iter()) {
-                    return Err(word);
+                let word = RawWithLength::new_reverse_args(FiniteLength(word.len()), word);
+                let output = self.output(&word);
+                if output != hypothesis.transform(&word) {
+                    return Err((word.raw_as_vec(), output));
                 }
             }
             Ok(())
+        }
+
+        type Length = FiniteLength;
+    }
+
+    impl HasAlphabet for WordLenModThree {
+        type Alphabet = Simple;
+
+        fn alphabet(&self) -> &Self::Alphabet {
+            &self.0
         }
     }
 
     #[cfg(test)]
     impl Oracle for WordLenModThree {
-        type Input = char;
-
         type Output = usize;
+        type Length = FiniteLength;
 
-        fn output(&mut self, word: &Class<Self::Input>) -> Self::Output {
-            (*word.length()) % 3
+        fn output<
+            W: automata::Word<Length = Self::Length, Symbol = automata::alphabet::SymbolOf<Self>>,
+        >(
+            &self,
+            word: W,
+        ) -> Self::Output {
+            word.length().0 % 3
         }
 
-        fn equivalence<M: Pointed + TransitionOutput<Sigma = Self::Input, Gamma = Self::Output>>(
-            &mut self,
-            hypothesis: &M,
-        ) -> Result<(), Class<Self::Input>> {
+        fn equivalence<
+            H: automata::ts::Pointed
+                + automata::ts::Successor<
+                    Alphabet = Self::Alphabet,
+                    Position = automata::ts::OnStates,
+                    Color = Self::Output,
+                >,
+        >(
+            &self,
+            hypothesis: H,
+        ) -> Result<(), (Vec<automata::alphabet::SymbolOf<Self>>, Self::Output)> {
             for word in [
                 "aa", "bb", "bab", "bbabba", "aba", "abba", "bbab", "", "b", "a",
             ] {
-                let word = Class::from_display(word);
-                if Some(self.output(&word)) != hypothesis.output(word.iter()) {
-                    return Err(word);
+                let word = RawWithLength::new_reverse_args(FiniteLength(word.len()), word);
+                let output = self.output(&word);
+                if output != hypothesis.transform(&word) {
+                    return Err((word.raw_as_vec(), output));
                 }
             }
             Ok(())
@@ -110,29 +166,25 @@ mod tests {
     }
 
     #[test]
+    #[traced_test]
     fn lstar_word_len_mod_3() {
-        let oracle = WordLenModThree();
-        let mut lstar = super::LStar::new(oracle, vec!['a', 'b']);
+        let alphabet = Simple::from_iter(vec!['a', 'b']);
+        let oracle = WordLenModThree(alphabet.clone());
+        let mut lstar = super::LStar::new(oracle, alphabet);
 
         lstar.close();
         println!("{}", lstar.table);
-
-        println!("{}", lstar.table.to_hypothesis().unwrap());
     }
     #[test]
     fn lstar_even_a_even_b() {
-        let mut oracle = EvenAEvenB();
-        assert!(oracle.output(&automata::Class::from_display("aa")));
+        let alphabet = Simple::from_iter(vec!['a', 'b']);
+        let mut oracle = EvenAEvenB(alphabet.clone());
+        assert!(oracle.output("aa"));
 
-        let mut lstar = super::LStar::new(oracle, vec!['a', 'b']);
+        let mut lstar = super::LStar::new(oracle, alphabet);
         println!("{}", lstar.table);
         lstar.table.insert_extensions();
         lstar.fill();
         println!("{}", lstar.table);
-        let x = lstar.table.equivalent_class(&Class::from_display("aa"));
-        println!("{:?}", x);
-        lstar.close();
-        println!("{}", lstar.table);
-        println!("{}", lstar.table.to_hypothesis().unwrap());
     }
 }
