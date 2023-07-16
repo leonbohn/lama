@@ -12,8 +12,8 @@ pub mod acceptance;
 pub mod active;
 
 /// Contains passive learners such as RPNI, DBAInf and DPAInf.
-// pub mod passive;
-// pub use passive::Sample;
+pub mod passive;
+pub use passive::Sample;
 
 #[cfg(test)]
 mod tests {}

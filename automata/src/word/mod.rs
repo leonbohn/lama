@@ -133,7 +133,7 @@ pub trait Word: HasLength {
 
 /// Stores the actual representation of a [`Word`] as well as [`Length`], which determines the way
 /// that the raw representation is accessed.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct RawWithLength<R, L> {
     raw: R,
     length: L,
@@ -286,6 +286,42 @@ impl<S: Symbol> Word for &[S] {
     #[doc = " Returns a reference to the raw representation of `self`."]
     fn rawpresentation(&self) -> &Self::Raw {
         self
+    }
+}
+
+#[derive(Debug, Clone, Eq, Copy, PartialEq, Hash)]
+pub struct Letter<S: Symbol>(pub S);
+impl<S: Symbol> Rawpresentation for Letter<S> {
+    type Symbol = S;
+    fn raw_get(&self, position: RawPosition) -> Option<Self::Symbol> {
+        if position.position() == 0 {
+            Some(self.0)
+        } else {
+            None
+        }
+    }
+    fn raw_length(&self) -> usize {
+        1
+    }
+}
+impl<S: Symbol> Word for Letter<S> {
+    type Raw = Self;
+    type Symbol = S;
+    fn rawpresentation(&self) -> &Self::Raw {
+        self
+    }
+    fn nth(&self, position: usize) -> Option<Self::Symbol> {
+        if position == 0 {
+            Some(self.0)
+        } else {
+            None
+        }
+    }
+}
+impl<S: Symbol> HasLength for Letter<S> {
+    type Length = FiniteLength;
+    fn length(&self) -> Self::Length {
+        FiniteLength::new(1)
     }
 }
 

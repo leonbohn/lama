@@ -5,6 +5,7 @@
 
 /// Module that contains definitions for dealing with alphabets.
 pub mod alphabet;
+pub use alphabet::Alphabet;
 
 mod length;
 use std::hash::Hash;
