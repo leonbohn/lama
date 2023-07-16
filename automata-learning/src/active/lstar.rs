@@ -52,7 +52,13 @@ impl<
             .chain(alphabet.universe().map(|sym| vec![*sym]))
             .collect_vec();
 
-        let rows = vec![LStarRow::new(vec![], vec![teacher.output(vec![])])];
+        let rows = vec![LStarRow::new(
+            vec![],
+            experiments
+                .iter()
+                .map(|experiment| teacher.output(experiment))
+                .collect_vec(),
+        )];
 
         Self {
             teacher,
@@ -126,6 +132,13 @@ impl<
     }
 
     pub fn hypothesis(&mut self) -> MooreMachine<A, C> {
+        trace!(
+            "Computing hypothesis with experiments {{{}}}",
+            self.experiments
+                .iter()
+                .map(|experiment| experiment.iter().map(|sym| format!("{:?}", sym)).join(""))
+                .join(", ")
+        );
         'outer: loop {
             let mut out = MooreMachine::new(self.alphabet.clone());
 
@@ -146,7 +159,23 @@ impl<
                 state_mapping.len(),
                 state_mapping
                     .iter()
-                    .map(|(base, _)| base.iter().map(|sym| format!("{:?}", sym)).join(""))
+                    .map(|(base, _)| format!(
+                        "{} | {}",
+                        base.iter().map(|sym| format!("{:?}", sym)).join(""),
+                        self.rows
+                            .iter()
+                            .find_map(|row| if row.base == *base {
+                                Some(
+                                    row.outputs
+                                        .iter()
+                                        .map(|sym| format!("{:?}", sym))
+                                        .join(", "),
+                                )
+                            } else {
+                                None
+                            })
+                            .unwrap()
+                    ))
                     .join(", ")
             );
             for i in 0..state_mapping.len() {
@@ -162,9 +191,18 @@ impl<
                             .collect_vec(),
                     );
 
+                    trace!(
+                        "Searching equivalent row for {}|[{}]",
+                        new_row.base.iter().map(|sym| format!("{:?}", sym)).join(""),
+                        new_row
+                            .outputs
+                            .iter()
+                            .map(|sym| format!("{:?}", sym))
+                            .join(", ")
+                    );
                     if let Some(equivalent_row) = self.rows.iter().find(|row| row == &&new_row) {
                         trace!(
-                            "Found equivalent row {}|{{{}}} for {}|{{{}}}",
+                            "Found equivalent row {}|[{}]",
                             equivalent_row
                                 .base
                                 .iter()
@@ -175,12 +213,6 @@ impl<
                                 .iter()
                                 .map(|sym| format!("{:?}", sym))
                                 .join(", "),
-                            new_row.base.iter().map(|sym| format!("{:?}", sym)).join(""),
-                            new_row
-                                .outputs
-                                .iter()
-                                .map(|sym| format!("{:?}", sym))
-                                .join(", ")
                         );
                         out.add_edge(
                             *state,
@@ -199,10 +231,7 @@ impl<
                         );
                         continue 'transition;
                     } else {
-                        trace!(
-                            "Missing extension {}, adding new row",
-                            extension.iter().map(|sym| format!("{:?}", sym)).join("")
-                        );
+                        trace!("No equivalent row exists, adding new state");
                         new_row.minimal = true;
                         self.rows.push(new_row);
                         continue 'outer;
@@ -218,6 +247,7 @@ impl<
 mod tests {
     use automata::{
         alphabet::{Alphabet, HasAlphabet, Simple},
+        ts::HasStates,
         word::RawWithLength,
         FiniteLength, Transformer, Word,
     };
@@ -225,10 +255,10 @@ mod tests {
 
     use crate::active::Oracle;
 
-    struct EvenAEvenB(Simple);
-    struct WordLenModThree(Simple);
+    struct ModkAmodlB(Simple);
+    struct WordLenModk(Simple, usize);
 
-    impl HasAlphabet for EvenAEvenB {
+    impl HasAlphabet for ModkAmodlB {
         type Alphabet = Simple;
 
         fn alphabet(&self) -> &Self::Alphabet {
@@ -236,7 +266,7 @@ mod tests {
         }
     }
 
-    impl Oracle for EvenAEvenB {
+    impl Oracle for ModkAmodlB {
         type Output = bool;
 
         fn output<
@@ -282,7 +312,7 @@ mod tests {
         type Length = FiniteLength;
     }
 
-    impl HasAlphabet for WordLenModThree {
+    impl HasAlphabet for WordLenModk {
         type Alphabet = Simple;
 
         fn alphabet(&self) -> &Self::Alphabet {
@@ -291,7 +321,7 @@ mod tests {
     }
 
     #[cfg(test)]
-    impl Oracle for WordLenModThree {
+    impl Oracle for WordLenModk {
         type Output = usize;
         type Length = FiniteLength;
 
@@ -301,7 +331,7 @@ mod tests {
             &self,
             word: W,
         ) -> Self::Output {
-            word.length().0 % 3
+            word.length().0 % self.1
         }
 
         fn equivalence<
@@ -329,20 +359,25 @@ mod tests {
     }
 
     #[test]
-    #[traced_test]
-    fn lstar_word_len_mod_3() {
+    fn lstar_word_len_mod_k() {
         let alphabet = Simple::from_iter(vec!['a', 'b']);
-        let oracle = WordLenModThree(alphabet.clone());
-        let mut lstar = super::LStar::new(oracle, alphabet);
-        let mm = lstar.infer();
 
-        println!("{}", mm.transform("abba"))
+        for k in (30..=50) {
+            let time_start = std::time::Instant::now();
+            let oracle = WordLenModk(alphabet.clone(), k);
+            let mut lstar = super::LStar::new(oracle, alphabet.clone());
+            let mm = lstar.infer();
+            let time_taken = time_start.elapsed().as_micros();
+            assert_eq!(mm.size(), k);
+            println!("Took {:>6}μs for k={}", time_taken, k);
+        }
     }
+
     #[test]
     #[traced_test]
     fn lstar_even_a_even_b() {
         let alphabet = Simple::from_iter(vec!['a', 'b']);
-        let mut oracle = EvenAEvenB(alphabet.clone());
+        let mut oracle = ModkAmodlB(alphabet.clone());
         let mut lstar = super::LStar::new(oracle, alphabet);
 
         let mm = lstar.infer();

@@ -178,6 +178,9 @@ impl<A: Alphabet, Idx: IndexType, Pos: ColorPosition, C: Color> HasStates
     fn state(&self, index: Idx) -> Option<Self::State<'_>> {
         self.states.get(&index)
     }
+    fn size(&self) -> usize {
+        self.states.len()
+    }
 }
 
 impl<A: Alphabet, Idx: IndexType, Pos: ColorPosition, C: Color> HasMutableStates
