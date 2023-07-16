@@ -1,16 +1,44 @@
-use automata::alphabet::{Alphabet, HasUniverse};
-use automata::ts::OnStates;
-use automata::{Color, FiniteLength, MooreMachine};
-
-use super::table::Table;
+use automata::alphabet::{Alphabet, HasUniverse, Symbol};
+use automata::ts::{HasColorMut, HasMutableStates, OnStates, Pointed, Sproutable};
+use automata::{Color, FiniteLength, MooreMachine, Transformer, Word};
+use itertools::Itertools;
+use tracing::trace;
 
 use super::oracle::Oracle;
 
 #[derive(Debug, Clone)]
-pub struct LStar<A: Alphabet, C: Color, T: Oracle<Alphabet = A, Output = C>> {
+pub struct LStarRow<S: Symbol, C: Color> {
+    base: Vec<S>,
+    minimal: bool,
+    outputs: Vec<C>,
+}
+
+impl<S: Symbol, C: Color> PartialEq for LStarRow<S, C> {
+    fn eq(&self, other: &Self) -> bool {
+        self.outputs == other.outputs
+    }
+}
+
+impl<S: Symbol, C: Color> LStarRow<S, C> {
+    pub fn new(base: Vec<S>, outputs: Vec<C>) -> Self {
+        Self {
+            minimal: base.is_empty(),
+            base,
+            outputs,
+        }
+    }
+
+    pub fn get(&self, index: usize) -> Option<&C> {
+        self.outputs.get(index)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct LStar<A: HasUniverse, C: Color, T: Oracle<Alphabet = A, Output = C>> {
     teacher: T,
     alphabet: A,
-    table: Table<A, C>,
+    experiments: Vec<Vec<A::Symbol>>,
+    rows: Vec<LStarRow<A::Symbol, C>>,
 }
 
 impl<
@@ -20,33 +48,156 @@ impl<
     > LStar<A, C, T>
 {
     pub fn new(teacher: T, alphabet: A) -> Self {
-        let mut table = Table::new(alphabet.clone());
-        let mut teach = teacher;
-        table.fill(&mut teach);
+        let experiments = std::iter::once(vec![])
+            .chain(alphabet.universe().map(|sym| vec![*sym]))
+            .collect_vec();
+
+        let rows = vec![LStarRow::new(vec![], vec![teacher.output(vec![])])];
+
         Self {
-            teacher: teach,
+            teacher,
             alphabet,
-            table,
+            experiments,
+            rows,
         }
     }
 
-    pub fn close(&mut self) {
-        self.table.close(&mut self.teacher)
+    pub fn infer(&mut self) -> MooreMachine<A, C> {
+        let mut iteration = 0;
+        loop {
+            if iteration > 100 {
+                panic!("Too many iterations");
+            }
+            iteration += 1;
+            trace!("Lstar iteration {iteration}");
+            let hypothesis = self.hypothesis();
+            match self.teacher.equivalence(&hypothesis) {
+                Ok(_) => return hypothesis,
+                Err(conflict) => {
+                    trace!(
+                        "Obtained counterexample \"{}\" with classification {:?}",
+                        conflict.0.iter().map(|sym| format!("{:?}", sym)).join(""),
+                        conflict.1
+                    );
+                    self.process_counterexample(hypothesis, conflict)
+                }
+            }
+        }
     }
 
-    pub fn fill(&mut self) -> bool {
-        self.table.fill(&mut self.teacher)
+    pub fn process_counterexample(
+        &mut self,
+        hypothesis: MooreMachine<A, C>,
+        (counterexample, expected_color): (Vec<A::Symbol>, C),
+    ) {
+        debug_assert!(
+            hypothesis.transform(&counterexample) != expected_color,
+            "This is not a real counterexample"
+        );
+
+        // TODO: optimize breakpoint search
+        for i in 0..(counterexample.len()) {
+            let suffix = counterexample.suffix(i).symbols().collect_vec();
+            if self.experiments.contains(&suffix) {
+                continue;
+            }
+
+            for row_index in 0..self.rows.len() {
+                let output = self
+                    .teacher
+                    .output((&self.rows[row_index].base).concat(&suffix));
+            }
+
+            self.experiments.push(suffix);
+        }
     }
 
-    pub fn equivalent(&mut self) -> bool {
-        self.teacher
-            .equivalence(
-                &self
-                    .table
-                    .to_hypothesis()
-                    .expect("Could not build hypothesis"),
-            )
-            .is_ok()
+    pub fn hypothesis(&mut self) -> MooreMachine<A, C> {
+        'outer: loop {
+            let mut out = MooreMachine::new(self.alphabet.clone());
+
+            out.state_mut(out.initial())
+                .unwrap()
+                .set_color(self.rows[0].outputs[0].clone());
+            let state_mapping: Vec<_> = std::iter::once((vec![], out.initial()))
+                .chain(self.rows.iter().skip(1).enumerate().filter_map(|(i, row)| {
+                    if row.minimal {
+                        Some((row.base.clone(), out.add_state(row.outputs[0].clone())))
+                    } else {
+                        None
+                    }
+                }))
+                .collect();
+            trace!(
+                "Considering {} base states {{{}}}",
+                state_mapping.len(),
+                state_mapping
+                    .iter()
+                    .map(|(base, _)| base.iter().map(|sym| format!("{:?}", sym)).join(""))
+                    .join(", ")
+            );
+            for i in 0..state_mapping.len() {
+                let (base, state) = &state_mapping[i];
+                'transition: for sym in self.alphabet.universe() {
+                    let mut extension: Vec<_> =
+                        base.iter().cloned().chain(std::iter::once(*sym)).collect();
+                    let mut new_row = LStarRow::new(
+                        extension.clone(),
+                        self.experiments
+                            .iter()
+                            .map(|experiment| self.teacher.output((&extension).concat(experiment)))
+                            .collect_vec(),
+                    );
+
+                    if let Some(equivalent_row) = self.rows.iter().find(|row| row == &&new_row) {
+                        trace!(
+                            "Found equivalent row {}|{{{}}} for {}|{{{}}}",
+                            equivalent_row
+                                .base
+                                .iter()
+                                .map(|sym| format!("{:?}", sym))
+                                .join(""),
+                            equivalent_row
+                                .outputs
+                                .iter()
+                                .map(|sym| format!("{:?}", sym))
+                                .join(", "),
+                            new_row.base.iter().map(|sym| format!("{:?}", sym)).join(""),
+                            new_row
+                                .outputs
+                                .iter()
+                                .map(|sym| format!("{:?}", sym))
+                                .join(", ")
+                        );
+                        out.add_edge(
+                            *state,
+                            self.alphabet.expression(*sym),
+                            state_mapping
+                                .iter()
+                                .find_map(|(base, idx)| {
+                                    if base == &equivalent_row.base {
+                                        Some(*idx)
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .unwrap(),
+                            (),
+                        );
+                        continue 'transition;
+                    } else {
+                        trace!(
+                            "Missing extension {}, adding new row",
+                            extension.iter().map(|sym| format!("{:?}", sym)).join("")
+                        );
+                        new_row.minimal = true;
+                        self.rows.push(new_row);
+                        continue 'outer;
+                    }
+                }
+            }
+            return out;
+        }
     }
 }
 
@@ -107,10 +258,9 @@ mod tests {
                 >,
         {
             for word in ["aa", "bb", "bab", "aba", "abba", "bbab", "", "b", "a"] {
-                let word = RawWithLength::new_reverse_args(FiniteLength(word.len()), word);
                 let output = self.output(&word);
                 if output != hypothesis.transform(&word) {
-                    return Err((word.raw_as_vec(), output));
+                    return Err((word.chars().collect(), output));
                 }
             }
             Ok(())
@@ -171,20 +321,21 @@ mod tests {
         let alphabet = Simple::from_iter(vec!['a', 'b']);
         let oracle = WordLenModThree(alphabet.clone());
         let mut lstar = super::LStar::new(oracle, alphabet);
+        let mm = lstar.infer();
 
-        lstar.close();
-        println!("{}", lstar.table);
+        println!("{}", mm.transform("abba"))
     }
     #[test]
+    #[traced_test]
     fn lstar_even_a_even_b() {
         let alphabet = Simple::from_iter(vec!['a', 'b']);
         let mut oracle = EvenAEvenB(alphabet.clone());
-        assert!(oracle.output("aa"));
-
         let mut lstar = super::LStar::new(oracle, alphabet);
-        println!("{}", lstar.table);
-        lstar.table.insert_extensions();
-        lstar.fill();
-        println!("{}", lstar.table);
+
+        let mm = lstar.infer();
+
+        assert!(mm.transform("abba"));
+        assert!(!mm.transform("ab"));
+        assert!(mm.transform(""))
     }
 }

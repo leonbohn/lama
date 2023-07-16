@@ -83,7 +83,7 @@ impl<'a, 'b, Ts: Successor, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b, Ts, R
     }
 
     fn take_transition(&mut self) -> WalkerStep<Ts> {
-        if let Some(symbol) = self.word.get(self.position) {
+        if let Some(symbol) = self.word.nth(self.position) {
             let rawposition = self
                 .word
                 .length()
@@ -116,6 +116,6 @@ impl<'a, 'b, Ts: Successor, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b, Ts, R
     }
 
     fn current_sym(&self) -> Option<SymbolOf<Ts>> {
-        self.word.get(self.position)
+        self.word.nth(self.position)
     }
 }

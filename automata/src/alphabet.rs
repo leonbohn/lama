@@ -54,6 +54,8 @@ pub trait Alphabet: Clone {
     /// means that the expression equals the given symbol. For a [`Propositional`] alphabet, this means that
     /// the expression is satisfied by the given symbol, an example of this is illustrated in [`Propositional`].
     fn matches(&self, expression: &Self::Expression, symbol: Self::Symbol) -> bool;
+
+    fn expression(&self, symbol: Self::Symbol) -> Self::Expression;
 }
 
 /// Abstracts posessing an [`Alphabet`], which can then be accessed via [`HasAlphabet::alphabet`].
@@ -131,6 +133,10 @@ impl Alphabet for Simple {
 
     fn matches(&self, expression: &Self::Expression, symbol: Self::Symbol) -> bool {
         expression == &symbol
+    }
+
+    fn expression(&self, symbol: Self::Symbol) -> Self::Expression {
+        symbol
     }
 }
 

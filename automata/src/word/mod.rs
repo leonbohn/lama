@@ -60,7 +60,7 @@ pub trait Rawpresentation {
 impl<S: Symbol> Rawpresentation for Vec<S> {
     type Symbol = S;
     fn raw_get(&self, position: RawPosition) -> Option<Self::Symbol> {
-        self.get(position.position()).cloned()
+        self.nth(position.position())
     }
     fn raw_length(&self) -> usize {
         self.len()
@@ -97,7 +97,7 @@ pub trait Word: HasLength {
     type Symbol: Symbol;
 
     /// Accesses the symbol at the given position, if it exists.
-    fn get(&self, position: usize) -> Option<Self::Symbol>;
+    fn nth(&self, position: usize) -> Option<Self::Symbol>;
 
     /// Returns a reference to the raw representation of `self`.
     fn rawpresentation(&self) -> &Self::Raw;
@@ -184,7 +184,7 @@ where
     type Raw = R;
     type Symbol = R::Symbol;
 
-    fn get(&self, position: usize) -> Option<R::Symbol> {
+    fn nth(&self, position: usize) -> Option<R::Symbol> {
         let raw_position = self.length.calculate_raw_position(position)?;
         self.raw.raw_get(raw_position)
     }
@@ -228,10 +228,62 @@ impl Word for &str {
 
     type Symbol = char;
 
-    fn get(&self, position: usize) -> Option<Self::Symbol> {
+    fn nth(&self, position: usize) -> Option<Self::Symbol> {
         self.chars().nth(position)
     }
 
+    fn rawpresentation(&self) -> &Self::Raw {
+        self
+    }
+}
+
+impl<S: Symbol> HasLength for Vec<S> {
+    type Length = FiniteLength;
+    fn length(&self) -> Self::Length {
+        FiniteLength::new(self.len())
+    }
+}
+
+impl<S: Symbol> Word for Vec<S> {
+    type Raw = Self;
+
+    type Symbol = S;
+
+    fn nth(&self, position: usize) -> Option<Self::Symbol> {
+        self.get(position).copied()
+    }
+
+    fn rawpresentation(&self) -> &Self::Raw {
+        self
+    }
+}
+
+impl<S: Symbol> HasLength for &[S] {
+    type Length = FiniteLength;
+    fn length(&self) -> Self::Length {
+        FiniteLength::new(self.len())
+    }
+}
+impl<S: Symbol> Rawpresentation for &[S] {
+    type Symbol = S;
+
+    fn raw_get(&self, position: RawPosition) -> Option<Self::Symbol> {
+        self.nth(position.position())
+    }
+
+    fn raw_length(&self) -> usize {
+        self.len()
+    }
+}
+impl<S: Symbol> Word for &[S] {
+    type Raw = Self;
+    fn nth(&self, position: usize) -> Option<Self::Symbol> {
+        self.get(position).copied()
+    }
+
+    type Symbol = S;
+
+    #[doc = " Returns a reference to the raw representation of `self`."]
     fn rawpresentation(&self) -> &Self::Raw {
         self
     }
@@ -327,8 +379,8 @@ mod tests {
         assert_eq!(raw.raw_get(RawPosition::new(0)), Some('a'));
 
         let word = RawWithLength::new(raw, FiniteLength::new(4));
-        assert_eq!(word.get(1), Some('b'));
-        assert_eq!(word.get(4), None);
+        assert_eq!(word.nth(1), Some('b'));
+        assert_eq!(word.nth(4), None);
 
         let infinite = word.rawpresentation().loop_back_to(RawPosition::new(2));
     }

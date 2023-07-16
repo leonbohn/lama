@@ -42,7 +42,7 @@ where
 
     type Symbol = W::Symbol;
 
-    fn get(&self, position: usize) -> Option<Self::Symbol> {
+    fn nth(&self, position: usize) -> Option<Self::Symbol> {
         todo!()
     }
 
@@ -85,6 +85,9 @@ mod tests {
         let prefix = "abc";
         let suffix = "def";
         let combined = prefix.concat(suffix);
-        assert_eq!(combined.symbols().join(""), "abcdef");
+        assert_eq!(
+            combined.symbols().join(""),
+            prefix.concat(vec!['d', 'e', 'f']).symbols().join("")
+        );
     }
 }

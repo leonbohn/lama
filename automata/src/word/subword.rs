@@ -25,8 +25,8 @@ impl<'a, S: Word> Word for Suffix<'a, S> {
         self.sequence.rawpresentation()
     }
 
-    fn get(&self, position: usize) -> Option<Self::Symbol> {
-        self.sequence.get(position + self.offset)
+    fn nth(&self, position: usize) -> Option<Self::Symbol> {
+        self.sequence.nth(position + self.offset)
     }
 
     fn symbols(&self) -> super::RawpresentationIter<'_, Self::Raw, Self::Length> {
@@ -64,9 +64,9 @@ impl<'a, S: Word> Word for Prefix<'a, S> {
         self.sequence.rawpresentation()
     }
 
-    fn get(&self, position: usize) -> Option<Self::Symbol> {
+    fn nth(&self, position: usize) -> Option<Self::Symbol> {
         if position < self.length {
-            self.sequence.get(position)
+            self.sequence.nth(position)
         } else {
             None
         }

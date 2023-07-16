@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
+    default,
     fmt::Display,
 };
 
@@ -19,31 +20,32 @@ use super::oracle::Oracle;
 /// Represents a row of an observation table. It stores a mapping that associates classes (which
 /// are in essence words over `Input`) to outputs of type `Output`.
 /// It should be ensured that each row maps every experiment to an output.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct Row<Input: Symbol, Output: Color> {
-    outputs: BTreeMap<Vec<Input>, Output>,
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
+pub(super) struct Row<C: Color>(Vec<C>);
+
+impl<C: Color> Row<C> {
+    pub fn create<
+        T: Oracle<Length = FiniteLength, Output = C>,
+        W: IntoIterator<Item = Vec<<T::Alphabet as Alphabet>::Symbol>>,
+    >(
+        oracle: &T,
+        elements: W,
+    ) -> Self {
+        Self(elements.into_iter().map(|wrd| oracle.output(wrd)).collect())
+    }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Extension<'a, S: Symbol>(pub &'a [S], pub &'a S);
-
-impl<'a, S: Symbol> Extension<'a, S> {
-    fn matches(&self, other: &[S]) -> bool {
-        if self.0.len() + 1 != other.len() {
-            return false;
-        }
-        self.0
-            .iter()
-            .chain(std::iter::once(self.1))
-            .eq(other.iter())
+impl<C: Color> From<Vec<C>> for Row<C> {
+    fn from(value: Vec<C>) -> Self {
+        Self(value)
     }
+}
 
-    fn to_vec(&self) -> Vec<S> {
-        self.0
-            .iter()
-            .chain(std::iter::once(self.1))
-            .cloned()
-            .collect()
+impl<C: Color> std::ops::Deref for Row<C> {
+    type Target = Vec<C>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -54,34 +56,7 @@ pub(crate) struct Table<A: Alphabet, C: Color> {
     alphabet: A,
     experiments: Vec<Vec<A::Symbol>>,
     base: BTreeSet<Vec<A::Symbol>>,
-    rows: BTreeMap<Vec<A::Symbol>, Row<A::Symbol, C>>,
-}
-
-impl<Input, Output> Default for Row<Input, Output>
-where
-    Input: Symbol,
-    Output: Color,
-{
-    fn default() -> Self {
-        Self {
-            outputs: BTreeMap::new(),
-        }
-    }
-}
-
-impl<Input, Output> Row<Input, Output>
-where
-    Input: Symbol,
-    Output: Color,
-{
-    /// Returns a vec of the produced outputs.
-    pub fn outputs(&self) -> Vec<Output> {
-        self.outputs.values().cloned().collect_vec()
-    }
-
-    pub fn get(&self, experiment: &[Input]) -> Option<&Output> {
-        self.outputs.get(experiment)
-    }
+    rows: BTreeMap<Vec<A::Symbol>, Row<C>>,
 }
 
 impl<A, C> Table<A, C>
@@ -108,7 +83,7 @@ where
         let mut missing = BTreeSet::new();
         for base in &self.base {
             for sym in self.alphabet.universe() {
-                let extension = Extension(base, sym);
+                let extension = Row::create();
                 if !self.base.iter().any(|b| extension.matches(b)) {
                     missing.insert(extension.to_vec());
                 }
@@ -175,14 +150,17 @@ where
         true
     }
 
-    pub(crate) fn find_missing(&self) -> Option<Vec<A::Symbol>> {
+    pub(crate) fn find_missing<T: Oracle<Alphabet = A, Length = FiniteLength, Output = C>>(
+        &self,
+        oracle: &T,
+    ) -> Option<Vec<A::Symbol>> {
         trace!("Checking if the table is closed.");
         debug_assert!(self.is_sane());
         debug_assert!(self.rows_complete());
 
         for class in &self.base {
             for sym in self.alphabet.universe() {
-                let extension = Extension(class, sym);
+                let extension = Row::create(oracle, class.iter().chain(std::iter::once(sym)));
                 if !self.base.iter().any(|b| extension.matches(b)) {
                     debug!("No row for extension {:?} found.", extension);
                     return Some(extension.to_vec());
@@ -194,9 +172,9 @@ where
 
     pub(crate) fn close<T: Oracle<Alphabet = A, Length = FiniteLength, Output = C>>(
         &mut self,
-        oracle: &mut T,
+        oracle: &T,
     ) {
-        while let Some(missing) = self.find_missing() {
+        while let Some(missing) = self.find_missing(oracle) {
             trace!("Table is not closed. Extending it.");
             self.base.insert(missing);
             self.fill(oracle);
