@@ -160,6 +160,8 @@ mod boilerplate_impls {
 }
 
 pub type MooreMachine<A, C, Idx = usize> = WithInitial<IndexTS<A, C, OnStates, Idx>>;
+pub type RightCongruence<A, Idx = usize> =
+    WithInitial<IndexTS<A, Vec<<A as Alphabet>::Symbol>, OnStates, Idx>>;
 pub type MealyMachine<A, C, Idx = usize> = WithInitial<IndexTS<A, C, OnEdges, Idx>>;
 
 pub type DFA<A, Idx = usize> = MooreMachine<A, bool, Idx>;

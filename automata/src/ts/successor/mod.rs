@@ -1,13 +1,16 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    alphabet::{HasAlphabet, Symbol, SymbolOf},
+    alphabet::{HasAlphabet, HasUniverse, Symbol, SymbolOf},
     automaton::WithInitial,
     word::RawWithLength,
-    Color, Word,
+    Color, Pointed, Word,
 };
 
-use self::walker::RunResult;
+use self::{
+    reachable::{ReachableStateIndices, ReachableStates},
+    walker::RunResult,
+};
 
 use super::{
     operations::{MapColors, MatchingProduct},
@@ -23,6 +26,9 @@ pub use successful::Successful;
 
 mod walker;
 pub use walker::Walker;
+
+mod reachable;
+pub use reachable::MinimalRepresentatives;
 
 /// Encapsulates the transition function δ of a (finite) transition system. This is the main trait that
 /// is used to query a transition system. Transitions are labeled with a [`Alphabet::Expression`], which
@@ -127,6 +133,60 @@ pub trait Successor: HasAlphabet {
 
     fn make_state_color(&self, color: Self::Color) -> StateColor<Self> {
         <Self::Position as ColorPosition>::state_color(color)
+    }
+
+    fn minimal_representatives(&self) -> MinimalRepresentatives<&Self>
+    where
+        Self: Sized + Pointed,
+        Self::Alphabet: HasUniverse,
+    {
+        MinimalRepresentatives::new(self, self.initial())
+    }
+
+    fn reachable_state_indices(&self) -> ReachableStateIndices<&Self>
+    where
+        Self: Sized + Pointed,
+        Self::Alphabet: HasUniverse,
+    {
+        ReachableStateIndices::new(self, self.initial())
+    }
+
+    fn reachable_states(&self) -> ReachableStates<&Self>
+    where
+        Self: Sized + Pointed,
+        Self::Alphabet: HasUniverse,
+    {
+        ReachableStates::new(self, self.initial())
+    }
+
+    fn minimal_representatives_from<I: Into<Self::StateIndex>>(
+        &self,
+        state: I,
+    ) -> MinimalRepresentatives<&Self>
+    where
+        Self: Sized,
+        Self::Alphabet: HasUniverse,
+    {
+        MinimalRepresentatives::new(self, state.into())
+    }
+
+    fn reachable_state_indices_from<I: Into<Self::StateIndex>>(
+        &self,
+        state: I,
+    ) -> ReachableStateIndices<&Self>
+    where
+        Self: Sized + Pointed,
+        Self::Alphabet: HasUniverse,
+    {
+        ReachableStateIndices::new(self, self.initial())
+    }
+
+    fn reachable_states_from<I: Into<Self::StateIndex>>(&self, state: I) -> ReachableStates<&Self>
+    where
+        Self: Sized + Pointed,
+        Self::Alphabet: HasUniverse,
+    {
+        ReachableStates::new(self, self.initial())
     }
 }
 

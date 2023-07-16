@@ -16,11 +16,12 @@ pub use length::{FiniteLength, InfiniteLength, Length};
 
 /// This module defines transition systems and successor functions and such.
 pub mod ts;
+pub use ts::{Pointed, Successor};
 
 #[allow(clippy::upper_case_acronyms)]
 mod automaton;
 pub use automaton::{
-    Acceptor, MealyMachine, MooreMachine, Transformer, DBA, DFA, DPA, SBDBA, SBDPA,
+    Acceptor, MealyMachine, MooreMachine, RightCongruence, Transformer, DBA, DFA, DPA, SBDBA, SBDPA,
 };
 
 /// Module that contains definitions for dealing with words.
