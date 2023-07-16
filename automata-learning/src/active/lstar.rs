@@ -1,5 +1,5 @@
 use automata::alphabet::{Alphabet, HasUniverse, Symbol};
-use automata::ts::{HasColorMut, HasMutableStates, OnStates, Pointed, Sproutable};
+use automata::ts::{HasColorMut, HasMutableStates, OnStates, Pointed, Sproutable, Successor};
 use automata::{Color, FiniteLength, MooreMachine, Transformer, Word};
 use itertools::Itertools;
 use tracing::trace;
@@ -95,21 +95,34 @@ impl<
             "This is not a real counterexample"
         );
 
-        // TODO: optimize breakpoint search
-        for i in 0..(counterexample.len()) {
-            let suffix = counterexample.suffix(i).symbols().collect_vec();
-            if self.experiments.contains(&suffix) {
-                continue;
-            }
+        let mut state = hypothesis.initial();
+        let mut previous_color = expected_color;
+        for i in 0..counterexample.len() {
+            let sym = counterexample[i];
+            let next_state = hypothesis
+                .successor_index(state, sym)
+                .expect("We assume the hypothesis to be deterministic!");
+            let suffix = counterexample.suffix(i + 1);
+            let next_color = hypothesis.with_initial(next_state).transform(&suffix);
 
-            for row_index in 0..self.rows.len() {
-                let output = self
-                    .teacher
-                    .output((&self.rows[row_index].base).concat(&suffix));
-            }
+            if next_color != previous_color {
+                // this is the breakpoint
+                let experiment = suffix.symbols().collect_vec();
+                debug_assert!(
+                    !self.experiments.contains(&experiment),
+                    "We assume that the counterexample is new!"
+                );
 
-            self.experiments.push(suffix);
+                for row_index in 0..self.rows.len() {
+                    let output = self
+                        .teacher
+                        .output((&self.rows[row_index].base).concat(&experiment));
+                }
+                self.experiments.push(experiment);
+                return;
+            }
         }
+        unreachable!("A breakpoint has to exist!");
     }
 
     pub fn hypothesis(&mut self) -> MooreMachine<A, C> {

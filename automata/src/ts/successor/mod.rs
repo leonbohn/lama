@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use crate::{
     alphabet::{HasAlphabet, Symbol, SymbolOf},
+    automaton::WithInitial,
     word::RawWithLength,
     Color, Word,
 };
@@ -49,6 +50,13 @@ pub trait Successor: HasAlphabet {
     ) -> Option<Transition<Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>>;
 
     fn state_color(&self, state: Self::StateIndex) -> StateColor<Self>;
+
+    fn with_initial(&self, initial: Self::StateIndex) -> WithInitial<&Self>
+    where
+        Self: Sized,
+    {
+        (self, initial).into()
+    }
 
     fn map_colors<D: Color, F: Fn(Self::Color) -> D>(self, f: F) -> MapColors<Self, F>
     where

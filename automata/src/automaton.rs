@@ -45,6 +45,12 @@ mod boilerplate_impls {
     //     }
     // }
 
+    impl<Ts: Successor> From<(Ts, Ts::StateIndex)> for WithInitial<Ts> {
+        fn from(value: (Ts, Ts::StateIndex)) -> Self {
+            Self(value.0, value.1)
+        }
+    }
+
     impl<A, C, Pos> WithInitial<IndexTS<A, C, Pos, usize>>
     where
         A: Alphabet,
