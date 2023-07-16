@@ -153,6 +153,10 @@ impl InfiniteLength {
         self.1
     }
 
+    pub fn set_loop_index(&mut self, loop_index: usize) {
+        self.1 = loop_index;
+    }
+
     /// Get the raw index of the last position.
     pub fn last_raw_position(&self) -> usize {
         self.0 - 1

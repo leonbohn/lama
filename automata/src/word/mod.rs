@@ -381,13 +381,11 @@ macro_rules! upw {
         )
     };
     ($recur:expr) => {
-        upw!($recur, loopindex 0)
+        upw!($recur.chars().collect::<Vec<_>>(), loopindex 0)
     };
     ($base:expr, $recur:expr) => {
-        upw!($base
-            .raw_symbols()
-            .into_iter()
-            .chain($recur.raw_symbols().into_iter())
+        upw!($base.chars()
+            .chain($recur.chars())
             .collect::<Vec<_>>(), loopindex $base.len())
     };
 }

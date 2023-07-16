@@ -216,7 +216,7 @@ impl<
                         );
                         out.add_edge(
                             *state,
-                            self.alphabet.expression(*sym),
+                            A::expression(*sym),
                             state_mapping
                                 .iter()
                                 .find_map(|(base, idx)| {

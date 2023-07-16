@@ -12,7 +12,7 @@ use std::hash::Hash;
 
 /// Module that contains definitions for dealing with lengths. This is particularly
 /// useful for dealing with infinite words.
-pub use length::{FiniteLength, InfiniteLength, Length};
+pub use length::{FiniteLength, HasLength, InfiniteLength, Length};
 
 /// This module defines transition systems and successor functions and such.
 pub mod ts;

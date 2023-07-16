@@ -55,7 +55,7 @@ pub trait Alphabet: Clone {
     /// the expression is satisfied by the given symbol, an example of this is illustrated in [`Propositional`].
     fn matches(&self, expression: &Self::Expression, symbol: Self::Symbol) -> bool;
 
-    fn expression(&self, symbol: Self::Symbol) -> Self::Expression;
+    fn expression(symbol: Self::Symbol) -> Self::Expression;
 }
 
 /// Abstracts posessing an [`Alphabet`], which can then be accessed via [`HasAlphabet::alphabet`].
@@ -135,7 +135,7 @@ impl Alphabet for Simple {
         expression == &symbol
     }
 
-    fn expression(&self, symbol: Self::Symbol) -> Self::Expression {
+    fn expression(symbol: Self::Symbol) -> Self::Expression {
         symbol
     }
 }
