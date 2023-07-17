@@ -9,13 +9,14 @@ use crate::{
 
 use self::{
     reachable::{ReachableStateIndices, ReachableStates},
+    sccs::{tarjan_scc, Scc},
     walker::RunResult,
 };
 
 use super::{
     operations::{MapColors, MatchingProduct},
-    CanInduce, ColorPosition, EdgeColor, IndexTS, IndexType, Induced, Path, StateColor, StateIndex,
-    Transition,
+    CanInduce, ColorPosition, EdgeColor, HasStateIndices, IndexTS, IndexType, Induced, Path,
+    StateColor, StateIndex, Transition,
 };
 
 mod partial;
@@ -94,6 +95,14 @@ pub trait Successor: HasAlphabet {
         self.map_colors(|_| true)
     }
 
+    fn sccs(&self) -> Vec<Scc<Self>>
+    where
+        Self: Sized + HasStateIndices,
+        Self::Alphabet: HasUniverse,
+    {
+        tarjan_scc(self)
+    }
+
     /// Returns just the [Self::Index] of the successor that is reached on the given `symbol`
     /// from `state`. If no suitable transition exists, `None` is returned.
     fn successor_index(
@@ -115,6 +124,19 @@ pub trait Successor: HasAlphabet {
         Self: Sized,
     {
         Walker::new(word, self, state)
+    }
+
+    fn word_from_to(
+        &self,
+        from: Self::StateIndex,
+        to: Self::StateIndex,
+    ) -> Option<Vec<SymbolOf<Self>>>
+    where
+        Self: Sized,
+        Self::Alphabet: HasUniverse,
+    {
+        self.minimal_representatives_from(from)
+            .find_map(|(word, state)| if state == to { Some(word) } else { None })
     }
 
     /// Runs the given `word` on the transition system, starting from `state`, which means starting

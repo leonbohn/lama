@@ -1,9 +1,11 @@
+use std::collections::{BTreeSet, VecDeque};
+
 use itertools::Itertools;
 
 use crate::{
-    alphabet::HasUniverse,
+    alphabet::{HasUniverse, SymbolOf},
     ts::{HasStateIndices, IndexType},
-    Map, Successor,
+    Map, Set, Successor,
 };
 
 #[derive(Debug, Clone)]
@@ -118,6 +120,14 @@ impl<Idx: IndexType> Tarjan<Idx> {
 #[derive(Clone, Debug)]
 pub struct Scc<Ts: Successor>(Vec<Ts::StateIndex>);
 
+impl<Ts: Successor> std::ops::Deref for Scc<Ts> {
+    type Target = Vec<Ts::StateIndex>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl<Ts: Successor> PartialEq for Scc<Ts> {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
@@ -153,6 +163,73 @@ impl<Ts: Successor> Scc<Ts> {
                 == indices.len()
         );
         Self(indices)
+    }
+
+    pub fn maximal_word(&self, ts: &Ts) -> Option<Vec<SymbolOf<Ts>>>
+    where
+        Ts::Alphabet: HasUniverse,
+    {
+        debug_assert!(self.len() > 0);
+
+        let mut should_continue = false;
+        let mut queue = Map::new();
+        for state in self.iter() {
+            for &sym in ts.alphabet().universe() {
+                if let Some(succ) = ts.successor_index(*state, sym) {
+                    if self.contains(&succ) {
+                        should_continue = true;
+                        queue
+                            .entry(*state)
+                            .or_insert_with(BTreeSet::new)
+                            .insert(sym);
+                    }
+                }
+            }
+        }
+
+        // This guards against the case where no transitions are available
+        if !should_continue {
+            return None;
+        }
+
+        let mut current = self[0];
+        let mut word = Vec::new();
+
+        while !queue.is_empty() {
+            if queue.contains_key(&current) {
+                if queue.get(&current).unwrap().is_empty() {
+                    queue.remove(&current);
+                    continue;
+                } else {
+                    let sym = *queue.get(&current).unwrap().iter().next().unwrap();
+                    queue.get_mut(&current).unwrap().remove(&sym);
+                    word.push(sym);
+                    current = ts.successor_index(current, sym).unwrap();
+                }
+            } else {
+                let q = *queue.keys().next().unwrap();
+                if queue.get(&q).unwrap().is_empty() {
+                    queue.remove(&q);
+                    continue;
+                }
+
+                word.extend(
+                    ts.word_from_to(current, q)
+                        .expect("Such a word must exist as both states are in the same SCC"),
+                );
+                current = q;
+            }
+        }
+
+        Some(word)
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_singleton(&self) -> bool {
+        self.len() == 1
     }
 }
 
@@ -199,9 +276,15 @@ mod tests {
         cong.add_edge(q3, 'b', q2, ());
 
         let sccs = super::tarjan_scc(&cong);
-        assert_eq!(
-            sccs,
-            vec![Scc::new(vec![0]), Scc::new(vec![1]), Scc::new(vec![2, 3])]
-        )
+
+        let scc1 = Scc::new(vec![0]);
+        let scc2 = Scc::new(vec![1]);
+        let scc3 = Scc::new(vec![2, 3]);
+
+        assert_eq!(sccs, vec![scc1.clone(), scc2.clone(), scc3.clone()]);
+
+        assert_eq!(scc1.maximal_word(&cong), None);
+        assert_eq!(scc2.maximal_word(&cong), Some(vec!['a', 'b']));
+        assert_eq!(scc3.maximal_word(&cong), Some(vec!['a', 'a', 'b', 'b']))
     }
 }
