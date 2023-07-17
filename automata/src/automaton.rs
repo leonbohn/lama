@@ -1,20 +1,21 @@
-use std::{collections::BTreeSet, marker::PhantomData};
+use std::{collections::BTreeSet, fmt::Debug, marker::PhantomData};
 
 use ahash::HashSet;
 use tracing::trace;
 
 use crate::{
-    alphabet::{Alphabet, HasAlphabet, Symbol, SymbolOf},
+    alphabet::{Alphabet, HasAlphabet, HasUniverse, Symbol, SymbolOf},
     ts::{
-        finite::{ReachedColor, ReachedState, TransitionColorSequence},
+        finite::{ReachedColor, ReachedState, SeenColors, TransitionColorSequence},
         infinite::InfinitySet,
         operations::{MapColors, MatchingProduct},
         path::ColorSequence,
-        ColorPosition, Congruence, EdgeColor, HasMutableStates, HasStates, IndexTS, IndexType,
-        OnEdges, OnStates, Path, Pointed, Product, Sproutable, State, StateColor, StateIndex,
-        Successor, Transition, TransitionSystem,
+        ColorPosition, Congruence, EdgeColor, HasMutableStates, HasStateIndices, HasStates,
+        IndexTS, IndexType, OnEdges, OnStates, Path, Pointed, Product, Sproutable, State,
+        StateColor, StateIndex, Successor, Transition, TransitionSystem,
     },
-    Color, FiniteLength, InfiniteLength, Length, Word,
+    word::RawWithLength,
+    Color, FiniteLength, InfiniteLength, Length, Set, Word,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -181,7 +182,7 @@ pub type SBDBA<A, Idx = usize> = MooreMachine<A, bool, Idx>;
 pub type SBDPA<A, Idx = usize> = MooreMachine<A, usize, Idx>;
 
 pub trait Transformer<S, Len: Length> {
-    type Output;
+    type Output: Debug;
     fn transform<W: Word<Symbol = S, Length = Len>>(&self, input: W) -> Self::Output;
 }
 
@@ -260,12 +261,15 @@ impl ReducesTo<bool> for usize {
     }
 }
 
-impl<X: Default, T: Ord + ReducesTo<X>> ReducesTo<X> for BTreeSet<T> {
-    fn reduce(self) -> X {
-        self.into_iter()
-            .min()
-            .map(|x| x.reduce())
-            .unwrap_or_default()
+impl ReducesTo<bool> for BTreeSet<bool> {
+    fn reduce(self) -> bool {
+        self.into_iter().any(|x| x)
+    }
+}
+
+impl ReducesTo<bool> for BTreeSet<usize> {
+    fn reduce(self) -> bool {
+        self.into_iter().min().unwrap() % 2 == 0
     }
 }
 
@@ -279,7 +283,8 @@ where
     where
         W: Word<Length = InfiniteLength, Symbol = S>,
     {
-        self.transform(word).reduce()
+        let transformed = self.transform(word);
+        transformed.reduce()
     }
 }
 
@@ -292,6 +297,26 @@ pub trait IsDfa:
     + Acceptor<SymbolOf<Self>, FiniteLength>
     + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>
 {
+    fn dfa_give_word(&self) -> Option<Vec<SymbolOf<Self>>>
+    where
+        Self::Alphabet: HasUniverse,
+    {
+        self.minimal_representatives().find_map(|(mr, index)| {
+            if self.state_color(index) {
+                Some(mr)
+            } else {
+                None
+            }
+        })
+    }
+
+    fn dfa_is_empty(&self) -> bool
+    where
+        Self::Alphabet: HasUniverse,
+    {
+        self.dfa_give_word().is_none()
+    }
+
     fn union<Ts: IsDfa<Alphabet = Self::Alphabet>>(self, other: Ts) -> DfaProductReduced<Self, Ts> {
         self.product(other).map_colors(|(a, b)| a || b)
     }
@@ -324,6 +349,38 @@ pub trait IsDba:
     + Acceptor<SymbolOf<Self>, InfiniteLength>
     + Transformer<SymbolOf<Self>, InfiniteLength, Output = BTreeSet<bool>>
 {
+    fn dba_give_word(&self) -> Option<RawWithLength<Vec<SymbolOf<Self>>, InfiniteLength>>
+    where
+        Self::Alphabet: HasUniverse,
+        Self: HasStateIndices,
+        Path<Self::Alphabet, Self::StateIndex, Self::Color, Self::Position>:
+            ColorSequence<Self::Color>,
+    {
+        for good_scc in self.sccs().iter().filter(|scc| self.is_reachable(scc[0])) {
+            if let Some(full_word) = good_scc.maximal_word(self) {
+                let SeenColors(colors) = self
+                    .induced(&full_word, self.initial())
+                    .expect("word is valid");
+                if colors.contains(&true) {
+                    let base = self
+                        .word_from_to(self.initial(), good_scc[0])
+                        .expect("we know this is reachable");
+                    return Some(RawWithLength::from_parts(base, full_word));
+                }
+            }
+        }
+        None
+    }
+
+    fn dba_is_empty(&self) -> bool
+    where
+        Self: HasStateIndices,
+        Self::Alphabet: HasUniverse,
+        Path<Self::Alphabet, Self::StateIndex, Self::Color, Self::Position>:
+            ColorSequence<Self::Color>,
+    {
+        self.dba_give_word().is_none()
+    }
 }
 
 impl<Ts> IsDba for Ts where
@@ -358,7 +415,7 @@ mod tests {
     use super::IsDfa;
     use crate::{
         alphabet::{self, Simple},
-        automaton::{Acceptor, Transformer},
+        automaton::{Acceptor, IsDba, Transformer},
         ts::{HasColorMut, HasMutableStates, IndexTS, Pointed, Product, Sproutable, Successor},
         upw,
         word::RawWithLength,
@@ -366,7 +423,6 @@ mod tests {
     };
 
     #[test]
-    #[tracing_test::traced_test]
     fn dbas() {
         let mut dba = super::DBA::new(Simple::from_iter(['a', 'b']));
         let q1 = dba.add_state(());
@@ -380,10 +436,12 @@ mod tests {
         assert!(!dba.accepts(RawWithLength::new("b", InfiniteLength(1, 0))));
         assert!(dba.accepts(upw!("a")));
         assert!(!dba.accepts(upw!("b")));
+
+        assert!(!dba.dba_is_empty());
+        println!("{:?}", dba.dba_give_word());
     }
 
     #[test]
-    #[tracing_test::traced_test]
     fn dfas_and_boolean_operations() {
         let mut dfa = super::DFA::new(Simple::new(['a', 'b']));
         let s0 = dfa.initial();
@@ -393,6 +451,10 @@ mod tests {
         let _e1 = dfa.add_edge(s0, 'b', s0, ());
         let _e2 = dfa.add_edge(s1, 'a', s1, ());
         let _e3 = dfa.add_edge(s1, 'b', s0, ());
+
+        assert!(!dfa.dfa_is_empty());
+        assert_eq!(dfa.dfa_give_word(), Some(vec![]));
+
         let dfb = dfa.clone();
 
         assert!(dfa.accepts("ababab"));

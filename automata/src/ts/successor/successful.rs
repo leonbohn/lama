@@ -2,7 +2,9 @@ use crate::{
     alphabet::{Alphabet, Symbol},
     length::{HasLength, RawPosition},
     ts::{
-        finite::{ReachedColor, ReachedState, StateColorSequence, TransitionColorSequence},
+        finite::{
+            ReachedColor, ReachedState, SeenColors, StateColorSequence, TransitionColorSequence,
+        },
         infinite::InfinitySet,
         path::ColorSequence,
         CanInduce, EdgeColor, OnEdges, Path, StateColor, StateIndex, TransitionSystem,
@@ -19,6 +21,17 @@ pub struct Successful<'a, 'b, R, Ts: Successor> {
     ts: &'a Ts,
     path: Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>,
     loop_index: Option<usize>,
+}
+
+impl<'a, 'b, R, Ts> CanInduce<SeenColors<Ts::Color>> for Successful<'a, 'b, R, Ts>
+where
+    Ts: Successor,
+    Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>: ColorSequence<Ts::Color>,
+    Ts::Color: Clone,
+{
+    fn induce(&self) -> SeenColors<Ts::Color> {
+        SeenColors(self.path.colors_vec())
+    }
 }
 
 impl<'a, 'b, R, Ts> CanInduce<InfinitySet<Ts::Color>> for Successful<'a, 'b, R, Ts>

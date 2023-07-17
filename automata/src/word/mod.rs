@@ -91,6 +91,8 @@ impl<'a, S: Symbol> Rawpresentation for Cow<'a, [S]> {
 /// away whether a word is finite or infinite, by relying on raw positions.
 #[autoimpl(for<T: trait> &T, &mut T)]
 pub trait Word: HasLength + Debug {
+    const FINITE: bool;
+
     /// The type of raw representation that is used to store the symbols of this word.
     type Raw: Rawpresentation<Symbol = Self::Symbol>;
     /// The type of symbol that is stored in this word.
@@ -139,6 +141,30 @@ pub struct RawWithLength<R, L> {
     length: L,
 }
 
+impl<S: Symbol> RawWithLength<Vec<S>, InfiniteLength> {
+    pub fn from_parts(base: Vec<S>, recur: Vec<S>) -> Self {
+        let length = InfiniteLength::new(base.len() + recur.len(), base.len());
+        RawWithLength::new(base.into_iter().chain(recur).collect(), length)
+    }
+}
+
+impl<R> RawWithLength<R, InfiniteLength> {
+    pub fn initial_segment(&self) -> Vec<R::Symbol>
+    where
+        R: Rawpresentation,
+        R::Symbol: Clone,
+    {
+        self.raw.raw_symbols()[..self.length().loop_index()].to_vec()
+    }
+    pub fn repeating_segment(&self) -> Vec<R::Symbol>
+    where
+        R: Rawpresentation,
+        R::Symbol: Clone,
+    {
+        self.raw.raw_symbols()[self.length().loop_index()..].to_vec()
+    }
+}
+
 impl<R, L> RawWithLength<R, L> {
     /// Create a new `RawWithLength` object from the given raw representation and length.
     pub fn new(raw: R, length: L) -> Self
@@ -180,6 +206,7 @@ impl<R, L> Word for RawWithLength<R, L>
 where
     R: Rawpresentation,
     L: Length,
+    RawWithLength<R, L>: Debug,
 {
     type Raw = R;
     type Symbol = R::Symbol;
@@ -191,20 +218,36 @@ where
     fn rawpresentation(&self) -> &Self::Raw {
         &self.raw
     }
+
+    const FINITE: bool = L::FINITE;
 }
 
-impl<R: Rawpresentation, L: Length> Debug for RawWithLength<R, L> {
+impl<R: Rawpresentation> Debug for RawWithLength<R, FiniteLength> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "({}, {})",
+        f.write_fmt(format_args!(
+            "{}",
             self.raw
                 .raw_symbols()
                 .iter()
-                .map(|chr| format!("{:?}", chr))
+                .map(|s| format!("{:?}", s))
+                .join("")
+        ))
+    }
+}
+
+impl<R: Rawpresentation> Debug for RawWithLength<R, InfiniteLength> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "{}({})⁰",
+            self.initial_segment()
+                .iter()
+                .map(|s| format!("{:?}", s))
                 .join(""),
-            self.length
-        )
+            self.repeating_segment()
+                .iter()
+                .map(|s| format!("{:?}", s))
+                .join("")
+        ))
     }
 }
 
@@ -244,6 +287,8 @@ impl Word for &str {
     fn rawpresentation(&self) -> &Self::Raw {
         self
     }
+
+    const FINITE: bool = true;
 }
 
 impl<S: Symbol> HasLength for Vec<S> {
@@ -265,6 +310,8 @@ impl<S: Symbol> Word for Vec<S> {
     fn rawpresentation(&self) -> &Self::Raw {
         self
     }
+
+    const FINITE: bool = true;
 }
 
 impl<S: Symbol> HasLength for &[S] {
@@ -296,6 +343,8 @@ impl<S: Symbol> Word for &[S] {
     fn rawpresentation(&self) -> &Self::Raw {
         self
     }
+
+    const FINITE: bool = true;
 }
 
 #[derive(Debug, Clone, Eq, Copy, PartialEq, Hash)]
@@ -326,6 +375,8 @@ impl<S: Symbol> Word for Letter<S> {
             None
         }
     }
+
+    const FINITE: bool = true;
 }
 impl<S: Symbol> HasLength for Letter<S> {
     type Length = FiniteLength;

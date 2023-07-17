@@ -32,6 +32,8 @@ impl<'a, S: Word> Word for Suffix<'a, S> {
     fn symbols(&self) -> super::RawpresentationIter<'_, Self::Raw, Self::Length> {
         super::RawpresentationIter::new(self.rawpresentation(), self.length(), self.offset)
     }
+
+    const FINITE: bool = S::FINITE;
 }
 
 impl<'a, S: Word> Suffix<'a, S> {
@@ -71,6 +73,8 @@ impl<'a, S: Word> Word for Prefix<'a, S> {
             None
         }
     }
+
+    const FINITE: bool = true;
 }
 
 impl<'a, S: Word> Prefix<'a, S> {

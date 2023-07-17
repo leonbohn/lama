@@ -5,6 +5,7 @@ use std::ops::Deref;
 /// Abstracts the concept of length, allowing us to work with finite and infinite words in a
 /// somewhat similar fashion.
 pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
+    const FINITE: bool;
     /// The type of iterator over the set of raw positions.
     type RawPositions: Iterator<Item = RawPosition>;
 
@@ -90,6 +91,7 @@ impl std::ops::Add<InfiniteLength> for FiniteLength {
 }
 
 impl Length for FiniteLength {
+    const FINITE: bool = true;
     type RawPositions = std::iter::Map<std::ops::Range<usize>, fn(usize) -> RawPosition>;
 
     fn raw_positions(&self) -> Self::RawPositions {
@@ -210,6 +212,8 @@ impl Length for InfiniteLength {
             Some(RawPosition::new(position))
         }
     }
+
+    const FINITE: bool = false;
 }
 
 impl Display for InfiniteLength {

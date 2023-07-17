@@ -49,6 +49,8 @@ where
     fn rawpresentation(&self) -> &Self::Raw {
         self
     }
+
+    const FINITE: bool = V::FINITE;
 }
 
 impl<W, V> HasLength for Concat<W, V>

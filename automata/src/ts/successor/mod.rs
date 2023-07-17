@@ -139,6 +139,23 @@ pub trait Successor: HasAlphabet {
             .find_map(|(word, state)| if state == to { Some(word) } else { None })
     }
 
+    fn is_reachable(&self, state: Self::StateIndex) -> bool
+    where
+        Self: Sized + Pointed,
+        Self::Alphabet: HasUniverse,
+    {
+        self.is_reachable_from(self.initial(), state)
+    }
+
+    fn is_reachable_from(&self, origin: Self::StateIndex, state: Self::StateIndex) -> bool
+    where
+        Self: Sized + Pointed,
+        Self::Alphabet: HasUniverse,
+    {
+        self.reachable_state_indices_from(origin)
+            .any(|s| s == state)
+    }
+
     /// Runs the given `word` on the transition system, starting from `state`, which means starting
     /// a new [`Walker`] and immediately taking all transitions on the letters of `word`. If the
     /// run is successful (i.e. for all symbols of `word` a suitable transition can be taken), this

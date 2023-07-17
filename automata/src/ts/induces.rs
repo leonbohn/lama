@@ -31,6 +31,10 @@ pub mod finite {
 
     #[derive(Debug, Clone, PartialEq, Eq)]
 
+    pub struct SeenColors<C>(pub Vec<C>);
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+
     pub struct StateColorSequence<C>(pub Vec<C>);
 
     #[derive(Debug, Clone, PartialEq, Eq)]
