@@ -1,4 +1,4 @@
-use automata::alphabet::{Alphabet, HasUniverse, Symbol};
+use automata::alphabet::{Alphabet, Symbol};
 use automata::ts::{HasColorMut, HasMutableStates, OnStates, Pointed, Sproutable, Successor};
 use automata::{Color, FiniteLength, MooreMachine, Transformer, Word};
 use itertools::Itertools;
@@ -34,7 +34,7 @@ impl<S: Symbol, C: Color> LStarRow<S, C> {
 }
 
 #[derive(Debug, Clone)]
-pub struct LStar<A: HasUniverse, C: Color, T: Oracle<Alphabet = A, Output = C>> {
+pub struct LStar<A: Alphabet, C: Color, T: Oracle<Alphabet = A, Output = C>> {
     teacher: T,
     alphabet: A,
     experiments: Vec<Vec<A::Symbol>>,
@@ -42,7 +42,7 @@ pub struct LStar<A: HasUniverse, C: Color, T: Oracle<Alphabet = A, Output = C>> 
 }
 
 impl<
-        A: HasUniverse,
+        A: Alphabet,
         C: Color + Default,
         T: Oracle<OnStates, Length = FiniteLength, Alphabet = A, Output = C>,
     > LStar<A, C, T>

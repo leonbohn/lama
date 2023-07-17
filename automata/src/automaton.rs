@@ -4,12 +4,11 @@ use ahash::HashSet;
 use tracing::trace;
 
 use crate::{
-    alphabet::{Alphabet, HasAlphabet, HasUniverse, Symbol, SymbolOf},
+    alphabet::{Alphabet, HasAlphabet, Symbol, SymbolOf},
     ts::{
         finite::{ReachedColor, ReachedState, SeenColors, TransitionColorSequence},
         infinite::InfinitySet,
         operations::{MapColors, MatchingProduct},
-        path::ColorSequence,
         ColorPosition, Congruence, EdgeColor, HasMutableStates, HasStateIndices, HasStates,
         IndexTS, IndexType, OnEdges, OnStates, Path, Pointed, Product, Sproutable, State,
         StateColor, StateIndex, Successor, Transition, TransitionSystem,
@@ -26,26 +25,6 @@ mod boilerplate_impls {
 
     use super::*;
 
-    // impl<Ts> std::ops::Deref for WithInitial<Ts>
-    // where
-    //     Ts: Successor,
-    // {
-    //     type Target = Ts;
-
-    //     fn deref(&self) -> &Self::Target {
-    //         &self.0
-    //     }
-    // }
-
-    // impl<Ts> std::ops::DerefMut for WithInitial<Ts>
-    // where
-    //     Ts: Successor,
-    // {
-    //     fn deref_mut(&mut self) -> &mut Self::Target {
-    //         &mut self.0
-    //     }
-    // }
-
     impl<Ts: Successor> From<(Ts, Ts::StateIndex)> for WithInitial<Ts> {
         fn from(value: (Ts, Ts::StateIndex)) -> Self {
             Self(value.0, value.1)
@@ -53,11 +32,7 @@ mod boilerplate_impls {
     }
 
     impl<Ts: HasStateIndices> HasStateIndices for WithInitial<Ts> {
-        type StateIndexIter<'this> = Ts::StateIndexIter<'this>
-        where
-            Self: 'this;
-
-        fn state_indices(&self) -> Self::StateIndexIter<'_> {
+        fn state_indices(&self) -> Vec<Self::StateIndex> {
             self.0.state_indices()
         }
     }
@@ -189,7 +164,6 @@ pub trait Transformer<S, Len: Length> {
 impl<Ts> Transformer<SymbolOf<Ts>, FiniteLength> for Ts
 where
     Ts: Successor + Pointed,
-    Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>: ColorSequence<Ts::Color>,
     Ts::Color: Clone,
 {
     type Output = Ts::Color;
@@ -213,7 +187,6 @@ where
 impl<Ts> Transformer<SymbolOf<Ts>, InfiniteLength> for Ts
 where
     Ts: Successor + Pointed,
-    Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>: ColorSequence<Ts::Color>,
     Ts::Color: Clone,
 {
     type Output = BTreeSet<Ts::Color>;
@@ -297,10 +270,7 @@ pub trait IsDfa:
     + Acceptor<SymbolOf<Self>, FiniteLength>
     + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>
 {
-    fn dfa_give_word(&self) -> Option<Vec<SymbolOf<Self>>>
-    where
-        Self::Alphabet: HasUniverse,
-    {
+    fn dfa_give_word(&self) -> Option<Vec<SymbolOf<Self>>> {
         self.minimal_representatives().find_map(|(mr, index)| {
             if self.state_color(index) {
                 Some(mr)
@@ -310,10 +280,7 @@ pub trait IsDfa:
         })
     }
 
-    fn dfa_is_empty(&self) -> bool
-    where
-        Self::Alphabet: HasUniverse,
-    {
+    fn dfa_is_empty(&self) -> bool {
         self.dfa_give_word().is_none()
     }
 
@@ -351,13 +318,10 @@ pub trait IsDba:
 {
     fn dba_give_word(&self) -> Option<RawWithLength<Vec<SymbolOf<Self>>, InfiniteLength>>
     where
-        Self::Alphabet: HasUniverse,
         Self: HasStateIndices,
-        Path<Self::Alphabet, Self::StateIndex, Self::Color, Self::Position>:
-            ColorSequence<Self::Color>,
     {
         for good_scc in self.sccs().iter().filter(|scc| self.is_reachable(scc[0])) {
-            if let Some(full_word) = good_scc.maximal_word(self) {
+            if let Some(full_word) = good_scc.maximal_word() {
                 let SeenColors(colors) = self
                     .induced(&full_word, self.initial())
                     .expect("word is valid");
@@ -375,9 +339,6 @@ pub trait IsDba:
     fn dba_is_empty(&self) -> bool
     where
         Self: HasStateIndices,
-        Self::Alphabet: HasUniverse,
-        Path<Self::Alphabet, Self::StateIndex, Self::Color, Self::Position>:
-            ColorSequence<Self::Color>,
     {
         self.dba_give_word().is_none()
     }

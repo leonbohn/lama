@@ -6,7 +6,6 @@ use crate::{
             ReachedColor, ReachedState, SeenColors, StateColorSequence, TransitionColorSequence,
         },
         infinite::InfinitySet,
-        path::ColorSequence,
         CanInduce, EdgeColor, OnEdges, Path, StateColor, StateIndex, TransitionSystem,
     },
     word::{RawWithLength, Rawpresentation},
@@ -26,7 +25,6 @@ pub struct Successful<'a, 'b, R, Ts: Successor> {
 impl<'a, 'b, R, Ts> CanInduce<SeenColors<Ts::Color>> for Successful<'a, 'b, R, Ts>
 where
     Ts: Successor,
-    Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>: ColorSequence<Ts::Color>,
     Ts::Color: Clone,
 {
     fn induce(&self) -> SeenColors<Ts::Color> {
@@ -37,7 +35,6 @@ where
 impl<'a, 'b, R, Ts> CanInduce<InfinitySet<Ts::Color>> for Successful<'a, 'b, R, Ts>
 where
     Ts: Successor,
-    Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>: ColorSequence<Ts::Color>,
     Ts::Color: Clone,
 {
     fn induce(&self) -> InfinitySet<Ts::Color> {
@@ -60,11 +57,10 @@ where
 impl<'a, 'b, R, Ts> CanInduce<ReachedColor<Ts::Color>> for Successful<'a, 'b, R, Ts>
 where
     Ts: Successor,
-    Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>: ColorSequence<Ts::Color>,
     Ts::Color: Clone,
 {
     fn induce(&self) -> ReachedColor<Ts::Color> {
-        ReachedColor(self.path.last().unwrap().clone())
+        ReachedColor(self.path.colors_vec().last().unwrap().clone())
     }
 }
 

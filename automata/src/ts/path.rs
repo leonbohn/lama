@@ -26,42 +26,6 @@ pub struct Path<A: Alphabet, Idx, C: Color, Pos: ColorPosition> {
     transitions: Vec<Transition<Idx, A::Symbol, Pos::EdgeColor<C>>>,
 }
 
-pub trait ColorSequence<C> {
-    fn nth_color(&self, n: usize) -> Option<&C>;
-    fn colors_length(&self) -> usize;
-    fn last(&self) -> Option<&C> {
-        self.nth_color(self.colors_length() - 1)
-    }
-    fn colors_vec(&self) -> Vec<C>
-    where
-        C: Clone,
-    {
-        (0..self.colors_length())
-            .map(|i| self.nth_color(i).unwrap().clone())
-            .collect()
-    }
-}
-
-impl<A: Alphabet, Idx, C: Color> ColorSequence<C> for Path<A, Idx, C, OnStates> {
-    fn nth_color(&self, n: usize) -> Option<&C> {
-        self.colors.get(n)
-    }
-
-    fn colors_length(&self) -> usize {
-        self.colors.len()
-    }
-}
-
-impl<A: Alphabet, Idx, C: Color> ColorSequence<C> for Path<A, Idx, C, OnEdges> {
-    fn nth_color(&self, n: usize) -> Option<&C> {
-        self.transitions.get(n).map(|t| t.color())
-    }
-
-    fn colors_length(&self) -> usize {
-        self.transitions.len()
-    }
-}
-
 impl<A: Alphabet, Idx, Pos: ColorPosition, C: Color> Path<A, Idx, C, Pos> {
     /// Returns the index of the state that is reached by the path.
     pub fn reached(&self) -> Idx
@@ -73,6 +37,22 @@ impl<A: Alphabet, Idx, Pos: ColorPosition, C: Color> Path<A, Idx, C, Pos> {
         } else {
             self.transitions.last().unwrap().target()
         }
+    }
+
+    fn transition_colors(&self) -> impl Iterator<Item = Pos::EdgeColor<C>> + '_ {
+        self.transitions.iter().map(|t| t.color().clone())
+    }
+
+    pub fn colors_length(&self) -> usize {
+        self.colors_vec().len()
+    }
+
+    pub fn colors_vec(&self) -> Vec<C> {
+        Pos::fuse_iters(self.colors.clone(), self.transition_colors()).collect()
+    }
+
+    pub fn nth_color(&self, n: usize) -> Option<C> {
+        self.colors_vec().get(n).cloned()
     }
 
     /// Returns true if the path is empty/trivial, meaning it consists of only one state.

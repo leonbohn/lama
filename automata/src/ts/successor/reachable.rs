@@ -1,10 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::{
-    alphabet::{HasUniverse, SymbolOf},
-    ts::StateColor,
-    Set, Successor,
-};
+use crate::{alphabet::SymbolOf, ts::StateColor, Alphabet, Set, Successor};
 
 #[derive(Debug, Clone)]
 pub struct MinimalRepresentatives<Ts: Successor> {
@@ -17,7 +13,6 @@ pub struct MinimalRepresentatives<Ts: Successor> {
 impl<Ts> MinimalRepresentatives<Ts>
 where
     Ts: Successor,
-    Ts::Alphabet: HasUniverse,
 {
     pub fn new(ts: Ts, origin: Ts::StateIndex) -> Self {
         let mut seen = Set::from_iter([origin]);
@@ -34,7 +29,6 @@ where
 impl<Ts> Iterator for MinimalRepresentatives<Ts>
 where
     Ts: Successor,
-    Ts::Alphabet: HasUniverse,
 {
     type Item = (Vec<SymbolOf<Ts>>, Ts::StateIndex);
 
@@ -61,7 +55,6 @@ pub struct ReachableStates<Ts: Successor>(MinimalRepresentatives<Ts>);
 impl<Ts> ReachableStates<Ts>
 where
     Ts: Successor,
-    Ts::Alphabet: HasUniverse,
 {
     pub fn new(ts: Ts, origin: Ts::StateIndex) -> Self {
         Self(MinimalRepresentatives::new(ts, origin))
@@ -71,7 +64,6 @@ where
 impl<Ts> Iterator for ReachableStates<Ts>
 where
     Ts: Successor,
-    Ts::Alphabet: HasUniverse,
 {
     type Item = (Ts::StateIndex, StateColor<Ts>);
 
@@ -86,7 +78,6 @@ pub struct ReachableStateIndices<Ts: Successor>(MinimalRepresentatives<Ts>);
 impl<Ts> Iterator for ReachableStateIndices<Ts>
 where
     Ts: Successor,
-    Ts::Alphabet: HasUniverse,
 {
     type Item = Ts::StateIndex;
 
@@ -98,7 +89,6 @@ where
 impl<Ts> ReachableStateIndices<Ts>
 where
     Ts: Successor,
-    Ts::Alphabet: HasUniverse,
 {
     pub fn new(ts: Ts, origin: Ts::StateIndex) -> Self {
         Self(MinimalRepresentatives::new(ts, origin))

@@ -6,7 +6,7 @@ use std::{
 };
 
 use automata::{
-    alphabet::{self, HasUniverse, Symbol},
+    alphabet::{self, Symbol},
     ts::{HasStateIndices, HasStates, Pointed, Product, Sproutable},
     word::RawWithLength,
     Acceptor, Alphabet, Color, FiniteLength, HasLength, InfiniteLength, Length, Map, MooreMachine,
@@ -48,6 +48,7 @@ mod normalization {
     where
         Normalized<S, L>: std::fmt::Debug,
     {
+        const FINITE: bool = L::FINITE;
         type Raw = Vec<S>;
 
         type Symbol = S;
@@ -279,7 +280,7 @@ pub struct ConflictRelation<A: Alphabet> {
     conflicts: Vec<(usize, usize)>,
 }
 
-fn conflict_relation_consistent<A: Alphabet + HasUniverse>(
+fn conflict_relation_consistent<A: Alphabet>(
     cong: RightCongruence<A>,
     c: ConflictRelation<A>,
 ) -> bool {
@@ -296,7 +297,7 @@ fn conflict_relation_consistent<A: Alphabet + HasUniverse>(
     true
 }
 
-fn prefix_tree<A: Alphabet + HasUniverse>(
+fn prefix_tree<A: Alphabet>(
     alphabet: A,
     words: Vec<Normalized<A::Symbol, InfiniteLength>>,
 ) -> RightCongruence<A> {
@@ -365,15 +366,20 @@ fn prefix_tree<A: Alphabet + HasUniverse>(
     tree
 }
 
-fn prefix_consistency_conflicts<A: Alphabet + HasUniverse>(
+fn prefix_consistency_conflicts<A: Alphabet>(
     alphabet: A,
     sample: Sample<A, InfiniteLength, bool>,
 ) -> ConflictRelation<A> {
-    let left_pta =
-        prefix_tree(&alphabet, sample.positive_words().cloned().collect()).all_accepting_dfa();
-    let right_pta =
-        prefix_tree(&alphabet, sample.negative_words().cloned().collect()).all_accepting_dfa();
+    let left_pta = prefix_tree(&alphabet, sample.positive_words().cloned().collect());
+    let right_pta = prefix_tree(&alphabet, sample.negative_words().cloned().collect());
 
+    let dfa = left_pta.product(right_pta);
+    let conflicts = dfa
+        .sccs()
+        .into_iter()
+        .filter(|scc| !scc.is_trivial())
+        .flatten()
+        .collect();
     // let mut conflicts = Vec::new();
     // for left_index in left_pta.state_indices() {
     //     for right_index in right_pta.state_indices() {}

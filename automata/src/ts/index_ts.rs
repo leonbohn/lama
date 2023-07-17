@@ -170,12 +170,8 @@ where
     Pos: ColorPosition,
     C: Color,
 {
-    type StateIndexIter<'this> = std::collections::btree_map::Keys<'this, Idx, State<Pos::StateColor<C>>>
-    where
-        Self: 'this;
-
-    fn state_indices(&self) -> Self::StateIndexIter<'_> {
-        self.states.keys()
+    fn state_indices(&self) -> Vec<Self::StateIndex> {
+        self.states.iter().map(|(i, _)| *i).collect()
     }
 }
 

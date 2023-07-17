@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    alphabet::{HasAlphabet, HasUniverse, Symbol, SymbolOf},
+    alphabet::{HasAlphabet, Symbol, SymbolOf},
     automaton::WithInitial,
     word::RawWithLength,
     Color, Pointed, Word,
@@ -98,7 +98,6 @@ pub trait Successor: HasAlphabet {
     fn sccs(&self) -> Vec<Scc<Self>>
     where
         Self: Sized + HasStateIndices,
-        Self::Alphabet: HasUniverse,
     {
         tarjan_scc(self)
     }
@@ -133,7 +132,6 @@ pub trait Successor: HasAlphabet {
     ) -> Option<Vec<SymbolOf<Self>>>
     where
         Self: Sized,
-        Self::Alphabet: HasUniverse,
     {
         self.minimal_representatives_from(from)
             .find_map(|(word, state)| if state == to { Some(word) } else { None })
@@ -142,7 +140,6 @@ pub trait Successor: HasAlphabet {
     fn is_reachable(&self, state: Self::StateIndex) -> bool
     where
         Self: Sized + Pointed,
-        Self::Alphabet: HasUniverse,
     {
         self.is_reachable_from(self.initial(), state)
     }
@@ -150,7 +147,6 @@ pub trait Successor: HasAlphabet {
     fn is_reachable_from(&self, origin: Self::StateIndex, state: Self::StateIndex) -> bool
     where
         Self: Sized + Pointed,
-        Self::Alphabet: HasUniverse,
     {
         self.reachable_state_indices_from(origin)
             .any(|s| s == state)
@@ -200,7 +196,6 @@ pub trait Successor: HasAlphabet {
     fn minimal_representatives(&self) -> MinimalRepresentatives<&Self>
     where
         Self: Sized + Pointed,
-        Self::Alphabet: HasUniverse,
     {
         MinimalRepresentatives::new(self, self.initial())
     }
@@ -208,7 +203,6 @@ pub trait Successor: HasAlphabet {
     fn reachable_state_indices(&self) -> ReachableStateIndices<&Self>
     where
         Self: Sized + Pointed,
-        Self::Alphabet: HasUniverse,
     {
         ReachableStateIndices::new(self, self.initial())
     }
@@ -216,7 +210,6 @@ pub trait Successor: HasAlphabet {
     fn reachable_states(&self) -> ReachableStates<&Self>
     where
         Self: Sized + Pointed,
-        Self::Alphabet: HasUniverse,
     {
         ReachableStates::new(self, self.initial())
     }
@@ -227,7 +220,6 @@ pub trait Successor: HasAlphabet {
     ) -> MinimalRepresentatives<&Self>
     where
         Self: Sized,
-        Self::Alphabet: HasUniverse,
     {
         MinimalRepresentatives::new(self, state.into())
     }
@@ -238,7 +230,6 @@ pub trait Successor: HasAlphabet {
     ) -> ReachableStateIndices<&Self>
     where
         Self: Sized + Pointed,
-        Self::Alphabet: HasUniverse,
     {
         ReachableStateIndices::new(self, self.initial())
     }
@@ -246,7 +237,6 @@ pub trait Successor: HasAlphabet {
     fn reachable_states_from<I: Into<Self::StateIndex>>(&self, state: I) -> ReachableStates<&Self>
     where
         Self: Sized + Pointed,
-        Self::Alphabet: HasUniverse,
     {
         ReachableStates::new(self, self.initial())
     }

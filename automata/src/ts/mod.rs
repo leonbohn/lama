@@ -177,6 +177,17 @@ impl<'a, Q> StateReference<'a, Q> {
 
 pub trait ColorPosition: Ord + Eq + Copy + std::fmt::Debug + Display + Hash {
     type EdgeColor<C: Color>: Color;
+    type Fused<C: Color,I: IntoIterator<Item = Self::StateColor<C>>,J: IntoIterator<Item = Self::EdgeColor<C>>>: Iterator<Item = C>;
+
+    fn fuse_iters<
+        C: Color,
+        I: IntoIterator<Item = Self::StateColor<C>>,
+        J: IntoIterator<Item = Self::EdgeColor<C>>,
+    >(
+        left: I,
+        right: J,
+    ) -> Self::Fused<C, I, J>;
+
     fn edge_color<C: Color>(color: C) -> Self::EdgeColor<C>;
     type StateColor<C: Color>: Color;
     fn state_color<C: Color>(color: C) -> Self::StateColor<C>;
@@ -257,6 +268,23 @@ impl ColorPosition for OnEdges {
     ) -> Self::EdgeColor<D> {
         (f)(color)
     }
+
+    type Fused<
+        C: Color,
+        I: IntoIterator<Item = Self::StateColor<C>>,
+        J: IntoIterator<Item = Self::EdgeColor<C>>,
+    > = J::IntoIter;
+
+    fn fuse_iters<
+        C: Color,
+        I: IntoIterator<Item = Self::StateColor<C>>,
+        J: IntoIterator<Item = Self::EdgeColor<C>>,
+    >(
+        left: I,
+        right: J,
+    ) -> Self::Fused<C, I, J> {
+        right.into_iter()
+    }
 }
 
 impl ColorPosition for OnStates {
@@ -294,6 +322,23 @@ impl ColorPosition for OnStates {
         color: Self::EdgeColor<C>,
         f: impl FnOnce(C) -> D,
     ) -> Self::EdgeColor<D> {
+    }
+
+    type Fused<
+        C: Color,
+        I: IntoIterator<Item = Self::StateColor<C>>,
+        J: IntoIterator<Item = Self::EdgeColor<C>>,
+    > = I::IntoIter;
+
+    fn fuse_iters<
+        C: Color,
+        I: IntoIterator<Item = Self::StateColor<C>>,
+        J: IntoIterator<Item = Self::EdgeColor<C>>,
+    >(
+        left: I,
+        right: J,
+    ) -> Self::Fused<C, I, J> {
+        left.into_iter()
     }
 }
 
@@ -337,6 +382,23 @@ impl ColorPosition for OnBoth {
     ) -> Self::EdgeColor<D> {
         (f)(color)
     }
+
+    type Fused<
+        C: Color,
+        I: IntoIterator<Item = Self::StateColor<C>>,
+        J: IntoIterator<Item = Self::EdgeColor<C>>,
+    > = I::IntoIter;
+
+    fn fuse_iters<
+        C: Color,
+        I: IntoIterator<Item = Self::StateColor<C>>,
+        J: IntoIterator<Item = Self::EdgeColor<C>>,
+    >(
+        left: I,
+        right: J,
+    ) -> Self::Fused<C, I, J> {
+        unimplemented!("This does not make sense, we should handle this beter...")
+    }
 }
 
 pub type EdgeColor<C> =
@@ -370,11 +432,7 @@ pub trait HasStates: Successor + Sized {
 }
 
 pub trait HasStateIndices: Successor + Sized {
-    type StateIndexIter<'this>: Iterator<Item = &'this Self::StateIndex>
-    where
-        Self: 'this;
-
-    fn state_indices(&self) -> Self::StateIndexIter<'_>;
+    fn state_indices(&self) -> Vec<Self::StateIndex>;
 }
 
 /// Abstracts possessing a set of states, which can be mutated. Note, that implementors of this

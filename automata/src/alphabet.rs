@@ -26,9 +26,14 @@ pub trait Expression<S: Symbol> {
     fn matches(&self, symbol: S) -> bool;
 }
 
-/// Implementors of this trait are able to return an iterator over all possible symbols in the alphabet.
+/// An alphabet abstracts a collection of [`Symbol`]s and complex [`Expression`]s over those.
 #[impl_tools::autoimpl(for<T: trait + ?Sized> &T)]
-pub trait HasUniverse: Alphabet {
+pub trait Alphabet: Clone {
+    /// The type of symbols in this alphabet.
+    type Symbol: Symbol;
+    /// The type of expressions in this alphabet.
+    type Expression: Expression<Self::Symbol>;
+
     /// Type for an iterator over all possible symbols in the alphabet. For [`Propositional`] alphabets,
     /// this may return quite a few symbols (exponential in the number of atomic propositions).
     type Universe<'this>: Iterator<Item = &'this Self::Symbol>
@@ -41,15 +46,6 @@ pub trait HasUniverse: Alphabet {
 
     /// Returns true if the given symbol is present in the alphabet.
     fn contains(&self, symbol: Self::Symbol) -> bool;
-}
-
-/// An alphabet abstracts a collection of [`Symbol`]s and complex [`Expression`]s over those.
-#[impl_tools::autoimpl(for<T: trait + ?Sized> &T)]
-pub trait Alphabet: Clone {
-    /// The type of symbols in this alphabet.
-    type Symbol: Symbol;
-    /// The type of expressions in this alphabet.
-    type Expression: Expression<Self::Symbol>;
 
     /// Checks whether the given expression matches the given symbol. For [`Simple`] alphabets, this just
     /// means that the expression equals the given symbol. For a [`Propositional`] alphabet, this means that
@@ -139,6 +135,10 @@ impl Alphabet for Simple {
 
     type Expression = char;
 
+    type Universe<'this> = std::slice::Iter<'this, char>
+        where
+            Self: 'this;
+
     fn matches(&self, expression: &Self::Expression, symbol: Self::Symbol) -> bool {
         expression == &symbol
     }
@@ -146,12 +146,6 @@ impl Alphabet for Simple {
     fn expression(symbol: Self::Symbol) -> Self::Expression {
         symbol
     }
-}
-
-impl HasUniverse for Simple {
-    type Universe<'this> = std::slice::Iter<'this, char>
-        where
-            Self: 'this;
 
     fn universe(&self) -> Self::Universe<'_> {
         self.0.iter()

@@ -1,5 +1,5 @@
 use automata::{
-    alphabet::{Alphabet, HasAlphabet, HasUniverse, Symbol, SymbolOf},
+    alphabet::{Alphabet, HasAlphabet, Symbol, SymbolOf},
     ts::{ColorPosition, OnStates, Pointed, Successor},
     Acceptor, Color, FiniteLength, Length, Map, MooreMachine, Transformer, Word,
 };

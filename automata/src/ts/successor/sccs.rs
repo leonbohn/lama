@@ -3,9 +3,9 @@ use std::collections::{BTreeSet, VecDeque};
 use itertools::Itertools;
 
 use crate::{
-    alphabet::{HasUniverse, SymbolOf},
-    ts::{HasStateIndices, IndexType},
-    Map, Set, Successor,
+    alphabet::SymbolOf,
+    ts::{finite::SeenColors, CanInduce, HasStateIndices, IndexType},
+    Alphabet, Map, Set, Successor,
 };
 
 #[derive(Debug, Clone)]
@@ -36,7 +36,6 @@ impl<Idx: IndexType> Tarjan<Idx> {
     pub fn visit<Ts, F>(&mut self, ts: &Ts, v: Idx, f: &mut F)
     where
         Ts: Successor<StateIndex = Idx>,
-        Ts::Alphabet: HasUniverse,
         F: FnMut(&[Idx]),
     {
         let mut node_v_is_root = true;
@@ -103,14 +102,13 @@ impl<Idx: IndexType> Tarjan<Idx> {
     pub fn execute<Ts, F>(&mut self, ts: &Ts, mut f: F)
     where
         Ts: Successor<StateIndex = Idx> + HasStateIndices,
-        Ts::Alphabet: HasUniverse,
         F: FnMut(&[Idx]),
     {
         self.data.clear();
 
         for q in ts.state_indices() {
-            if let (Some(TarjanData { rootindex: None }) | None) = self.data.get(q) {
-                self.visit(ts, *q, &mut f);
+            if let (Some(TarjanData { rootindex: None }) | None) = self.data.get(&q) {
+                self.visit(ts, q, &mut f);
             }
         }
         debug_assert!(self.stack.is_empty())
@@ -118,40 +116,40 @@ impl<Idx: IndexType> Tarjan<Idx> {
 }
 
 #[derive(Clone, Debug)]
-pub struct Scc<Ts: Successor>(Vec<Ts::StateIndex>);
+pub struct Scc<'a, Ts: Successor>(&'a Ts, Vec<Ts::StateIndex>);
 
-impl<Ts: Successor> std::ops::Deref for Scc<Ts> {
+impl<'a, Ts: Successor> std::ops::Deref for Scc<'a, Ts> {
     type Target = Vec<Ts::StateIndex>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.1
     }
 }
 
-impl<Ts: Successor> PartialEq for Scc<Ts> {
+impl<'a, Ts: Successor> PartialEq for Scc<'a, Ts> {
     fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
+        self.1 == other.1
     }
 }
-impl<Ts: Successor> Eq for Scc<Ts> {}
-impl<Ts: Successor> PartialOrd for Scc<Ts> {
+impl<'a, Ts: Successor> Eq for Scc<'a, Ts> {}
+impl<'a, Ts: Successor> PartialOrd for Scc<'a, Ts> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
-impl<Ts: Successor> Ord for Scc<Ts> {
+impl<'a, Ts: Successor> Ord for Scc<'a, Ts> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0[0].cmp(&other.0[0])
+        self.1[0].cmp(&other.1[0])
     }
 }
-impl<Ts: Successor> std::hash::Hash for Scc<Ts> {
+impl<'a, Ts: Successor> std::hash::Hash for Scc<'a, Ts> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
+        self.1.hash(state);
     }
 }
 
-impl<Ts: Successor> Scc<Ts> {
-    pub fn new(indices: Vec<Ts::StateIndex>) -> Self {
+impl<'a, Ts: Successor> Scc<'a, Ts> {
+    pub fn new(ts: &'a Ts, indices: Vec<Ts::StateIndex>) -> Self {
         assert!(!indices.is_empty(), "Cannot have empty SCC!");
         let mut indices = indices;
         indices.sort();
@@ -162,13 +160,22 @@ impl<Ts: Successor> Scc<Ts> {
                 .len()
                 == indices.len()
         );
-        Self(indices)
+        Self(ts, indices)
     }
 
-    pub fn maximal_word(&self, ts: &Ts) -> Option<Vec<SymbolOf<Ts>>>
-    where
-        Ts::Alphabet: HasUniverse,
-    {
+    pub fn ts(&self) -> &'a Ts {
+        self.0
+    }
+
+    pub fn colors(&self) -> Option<Vec<Ts::Color>> {
+        debug_assert!(!self.is_empty());
+        let maximal_word = self.maximal_word()?;
+        let SeenColors(colors) = self.ts().run(&maximal_word, self.1[0]).ok()?.induce();
+        Some(colors)
+    }
+
+    pub fn maximal_word(&self) -> Option<Vec<SymbolOf<Ts>>> {
+        let ts = self.0;
         debug_assert!(self.len() > 0);
 
         let mut should_continue = false;
@@ -225,23 +232,26 @@ impl<Ts: Successor> Scc<Ts> {
     }
 
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.1.len()
     }
 
     pub fn is_singleton(&self) -> bool {
-        self.len() == 1
+        self.1.len() == 1
+    }
+
+    pub fn is_trivial(&self) -> bool {
+        self.maximal_word().is_none()
     }
 }
 
 pub fn tarjan_scc<Ts>(ts: &Ts) -> Vec<Scc<Ts>>
 where
     Ts: Successor + HasStateIndices,
-    Ts::Alphabet: HasUniverse,
 {
     let mut sccs = Vec::new();
     {
         let mut tj = Tarjan::new();
-        tj.execute(ts, |scc| sccs.push(Scc::new(scc.to_vec())));
+        tj.execute(ts, |scc| sccs.push(Scc::new(ts, scc.to_vec())));
     }
     debug_assert!(
         sccs.iter().collect::<std::collections::HashSet<_>>().len() == sccs.len(),
@@ -277,14 +287,14 @@ mod tests {
 
         let sccs = super::tarjan_scc(&cong);
 
-        let scc1 = Scc::new(vec![0]);
-        let scc2 = Scc::new(vec![1]);
-        let scc3 = Scc::new(vec![2, 3]);
+        let scc1 = Scc::new(&cong, vec![0]);
+        let scc2 = Scc::new(&cong, vec![1]);
+        let scc3 = Scc::new(&cong, vec![2, 3]);
 
         assert_eq!(sccs, vec![scc1.clone(), scc2.clone(), scc3.clone()]);
 
-        assert_eq!(scc1.maximal_word(&cong), None);
-        assert_eq!(scc2.maximal_word(&cong), Some(vec!['a', 'b']));
-        assert_eq!(scc3.maximal_word(&cong), Some(vec!['a', 'a', 'b', 'b']))
+        assert_eq!(scc1.maximal_word(), None);
+        assert_eq!(scc2.maximal_word(), Some(vec!['a', 'b']));
+        assert_eq!(scc3.maximal_word(), Some(vec!['a', 'a', 'b', 'b']))
     }
 }

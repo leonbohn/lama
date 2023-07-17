@@ -1,5 +1,7 @@
 use std::{fmt::Display, marker::PhantomData};
 
+use itertools::Itertools;
+
 use crate::{
     alphabet::{Alphabet, Expression, HasAlphabet, Symbol, SymbolOf},
     Acceptor, Color, FiniteLength, Length, Transformer,
@@ -7,7 +9,7 @@ use crate::{
 
 use super::{
     ColorPosition, EdgeColor, HasStateIndices, HasStates, OnEdges, OnStates, Pointed, State,
-    StateColor, Successor, Transition,
+    StateColor, StateIndex, Successor, Transition,
 };
 
 pub trait Product: Successor + Sized {
@@ -65,6 +67,24 @@ impl<L: HasAlphabet, R> HasAlphabet for MatchingProduct<L, R> {
     }
 }
 
+impl<L, R> HasStateIndices for MatchingProduct<L, R>
+where
+    L: HasStateIndices,
+    R: HasStateIndices<Position = L::Position>,
+    R::Alphabet: Alphabet<Symbol = SymbolOf<L>>,
+    L::Color: Clone,
+    R::Color: Clone,
+{
+    fn state_indices(&self) -> Vec<Self::StateIndex> {
+        self.0
+            .state_indices()
+            .into_iter()
+            .cartesian_product(self.1.state_indices())
+            .map(|(l, r)| ProductIndex(l, r))
+            .collect()
+    }
+}
+
 impl<L, R> Successor for MatchingProduct<L, R>
 where
     L: Successor,
@@ -109,11 +129,7 @@ pub struct MapColors<Ts, F> {
 }
 
 impl<D: Color, Ts: HasStateIndices, F: Fn(Ts::Color) -> D> HasStateIndices for MapColors<Ts, F> {
-    type StateIndexIter<'this> = Ts::StateIndexIter<'this>
-    where
-        Self: 'this;
-
-    fn state_indices(&self) -> Self::StateIndexIter<'_> {
+    fn state_indices(&self) -> Vec<Self::StateIndex> {
         self.ts.state_indices()
     }
 }
