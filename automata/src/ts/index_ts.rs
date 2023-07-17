@@ -7,8 +7,8 @@ use crate::{
 
 use super::{
     ColorPosition, Edge, EdgeColor, EdgeIndex, EdgeIndicesFrom, EdgesFrom, HasMutableStates,
-    HasStates, Index, IndexType, OnEdges, OnStates, Sproutable, State, StateColor, StateIndex,
-    Successor, Transition,
+    HasStateIndices, HasStates, Index, IndexType, OnEdges, OnStates, Sproutable, State, StateColor,
+    StateIndex, Successor, Transition,
 };
 /// An implementation of a transition system with states of type `Q` and colors of type `C`. It stores
 /// the states and edges in a vector, which allows for fast access and iteration. The states and edges
@@ -160,6 +160,22 @@ impl<A: Alphabet, Idx: IndexType, Pos: ColorPosition, C: Color> Successor
         self.state(index)
             .map(|s| s.color().clone())
             .expect("cannot be called if state does not exist!")
+    }
+}
+
+impl<A, Idx, Pos, C> HasStateIndices for IndexTS<A, C, Pos, Idx>
+where
+    A: Alphabet,
+    Idx: IndexType,
+    Pos: ColorPosition,
+    C: Color,
+{
+    type StateIndexIter<'this> = std::collections::btree_map::Keys<'this, Idx, State<Pos::StateColor<C>>>
+    where
+        Self: 'this;
+
+    fn state_indices(&self) -> Self::StateIndexIter<'_> {
+        self.states.keys()
     }
 }
 

@@ -7,7 +7,7 @@ use std::{
 
 use automata::{
     alphabet::{self, HasUniverse, Symbol},
-    ts::{HasStates, Pointed, Product, Sproutable},
+    ts::{HasStateIndices, HasStates, Pointed, Product, Sproutable},
     word::RawWithLength,
     Acceptor, Alphabet, Color, FiniteLength, HasLength, InfiniteLength, Length, Map, MooreMachine,
     RightCongruence, Set, Successor, Word, DFA,
@@ -44,7 +44,10 @@ mod normalization {
         };
     }
 
-    impl<S: Symbol, L: Length> Word for Normalized<S, L> {
+    impl<S: Symbol, L: Length> Word for Normalized<S, L>
+    where
+        Normalized<S, L>: std::fmt::Debug,
+    {
         type Raw = Vec<S>;
 
         type Symbol = S;
@@ -200,9 +203,27 @@ pub struct Sample<A: Alphabet, L: Length, C: Color = bool> {
     pub words: Map<Normalized<A::Symbol, L>, C>,
 }
 
+impl<A: Alphabet, L: Length> Sample<A, L, bool> {
+    pub fn positive_words(&self) -> impl Iterator<Item = &'_ Normalized<A::Symbol, L>> + '_ {
+        self.words_with_color(true)
+    }
+    pub fn negative_words(&self) -> impl Iterator<Item = &'_ Normalized<A::Symbol, L>> + '_ {
+        self.words_with_color(false)
+    }
+}
+
 impl<A: Alphabet, L: Length, C: Color> Sample<A, L, C> {
     pub fn words(&self) -> impl Iterator<Item = &'_ Normalized<A::Symbol, L>> + '_ {
         self.words.iter().map(|(w, _)| w)
+    }
+
+    pub fn words_with_color(
+        &self,
+        color: C,
+    ) -> impl Iterator<Item = &'_ Normalized<A::Symbol, L>> + '_ {
+        self.words
+            .iter()
+            .filter_map(move |(w, c)| if *c == color { Some(w) } else { None })
     }
 }
 
@@ -305,11 +326,6 @@ fn prefix_tree<A: Alphabet + HasUniverse>(
     let mut tree = RightCongruence::new(alphabet.clone());
     let root = tree.initial();
 
-    let sink = tree.add_state(vec![]);
-    for sym in alphabet.universe() {
-        tree.add_edge(sink, A::expression(*sym), sink, ());
-    }
-
     let mut queue = VecDeque::from_iter([(root, vec![], words.to_vec())]);
 
     while let Some((state, access, words)) = queue.pop_front() {
@@ -341,14 +357,28 @@ fn prefix_tree<A: Alphabet + HasUniverse>(
                     let successor = tree.add_state(new_access.clone());
                     tree.add_edge(state, A::expression(sym), successor, ());
                     queue.push_back((successor, new_access, new_words.into_iter().collect()));
-                } else {
-                    tree.add_edge(state, A::expression(sym), sink, ());
                 }
             }
         }
     }
 
     tree
+}
+
+fn prefix_consistency_conflicts<A: Alphabet + HasUniverse>(
+    alphabet: A,
+    sample: Sample<A, InfiniteLength, bool>,
+) -> ConflictRelation<A> {
+    let left_pta =
+        prefix_tree(&alphabet, sample.positive_words().cloned().collect()).all_accepting_dfa();
+    let right_pta =
+        prefix_tree(&alphabet, sample.negative_words().cloned().collect()).all_accepting_dfa();
+
+    // let mut conflicts = Vec::new();
+    // for left_index in left_pta.state_indices() {
+    //     for right_index in right_pta.state_indices() {}
+    // }
+    todo!()
 }
 
 #[cfg(test)]
@@ -386,7 +416,7 @@ mod tests {
             time_start.elapsed().as_micros()
         );
 
-        assert_eq!(cong.size(), 19);
+        assert_eq!(cong.size(), 18);
 
         for (access, mr) in [("aaaa", "aaa"), ("baaa", "ba"), ("bbbbbbbbbb", "bbb")] {
             let expected_state_name = mr.chars().collect_vec();

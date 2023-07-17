@@ -30,6 +30,12 @@ pub use walker::Walker;
 mod reachable;
 pub use reachable::MinimalRepresentatives;
 
+mod restricted;
+pub use restricted::RestrictByStateIndex;
+
+mod sccs;
+pub use sccs::Tarjan;
+
 /// Encapsulates the transition function δ of a (finite) transition system. This is the main trait that
 /// is used to query a transition system. Transitions are labeled with a [`Alphabet::Expression`], which
 /// determines on which [`Alphabet::Symbol`]s the transition can be taken. Additionally, every transition
@@ -64,11 +70,28 @@ pub trait Successor: HasAlphabet {
         (self, initial).into()
     }
 
+    fn restrict_state_indices<F: Fn(Self::StateIndex) -> bool>(
+        self,
+        filter: F,
+    ) -> RestrictByStateIndex<Self, F>
+    where
+        Self: Sized,
+    {
+        RestrictByStateIndex::new(self, filter)
+    }
+
     fn map_colors<D: Color, F: Fn(Self::Color) -> D>(self, f: F) -> MapColors<Self, F>
     where
         Self: Sized,
     {
         MapColors::new(self, f)
+    }
+
+    fn all_accepting_dfa(self) -> MapColors<Self, fn(Self::Color) -> bool>
+    where
+        Self: Sized,
+    {
+        self.map_colors(|_| true)
     }
 
     /// Returns just the [Self::Index] of the successor that is reached on the given `symbol`

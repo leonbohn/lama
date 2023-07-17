@@ -27,6 +27,7 @@ pub trait Expression<S: Symbol> {
 }
 
 /// Implementors of this trait are able to return an iterator over all possible symbols in the alphabet.
+#[impl_tools::autoimpl(for<T: trait + ?Sized> &T)]
 pub trait HasUniverse: Alphabet {
     /// Type for an iterator over all possible symbols in the alphabet. For [`Propositional`] alphabets,
     /// this may return quite a few symbols (exponential in the number of atomic propositions).
@@ -98,6 +99,13 @@ pub struct Propositional {
 /// [`super::Alphabet::matches`](matched) by a symbol if the expression equals the symbol.
 #[derive(Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
 pub struct Simple(Vec<char>);
+
+#[macro_export]
+macro_rules! simple {
+    ($($c:literal),*) => {
+        $crate::alphabet::Simple::new(vec![$($c),*])
+    };
+}
 
 impl FromIterator<char> for Simple {
     fn from_iter<T: IntoIterator<Item = char>>(iter: T) -> Self {

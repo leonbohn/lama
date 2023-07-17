@@ -90,7 +90,7 @@ impl<'a, S: Symbol> Rawpresentation for Cow<'a, [S]> {
 /// A word is a sequence of symbols which can be accessed positionally. This trait tries to fully abstract
 /// away whether a word is finite or infinite, by relying on raw positions.
 #[autoimpl(for<T: trait> &T, &mut T)]
-pub trait Word: HasLength {
+pub trait Word: HasLength + Debug {
     /// The type of raw representation that is used to store the symbols of this word.
     type Raw: Rawpresentation<Symbol = Self::Symbol>;
     /// The type of symbol that is stored in this word.
@@ -193,9 +193,18 @@ where
     }
 }
 
-impl<R: Debug, L: Length> Debug for RawWithLength<R, L> {
+impl<R: Rawpresentation, L: Length> Debug for RawWithLength<R, L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({:?}, {})", self.raw, self.length)
+        write!(
+            f,
+            "({}, {})",
+            self.raw
+                .raw_symbols()
+                .iter()
+                .map(|chr| format!("{:?}", chr))
+                .join(""),
+            self.length
+        )
     }
 }
 

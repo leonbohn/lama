@@ -21,7 +21,7 @@ use crate::{
 pub struct WithInitial<Ts: Successor>(Ts, Ts::StateIndex);
 
 mod boilerplate_impls {
-    use crate::ts::ColorPosition;
+    use crate::ts::{ColorPosition, HasStateIndices};
 
     use super::*;
 
@@ -48,6 +48,16 @@ mod boilerplate_impls {
     impl<Ts: Successor> From<(Ts, Ts::StateIndex)> for WithInitial<Ts> {
         fn from(value: (Ts, Ts::StateIndex)) -> Self {
             Self(value.0, value.1)
+        }
+    }
+
+    impl<Ts: HasStateIndices> HasStateIndices for WithInitial<Ts> {
+        type StateIndexIter<'this> = Ts::StateIndexIter<'this>
+        where
+            Self: 'this;
+
+        fn state_indices(&self) -> Self::StateIndexIter<'_> {
+            self.0.state_indices()
         }
     }
 
@@ -190,6 +200,10 @@ where
         if let Some(ReachedColor(c)) = self.induced(&input, self.initial()) {
             c
         } else {
+            trace!(
+                "input {:?} does not reach a state, no valid run possible",
+                input
+            );
             unreachable!()
         }
     }

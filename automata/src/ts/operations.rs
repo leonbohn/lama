@@ -6,7 +6,8 @@ use crate::{
 };
 
 use super::{
-    ColorPosition, EdgeColor, OnEdges, OnStates, Pointed, StateColor, Successor, Transition,
+    ColorPosition, EdgeColor, HasStateIndices, HasStates, OnEdges, OnStates, Pointed, State,
+    StateColor, Successor, Transition,
 };
 
 pub trait Product: Successor + Sized {
@@ -105,6 +106,16 @@ where
 pub struct MapColors<Ts, F> {
     ts: Ts,
     f: F,
+}
+
+impl<D: Color, Ts: HasStateIndices, F: Fn(Ts::Color) -> D> HasStateIndices for MapColors<Ts, F> {
+    type StateIndexIter<'this> = Ts::StateIndexIter<'this>
+    where
+        Self: 'this;
+
+    fn state_indices(&self) -> Self::StateIndexIter<'_> {
+        self.ts.state_indices()
+    }
 }
 
 impl<Ts, F> MapColors<Ts, F> {

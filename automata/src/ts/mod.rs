@@ -369,6 +369,14 @@ pub trait HasStates: Successor + Sized {
     }
 }
 
+pub trait HasStateIndices: Successor + Sized {
+    type StateIndexIter<'this>: Iterator<Item = &'this Self::StateIndex>
+    where
+        Self: 'this;
+
+    fn state_indices(&self) -> Self::StateIndexIter<'_>;
+}
+
 /// Abstracts possessing a set of states, which can be mutated. Note, that implementors of this
 /// trait must be able to iterate over the set of states.
 #[autoimpl(for<T: trait + ?Sized> &mut T)]
