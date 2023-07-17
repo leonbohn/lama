@@ -9,13 +9,14 @@ use automata::{
     alphabet::{self, HasUniverse, Symbol},
     ts::{HasStates, Pointed, Product, Sproutable},
     word::RawWithLength,
-    Acceptor, Alphabet, Color, FiniteLength, InfiniteLength, Length, Map, MooreMachine,
+    Acceptor, Alphabet, Color, FiniteLength, HasLength, InfiniteLength, Length, Map, MooreMachine,
     RightCongruence, Set, Successor, Word, DFA,
 };
 use itertools::Itertools;
 use tracing::trace;
 
 pub use normalization::Normalized;
+#[macro_use]
 #[allow(missing_docs)]
 mod normalization {
     use automata::{alphabet::Symbol, FiniteLength, HasLength, InfiniteLength, Length, Word};
@@ -25,6 +26,22 @@ mod normalization {
     pub struct Normalized<S: Symbol, L: Length> {
         pub word: Vec<S>,
         pub length: L,
+    }
+
+    #[macro_export]
+    macro_rules! normalized_upw {
+        ($recur:expr) => {
+            $crate::passive::sample::Normalized::new_omega(
+                $recur.chars(),
+                automata::InfiniteLength($recur.len(), 0),
+            )
+        };
+        ($base:expr, $recur:expr) => {
+            $crate::passive::sample::Normalized::new_omega(
+                $base.chars().chain($recur.chars()),
+                automata::InfiniteLength($base.len() + $recur.len(), $base.len()),
+            )
+        };
     }
 
     impl<S: Symbol, L: Length> Word for Normalized<S, L> {
@@ -91,9 +108,12 @@ mod normalization {
                 }
             }
 
+            let mut repr = word[..loop_index].to_vec();
+            repr.extend(deduplicate(word[loop_index..].to_vec()));
+
             Self {
                 length: InfiniteLength(word.len(), loop_index),
-                word: deduplicate(word),
+                word: repr,
             }
         }
 
@@ -106,6 +126,7 @@ mod normalization {
         }
 
         pub fn pop_front(&mut self) -> S {
+            debug_assert!(!self.word.is_empty());
             if self.length.loop_index() > 0 {
                 let out = self.word.remove(0);
                 self.length.set_loop_index(self.length.loop_index() - 1);
@@ -254,38 +275,51 @@ fn conflict_relation_consistent<A: Alphabet + HasUniverse>(
     true
 }
 
-fn prefix_tree<A: Alphabet + FromIterator<A::Symbol>>(
+fn prefix_tree<A: Alphabet>(
+    alphabet: A,
     words: Vec<Normalized<A::Symbol, InfiniteLength>>,
 ) -> RightCongruence<A> {
+    debug_assert!(words.iter().all(|word| !word.word.is_empty()));
     fn build_accepting_loop<A: Alphabet>(
         tree: &mut RightCongruence<A>,
         state: usize,
         access: Vec<A::Symbol>,
         loop_segment: &[A::Symbol],
     ) {
+        let mut access = access;
         let mut current = state;
-        for symbol in loop_segment {
-            let mut new_access = access.clone();
-            new_access.push(*symbol);
-            let next = tree.add_state(new_access);
+        for symbol in &loop_segment[..loop_segment.len() - 1] {
+            access.push(*symbol);
+            trace!("adding state {:?}", access);
+            let next = tree.add_state(access.clone());
             tree.add_edge(current, A::expression(*symbol), next, ());
             current = next;
         }
-        tree.add_edge(current, A::expression(loop_segment[0]), state, ());
+        tree.add_edge(
+            current,
+            A::expression(loop_segment[loop_segment.len() - 1]),
+            state,
+            (),
+        );
     }
-    let alphabet = A::from_iter(words.iter().flat_map(|w| w.word.clone()).unique());
     let mut tree = RightCongruence::new(alphabet);
     let root = tree.initial();
     let mut queue = VecDeque::from_iter([(root, vec![], words.to_vec())]);
 
     while let Some((state, access, words)) = queue.pop_front() {
         debug_assert!(!words.is_empty());
-        if words.len() == 1 {
+        debug_assert!(words.iter().all(|word| !word.word.is_empty()));
+        if words.len() == 1 && words[0].length().loop_index() == 0 {
             build_accepting_loop(&mut tree, state, access, words[0].repeating_segment());
         } else {
             let mut map: Map<_, Set<_>> = Map::new();
             for mut word in words {
                 let sym = word.pop_front();
+                debug_assert!(
+                    !word.word.is_empty(),
+                    "popping front lead to empty representation"
+                );
+
                 map.entry(sym).or_default().insert(word);
             }
 
@@ -296,6 +330,7 @@ fn prefix_tree<A: Alphabet + FromIterator<A::Symbol>>(
                     .cloned()
                     .chain(std::iter::once(sym))
                     .collect_vec();
+                trace!("Adding state {:?}", new_access);
                 let successor = tree.add_state(new_access.clone());
                 tree.add_edge(state, A::expression(sym), successor, ());
                 queue.push_back((successor, new_access, new_words.into_iter().collect()));
@@ -308,24 +343,53 @@ fn prefix_tree<A: Alphabet + FromIterator<A::Symbol>>(
 
 #[cfg(test)]
 mod tests {
-    use automata::{alphabet::Simple, upw, HasLength, RightCongruence};
+    use automata::{
+        alphabet::Simple,
+        ts::{finite::ReachedColor, Congruence, HasStates, Sproutable},
+        upw, Acceptor, HasLength, Pointed, RightCongruence, Successor,
+    };
     use itertools::Itertools;
+    use tracing::info;
+    use tracing_test::traced_test;
 
     use super::{prefix_tree, Normalized};
 
     #[test]
+    #[traced_test]
     fn omega_prefix_tree() {
-        let words = vec![upw!("ab", "c"), upw!("a"), upw!("b"), upw!("ab")];
+        let mut w = normalized_upw!("aba", "b");
+        let x = w.pop_front();
 
-        let cong: RightCongruence<Simple> = prefix_tree(
-            words
-                .into_iter()
-                .map(|word| {
-                    let length = word.length();
-                    Normalized::new_omega(word.raw_as_vec(), length)
-                })
-                .collect_vec(),
+        let words = vec![
+            normalized_upw!("aba", "b"),
+            normalized_upw!("a"),
+            normalized_upw!("ab"),
+            normalized_upw!("bba"),
+            normalized_upw!("b", "a"),
+            normalized_upw!("b"),
+            normalized_upw!("aa", "b"),
+        ];
+
+        let time_start = std::time::Instant::now();
+        let cong = prefix_tree(Simple::from_iter("ab".chars()), words);
+        info!(
+            "Construction of congruence took {}μs",
+            time_start.elapsed().as_micros()
         );
-        println!("{:?}", cong);
+
+        assert_eq!(cong.size(), 18);
+
+        for (access, mr) in [("aaaa", "aaa"), ("baaa", "ba"), ("bbbbbbbbbb", "bbb")] {
+            let expected_state_name = mr.chars().collect_vec();
+            assert_eq!(
+                cong.induced((&access), cong.initial()),
+                Some(ReachedColor(expected_state_name))
+            );
+        }
+
+        let dfa = cong.map_colors(|_| true);
+        for prf in ["aba", "ababbbbbb", "", "aa", "b", "bbabbab"] {
+            assert!(dfa.accepts(&prf));
+        }
     }
 }
