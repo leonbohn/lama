@@ -275,7 +275,7 @@ fn conflict_relation_consistent<A: Alphabet + HasUniverse>(
     true
 }
 
-fn prefix_tree<A: Alphabet>(
+fn prefix_tree<A: Alphabet + HasUniverse>(
     alphabet: A,
     words: Vec<Normalized<A::Symbol, InfiniteLength>>,
 ) -> RightCongruence<A> {
@@ -302,8 +302,14 @@ fn prefix_tree<A: Alphabet>(
             (),
         );
     }
-    let mut tree = RightCongruence::new(alphabet);
+    let mut tree = RightCongruence::new(alphabet.clone());
     let root = tree.initial();
+
+    let sink = tree.add_state(vec![]);
+    for sym in alphabet.universe() {
+        tree.add_edge(sink, A::expression(*sym), sink, ());
+    }
+
     let mut queue = VecDeque::from_iter([(root, vec![], words.to_vec())]);
 
     while let Some((state, access, words)) = queue.pop_front() {
@@ -323,17 +329,21 @@ fn prefix_tree<A: Alphabet>(
                 map.entry(sym).or_default().insert(word);
             }
 
-            for (sym, new_words) in map {
-                debug_assert!(!new_words.is_empty());
-                let new_access = access
-                    .iter()
-                    .cloned()
-                    .chain(std::iter::once(sym))
-                    .collect_vec();
-                trace!("Adding state {:?}", new_access);
-                let successor = tree.add_state(new_access.clone());
-                tree.add_edge(state, A::expression(sym), successor, ());
-                queue.push_back((successor, new_access, new_words.into_iter().collect()));
+            for &sym in alphabet.universe() {
+                if let Some(new_words) = map.remove(&sym) {
+                    debug_assert!(!new_words.is_empty());
+                    let new_access = access
+                        .iter()
+                        .cloned()
+                        .chain(std::iter::once(sym))
+                        .collect_vec();
+                    trace!("Adding state {:?}", new_access);
+                    let successor = tree.add_state(new_access.clone());
+                    tree.add_edge(state, A::expression(sym), successor, ());
+                    queue.push_back((successor, new_access, new_words.into_iter().collect()));
+                } else {
+                    tree.add_edge(state, A::expression(sym), sink, ());
+                }
             }
         }
     }
@@ -355,7 +365,6 @@ mod tests {
     use super::{prefix_tree, Normalized};
 
     #[test]
-    #[traced_test]
     fn omega_prefix_tree() {
         let mut w = normalized_upw!("aba", "b");
         let x = w.pop_front();
@@ -377,7 +386,7 @@ mod tests {
             time_start.elapsed().as_micros()
         );
 
-        assert_eq!(cong.size(), 18);
+        assert_eq!(cong.size(), 19);
 
         for (access, mr) in [("aaaa", "aaa"), ("baaa", "ba"), ("bbbbbbbbbb", "bbb")] {
             let expected_state_name = mr.chars().collect_vec();
