@@ -7,8 +7,8 @@ use std::{
 
 use automata::{
     alphabet::{self, Symbol},
-    ts::{HasStateIndices, HasStates, Pointed, Product, Sproutable},
-    word::RawWithLength,
+    ts::{FiniteState, HasStates, Pointed, Product, Sproutable},
+    word::{OmegaWord, Rawpresentation},
     Acceptor, Alphabet, Color, FiniteLength, HasLength, InfiniteLength, Length, Map, MooreMachine,
     RightCongruence, Set, Successor, Word, DFA,
 };
@@ -19,7 +19,10 @@ pub use normalization::Normalized;
 #[macro_use]
 #[allow(missing_docs)]
 mod normalization {
-    use automata::{alphabet::Symbol, FiniteLength, HasLength, InfiniteLength, Length, Word};
+    use automata::{
+        alphabet::Symbol, word::Rawpresentation, FiniteLength, HasLength, InfiniteLength, Length,
+        Word,
+    };
     use itertools::Itertools;
 
     #[derive(Clone, Eq, PartialEq, Hash)]
@@ -32,13 +35,13 @@ mod normalization {
     macro_rules! normalized_upw {
         ($recur:expr) => {
             $crate::passive::sample::Normalized::new_omega(
-                $recur.chars(),
+                $recur,
                 automata::InfiniteLength($recur.len(), 0),
             )
         };
         ($base:expr, $recur:expr) => {
             $crate::passive::sample::Normalized::new_omega(
-                $base.chars().chain($recur.chars()),
+                $base.chars().chain($recur.chars()).collect_vec(),
                 automata::InfiniteLength($base.len() + $recur.len(), $base.len()),
             )
         };
@@ -97,26 +100,26 @@ mod normalization {
     }
 
     impl<S: Symbol> Normalized<S, InfiniteLength> {
-        pub fn new_omega<I: IntoIterator<Item = S>>(word: I, length: InfiniteLength) -> Self {
+        pub fn new_omega<R: Rawpresentation<Symbol = S>>(raw: R, length: InfiniteLength) -> Self {
             // first we "roll in the periodic part" by moving the loop index to
             // the front and popping symbols from the back.
-            let mut word = word.into_iter().collect_vec();
             let mut loop_index = length.loop_index();
+            let mut raw = raw.to_vec();
 
             for i in (0..loop_index).rev() {
-                if &word[i] == word.last().unwrap() {
-                    word.pop();
+                if raw.get(i) == raw.last() {
+                    raw.pop();
                     loop_index = i;
                 } else {
                     break;
                 }
             }
 
-            let mut repr = word[..loop_index].to_vec();
-            repr.extend(deduplicate(word[loop_index..].to_vec()));
+            let mut repr = raw[..loop_index].to_vec();
+            repr.extend(deduplicate(raw[loop_index..].to_vec()));
 
             Self {
-                length: InfiniteLength(word.len(), loop_index),
+                length: InfiniteLength(raw.len(), loop_index),
                 word: repr,
             }
         }
@@ -189,9 +192,8 @@ mod normalization {
 
         #[test]
         fn normalizing_upws() {
-            let input = [1, 1, 1, 1, 1, 1, 1, 1];
-            let normalized = super::Normalized::new_omega(input, InfiniteLength(8, 3));
-            assert_eq!(normalized.word, vec![1]);
+            let normalized = super::Normalized::new_omega("aaaaaaa", InfiniteLength(8, 3));
+            assert_eq!(normalized.word, vec!['a']);
         }
     }
 }
@@ -258,7 +260,10 @@ impl<A: Alphabet, C: Color> Sample<A, FiniteLength, C> {
 }
 
 impl<A: Alphabet, C: Color> Sample<A, InfiniteLength, C> {
-    pub fn new_omega<I: IntoIterator<Item = A::Symbol>, J: IntoIterator<Item = (I, usize, C)>>(
+    pub fn new_omega<
+        R: Rawpresentation<Symbol = A::Symbol>,
+        J: IntoIterator<Item = (R, usize, C)>,
+    >(
         alphabet: A,
         words: J,
     ) -> Self {
@@ -275,118 +280,6 @@ impl<A: Alphabet, C: Color> Sample<A, InfiniteLength, C> {
     }
 }
 
-pub struct ConflictRelation<A: Alphabet> {
-    dfas: [MooreMachine<A, usize>; 2],
-    conflicts: Vec<(usize, usize)>,
-}
-
-fn conflict_relation_consistent<A: Alphabet>(
-    cong: RightCongruence<A>,
-    c: ConflictRelation<A>,
-) -> bool {
-    let left = (&cong).product(&c.dfas[0]);
-    let right = (&cong).product(&c.dfas[1]);
-
-    if left.reachable_state_indices().any(|left_index| {
-        right
-            .reachable_state_indices()
-            .any(|right_index| c.conflicts.contains(&(left_index.1, right_index.1)))
-    }) {
-        return false;
-    }
-    true
-}
-
-fn prefix_tree<A: Alphabet>(
-    alphabet: A,
-    words: Vec<Normalized<A::Symbol, InfiniteLength>>,
-) -> RightCongruence<A> {
-    debug_assert!(words.iter().all(|word| !word.word.is_empty()));
-    fn build_accepting_loop<A: Alphabet>(
-        tree: &mut RightCongruence<A>,
-        state: usize,
-        access: Vec<A::Symbol>,
-        loop_segment: &[A::Symbol],
-    ) {
-        let mut access = access;
-        let mut current = state;
-        for symbol in &loop_segment[..loop_segment.len() - 1] {
-            access.push(*symbol);
-            trace!("adding state {:?}", access);
-            let next = tree.add_state(access.clone());
-            tree.add_edge(current, A::expression(*symbol), next, ());
-            current = next;
-        }
-        tree.add_edge(
-            current,
-            A::expression(loop_segment[loop_segment.len() - 1]),
-            state,
-            (),
-        );
-    }
-    let mut tree = RightCongruence::new(alphabet.clone());
-    let root = tree.initial();
-
-    let mut queue = VecDeque::from_iter([(root, vec![], words.to_vec())]);
-
-    while let Some((state, access, words)) = queue.pop_front() {
-        debug_assert!(!words.is_empty());
-        debug_assert!(words.iter().all(|word| !word.word.is_empty()));
-        if words.len() == 1 && words[0].length().loop_index() == 0 {
-            build_accepting_loop(&mut tree, state, access, words[0].repeating_segment());
-        } else {
-            let mut map: Map<_, Set<_>> = Map::new();
-            for mut word in words {
-                let sym = word.pop_front();
-                debug_assert!(
-                    !word.word.is_empty(),
-                    "popping front lead to empty representation"
-                );
-
-                map.entry(sym).or_default().insert(word);
-            }
-
-            for &sym in alphabet.universe() {
-                if let Some(new_words) = map.remove(&sym) {
-                    debug_assert!(!new_words.is_empty());
-                    let new_access = access
-                        .iter()
-                        .cloned()
-                        .chain(std::iter::once(sym))
-                        .collect_vec();
-                    trace!("Adding state {:?}", new_access);
-                    let successor = tree.add_state(new_access.clone());
-                    tree.add_edge(state, A::expression(sym), successor, ());
-                    queue.push_back((successor, new_access, new_words.into_iter().collect()));
-                }
-            }
-        }
-    }
-
-    tree
-}
-
-fn prefix_consistency_conflicts<A: Alphabet>(
-    alphabet: A,
-    sample: Sample<A, InfiniteLength, bool>,
-) -> ConflictRelation<A> {
-    let left_pta = prefix_tree(&alphabet, sample.positive_words().cloned().collect());
-    let right_pta = prefix_tree(&alphabet, sample.negative_words().cloned().collect());
-
-    let dfa = left_pta.product(right_pta);
-    let conflicts = dfa
-        .sccs()
-        .into_iter()
-        .filter(|scc| !scc.is_trivial())
-        .flatten()
-        .collect();
-    // let mut conflicts = Vec::new();
-    // for left_index in left_pta.state_indices() {
-    //     for right_index in right_pta.state_indices() {}
-    // }
-    todo!()
-}
-
 #[cfg(test)]
 mod tests {
     use automata::{
@@ -398,7 +291,7 @@ mod tests {
     use tracing::info;
     use tracing_test::traced_test;
 
-    use super::{prefix_tree, Normalized};
+    use super::Normalized;
 
     #[test]
     fn omega_prefix_tree() {
@@ -416,7 +309,7 @@ mod tests {
         ];
 
         let time_start = std::time::Instant::now();
-        let cong = prefix_tree(Simple::from_iter("ab".chars()), words);
+        let cong = crate::prefixtree::prefix_tree(Simple::from_iter("ab".chars()), words);
         info!(
             "Construction of congruence took {}μs",
             time_start.elapsed().as_micros()

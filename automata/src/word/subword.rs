@@ -89,13 +89,13 @@ mod tests {
     use itertools::Itertools;
 
     use crate::{
-        word::{RawWithLength, Word},
+        word::{OmegaWord, Word},
         FiniteLength,
     };
 
     #[test]
     fn subwords() {
-        let word = RawWithLength::new(vec!['a', 'b', 'a', 'b'], FiniteLength::new(4));
+        let word = OmegaWord::new(vec!['a', 'b', 'a', 'b'], FiniteLength::new(4));
         let pref = word.prefix(2);
         assert_eq!(pref.symbols().collect_vec(), vec!['a', 'b']);
         assert_eq!(

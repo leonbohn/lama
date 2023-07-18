@@ -8,7 +8,7 @@ use crate::{
         infinite::InfinitySet,
         CanInduce, EdgeColor, OnEdges, Path, StateColor, StateIndex, TransitionSystem,
     },
-    word::{RawWithLength, Rawpresentation},
+    word::{OmegaWord, Rawpresentation},
     Color, FiniteLength, Length,
 };
 

@@ -15,5 +15,7 @@ pub mod active;
 pub mod passive;
 pub use passive::Sample;
 
+pub(crate) mod prefixtree;
+
 #[cfg(test)]
 mod tests {}

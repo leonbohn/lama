@@ -118,6 +118,10 @@ impl<Q> State<Q> {
         &self.color
     }
 
+    pub fn clear_first_edge(&mut self) {
+        self.first_edge = None;
+    }
+
     /// Sets the first outgoing edge of the state to the given index.
     pub fn set_first_edge(&mut self, index: EdgeIndex) {
         self.first_edge = Some(index);
@@ -431,8 +435,13 @@ pub trait HasStates: Successor + Sized {
     }
 }
 
-pub trait HasStateIndices: Successor + Sized {
+#[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
+pub trait FiniteState: Successor + Sized {
     fn state_indices(&self) -> Vec<Self::StateIndex>;
+
+    fn size(&self) -> usize {
+        self.state_indices().len()
+    }
 }
 
 /// Abstracts possessing a set of states, which can be mutated. Note, that implementors of this
@@ -461,6 +470,7 @@ pub trait Sproutable: HasMutableStates + Successor {
     where
         X: Into<Self::StateIndex>,
         Y: Into<Self::StateIndex>;
+    fn undo_add_edge(&mut self);
 }
 
 /// Implementors of this trait have a distinguished (initial) state.

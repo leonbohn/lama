@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use crate::{
     alphabet::{HasAlphabet, Symbol, SymbolOf},
     automaton::WithInitial,
-    word::RawWithLength,
+    word::OmegaWord,
     Color, Pointed, Word,
 };
 
@@ -14,8 +14,9 @@ use self::{
 };
 
 use super::{
+    finite::ReachedColor,
     operations::{MapColors, MatchingProduct},
-    CanInduce, ColorPosition, EdgeColor, HasStateIndices, IndexTS, IndexType, Induced, Path,
+    CanInduce, ColorPosition, EdgeColor, FiniteState, IndexTS, IndexType, Induced, Path,
     StateColor, StateIndex, Transition,
 };
 
@@ -97,7 +98,7 @@ pub trait Successor: HasAlphabet {
 
     fn sccs(&self) -> Vec<Scc<Self>>
     where
-        Self: Sized + HasStateIndices,
+        Self: Sized + FiniteState,
     {
         tarjan_scc(self)
     }
@@ -183,6 +184,15 @@ pub trait Successor: HasAlphabet {
         R: Word<Symbol = SymbolOf<Self>>,
     {
         self.run(word, state).ok().map(|r| r.induce())
+    }
+
+    fn reached_color<'a, 'b, R>(&'a self, word: &'b R) -> Option<ReachedColor<StateColor<Self>>>
+    where
+        Successful<'a, 'b, R, Self>: CanInduce<ReachedColor<StateColor<Self>>>,
+        Self: Sized + Pointed,
+        R: Word<Symbol = SymbolOf<Self>>,
+    {
+        self.induced(word, self.initial())
     }
 
     fn make_edge_color(&self, color: Self::Color) -> EdgeColor<Self> {
@@ -293,7 +303,7 @@ mod tests {
             index_ts::MealyTS,
             IndexTS, Sproutable,
         },
-        word::RawWithLength,
+        word::OmegaWord,
         FiniteLength, Word,
     };
 
@@ -308,7 +318,7 @@ mod tests {
         let _e2 = ts.add_edge(s1, 'a', s1, 0);
         let _e3 = ts.add_edge(s1, 'b', s0, 1);
 
-        let input = RawWithLength::new(vec!['a', 'b', 'b', 'a'], FiniteLength::new(4));
+        let input = OmegaWord::new(vec!['a', 'b', 'b', 'a'], FiniteLength::new(4));
         let res = ts.run(&input, s0);
         assert!(matches!(res, Ok(_)));
 

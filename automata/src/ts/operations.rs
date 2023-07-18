@@ -8,7 +8,7 @@ use crate::{
 };
 
 use super::{
-    ColorPosition, EdgeColor, HasStateIndices, HasStates, OnEdges, OnStates, Pointed, State,
+    ColorPosition, EdgeColor, FiniteState, HasStates, OnEdges, OnStates, Pointed, State,
     StateColor, StateIndex, Successor, Transition,
 };
 
@@ -39,6 +39,12 @@ impl<Lts: Successor + Sized> Product for Lts {
 #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ProductIndex<L, R>(pub L, pub R);
 
+impl<L, R> From<ProductIndex<L, R>> for (L, R) {
+    fn from(value: ProductIndex<L, R>) -> Self {
+        (value.0, value.1)
+    }
+}
+
 impl<L: Display, R: Display> Display for ProductIndex<L, R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}.{}", self.0, self.1)
@@ -67,10 +73,10 @@ impl<L: HasAlphabet, R> HasAlphabet for MatchingProduct<L, R> {
     }
 }
 
-impl<L, R> HasStateIndices for MatchingProduct<L, R>
+impl<L, R> FiniteState for MatchingProduct<L, R>
 where
-    L: HasStateIndices,
-    R: HasStateIndices<Position = L::Position>,
+    L: FiniteState,
+    R: FiniteState<Position = L::Position>,
     R::Alphabet: Alphabet<Symbol = SymbolOf<L>>,
     L::Color: Clone,
     R::Color: Clone,
@@ -128,7 +134,7 @@ pub struct MapColors<Ts, F> {
     f: F,
 }
 
-impl<D: Color, Ts: HasStateIndices, F: Fn(Ts::Color) -> D> HasStateIndices for MapColors<Ts, F> {
+impl<D: Color, Ts: FiniteState, F: Fn(Ts::Color) -> D> FiniteState for MapColors<Ts, F> {
     fn state_indices(&self) -> Vec<Self::StateIndex> {
         self.ts.state_indices()
     }

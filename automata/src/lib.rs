@@ -7,7 +7,7 @@
 pub mod alphabet;
 pub use alphabet::Alphabet;
 
-mod length;
+pub mod length;
 use std::hash::Hash;
 
 /// Module that contains definitions for dealing with lengths. This is particularly

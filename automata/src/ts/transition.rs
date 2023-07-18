@@ -81,6 +81,10 @@ impl<E, C, Idx> Edge<E, C, Idx> {
         self.prev_edge
     }
 
+    pub fn clear_next(&mut self) {
+        self.next_edge = None
+    }
+
     /// Sets the next edge index.
     pub fn set_next(&mut self, next: EdgeIndex) {
         self.next_edge = Some(next);

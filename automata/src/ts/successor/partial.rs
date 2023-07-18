@@ -1,7 +1,7 @@
 use crate::{
     alphabet::{Alphabet, Symbol},
     ts::{EdgeColor, Path, StateColor},
-    word::RawWithLength,
+    word::OmegaWord,
     Color, FiniteLength,
 };
 

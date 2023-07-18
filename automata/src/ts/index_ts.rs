@@ -6,9 +6,9 @@ use crate::{
 };
 
 use super::{
-    ColorPosition, Edge, EdgeColor, EdgeIndex, EdgeIndicesFrom, EdgesFrom, HasMutableStates,
-    HasStateIndices, HasStates, Index, IndexType, OnEdges, OnStates, Sproutable, State, StateColor,
-    StateIndex, Successor, Transition,
+    ColorPosition, Edge, EdgeColor, EdgeIndex, EdgeIndicesFrom, EdgesFrom, FiniteState,
+    HasMutableStates, HasStates, Index, IndexType, OnEdges, OnStates, Sproutable, State,
+    StateColor, StateIndex, Successor, Transition,
 };
 /// An implementation of a transition system with states of type `Q` and colors of type `C`. It stores
 /// the states and edges in a vector, which allows for fast access and iteration. The states and edges
@@ -138,6 +138,20 @@ impl<A: Alphabet, Pos: ColorPosition, C: Color> Sproutable for IndexTS<A, C, Pos
         self.edges.push(edge);
         new_edge_id
     }
+
+    fn undo_add_edge(&mut self) {
+        if let Some(removed_edge) = self.edges.pop() {
+            if let Some(prev_edge_id) = removed_edge.get_prev() {
+                self.get_edge_mut(prev_edge_id).unwrap().clear_next();
+            } else {
+                self.state_mut(removed_edge.source())
+                    .unwrap()
+                    .clear_first_edge();
+            }
+        } else {
+            panic!("Cannot undo add_edge: No edge to remove!");
+        }
+    }
 }
 
 impl<A: Alphabet, Idx: IndexType, Pos: ColorPosition, C: Color> Successor
@@ -163,7 +177,7 @@ impl<A: Alphabet, Idx: IndexType, Pos: ColorPosition, C: Color> Successor
     }
 }
 
-impl<A, Idx, Pos, C> HasStateIndices for IndexTS<A, C, Pos, Idx>
+impl<A, Idx, Pos, C> FiniteState for IndexTS<A, C, Pos, Idx>
 where
     A: Alphabet,
     Idx: IndexType,
@@ -171,7 +185,7 @@ where
     C: Color,
 {
     fn state_indices(&self) -> Vec<Self::StateIndex> {
-        self.states.iter().map(|(i, _)| *i).collect()
+        self.states.keys().copied().collect()
     }
 }
 

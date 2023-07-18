@@ -29,8 +29,12 @@ pub trait Rawpresentation {
     /// Returns the length of the raw representation.
     fn raw_length(&self) -> usize;
 
+    fn raw_last(&self) -> Option<Self::Symbol> {
+        self.raw_get(RawPosition::new(self.raw_length() - 1))
+    }
+
     /// Constructs a vector of all symbols in the raw representation.
-    fn raw_symbols(&self) -> Vec<Self::Symbol> {
+    fn to_vec(&self) -> Vec<Self::Symbol> {
         (0..self.raw_length())
             .map(|i| self.raw_get(RawPosition::new(i)).unwrap())
             .collect()
@@ -42,10 +46,7 @@ pub trait Rawpresentation {
     /// # Example
     /// If `self` is the word `a b c`, then `self.loop_back_to(1)` is the infinite word `abc bc bc ...`.
     /// If `self` is `abba` and we run `self.loop_back_to(2)`, then we get `abba ba ba ba ba...`.
-    fn loop_back_to(
-        &self,
-        position: RawPosition,
-    ) -> RawWithLength<Vec<Self::Symbol>, InfiniteLength>
+    fn loop_back_to(&self, position: RawPosition) -> OmegaWord<Vec<Self::Symbol>, InfiniteLength>
     where
         Self: Sized,
     {
@@ -53,7 +54,7 @@ pub trait Rawpresentation {
         assert!(loop_index < self.raw_length(), "Loop index out of bounds!");
 
         let length = InfiniteLength::new(self.raw_length(), loop_index);
-        RawWithLength::new(self.raw_symbols(), length)
+        OmegaWord::new(self.to_vec(), length)
     }
 }
 
@@ -90,7 +91,7 @@ impl<'a, S: Symbol> Rawpresentation for Cow<'a, [S]> {
 /// A word is a sequence of symbols which can be accessed positionally. This trait tries to fully abstract
 /// away whether a word is finite or infinite, by relying on raw positions.
 #[autoimpl(for<T: trait> &T, &mut T)]
-pub trait Word: HasLength + Debug {
+pub trait Word: HasLength {
     const FINITE: bool;
 
     /// The type of raw representation that is used to store the symbols of this word.
@@ -136,36 +137,36 @@ pub trait Word: HasLength + Debug {
 /// Stores the actual representation of a [`Word`] as well as [`Length`], which determines the way
 /// that the raw representation is accessed.
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct RawWithLength<R, L> {
+pub struct OmegaWord<R, L> {
     raw: R,
     length: L,
 }
 
-impl<S: Symbol> RawWithLength<Vec<S>, InfiniteLength> {
+impl<S: Symbol> OmegaWord<Vec<S>, InfiniteLength> {
     pub fn from_parts(base: Vec<S>, recur: Vec<S>) -> Self {
         let length = InfiniteLength::new(base.len() + recur.len(), base.len());
-        RawWithLength::new(base.into_iter().chain(recur).collect(), length)
+        OmegaWord::new(base.into_iter().chain(recur).collect(), length)
     }
 }
 
-impl<R> RawWithLength<R, InfiniteLength> {
+impl<R> OmegaWord<R, InfiniteLength> {
     pub fn initial_segment(&self) -> Vec<R::Symbol>
     where
         R: Rawpresentation,
         R::Symbol: Clone,
     {
-        self.raw.raw_symbols()[..self.length().loop_index()].to_vec()
+        self.raw.to_vec()[..self.length().loop_index()].to_vec()
     }
     pub fn repeating_segment(&self) -> Vec<R::Symbol>
     where
         R: Rawpresentation,
         R::Symbol: Clone,
     {
-        self.raw.raw_symbols()[self.length().loop_index()..].to_vec()
+        self.raw.to_vec()[self.length().loop_index()..].to_vec()
     }
 }
 
-impl<R, L> RawWithLength<R, L> {
+impl<R, L> OmegaWord<R, L> {
     /// Create a new `RawWithLength` object from the given raw representation and length.
     pub fn new(raw: R, length: L) -> Self
     where
@@ -190,11 +191,11 @@ impl<R, L> RawWithLength<R, L> {
         L: Length,
         R::Symbol: Clone,
     {
-        self.raw.raw_symbols()
+        self.raw.to_vec()
     }
 }
 
-impl<R, L: Length> HasLength for RawWithLength<R, L> {
+impl<R, L: Length> HasLength for OmegaWord<R, L> {
     type Length = L;
 
     fn length(&self) -> Self::Length {
@@ -202,11 +203,10 @@ impl<R, L: Length> HasLength for RawWithLength<R, L> {
     }
 }
 
-impl<R, L> Word for RawWithLength<R, L>
+impl<R, L> Word for OmegaWord<R, L>
 where
     R: Rawpresentation,
     L: Length,
-    RawWithLength<R, L>: Debug,
 {
     type Raw = R;
     type Symbol = R::Symbol;
@@ -222,12 +222,12 @@ where
     const FINITE: bool = L::FINITE;
 }
 
-impl<R: Rawpresentation> Debug for RawWithLength<R, FiniteLength> {
+impl<R: Rawpresentation> Debug for OmegaWord<R, FiniteLength> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "{}",
             self.raw
-                .raw_symbols()
+                .to_vec()
                 .iter()
                 .map(|s| format!("{:?}", s))
                 .join("")
@@ -235,7 +235,7 @@ impl<R: Rawpresentation> Debug for RawWithLength<R, FiniteLength> {
     }
 }
 
-impl<R: Rawpresentation> Debug for RawWithLength<R, InfiniteLength> {
+impl<R: Rawpresentation> Debug for OmegaWord<R, InfiniteLength> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "{}({})⁰",
@@ -251,7 +251,7 @@ impl<R: Rawpresentation> Debug for RawWithLength<R, InfiniteLength> {
     }
 }
 
-impl<R, L> Display for RawWithLength<R, L>
+impl<R, L> Display for OmegaWord<R, L>
 where
     R: Rawpresentation,
     R::Symbol: Display,
@@ -456,7 +456,7 @@ mod tests {
 
     use crate::{
         length::RawPosition,
-        word::{RawWithLength, Rawpresentation, Word},
+        word::{OmegaWord, Rawpresentation, Word},
         FiniteLength,
     };
 
@@ -472,7 +472,7 @@ mod tests {
         let raw = vec!['a', 'b', 'a', 'b'];
         assert_eq!(raw.raw_get(RawPosition::new(0)), Some('a'));
 
-        let word = RawWithLength::new(raw, FiniteLength::new(4));
+        let word = OmegaWord::new(raw, FiniteLength::new(4));
         assert_eq!(word.nth(1), Some('b'));
         assert_eq!(word.nth(4), None);
 

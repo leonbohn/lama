@@ -9,11 +9,11 @@ use crate::{
         finite::{ReachedColor, ReachedState, SeenColors, TransitionColorSequence},
         infinite::InfinitySet,
         operations::{MapColors, MatchingProduct},
-        ColorPosition, Congruence, EdgeColor, HasMutableStates, HasStateIndices, HasStates,
-        IndexTS, IndexType, OnEdges, OnStates, Path, Pointed, Product, Sproutable, State,
-        StateColor, StateIndex, Successor, Transition, TransitionSystem,
+        ColorPosition, Congruence, EdgeColor, FiniteState, HasMutableStates, HasStates, IndexTS,
+        IndexType, OnEdges, OnStates, Path, Pointed, Product, Sproutable, State, StateColor,
+        StateIndex, Successor, Transition, TransitionSystem,
     },
-    word::RawWithLength,
+    word::OmegaWord,
     Color, FiniteLength, InfiniteLength, Length, Set, Word,
 };
 
@@ -21,7 +21,7 @@ use crate::{
 pub struct WithInitial<Ts: Successor>(Ts, Ts::StateIndex);
 
 mod boilerplate_impls {
-    use crate::ts::{ColorPosition, HasStateIndices};
+    use crate::ts::{ColorPosition, FiniteState};
 
     use super::*;
 
@@ -31,7 +31,7 @@ mod boilerplate_impls {
         }
     }
 
-    impl<Ts: HasStateIndices> HasStateIndices for WithInitial<Ts> {
+    impl<Ts: FiniteState> FiniteState for WithInitial<Ts> {
         fn state_indices(&self) -> Vec<Self::StateIndex> {
             self.0.state_indices()
         }
@@ -87,6 +87,10 @@ mod boilerplate_impls {
             Y: Into<Self::StateIndex>,
         {
             self.ts_mut().add_edge(from, on, to, color)
+        }
+
+        fn undo_add_edge(&mut self) {
+            self.ts_mut().undo_add_edge()
         }
     }
     impl<Ts: Successor + HasStates> HasStates for WithInitial<Ts> {
@@ -175,10 +179,6 @@ where
         if let Some(ReachedColor(c)) = self.induced(&input, self.initial()) {
             c
         } else {
-            trace!(
-                "input {:?} does not reach a state, no valid run possible",
-                input
-            );
             unreachable!()
         }
     }
@@ -316,9 +316,9 @@ pub trait IsDba:
     + Acceptor<SymbolOf<Self>, InfiniteLength>
     + Transformer<SymbolOf<Self>, InfiniteLength, Output = BTreeSet<bool>>
 {
-    fn dba_give_word(&self) -> Option<RawWithLength<Vec<SymbolOf<Self>>, InfiniteLength>>
+    fn dba_give_word(&self) -> Option<OmegaWord<Vec<SymbolOf<Self>>, InfiniteLength>>
     where
-        Self: HasStateIndices,
+        Self: FiniteState,
     {
         for good_scc in self.sccs().iter().filter(|scc| self.is_reachable(scc[0])) {
             if let Some(full_word) = good_scc.maximal_word() {
@@ -329,7 +329,7 @@ pub trait IsDba:
                     let base = self
                         .word_from_to(self.initial(), good_scc[0])
                         .expect("we know this is reachable");
-                    return Some(RawWithLength::from_parts(base, full_word));
+                    return Some(OmegaWord::from_parts(base, full_word));
                 }
             }
         }
@@ -338,7 +338,7 @@ pub trait IsDba:
 
     fn dba_is_empty(&self) -> bool
     where
-        Self: HasStateIndices,
+        Self: FiniteState,
     {
         self.dba_give_word().is_none()
     }
@@ -379,7 +379,7 @@ mod tests {
         automaton::{Acceptor, IsDba, Transformer},
         ts::{HasColorMut, HasMutableStates, IndexTS, Pointed, Product, Sproutable, Successor},
         upw,
-        word::RawWithLength,
+        word::OmegaWord,
         InfiniteLength,
     };
 
@@ -393,8 +393,8 @@ mod tests {
         let _e1 = dba.add_edge(q0, 'b', q0, false);
         let _e2 = dba.add_edge(q1, 'a', q1, true);
         let _e3 = dba.add_edge(q1, 'b', q0, false);
-        assert!(dba.accepts(RawWithLength::new("abb", InfiniteLength(3, 0))));
-        assert!(!dba.accepts(RawWithLength::new("b", InfiniteLength(1, 0))));
+        assert!(dba.accepts(OmegaWord::new("abb", InfiniteLength(3, 0))));
+        assert!(!dba.accepts(OmegaWord::new("b", InfiniteLength(1, 0))));
         assert!(dba.accepts(upw!("a")));
         assert!(!dba.accepts(upw!("b")));
 

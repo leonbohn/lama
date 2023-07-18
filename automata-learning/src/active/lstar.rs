@@ -248,7 +248,7 @@ mod tests {
     use automata::{
         alphabet::{Alphabet, HasAlphabet, Simple},
         ts::HasStates,
-        word::RawWithLength,
+        word::OmegaWord,
         FiniteLength, Transformer, Word,
     };
     use tracing_test::traced_test;
@@ -348,7 +348,7 @@ mod tests {
             for word in [
                 "aa", "bb", "bab", "bbabba", "aba", "abba", "bbab", "", "b", "a",
             ] {
-                let word = RawWithLength::new_reverse_args(FiniteLength(word.len()), word);
+                let word = OmegaWord::new_reverse_args(FiniteLength(word.len()), word);
                 let output = self.output(&word);
                 if output != hypothesis.transform(&word) {
                     return Err((word.raw_as_vec(), output));

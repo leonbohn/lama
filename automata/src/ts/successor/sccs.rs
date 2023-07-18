@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::{
     alphabet::SymbolOf,
-    ts::{finite::SeenColors, CanInduce, HasStateIndices, IndexType},
+    ts::{finite::SeenColors, CanInduce, FiniteState, IndexType},
     Alphabet, Map, Set, Successor,
 };
 
@@ -101,7 +101,7 @@ impl<Idx: IndexType> Tarjan<Idx> {
 
     pub fn execute<Ts, F>(&mut self, ts: &Ts, mut f: F)
     where
-        Ts: Successor<StateIndex = Idx> + HasStateIndices,
+        Ts: Successor<StateIndex = Idx> + FiniteState,
         F: FnMut(&[Idx]),
     {
         self.data.clear();
@@ -117,6 +117,14 @@ impl<Idx: IndexType> Tarjan<Idx> {
 
 #[derive(Clone, Debug)]
 pub struct Scc<'a, Ts: Successor>(&'a Ts, Vec<Ts::StateIndex>);
+
+impl<'a, Ts: Successor> IntoIterator for Scc<'a, Ts> {
+    type IntoIter = std::vec::IntoIter<Ts::StateIndex>;
+    type Item = Ts::StateIndex;
+    fn into_iter(self) -> Self::IntoIter {
+        self.1.into_iter()
+    }
+}
 
 impl<'a, Ts: Successor> std::ops::Deref for Scc<'a, Ts> {
     type Target = Vec<Ts::StateIndex>;
@@ -246,7 +254,7 @@ impl<'a, Ts: Successor> Scc<'a, Ts> {
 
 pub fn tarjan_scc<Ts>(ts: &Ts) -> Vec<Scc<Ts>>
 where
-    Ts: Successor + HasStateIndices,
+    Ts: Successor + FiniteState,
 {
     let mut sccs = Vec::new();
     {
