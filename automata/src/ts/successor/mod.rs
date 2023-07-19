@@ -239,9 +239,9 @@ pub trait Successor: HasAlphabet {
         state: I,
     ) -> ReachableStateIndices<&Self>
     where
-        Self: Sized + Pointed,
+        Self: Sized,
     {
-        ReachableStateIndices::new(self, self.initial())
+        ReachableStateIndices::new(self, state.into())
     }
 
     fn reachable_states_from<I: Into<Self::StateIndex>>(&self, state: I) -> ReachableStates<&Self>

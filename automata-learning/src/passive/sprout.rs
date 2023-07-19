@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use automata::{
-    ts::{operations::ProductIndex, FiniteState, Product, Sproutable},
+    ts::{operations::ProductIndex, FiniteState, Product, Sproutable, ToDot},
     Alphabet, InfiniteLength, Pointed, RightCongruence, Successor,
 };
 use itertools::Itertools;
@@ -42,18 +42,32 @@ fn prefix_consistency_conflicts<A: Alphabet>(
     let right_pta = prefix_tree(alphabet.clone(), sample.negative_words().cloned().collect());
 
     let dfa = (&left_pta).product(&right_pta);
-    let conflicts: Vec<(usize, usize)> = dfa
-        .sccs()
-        .into_iter()
+
+    let sccs = dfa.sccs();
+    let states_with_infinite_run: Vec<(usize, usize)> = sccs
+        .iter()
         .filter_map(|scc| {
             if !scc.is_trivial() {
-                Some(scc.into_iter().map(Into::into))
+                Some(scc.clone().into_iter().map(Into::into))
             } else {
                 None
             }
         })
         .flatten()
         .collect();
+
+    let mut conflicts = vec![];
+    for ProductIndex(l, r) in dfa.state_indices() {
+        let reachable = dfa
+            .reachable_state_indices_from(ProductIndex(l, r))
+            .collect_vec();
+        if reachable
+            .iter()
+            .any(|ProductIndex(p, q)| states_with_infinite_run.contains(&(*p, *q)))
+        {
+            conflicts.push((l, r))
+        }
+    }
 
     ConflictRelation {
         dfas: [left_pta, right_pta],
@@ -109,10 +123,11 @@ mod tests {
         alphabet, simple,
         ts::{
             finite::{ReachedColor, ReachedState},
-            FiniteState, Sproutable,
+            FiniteState, Sproutable, ToDot,
         },
         Pointed, RightCongruence, Successor,
     };
+    use itertools::Itertools;
     use tracing_test::traced_test;
 
     use crate::Sample;
@@ -140,6 +155,15 @@ mod tests {
         expected_cong.add_edge(q1, 'b', q1, ());
 
         let conflicts = super::prefix_consistency_conflicts(&alphabet, sample);
+        println!(
+            "{{{}}}",
+            conflicts
+                .conflicts
+                .iter()
+                .map(|(a, b)| format!("({}, {})", a, b))
+                .join(", ")
+        );
+
         let cong = super::omega_sprout(alphabet, conflicts);
 
         assert_eq!(cong.size(), expected_cong.size());

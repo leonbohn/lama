@@ -4,6 +4,7 @@ use tabled::builder::Builder;
 
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
+    ts::TransitionSystem,
     Color,
 };
 
@@ -26,28 +27,11 @@ impl<A: Alphabet, C: Color, Pos: ColorPosition, Idx: IndexType> std::fmt::Debug
     for IndexTS<A, C, Pos, Idx>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut builder = Builder::default();
-        builder.set_header(
-            std::iter::once("State".to_string())
-                .chain(self.alphabet().universe().map(|s| format!("{:?}", s))),
-        );
-        for id in self.state_indices() {
-            let mut row = vec![format!("{id} : {:?}", self.state_color(id))];
-            for &sym in self.alphabet().universe() {
-                if let Some(edge) = self.successor(id, sym) {
-                    row.push(format!("{} : {:?}", edge.target(), edge.color()));
-                } else {
-                    row.push("-".to_string());
-                }
-            }
-            builder.push_record(row);
-        }
-
-        let table = builder
-            .build()
-            .with(tabled::settings::Style::rounded())
-            .to_string();
-        writeln!(f, "{}", table)
+        writeln!(
+            f,
+            "{}",
+            self.build_transition_table(|idx, c| format!("{} : {:?}", idx, c))
+        )
     }
 }
 

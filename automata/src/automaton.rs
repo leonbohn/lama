@@ -2,6 +2,7 @@ use std::{collections::BTreeSet, fmt::Debug, marker::PhantomData};
 
 use ahash::HashSet;
 use impl_tools::autoimpl;
+use owo_colors::OwoColorize;
 use tracing::trace;
 
 use crate::{
@@ -21,10 +22,20 @@ use crate::{
 #[derive(Clone, PartialEq)]
 pub struct WithInitial<Ts: Successor>(Ts, Ts::StateIndex);
 
-impl<Ts: Successor + Debug> std::fmt::Debug for WithInitial<Ts> {
+impl<Ts: TransitionSystem> std::fmt::Debug for WithInitial<Ts> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.ts().fmt(f)?;
-        writeln!(f, "Initial: {:?}", self.initial())
+        writeln!(
+            f,
+            "Initial state {} with table\n{}",
+            self.initial(),
+            self.build_transition_table(|index, color| {
+                if index == self.initial() {
+                    format!("{} : {:?}", index.to_string().bold(), color)
+                } else {
+                    format!("{} : {:?}", index, color)
+                }
+            })
+        )
     }
 }
 

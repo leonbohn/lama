@@ -2,9 +2,11 @@ mod successor;
 use std::{fmt::Display, hash::Hash, ops::Deref};
 
 use impl_tools::autoimpl;
+use itertools::Itertools;
 pub use successor::Successor;
 
 mod transition;
+use tabled::builder::Builder;
 pub use transition::{Edge, EdgeIndex, EdgeIndicesFrom, EdgesFrom, Transition};
 
 pub mod operations;
@@ -498,8 +500,39 @@ pub trait Pointed: Successor {
 /// between which there exist directed transitions that are annotated with an expression from an
 /// alphabet. This trait merely combines the traits [`HasStates`], [`Successor`] and [`HasAlphabet`]
 /// and is automatically implemented.
-pub trait TransitionSystem: HasStates + Successor {}
-impl<Ts: HasStates + Successor> TransitionSystem for Ts {}
+pub trait TransitionSystem: FiniteState + Successor {
+    fn build_transition_table<SD>(&self, state_decorator: SD) -> String
+    where
+        SD: Fn(Self::StateIndex, StateColor<Self>) -> String,
+    {
+        let mut builder = Builder::default();
+        builder.set_header(
+            std::iter::once("State".to_string())
+                .chain(self.alphabet().universe().map(|s| format!("{:?}", s))),
+        );
+        for id in self.state_indices() {
+            let mut row = vec![format!("{}", state_decorator(id, self.state_color(id)))];
+            for &sym in self.alphabet().universe() {
+                if let Some(edge) = self.successor(id, sym) {
+                    row.push(format!("{} : {:?}", edge.target(), edge.color()));
+                } else {
+                    row.push("-".to_string());
+                }
+            }
+            builder.push_record(row);
+        }
+
+        builder
+            .build()
+            .with(tabled::settings::Style::rounded())
+            .to_string()
+    }
+}
+
+impl<Ts: FiniteState + Successor> TransitionSystem for Ts {}
+
+mod dot;
+pub use dot::ToDot;
 
 /// A congruence is a [`TransitionSystem`], which additionally has a distinguished initial state. On top
 /// of that, a congruence does not have any coloring on either states or symbols. This
