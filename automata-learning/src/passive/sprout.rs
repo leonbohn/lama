@@ -1,13 +1,15 @@
 use std::collections::VecDeque;
 
 use automata::{
-    ts::{FiniteState, Product, Sproutable},
+    ts::{operations::ProductIndex, FiniteState, Product, Sproutable},
     Alphabet, InfiniteLength, Pointed, RightCongruence, Successor,
 };
 use itertools::Itertools;
 use tracing::trace;
 
 use crate::{prefixtree::prefix_tree, Sample};
+
+use owo_colors::OwoColorize;
 
 #[derive(Clone)]
 pub struct ConflictRelation<A: Alphabet> {
@@ -20,12 +22,13 @@ impl<A: Alphabet> ConflictRelation<A> {
         let left = cong.product(&self.dfas[0]);
         let right = cong.product(&self.dfas[1]);
 
-        if left.reachable_state_indices().any(|left_index| {
-            right
-                .reachable_state_indices()
-                .any(|right_index| self.conflicts.contains(&(left_index.1, right_index.1)))
-        }) {
-            return false;
+        for ProductIndex(lcong, ldfa) in left.reachable_state_indices() {
+            for ProductIndex(rcong, rdfa) in right.reachable_state_indices() {
+                if lcong == rcong && self.conflicts.contains(&(ldfa, rdfa)) {
+                    trace!("\t\tConflict found, ({lcong}, {ldfa}) and ({rcong}, {rdfa}) reachable with ({ldfa}, {rdfa}) in conflicts");
+                    return false;
+                }
+            }
         }
         true
     }
@@ -74,9 +77,10 @@ pub fn omega_sprout<A: Alphabet>(
             cong.add_edge(source, A::expression(sym), target, ());
 
             if conflicts.consistent(&cong) {
+                trace!("\tTransition to {} is consistent", target.green());
                 continue 'outer;
             } else {
-                trace!("\tTransition to {target} is not consistent");
+                trace!("\tTransition to {} is not consistent", target.red());
                 cong.undo_add_edge();
             }
         }
@@ -89,6 +93,10 @@ pub fn omega_sprout<A: Alphabet>(
         );
 
         let new_state = cong.add_state(new_state_label);
+        if new_state > 4 {
+            panic!("TOO MANY STATES")
+        }
+        cong.add_edge(source, A::expression(sym), new_state, ());
         queue.extend(std::iter::repeat(new_state).zip(alphabet.universe()))
     }
 
@@ -98,7 +106,7 @@ pub fn omega_sprout<A: Alphabet>(
 #[cfg(test)]
 mod tests {
     use automata::{
-        simple,
+        alphabet, simple,
         ts::{
             finite::{ReachedColor, ReachedState},
             FiniteState, Sproutable,
@@ -111,38 +119,75 @@ mod tests {
 
     #[test]
     #[traced_test]
-    fn prefix_consistency_sprout() {
-        #[test]
-        fn prefix_consistency() {
-            let alphabet = simple!('a', 'b');
-            let sample = Sample::new_omega(
-                alphabet.clone(),
-                vec![
-                    ("b", 0, true),
-                    ("abab", 3, true),
-                    ("abbab", 4, true),
-                    ("ab", 1, false),
-                    ("a", 0, false),
-                ],
-            );
-            let mut expected_cong = RightCongruence::new(simple!('a', 'b'));
-            let q0 = expected_cong.initial();
-            let q1 = expected_cong.add_state(vec!['a']);
-            expected_cong.add_edge(q0, 'a', q1, ());
-            expected_cong.add_edge(q1, 'a', q0, ());
-            expected_cong.add_edge(q0, 'b', q0, ());
-            expected_cong.add_edge(q1, 'b', q1, ());
+    fn prefix_consistency_sprout_two() {
+        let alphabet = simple!('a', 'b');
+        let sample = Sample::new_omega(
+            alphabet.clone(),
+            vec![
+                ("b", 0, true),
+                ("abab", 3, true),
+                ("abbab", 4, true),
+                ("ab", 1, false),
+                ("a", 0, false),
+            ],
+        );
+        let mut expected_cong = RightCongruence::new(simple!('a', 'b'));
+        let q0 = expected_cong.initial();
+        let q1 = expected_cong.add_state(vec!['a']);
+        expected_cong.add_edge(q0, 'a', q1, ());
+        expected_cong.add_edge(q1, 'a', q0, ());
+        expected_cong.add_edge(q0, 'b', q0, ());
+        expected_cong.add_edge(q1, 'b', q1, ());
 
-            let conflicts = super::prefix_consistency_conflicts(&alphabet, sample);
-            let cong = super::omega_sprout(alphabet, conflicts);
+        let conflicts = super::prefix_consistency_conflicts(&alphabet, sample);
+        let cong = super::omega_sprout(alphabet, conflicts);
 
-            assert_eq!(cong.size(), expected_cong.size());
-            for word in ["aba", "abbabb", "baabaaba", "bababaaba", "b", "a", ""] {
-                assert_eq!(
-                    cong.reached_color(&word),
-                    expected_cong.reached_color(&word)
-                )
-            }
+        assert_eq!(cong.size(), expected_cong.size());
+        for word in ["aba", "abbabb", "baabaaba", "bababaaba", "b", "a", ""] {
+            assert_eq!(
+                cong.reached_color(&word),
+                expected_cong.reached_color(&word)
+            )
+        }
+    }
+
+    #[test]
+    fn prefix_consistency_sprout_one() {
+        let alphabet = simple!('a', 'b');
+        let sample = Sample::new_omega(alphabet.clone(), vec![("a", 0, false), ("b", 0, true)]);
+        let conflicts = super::prefix_consistency_conflicts(&alphabet, sample);
+        let cong = super::omega_sprout(alphabet, conflicts);
+
+        assert_eq!(cong.size(), 1);
+        assert!(cong.contains_state_color(&vec![]));
+    }
+
+    #[test]
+    #[traced_test]
+    fn prefix_consistency_sprout_four() {
+        let alphabet = simple!('a', 'b', 'c');
+        let sample = Sample::new_omega(
+            alphabet.clone(),
+            vec![
+                ("aac", 2, true),
+                ("ab", 1, true),
+                ("aab", 2, true),
+                ("abaac", 4, true),
+                ("abbaac", 5, true),
+                ("c", 0, false),
+                ("ac", 1, false),
+                ("b", 0, false),
+                ("abac", 3, false),
+                ("abbc", 3, false),
+            ],
+        );
+
+        let conflicts = super::prefix_consistency_conflicts(&alphabet, sample);
+        let cong = super::omega_sprout(alphabet, conflicts);
+
+        assert_eq!(cong.size(), 4);
+        for class in ["", "a", "ab", "aa"] {
+            assert!(cong.contains_state_color(&class.chars().collect()))
         }
     }
 }

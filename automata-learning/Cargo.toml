@@ -8,10 +8,10 @@ edition = "2021"
 [dependencies]
 tracing = "0.1"
 tracing-subscriber = "0.3"
-tracing-test = {version = "0.2", features = ["no-env-filter"]}
-automata = { version = "0.1", path = "../automata"}
+tracing-test = { version = "0.2", features = ["no-env-filter"] }
+automata = { version = "0.2", path = "../automata" }
 itertools = "0.10"
 impl-tools = "0.8"
-tabled = {version = "0.12", features=["color"]}
+tabled = { version = "0.12", features = ["color"] }
 owo-colors = "3.5"
 alea = "0.2"

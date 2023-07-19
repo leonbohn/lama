@@ -84,12 +84,6 @@ impl<Idx: IndexType> Tarjan<Idx> {
 
             node_data.get_mut(&v).unwrap().rootindex = Some(c);
             self.stack.push(v);
-            tracing::trace!(
-                "Calling f on {}.. and with adjust {}, queue {}",
-                start,
-                adjust,
-                self.stack.iter().map(|x| x.to_string()).join(", ")
-            );
             f(&self.stack[start..]);
             self.stack.truncate(start);
             self.index -= adjust;
@@ -248,7 +242,18 @@ impl<'a, Ts: Successor> Scc<'a, Ts> {
     }
 
     pub fn is_trivial(&self) -> bool {
-        self.maximal_word().is_none()
+        !self.is_nontrivial()
+    }
+
+    pub fn is_nontrivial(&self) -> bool {
+        self.1.iter().any(|&q| {
+            self.0.alphabet().universe().any(|&sym| {
+                self.0
+                    .successor_index(q, sym)
+                    .map(|q| self.contains(&q))
+                    .unwrap_or(false)
+            })
+        })
     }
 }
 

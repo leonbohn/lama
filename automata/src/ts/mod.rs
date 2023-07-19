@@ -442,6 +442,20 @@ pub trait FiniteState: Successor + Sized {
     fn size(&self) -> usize {
         self.state_indices().len()
     }
+
+    fn contains_state_index(&self, index: Self::StateIndex) -> bool {
+        self.state_indices().contains(&index)
+    }
+
+    fn find_by_color(&self, color: &StateColor<Self>) -> Option<Self::StateIndex> {
+        self.state_indices()
+            .into_iter()
+            .find(|index| &self.state_color(*index) == color)
+    }
+
+    fn contains_state_color(&self, color: &StateColor<Self>) -> bool {
+        self.find_by_color(color).is_some()
+    }
 }
 
 /// Abstracts possessing a set of states, which can be mutated. Note, that implementors of this
