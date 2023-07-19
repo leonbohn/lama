@@ -425,8 +425,8 @@ where
     }
 }
 
-/// This macro can be used to create a [`RawWithLength`] object from some representation, it is mainly interesting
-/// for quickly constructing infinite words without having to go through the [`RawWithLength`] struct.
+/// This macro can be used to create a [`OmegaWord`] object from some representation, it is mainly interesting
+/// for quickly constructing infinite words without having to go through the [`OmegaWord`] struct.
 ///
 /// There are essentially three distinct variants of using this macro:
 /// - `upw!(repr, loopindex index)` creates a word with the given representation and the given loopindex.
@@ -435,7 +435,7 @@ where
 #[macro_export]
 macro_rules! upw {
     ($repr:expr, loopindex $index:expr) => {
-        $crate::word::RawWithLength::new_reverse_args(
+        $crate::word::OmegaWord::new_reverse_args(
             $crate::InfiniteLength::new($repr.len(), $index),
             $repr,
         )

@@ -1,6 +1,7 @@
 use std::{collections::BTreeSet, fmt::Debug, marker::PhantomData};
 
 use ahash::HashSet;
+use impl_tools::autoimpl;
 use tracing::trace;
 
 use crate::{
@@ -17,8 +18,15 @@ use crate::{
     Color, FiniteLength, InfiniteLength, Length, Set, Word,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct WithInitial<Ts: Successor>(Ts, Ts::StateIndex);
+
+impl<Ts: Successor + Debug> std::fmt::Debug for WithInitial<Ts> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.ts().fmt(f)?;
+        writeln!(f, "Initial: {:?}", self.initial())
+    }
+}
 
 mod boilerplate_impls {
     use crate::ts::{ColorPosition, FiniteState};
@@ -159,6 +167,27 @@ pub type DBA<A, Idx = usize> = MealyMachine<A, bool, Idx>;
 pub type DPA<A, Idx = usize> = MealyMachine<A, usize, Idx>;
 pub type SBDBA<A, Idx = usize> = MooreMachine<A, bool, Idx>;
 pub type SBDPA<A, Idx = usize> = MooreMachine<A, usize, Idx>;
+
+#[autoimpl(for<T: trait> &T, &mut T)]
+pub trait ToPriority {
+    fn priority(&self) -> usize;
+}
+
+impl ToPriority for usize {
+    fn priority(&self) -> usize {
+        *self
+    }
+}
+
+impl ToPriority for bool {
+    fn priority(&self) -> usize {
+        if *self {
+            0
+        } else {
+            1
+        }
+    }
+}
 
 pub trait Transformer<S, Len: Length> {
     type Output: Debug;
@@ -400,6 +429,8 @@ mod tests {
 
         assert!(!dba.dba_is_empty());
         println!("{:?}", dba.dba_give_word());
+
+        println!("{:?}", dba);
     }
 
     #[test]

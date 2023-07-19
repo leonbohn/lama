@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 
+use tabled::builder::Builder;
+
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
     Color,
@@ -13,11 +15,40 @@ use super::{
 /// An implementation of a transition system with states of type `Q` and colors of type `C`. It stores
 /// the states and edges in a vector, which allows for fast access and iteration. The states and edges
 /// are indexed by their position in the respective vector.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct IndexTS<A: Alphabet, C: Color, Pos: ColorPosition, Idx = usize> {
     alphabet: A,
     states: BTreeMap<Idx, State<Pos::StateColor<C>>>,
     edges: Vec<Edge<A::Expression, Pos::EdgeColor<C>, Idx>>,
+}
+
+impl<A: Alphabet, C: Color, Pos: ColorPosition, Idx: IndexType> std::fmt::Debug
+    for IndexTS<A, C, Pos, Idx>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut builder = Builder::default();
+        builder.set_header(
+            std::iter::once("State".to_string())
+                .chain(self.alphabet().universe().map(|s| format!("{:?}", s))),
+        );
+        for id in self.state_indices() {
+            let mut row = vec![format!("{id} : {:?}", self.state_color(id))];
+            for &sym in self.alphabet().universe() {
+                if let Some(edge) = self.successor(id, sym) {
+                    row.push(format!("{} : {:?}", edge.target(), edge.color()));
+                } else {
+                    row.push("-".to_string());
+                }
+            }
+            builder.push_record(row);
+        }
+
+        let table = builder
+            .build()
+            .with(tabled::settings::Style::rounded())
+            .to_string();
+        writeln!(f, "{}", table)
+    }
 }
 
 pub type MealyTS<A, C, Idx = usize> = IndexTS<A, C, OnEdges, Idx>;
