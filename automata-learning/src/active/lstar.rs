@@ -368,7 +368,7 @@ mod tests {
             let mut lstar = super::LStar::new(oracle, alphabet.clone());
             let mm = lstar.infer();
             let time_taken = time_start.elapsed().as_micros();
-            assert_eq!(mm.size(), k);
+            assert_eq!(mm.hs_size(), k);
             println!("Took {:>6}μs for k={}", time_taken, k);
         }
     }

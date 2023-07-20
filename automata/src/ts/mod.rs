@@ -432,7 +432,7 @@ pub trait HasStates: Successor + Sized {
     /// Returns an iterator over the states of the implementor.
     fn states_iter(&self) -> Self::StatesIter<'_>;
 
-    fn size(&self) -> usize {
+    fn hs_size(&self) -> usize {
         self.states_iter().count()
     }
 }

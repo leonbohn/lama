@@ -75,7 +75,7 @@ mod normalization {
 
     impl<S: Symbol, L: Length> Normalized<S, L> {
         pub fn first(&self) -> Option<S> {
-            self.word.first().copied()
+            self.word.first()
         }
     }
 
@@ -206,6 +206,8 @@ pub struct Sample<A: Alphabet, L: Length, C: Color = bool> {
     pub words: Map<Normalized<A::Symbol, L>, C>,
 }
 
+pub type OmegaSample<A, C = bool> = Sample<A, InfiniteLength, C>;
+
 impl<A: Alphabet, L: Length> Sample<A, L, bool> {
     pub fn positive_words(&self) -> impl Iterator<Item = &'_ Normalized<A::Symbol, L>> + '_ {
         self.words_with_color(true)
@@ -230,36 +232,28 @@ impl<A: Alphabet, L: Length, C: Color> Sample<A, L, C> {
     }
 }
 
-impl<A, L, C> Debug for Sample<A, L, C>
-where
-    A: Alphabet + Debug,
-    L: Length + Debug,
-    C: Color,
-    Normalized<A::Symbol, L>: Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Sample with alphabet {:?}", self.alphabet)?;
-        for (word, color) in &self.words {
-            write!(f, "\n\t{:?}\t{:?}", color, word)?;
+mod finite_words {
+    use automata::{Alphabet, Color, FiniteLength};
+
+    use crate::Sample;
+
+    use super::Normalized;
+
+    impl<A: Alphabet, C: Color> Sample<A, FiniteLength, C> {
+        pub fn new_finite<I: IntoIterator<Item = A::Symbol>, J: IntoIterator<Item = (I, C)>>(
+            alphabet: A,
+            words: J,
+        ) -> Self {
+            let words = words
+                .into_iter()
+                .map(|(word, color)| (Normalized::new_finite(word), color))
+                .collect();
+            Self { alphabet, words }
         }
-        Ok(())
     }
 }
 
-impl<A: Alphabet, C: Color> Sample<A, FiniteLength, C> {
-    pub fn new_finite<I: IntoIterator<Item = A::Symbol>, J: IntoIterator<Item = (I, C)>>(
-        alphabet: A,
-        words: J,
-    ) -> Self {
-        let words = words
-            .into_iter()
-            .map(|(word, color)| (Normalized::new_finite(word), color))
-            .collect();
-        Self { alphabet, words }
-    }
-}
-
-impl<A: Alphabet, C: Color> Sample<A, InfiniteLength, C> {
+impl<A: Alphabet, C: Color> OmegaSample<A, C> {
     pub fn new_omega<
         R: Rawpresentation<Symbol = A::Symbol>,
         J: IntoIterator<Item = (R, usize, C)>,
@@ -277,6 +271,80 @@ impl<A: Alphabet, C: Color> Sample<A, InfiniteLength, C> {
             })
             .collect();
         Self { alphabet, words }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SplitOmegaSample<'a, A: Alphabet, C: Color> {
+    congruence: &'a RightCongruence<A>,
+    sample: Sample<A, InfiniteLength, C>,
+}
+
+impl<'a, A: Alphabet, C: Color> SplitOmegaSample<'a, A, C> {
+    pub fn new(congruence: &'a RightCongruence<A>, sample: Sample<A, InfiniteLength, C>) -> Self {
+        Self { congruence, sample }
+    }
+    pub fn empty(congruence: &'a RightCongruence<A>, alphabet: A) -> Self {
+        Self {
+            congruence,
+            sample: Sample {
+                alphabet,
+                words: Map::new(),
+            },
+        }
+    }
+}
+impl<A: Alphabet, C: Color> OmegaSample<A, C> {
+    pub fn split<'a>(
+        &self,
+        cong: &'a RightCongruence<A>,
+    ) -> Map<usize, SplitOmegaSample<'a, A, C>> {
+        debug_assert!(
+            cong.size() > 0,
+            "Makes only sense for non-empty congruences"
+        );
+        let initial = cong.initial();
+        // take self as is for epsilon
+        let mut out = Map::new();
+        out.insert(initial, SplitOmegaSample::new(cong, self.clone()));
+        let mut queue: VecDeque<_> = self
+            .words
+            .iter()
+            .map(|(w, c)| (initial, w.suffix(0), c))
+            .collect();
+
+        while let Some((state, word, color)) = queue.pop_front() {
+            // unwrap okay because words are infinite
+            if let Some(reached) = cong.successor_index(state, word.first().unwrap()) {
+                let suffix = word.suffix(1);
+                out.entry(reached)
+                    .or_insert_with(|| SplitOmegaSample::empty(cong, self.alphabet.clone()))
+                    .sample
+                    .words
+                    .insert(
+                        Normalized::new_omega(suffix.rawpresentation().clone(), suffix.length()),
+                        color.clone(),
+                    );
+                todo!("Fix rawpresentation call above, that does not work. we need to somehow collect the word");
+            }
+        }
+        out
+    }
+}
+
+impl<A, L, C> Debug for Sample<A, L, C>
+where
+    A: Alphabet + Debug,
+    L: Length + Debug,
+    C: Color,
+    Normalized<A::Symbol, L>: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Sample with alphabet {:?}", self.alphabet)?;
+        for (word, color) in &self.words {
+            write!(f, "\n\t{:?}\t{:?}", color, word)?;
+        }
+        Ok(())
     }
 }
 
@@ -315,7 +383,7 @@ mod tests {
             time_start.elapsed().as_micros()
         );
 
-        assert_eq!(cong.size(), 18);
+        assert_eq!(cong.hs_size(), 18);
 
         for (access, mr) in [("aaaa", "aaa"), ("baaa", "ba"), ("bbbbbbbbbb", "bbb")] {
             let expected_state_name = mr.chars().collect_vec();

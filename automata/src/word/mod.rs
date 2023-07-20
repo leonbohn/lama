@@ -113,6 +113,13 @@ pub trait Word: HasLength {
         Prefix::new(self, length)
     }
 
+    fn first(&self) -> Option<Self::Symbol>
+    where
+        Self: Sized,
+    {
+        self.nth(0)
+    }
+
     fn concat<W: Word<Symbol = Self::Symbol>>(self, other: W) -> Concat<Self, W>
     where
         Self: Sized + HasLength<Length = FiniteLength>,
@@ -126,6 +133,10 @@ pub trait Word: HasLength {
         Self: Sized,
     {
         subword::Suffix::new(self, offset)
+    }
+
+    fn to_omega_word(&self) -> OmegaWord<Vec<Self::Symbol>, InfiniteLength> {
+        todo!()
     }
 
     /// Returns an iterator over the symbols making up `self`.
