@@ -6,7 +6,6 @@ use crate::{
     alphabet::{HasAlphabet, SymbolOf},
     length::RawPosition,
     ts::{EdgeColor, Path, StateColor, StateIndex, Transition, TransitionSystem},
-    word::Rawpresentation,
     Length, Word,
 };
 

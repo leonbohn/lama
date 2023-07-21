@@ -24,7 +24,7 @@ pub fn prefix_tree<A: Alphabet>(
         for symbol in &loop_segment[..loop_segment.len() - 1] {
             access.push(*symbol);
             trace!("adding state {:?}", access);
-            let next = tree.add_state(access.clone());
+            let next = tree.add_state(access.clone().into());
             tree.add_edge(current, A::expression(*symbol), next, ());
             current = next;
         }
@@ -66,7 +66,7 @@ pub fn prefix_tree<A: Alphabet>(
                         .chain(std::iter::once(sym))
                         .collect_vec();
                     trace!("Adding state {:?}", new_access);
-                    let successor = tree.add_state(new_access.clone());
+                    let successor = tree.add_state(new_access.clone().into());
                     tree.add_edge(state, A::expression(sym), successor, ());
                     queue.push_back((successor, new_access, new_words.into_iter().collect()));
                 }

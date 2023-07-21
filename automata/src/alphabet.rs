@@ -8,8 +8,14 @@ use std::{
 /// of alphabets:
 /// - [`Simple`] alphabets, which are just a set of symbols.
 /// - [`Propositional`] alphabets, where a symbol is a valuation of all propositional variables.
-pub trait Symbol: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash {}
-impl<T: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash> Symbol for T {}
+pub trait Symbol: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash {
+    fn show(&self) -> String;
+}
+impl<S: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash + Display> Symbol for S {
+    fn show(&self) -> String {
+        self.to_string()
+    }
+}
 
 /// An expression is used to label [`crate::ts::Edge`]s of a [`crate::ts::TransitionSystem`]. For [`Simple`]
 /// alphabets, an expression is simply a single symbol, whereas for a [`Propositional`] alphabet, an expression

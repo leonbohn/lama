@@ -23,7 +23,13 @@ pub trait ToDot: TransitionSystem {
             ));
         }
 
-        for state in self.state_indices() {
+        let to_consider = if let Some(initial) = with_initial {
+            self.reachable_state_indices_from(initial).collect()
+        } else {
+            self.state_indices()
+        };
+
+        for state in to_consider {
             for &sym in self.alphabet().universe() {
                 if let Some(edge) = self.successor(state, sym) {
                     lines.push(format!(
@@ -104,12 +110,6 @@ pub trait ToDot: TransitionSystem {
         let image_tempfile = tempfile::Builder::new().suffix(".png").tempfile()?;
         let image_tempfile_name = image_tempfile.into_temp_path();
 
-        tracing::trace!(
-            "Rendering {}\n{}\n to {}",
-            tempfile_name.display(),
-            dot,
-            image_tempfile_name.display()
-        );
         let mut child = std::process::Command::new("dot")
             .arg("-Tpng")
             .arg("-o")
@@ -144,7 +144,6 @@ pub trait ToDot: TransitionSystem {
         use std::io::Write;
 
         let rendered_path = self.render_tempfile(with_initial)?;
-        tracing::trace!("Opening rendered file {}", rendered_path.display());
         display_png(rendered_path)
     }
 }
@@ -185,7 +184,7 @@ mod tests {
         let alphabet = simple!('a', 'b');
         let mut cong = RightCongruence::new(alphabet);
         let q0 = cong.initial();
-        let q1 = cong.add_state(vec!['a']);
+        let q1 = cong.add_state(vec!['a'].into());
         cong.add_edge(q0, 'a', q1, ());
         cong.add_edge(q0, 'b', q0, ());
         cong.add_edge(q1, 'a', q0, ());

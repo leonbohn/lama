@@ -8,7 +8,7 @@ use std::{
 use automata::{
     alphabet::{self, Symbol},
     ts::{FiniteState, HasStates, Pointed, Product, Sproutable},
-    word::{OmegaWord, Rawpresentation},
+    word::{OmegaWord, RawSymbols},
     Acceptor, Alphabet, Color, FiniteLength, HasLength, InfiniteLength, Length, Map, MooreMachine,
     RightCongruence, Set, Successor, Word, DFA,
 };
@@ -20,8 +20,7 @@ pub use normalization::Normalized;
 #[allow(missing_docs)]
 mod normalization {
     use automata::{
-        alphabet::Symbol, word::Rawpresentation, FiniteLength, HasLength, InfiniteLength, Length,
-        Word,
+        alphabet::Symbol, word::RawSymbols, FiniteLength, HasLength, InfiniteLength, Length, Word,
     };
     use itertools::Itertools;
 
@@ -51,17 +50,10 @@ mod normalization {
     where
         Normalized<S, L>: std::fmt::Debug,
     {
-        const FINITE: bool = L::FINITE;
-        type Raw = Vec<S>;
-
         type Symbol = S;
 
         fn nth(&self, position: usize) -> Option<Self::Symbol> {
             self.word.get(position).copied()
-        }
-
-        fn rawpresentation(&self) -> &Self::Raw {
-            &self.word
         }
     }
 
@@ -96,11 +88,11 @@ mod normalization {
                 return input.into_iter().take(i).collect_vec();
             }
         }
-        input.to_vec()
+        input.raw_to_vec()
     }
 
     impl<S: Symbol> Normalized<S, InfiniteLength> {
-        pub fn new_omega<R: Rawpresentation<Symbol = S>>(raw: R, length: InfiniteLength) -> Self {
+        pub fn new_omega<R: RawSymbols<S>>(raw: R, length: InfiniteLength) -> Self {
             // first we "roll in the periodic part" by moving the loop index to
             // the front and popping symbols from the back.
             let mut loop_index = length.loop_index();
@@ -254,10 +246,7 @@ mod finite_words {
 }
 
 impl<A: Alphabet, C: Color> OmegaSample<A, C> {
-    pub fn new_omega<
-        R: Rawpresentation<Symbol = A::Symbol>,
-        J: IntoIterator<Item = (R, usize, C)>,
-    >(
+    pub fn new_omega<R: RawSymbols<A::Symbol>, J: IntoIterator<Item = (R, usize, C)>>(
         alphabet: A,
         words: J,
     ) -> Self {
@@ -310,19 +299,19 @@ impl<A: Alphabet, C: Color> OmegaSample<A, C> {
         let mut queue: VecDeque<_> = self
             .words
             .iter()
-            .map(|(w, c)| (initial, w.suffix(0), c))
+            .map(|(w, c)| (initial, w.offset(0), c))
             .collect();
 
         while let Some((state, word, color)) = queue.pop_front() {
             // unwrap okay because words are infinite
             if let Some(reached) = cong.successor_index(state, word.first().unwrap()) {
-                let suffix = word.suffix(1);
+                let suffix = word.offset(1);
                 out.entry(reached)
                     .or_insert_with(|| SplitOmegaSample::empty(cong, self.alphabet.clone()))
                     .sample
                     .words
                     .insert(
-                        Normalized::new_omega(suffix.rawpresentation().clone(), suffix.length()),
+                        Normalized::new_omega(suffix.raw_to_vec(), suffix.length()),
                         color.clone(),
                     );
                 todo!("Fix rawpresentation call above, that does not work. we need to somehow collect the word");
@@ -386,9 +375,9 @@ mod tests {
         assert_eq!(cong.hs_size(), 18);
 
         for (access, mr) in [("aaaa", "aaa"), ("baaa", "ba"), ("bbbbbbbbbb", "bbb")] {
-            let expected_state_name = mr.chars().collect_vec();
+            let expected_state_name = mr.chars().collect_vec().into();
             assert_eq!(
-                cong.induced((&access), cong.initial()),
+                cong.reached_color(&access),
                 Some(ReachedColor(expected_state_name))
             );
         }

@@ -1,42 +1,31 @@
-use crate::{length::HasLength, FiniteLength};
+use crate::{length::HasLength, FiniteLength, Length};
 
 use super::Word;
 
 /// A suffix of a [`Sequence`] which skips the first `offset` symbols.
 #[derive(Clone, PartialEq, Debug)]
-pub struct Suffix<'a, S: Word> {
-    sequence: &'a S,
+pub struct Offset<'a, W: Word> {
+    sequence: &'a W,
     offset: usize,
 }
 
-impl<'a, S: Word> HasLength for Suffix<'a, S> {
-    type Length = S::Length;
-
-    fn length(&self) -> Self::Length {
-        self.sequence.length()
-    }
-}
-
-impl<'a, S: Word> Word for Suffix<'a, S> {
-    type Raw = S::Raw;
-    type Symbol = S::Symbol;
-
-    fn rawpresentation(&self) -> &Self::Raw {
-        self.sequence.rawpresentation()
-    }
+impl<'a, W: Word> Word for Offset<'a, W> {
+    type Symbol = W::Symbol;
 
     fn nth(&self, position: usize) -> Option<Self::Symbol> {
         self.sequence.nth(position + self.offset)
     }
-
-    fn symbols(&self) -> super::RawpresentationIter<'_, Self::Raw, Self::Length> {
-        super::RawpresentationIter::new(self.rawpresentation(), self.length(), self.offset)
-    }
-
-    const FINITE: bool = S::FINITE;
 }
 
-impl<'a, S: Word> Suffix<'a, S> {
+impl<'a, S: Word> HasLength for Offset<'a, S> {
+    type Length = S::Length;
+
+    fn length(&self) -> Self::Length {
+        self.sequence.length().subtract_front(self.offset)
+    }
+}
+
+impl<'a, S: Word> Offset<'a, S> {
     /// Creates a new suffix, which skips the first `offset` symbols of the given sequence.
     pub fn new(sequence: &'a S, offset: usize) -> Self {
         Self { sequence, offset }
@@ -59,12 +48,7 @@ impl<'a, S: Word> HasLength for Prefix<'a, S> {
 }
 
 impl<'a, S: Word> Word for Prefix<'a, S> {
-    type Raw = S::Raw;
     type Symbol = S::Symbol;
-
-    fn rawpresentation(&self) -> &Self::Raw {
-        self.sequence.rawpresentation()
-    }
 
     fn nth(&self, position: usize) -> Option<Self::Symbol> {
         if position < self.length {
@@ -73,8 +57,6 @@ impl<'a, S: Word> Word for Prefix<'a, S> {
             None
         }
     }
-
-    const FINITE: bool = true;
 }
 
 impl<'a, S: Word> Prefix<'a, S> {
@@ -97,10 +79,6 @@ mod tests {
     fn subwords() {
         let word = OmegaWord::new(vec!['a', 'b', 'a', 'b'], FiniteLength::new(4));
         let pref = word.prefix(2);
-        assert_eq!(pref.symbols().collect_vec(), vec!['a', 'b']);
-        assert_eq!(
-            word.suffix(2).symbols().collect_vec(),
-            word.prefix(2).symbols().collect_vec()
-        );
+        assert_eq!(pref.raw_to_vec(), vec!['a', 'b']);
     }
 }

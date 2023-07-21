@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use automata::{
+    alphabet::Symbol,
     ts::{operations::ProductIndex, FiniteState, Product, Sproutable, ToDot},
     Alphabet, InfiniteLength, Pointed, RightCongruence, Successor,
 };
@@ -25,7 +26,10 @@ impl<A: Alphabet> ConflictRelation<A> {
         for ProductIndex(lcong, ldfa) in left.reachable_state_indices() {
             for ProductIndex(rcong, rdfa) in right.reachable_state_indices() {
                 if lcong == rcong && self.conflicts.contains(&(ldfa, rdfa)) {
-                    trace!("\t\tConflict found, ({lcong}, {ldfa}) and ({rcong}, {rdfa}) reachable with ({ldfa}, {rdfa}) in conflicts");
+                    let lname = self.dfas[0].state_color(ldfa);
+                    let rname = self.dfas[1].state_color(rdfa);
+                    let congname = cong.state_color(lcong);
+                    trace!("\t\tConflict found, ({congname}, {lname}) and ({congname}, {rname}) reachable with ({lname}, {rname}) in conflicts");
                     return false;
                 }
             }
@@ -86,15 +90,29 @@ pub fn omega_sprout<A: Alphabet>(
     // give by alphabet for the symbols for one state (this amouts to BFS).
     let mut queue: VecDeque<_> = alphabet.universe().map(|sym| (initial, sym)).collect();
     'outer: while let Some((source, &sym)) = queue.pop_front() {
-        trace!("Trying to add transition from {} on {:?}", source, sym);
+        trace!(
+            "Trying to add transition from {} on {}",
+            cong.state_color(source).blue(),
+            sym.show().blue()
+        );
         for target in cong.state_indices() {
             cong.add_edge(source, A::expression(sym), target, ());
 
             if conflicts.consistent(&cong) {
-                trace!("\tTransition to {} is consistent", target.green());
+                trace!(
+                    "\tTransition {}--{}-->{} is consistent",
+                    cong.state_color(source).green(),
+                    sym.show(),
+                    cong.state_color(target).green()
+                );
                 continue 'outer;
             } else {
-                trace!("\tTransition to {} is not consistent", target.red());
+                trace!(
+                    "\tTransition {}--{}-->{} is not consistent",
+                    cong.state_color(source).red(),
+                    sym.show(),
+                    cong.state_color(target).red()
+                );
                 cong.undo_add_edge();
             }
         }
@@ -103,7 +121,11 @@ pub fn omega_sprout<A: Alphabet>(
         new_state_label.push(sym);
         trace!(
             "No consistent transition found, adding new state [{}]",
-            new_state_label.iter().map(|c| format!("{:?}", c)).join("")
+            new_state_label
+                .iter()
+                .map(|c| format!("{:?}", c))
+                .join("")
+                .blue()
         );
 
         let new_state = cong.add_state(new_state_label);
@@ -133,7 +155,6 @@ mod tests {
     use crate::Sample;
 
     #[test]
-    #[traced_test]
     fn prefix_consistency_sprout_two() {
         let alphabet = simple!('a', 'b');
         let sample = Sample::new_omega(
@@ -148,21 +169,13 @@ mod tests {
         );
         let mut expected_cong = RightCongruence::new(simple!('a', 'b'));
         let q0 = expected_cong.initial();
-        let q1 = expected_cong.add_state(vec!['a']);
+        let q1 = expected_cong.add_state(vec!['a'].into());
         expected_cong.add_edge(q0, 'a', q1, ());
         expected_cong.add_edge(q1, 'a', q0, ());
         expected_cong.add_edge(q0, 'b', q0, ());
         expected_cong.add_edge(q1, 'b', q1, ());
 
         let conflicts = super::prefix_consistency_conflicts(&alphabet, sample);
-        println!(
-            "{{{}}}",
-            conflicts
-                .conflicts
-                .iter()
-                .map(|(a, b)| format!("({}, {})", a, b))
-                .join(", ")
-        );
 
         let cong = super::omega_sprout(alphabet, conflicts);
 
@@ -183,11 +196,10 @@ mod tests {
         let cong = super::omega_sprout(alphabet, conflicts);
 
         assert_eq!(cong.size(), 1);
-        assert!(cong.contains_state_color(&vec![]));
+        assert!(cong.contains_state_color(&vec![].into()));
     }
 
     #[test]
-    #[traced_test]
     fn prefix_consistency_sprout_four() {
         let alphabet = simple!('a', 'b', 'c');
         let sample = Sample::new_omega(
@@ -198,6 +210,7 @@ mod tests {
                 ("aab", 2, true),
                 ("abaac", 4, true),
                 ("abbaac", 5, true),
+                ("abc", 2, false),
                 ("c", 0, false),
                 ("ac", 1, false),
                 ("b", 0, false),
@@ -207,11 +220,24 @@ mod tests {
         );
 
         let conflicts = super::prefix_consistency_conflicts(&alphabet, sample);
+        println!(
+            "{{{}}}",
+            conflicts
+                .conflicts
+                .iter()
+                .map(|(a, b)| format!(
+                    "({:?}, {:?})",
+                    conflicts.dfas[0].state_color(*a),
+                    conflicts.dfas[1].state_color(*b)
+                ))
+                .join(", ")
+        );
+
         let cong = super::omega_sprout(alphabet, conflicts);
 
         assert_eq!(cong.size(), 4);
         for class in ["", "a", "ab", "aa"] {
-            assert!(cong.contains_state_color(&class.chars().collect()))
+            assert!(cong.contains_state_color(&class.into()))
         }
     }
 }

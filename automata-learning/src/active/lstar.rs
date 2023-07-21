@@ -108,12 +108,12 @@ impl<
             let next_state = hypothesis
                 .successor_index(state, sym)
                 .expect("We assume the hypothesis to be deterministic!");
-            let suffix = counterexample.suffix(i + 1);
+            let suffix = counterexample.offset(i + 1);
             let next_color = hypothesis.with_initial(next_state).transform(&suffix);
 
             if next_color != previous_color {
                 // this is the breakpoint
-                let experiment = suffix.symbols().collect_vec();
+                let experiment = suffix.finite_to_vec();
                 debug_assert!(
                     !self.experiments.contains(&experiment),
                     "We assume that the counterexample is new!"
@@ -122,7 +122,7 @@ impl<
                 for row_index in 0..self.rows.len() {
                     let output = self
                         .teacher
-                        .output((&self.rows[row_index].base).concat(&experiment));
+                        .output((&self.rows[row_index].base).append(&experiment));
                 }
                 self.experiments.push(experiment);
                 return;
@@ -187,7 +187,7 @@ impl<
                         extension.clone(),
                         self.experiments
                             .iter()
-                            .map(|experiment| self.teacher.output((&extension).concat(experiment)))
+                            .map(|experiment| self.teacher.output((&extension).append(experiment)))
                             .collect_vec(),
                     );
 
@@ -275,11 +275,14 @@ mod tests {
             &self,
             word: W,
         ) -> Self::Output {
-            let (count_a, count_b) = word.symbols().fold((0, 0), |(a, b), c| match c {
-                'a' => (a + 1, b),
-                'b' => (a, b + 1),
-                _ => unreachable!(),
-            });
+            let (count_a, count_b) =
+                word.finite_to_vec()
+                    .into_iter()
+                    .fold((0, 0), |(a, b), c| match c {
+                        'a' => (a + 1, b),
+                        'b' => (a, b + 1),
+                        _ => unreachable!(),
+                    });
 
             count_a % 2 == 0 && count_b % 2 == 0
         }
@@ -351,7 +354,7 @@ mod tests {
                 let word = OmegaWord::new_reverse_args(FiniteLength(word.len()), word);
                 let output = self.output(&word);
                 if output != hypothesis.transform(&word) {
-                    return Err((word.raw_as_vec(), output));
+                    return Err((word.to_vec(), output));
                 }
             }
             Ok(())

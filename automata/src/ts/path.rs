@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 use crate::{
     alphabet::{Alphabet, Symbol, SymbolOf},
     length::HasLength,
-    word::Rawpresentation,
     Color, FiniteLength,
 };
 

@@ -29,6 +29,10 @@ pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
         self.calculate_raw_position(position.into()).is_none()
     }
 
+    fn subtract_front(&self, offset: usize) -> Self;
+
+    fn add_front(&self, additional: usize) -> Self;
+
     /// Returns an iterator over the raw positions.
     fn raw_positions(&self) -> Self::RawPositions;
 
@@ -72,6 +76,10 @@ impl FiniteLength {
     pub fn new(length: usize) -> Self {
         Self(length)
     }
+
+    pub fn as_usize(&self) -> usize {
+        self.0
+    }
 }
 
 impl std::ops::Add<FiniteLength> for FiniteLength {
@@ -111,7 +119,15 @@ impl Length for FiniteLength {
     }
 
     fn last_position(&self) -> Option<usize> {
-        Some(self.0 - 1)
+        Some(self.0.checked_sub(1).unwrap_or(0))
+    }
+
+    fn subtract_front(&self, offset: usize) -> Self {
+        Self(self.0.checked_sub(offset).unwrap_or(0))
+    }
+
+    fn add_front(&self, additional: usize) -> Self {
+        Self(self.0 + additional)
     }
 }
 
@@ -214,6 +230,18 @@ impl Length for InfiniteLength {
     }
 
     const FINITE: bool = false;
+
+    fn subtract_front(&self, offset: usize) -> Self {
+        if self.1 >= offset {
+            Self(self.0 - offset, self.1 - offset)
+        } else {
+            Self(self.loop_length(), 0)
+        }
+    }
+
+    fn add_front(&self, additional: usize) -> Self {
+        Self(self.0 + additional, self.1 + additional)
+    }
 }
 
 impl Display for InfiniteLength {
@@ -229,6 +257,7 @@ impl Debug for InfiniteLength {
 }
 
 /// Implementors of this trait have a [`Length`] associated with them, for example words.
+#[impl_tools::autoimpl(for<T: trait + ?Sized> &T, &mut T)]
 pub trait HasLength {
     /// The type of [`Length`] that is associated with `self`.
     type Length: Length;
@@ -247,19 +276,5 @@ pub trait HasLength {
     /// Returns true if the associated [`Length`] is infinite.
     fn is_infinite(&self) -> bool {
         !self.is_finite()
-    }
-}
-
-impl<HL: HasLength> HasLength for &HL {
-    type Length = HL::Length;
-    fn length(&self) -> Self::Length {
-        HL::length(*self)
-    }
-}
-
-impl<HL: HasLength> HasLength for &mut HL {
-    type Length = HL::Length;
-    fn length(&self) -> Self::Length {
-        HL::length(*self)
     }
 }

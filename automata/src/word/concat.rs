@@ -3,70 +3,34 @@ use crate::{
     FiniteLength, Length, Word,
 };
 
-use super::Rawpresentation;
-
 #[derive(Debug, Clone)]
 pub struct Concat<W, V>(W, V);
-
-impl<W, V> Rawpresentation for Concat<W, V>
-where
-    W: Word<Length = FiniteLength>,
-    W::Length: std::ops::Add<V::Length, Output = V::Length>,
-    V: Word<Symbol = W::Symbol>,
-{
-    type Symbol = W::Symbol;
-
-    fn raw_get(&self, position: crate::length::RawPosition) -> Option<Self::Symbol> {
-        let pos = position.position();
-        if pos >= self.0.rawpresentation().raw_length() {
-            self.1.rawpresentation().raw_get(RawPosition::new(
-                pos - self.0.rawpresentation().raw_length(),
-            ))
-        } else {
-            self.0.rawpresentation().raw_get(position)
-        }
-    }
-
-    fn raw_length(&self) -> usize {
-        self.0.rawpresentation().raw_length() + self.1.rawpresentation().raw_length()
-    }
-}
 
 impl<W, V> Word for Concat<W, V>
 where
     W: Word<Length = FiniteLength>,
-    W::Length: std::ops::Add<V::Length, Output = V::Length>,
     V: Word<Symbol = W::Symbol>,
 {
-    type Raw = Self;
-
     type Symbol = W::Symbol;
 
     fn nth(&self, position: usize) -> Option<Self::Symbol> {
-        todo!()
+        if self.0.length().as_usize() > position {
+            self.0.nth(position)
+        } else {
+            self.1.nth(position - self.0.length().as_usize())
+        }
     }
-
-    fn rawpresentation(&self) -> &Self::Raw {
-        self
-    }
-
-    const FINITE: bool = V::FINITE;
 }
 
 impl<W, V> HasLength for Concat<W, V>
 where
-    W: HasLength,
-    W::Length: std::ops::Add<V::Length, Output = V::Length>,
+    W: HasLength<Length = FiniteLength>,
     V: HasLength,
 {
     type Length = V::Length;
 
     fn length(&self) -> Self::Length {
-        if <V::Length as Length>::is_infinite() {
-            self.1.length()
-        } else {
-            self.0.length() + self.1.length()
-        }
+        self.1.length().add_front(self.0.length().as_usize())
     }
 }
 
@@ -86,10 +50,7 @@ mod tests {
     fn concatenations() {
         let prefix = "abc";
         let suffix = "def";
-        let combined = prefix.concat(suffix);
-        assert_eq!(
-            combined.symbols().join(""),
-            prefix.concat(vec!['d', 'e', 'f']).symbols().join("")
-        );
+        let combined = prefix.append(suffix);
+        assert_eq!(combined.finite_to_vec(), vec!['a', 'b', 'c', 'd', 'e', 'f']);
     }
 }
