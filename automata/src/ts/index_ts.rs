@@ -10,8 +10,8 @@ use crate::{
 
 use super::{
     ColorPosition, Edge, EdgeColor, EdgeIndex, EdgeIndicesFrom, EdgesFrom, FiniteState,
-    HasMutableStates, HasStates, Index, IndexType, OnEdges, OnStates, Sproutable, State,
-    StateColor, StateIndex, Successor, Transition,
+    HasColorMut, HasMutableStates, HasStates, Index, IndexType, OnEdges, OnStates, Sproutable,
+    State, StateColor, StateIndex, Successor, Transition,
 };
 /// An implementation of a transition system with states of type `Q` and colors of type `C`. It stores
 /// the states and edges in a vector, which allows for fast access and iteration. The states and edges
@@ -38,7 +38,7 @@ impl<A: Alphabet, C: Color, Pos: ColorPosition, Idx: IndexType> std::fmt::Debug
 pub type MealyTS<A, C, Idx = usize> = IndexTS<A, C, OnEdges, Idx>;
 pub type MooreTS<A, C, Idx = usize> = IndexTS<A, C, OnStates, Idx>;
 
-impl<A: Alphabet, Idx, C: Color, Position: ColorPosition> IndexTS<A, C, Position, Idx> {
+impl<A: Alphabet, Idx: IndexType, C: Color, Position: ColorPosition> IndexTS<A, C, Position, Idx> {
     /// Creates a new transition system with the given alphabet.
     pub fn new(alphabet: A) -> Self {
         Self {
@@ -70,6 +70,14 @@ impl<A: Alphabet, Idx, C: Color, Position: ColorPosition> IndexTS<A, C, Position
     /// Gets a mutable reference to the alphabet of the transition system.
     pub fn alphabet(&self) -> &A {
         &self.alphabet
+    }
+
+    pub fn states(&self) -> impl Iterator<Item = &State<Position::StateColor<C>>> {
+        self.states.values()
+    }
+
+    pub fn indices_with_color(&self) -> impl Iterator<Item = (Idx, &StateColor<Self>)> {
+        self.states.iter().map(|(idx, state)| (*idx, state.color()))
     }
 }
 
@@ -165,6 +173,18 @@ impl<A: Alphabet, Pos: ColorPosition, C: Color> Sproutable for IndexTS<A, C, Pos
             }
         } else {
             panic!("Cannot undo add_edge: No edge to remove!");
+        }
+    }
+
+    fn set_state_color(&mut self, index: Self::StateIndex, color: StateColor<Self>) {
+        self.state_mut(index).unwrap().set_color(color);
+    }
+
+    fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
+        Self {
+            alphabet,
+            states: BTreeMap::new(),
+            edges: Vec::new(),
         }
     }
 }

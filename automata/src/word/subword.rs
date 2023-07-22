@@ -71,6 +71,7 @@ mod tests {
     use itertools::Itertools;
 
     use crate::{
+        upw,
         word::{OmegaWord, Word},
         FiniteLength,
     };
@@ -80,5 +81,33 @@ mod tests {
         let word = OmegaWord::new(vec!['a', 'b', 'a', 'b'], FiniteLength::new(4));
         let pref = word.prefix(2);
         assert_eq!(pref.raw_to_vec(), vec!['a', 'b']);
+
+        let word = upw!("ab", "ac");
+        assert_eq!(
+            word.offset(3).prefix(4).finite_to_vec(),
+            vec!['c', 'a', 'c', 'a']
+        );
+        assert_eq!(
+            word.offset(1)
+                .offset(1)
+                .offset(1)
+                .offset(1)
+                .offset(4)
+                .prefix(2)
+                .finite_to_vec(),
+            vec!['a', 'c']
+        );
+        assert_eq!(
+            upw!("abba").offset(1).offset(20).normalized().raw_to_vec(),
+            vec!['b', 'b', 'a', 'a']
+        );
+    }
+
+    #[test]
+    fn subword_bug() {
+        assert_eq!(
+            upw!("a").normalized().offset(1).prefix(3).finite_to_vec(),
+            vec!['a', 'a', 'a']
+        );
     }
 }

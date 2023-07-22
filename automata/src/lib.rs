@@ -21,8 +21,11 @@ pub use ts::{Pointed, Successor};
 #[allow(clippy::upper_case_acronyms)]
 mod automaton;
 pub use automaton::{
-    Acceptor, MealyMachine, MooreMachine, RightCongruence, Transformer, DBA, DFA, DPA, SBDBA, SBDPA,
+    Acceptor, MealyMachine, MooreMachine, Transformer, DBA, DFA, DPA, SBDBA, SBDPA,
 };
+
+mod congurence;
+pub use congurence::{Class, RightCongruence};
 
 /// Module that contains definitions for dealing with words.
 #[macro_use]

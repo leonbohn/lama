@@ -6,7 +6,7 @@ use automata::{
 use itertools::Itertools;
 use tracing::trace;
 
-use crate::passive::Normalized;
+use automata::word::Normalized;
 
 pub fn prefix_tree<A: Alphabet>(
     alphabet: A,

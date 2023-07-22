@@ -116,6 +116,10 @@ mod boilerplate_impls {
         fn undo_add_edge(&mut self) {
             self.ts_mut().undo_add_edge()
         }
+
+        fn set_state_color(&mut self, index: Self::StateIndex, color: StateColor<Self>) {
+            self.ts_mut().set_state_color(index, color)
+        }
     }
     impl<Ts: Successor + HasStates> HasStates for WithInitial<Ts> {
         type State<'this> = Ts::State<'this>
@@ -175,84 +179,6 @@ mod boilerplate_impls {
 
 pub type MooreMachine<A, C, Idx = usize> = WithInitial<IndexTS<A, C, OnStates, Idx>>;
 pub type MealyMachine<A, C, Idx = usize> = WithInitial<IndexTS<A, C, OnEdges, Idx>>;
-
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct Class<S>(pub Vec<S>);
-
-impl<S: Symbol> Display for Class<S> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[{}]", self.0.iter().map(|sym| sym.show()).join(""))
-    }
-}
-impl<S> HasLength for Class<S> {
-    type Length = FiniteLength;
-
-    fn length(&self) -> Self::Length {
-        FiniteLength(self.0.len())
-    }
-}
-impl<S: Symbol> Word for Class<S> {
-    type Symbol = S;
-
-    fn nth(&self, position: usize) -> Option<Self::Symbol> {
-        self.get(position).cloned()
-    }
-}
-
-impl<S> std::ops::Deref for Class<S> {
-    type Target = Vec<S>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<S> std::ops::DerefMut for Class<S> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-impl<S> Default for Class<S> {
-    fn default() -> Self {
-        Self(vec![])
-    }
-}
-impl<S> From<Vec<S>> for Class<S> {
-    fn from(value: Vec<S>) -> Self {
-        Self(value)
-    }
-}
-impl From<&str> for Class<char> {
-    fn from(value: &str) -> Self {
-        Self(value.chars().collect())
-    }
-}
-impl<S: Debug> Debug for Class<S> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.0.iter().map(|sym| format!("{:?}", sym)).join("")
-        )
-    }
-}
-
-impl<S: Ord> Ord for Class<S> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0
-            .len()
-            .cmp(&other.0.len())
-            .then_with(|| self.0.cmp(&other.0))
-    }
-}
-impl<S: Ord> PartialOrd for Class<S> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-pub type RightCongruence<A, Idx = usize> =
-    WithInitial<IndexTS<A, Class<<A as Alphabet>::Symbol>, OnStates, Idx>>;
 
 pub type DFA<A, Idx = usize> = MooreMachine<A, bool, Idx>;
 pub type DBA<A, Idx = usize> = MealyMachine<A, bool, Idx>;

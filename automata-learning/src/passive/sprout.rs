@@ -38,10 +38,14 @@ impl<A: Alphabet> ConflictRelation<A> {
     }
 }
 
-fn prefix_consistency_conflicts<A: Alphabet>(
+pub fn prefix_consistency_conflicts<
+    A: Alphabet,
+    S: std::borrow::Borrow<Sample<A, InfiniteLength, bool>>,
+>(
     alphabet: &A,
-    sample: Sample<A, InfiniteLength, bool>,
+    sample: S,
 ) -> ConflictRelation<A> {
+    let sample = sample.borrow();
     let left_pta = prefix_tree(alphabet.clone(), sample.positive_words().cloned().collect());
     let right_pta = prefix_tree(alphabet.clone(), sample.negative_words().cloned().collect());
 
@@ -79,7 +83,7 @@ fn prefix_consistency_conflicts<A: Alphabet>(
     }
 }
 
-pub fn omega_sprout<A: Alphabet>(
+pub fn omega_sprout_conflicts<A: Alphabet>(
     alphabet: A,
     conflicts: ConflictRelation<A>,
 ) -> RightCongruence<A> {
@@ -177,7 +181,7 @@ mod tests {
 
         let conflicts = super::prefix_consistency_conflicts(&alphabet, sample);
 
-        let cong = super::omega_sprout(alphabet, conflicts);
+        let cong = super::omega_sprout_conflicts(alphabet, conflicts);
 
         assert_eq!(cong.size(), expected_cong.size());
         for word in ["aba", "abbabb", "baabaaba", "bababaaba", "b", "a", ""] {
@@ -193,7 +197,7 @@ mod tests {
         let alphabet = simple!('a', 'b');
         let sample = Sample::new_omega(alphabet.clone(), vec![("a", 0, false), ("b", 0, true)]);
         let conflicts = super::prefix_consistency_conflicts(&alphabet, sample);
-        let cong = super::omega_sprout(alphabet, conflicts);
+        let cong = super::omega_sprout_conflicts(alphabet, conflicts);
 
         assert_eq!(cong.size(), 1);
         assert!(cong.contains_state_color(&vec![].into()));
@@ -233,7 +237,7 @@ mod tests {
                 .join(", ")
         );
 
-        let cong = super::omega_sprout(alphabet, conflicts);
+        let cong = super::omega_sprout_conflicts(alphabet, conflicts);
 
         assert_eq!(cong.size(), 4);
         for class in ["", "a", "ab", "aa"] {

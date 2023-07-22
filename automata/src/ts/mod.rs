@@ -2,7 +2,7 @@ mod successor;
 use std::{fmt::Display, hash::Hash, ops::Deref};
 
 use impl_tools::autoimpl;
-use itertools::Itertools;
+use itertools::{Itertools, Position};
 pub use successor::Successor;
 
 mod transition;
@@ -474,8 +474,20 @@ pub trait HasMutableStates: HasStates {
     fn state_mut(&mut self, index: Self::StateIndex) -> Option<Self::StateMut<'_>>;
 }
 
-pub trait Sproutable: HasMutableStates + Successor {
+pub trait Sproutable: Successor {
+    fn new_for_alphabet(alphabet: Self::Alphabet) -> Self;
+
     fn add_state(&mut self, color: StateColor<Self>) -> Self::StateIndex;
+
+    fn set_state_color(&mut self, index: Self::StateIndex, color: StateColor<Self>);
+
+    fn set_initial_color(&mut self, color: StateColor<Self>)
+    where
+        Self: Pointed,
+    {
+        self.set_state_color(self.initial(), color);
+    }
+
     fn add_edge<X, Y>(
         &mut self,
         from: X,
@@ -526,6 +538,35 @@ pub trait TransitionSystem: FiniteState + Successor {
             .build()
             .with(tabled::settings::Style::rounded())
             .to_string()
+    }
+
+    fn collect_ts<
+        Ts: TransitionSystem<
+                Position = Self::Position,
+                Color = Self::Color,
+                Alphabet = Self::Alphabet,
+            > + Sproutable,
+    >(
+        &self,
+    ) -> Ts {
+        let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
+        let mut map = std::collections::HashMap::new();
+        for index in self.state_indices() {
+            map.insert(index, ts.add_state(self.state_color(index)));
+        }
+        for index in self.state_indices() {
+            for sym in self.alphabet().universe() {
+                if let Some(edge) = self.successor(index, *sym) {
+                    ts.add_edge(
+                        *map.get(&index).unwrap(),
+                        <Self::Alphabet as Alphabet>::expression(*sym),
+                        *map.get(&edge.target()).unwrap(),
+                        edge.color().clone(),
+                    );
+                }
+            }
+        }
+        ts
     }
 }
 

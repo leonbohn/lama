@@ -17,6 +17,9 @@ pub use subword::{Offset, Prefix};
 mod concat;
 pub use concat::Concat;
 
+mod normalized;
+pub use normalized::Normalized;
+
 #[autoimpl(for<T: trait> &T, &mut T)]
 pub trait RawSymbols<S> {
     fn to_vec(&self) -> Vec<S>;
@@ -80,6 +83,18 @@ pub trait Word: HasLength {
         Self: Sized + HasLength<Length = FiniteLength>,
     {
         Concat::new(self, other)
+    }
+
+    fn normalized(&self) -> Normalized<Self::Symbol, Self::Length> {
+        Normalized::new(self.raw_to_vec(), self.length())
+    }
+
+    fn pop_first(&self) -> (Self::Symbol, subword::Offset<'_, Self>)
+    where
+        Self: Sized + HasLength<Length = InfiniteLength>,
+    {
+        let first = self.first().unwrap();
+        (first, self.offset(1))
     }
 
     /// Creates a [`Suffix`] object, which is the suffix of `self` that starts at the given `offset`.
