@@ -94,7 +94,10 @@ mod boilerplate_impls {
             &mut self.0
         }
     }
-    impl<Ts: Successor + Sproutable> Sproutable for WithInitial<Ts> {
+    impl<Ts: Successor + Sproutable> Sproutable for WithInitial<Ts>
+    where
+        StateColor<Ts>: Default,
+    {
         fn add_state(&mut self, color: StateColor<Self>) -> Self::StateIndex {
             self.ts_mut().add_state(color)
         }
@@ -119,6 +122,12 @@ mod boilerplate_impls {
 
         fn set_state_color(&mut self, index: Self::StateIndex, color: StateColor<Self>) {
             self.ts_mut().set_state_color(index, color)
+        }
+
+        fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
+            let mut ts = Ts::new_for_alphabet(alphabet);
+            let initial = ts.add_state(<StateColor<Ts> as Default>::default());
+            Self(ts, initial)
         }
     }
     impl<Ts: Successor + HasStates> HasStates for WithInitial<Ts> {

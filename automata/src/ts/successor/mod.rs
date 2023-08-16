@@ -9,7 +9,7 @@ use crate::{
 
 use self::{
     reachable::{ReachableStateIndices, ReachableStates},
-    sccs::{tarjan_scc, Scc},
+    sccs::{tarjan_scc, Scc, SccDecomposition},
     walker::RunResult,
 };
 
@@ -65,7 +65,7 @@ pub trait Successor: HasAlphabet {
 
     fn state_color(&self, state: Self::StateIndex) -> StateColor<Self>;
 
-    fn with_initial(&self, initial: Self::StateIndex) -> WithInitial<&Self>
+    fn with_initial(self, initial: Self::StateIndex) -> WithInitial<Self>
     where
         Self: Sized,
     {
@@ -96,7 +96,7 @@ pub trait Successor: HasAlphabet {
         self.map_colors(|_| true)
     }
 
-    fn sccs(&self) -> Vec<Scc<Self>>
+    fn sccs(&self) -> SccDecomposition<'_, Self>
     where
         Self: Sized + FiniteState,
     {

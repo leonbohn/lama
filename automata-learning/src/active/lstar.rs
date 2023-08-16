@@ -109,7 +109,7 @@ impl<
                 .successor_index(state, sym)
                 .expect("We assume the hypothesis to be deterministic!");
             let suffix = counterexample.offset(i + 1);
-            let next_color = hypothesis.with_initial(next_state).transform(&suffix);
+            let next_color = (&hypothesis).with_initial(next_state).transform(&suffix);
 
             if next_color != previous_color {
                 // this is the breakpoint

@@ -540,7 +540,28 @@ pub trait TransitionSystem: FiniteState + Successor {
             .to_string()
     }
 
-    fn collect_ts<
+    fn collect_ts(&self) -> IndexTS<Self::Alphabet, Self::Color, Self::Position> {
+        let mut ts = IndexTS::new_for_alphabet(self.alphabet().clone());
+        let mut map = std::collections::HashMap::new();
+        for index in self.state_indices() {
+            map.insert(index, ts.add_state(self.state_color(index)));
+        }
+        for index in self.state_indices() {
+            for sym in self.alphabet().universe() {
+                if let Some(edge) = self.successor(index, *sym) {
+                    ts.add_edge(
+                        *map.get(&index).unwrap(),
+                        <Self::Alphabet as Alphabet>::expression(*sym),
+                        *map.get(&edge.target()).unwrap(),
+                        edge.color().clone(),
+                    );
+                }
+            }
+        }
+        ts
+    }
+
+    fn collect_into_ts<
         Ts: TransitionSystem<
                 Position = Self::Position,
                 Color = Self::Color,

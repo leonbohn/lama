@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 use itertools::Itertools;
 
@@ -13,6 +13,13 @@ use crate::{
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Class<S>(pub Vec<S>);
+
+impl<S> Class<S> {
+    /// Creates an instance of the empty class
+    pub fn epsilon() -> Self {
+        Self(vec![])
+    }
+}
 
 impl<S> FromIterator<S> for Class<S> {
     fn from_iter<T: IntoIterator<Item = S>>(iter: T) -> Self {
@@ -92,9 +99,15 @@ impl<S: Ord> PartialOrd for Class<S> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct RightCongruence<A: Alphabet> {
     ts: IndexTS<A, Class<A::Symbol>, OnStates>,
+}
+
+impl<A: Alphabet> Debug for RightCongruence<A> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "RightCongruence\n{:?}", self.ts)
+    }
 }
 
 impl<A: Alphabet> RightCongruence<A> {
@@ -115,7 +128,7 @@ impl<A: Alphabet> RightCongruence<A> {
     }
 
     pub fn looping_words(&self, class: &Class<A::Symbol>) -> DFA<A> {
-        self.map_colors(|class| if class == class { true } else { false })
+        self.map_colors(|c| &c == class)
             .collect_ts()
             .with_initial(self.class_to_index(class).unwrap())
     }
@@ -161,9 +174,9 @@ impl<A: Alphabet> Sproutable for RightCongruence<A> {
     }
 
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
-        Self {
-            ts: IndexTS::new_for_alphabet(alphabet),
-        }
+        let mut ts = IndexTS::new_for_alphabet(alphabet);
+        let initial = ts.add_state(Class::epsilon());
+        Self { ts }
     }
 }
 
@@ -203,8 +216,6 @@ impl<A: Alphabet> Successor for RightCongruence<A> {
 
 impl<A: Alphabet> RightCongruence<A> {
     pub fn new(alphabet: A) -> Self {
-        Self {
-            ts: IndexTS::new(alphabet),
-        }
+        Self::new_for_alphabet(alphabet)
     }
 }

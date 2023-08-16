@@ -1,4 +1,7 @@
-use std::collections::{BTreeSet, VecDeque};
+use std::{
+    collections::{BTreeSet, VecDeque},
+    fmt::Debug,
+};
 
 use itertools::Itertools;
 
@@ -257,7 +260,38 @@ impl<'a, Ts: Successor> Scc<'a, Ts> {
     }
 }
 
-pub fn tarjan_scc<Ts>(ts: &Ts) -> Vec<Scc<Ts>>
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SccDecomposition<'a, Ts: Successor + FiniteState>(&'a Ts, Vec<Scc<'a, Ts>>);
+
+impl<'a, Ts: Successor + FiniteState> std::ops::Deref for SccDecomposition<'a, Ts> {
+    type Target = Vec<Scc<'a, Ts>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.1
+    }
+}
+
+impl<'a, Ts: Successor + FiniteState> SccDecomposition<'a, Ts> {
+    pub fn new(ts: &'a Ts, sccs: Vec<Scc<'a, Ts>>) -> Self {
+        Self(ts, sccs)
+    }
+}
+
+impl<'a, Ts: Successor + FiniteState + Debug> std::fmt::Debug for SccDecomposition<'a, Ts> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(
+            f,
+            "SCC decomposition:  {{{}}} in\n{:?}",
+            self.1
+                .iter()
+                .map(|scc| format!("[{}]", scc.1.iter().map(|q| format!("{:?}", q)).join(", ")))
+                .join(", "),
+            self.0
+        )
+    }
+}
+
+pub fn tarjan_scc<Ts>(ts: &Ts) -> SccDecomposition<'_, Ts>
 where
     Ts: Successor + FiniteState,
 {
@@ -271,14 +305,17 @@ where
         "All SCCs must be unique!"
     );
     sccs.sort();
-    sccs
+    SccDecomposition::new(ts, sccs)
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
         simple,
-        ts::{successor::sccs::Scc, Sproutable},
+        ts::{
+            successor::sccs::{Scc, SccDecomposition},
+            Sproutable,
+        },
         Pointed, RightCongruence,
     };
 
@@ -304,7 +341,10 @@ mod tests {
         let scc2 = Scc::new(&cong, vec![1]);
         let scc3 = Scc::new(&cong, vec![2, 3]);
 
-        assert_eq!(sccs, vec![scc1.clone(), scc2.clone(), scc3.clone()]);
+        assert_eq!(
+            sccs,
+            SccDecomposition::new(&cong, vec![scc1.clone(), scc2.clone(), scc3.clone()])
+        );
 
         assert_eq!(scc1.maximal_word(), None);
         assert_eq!(scc2.maximal_word(), Some(vec!['a', 'b']));
