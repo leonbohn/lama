@@ -320,7 +320,7 @@ mod tests {
 
         let input = OmegaWord::new(vec!['a', 'b', 'b', 'a'], FiniteLength::new(4));
         let res = ts.run(&input, s0);
-        assert!(matches!(res, Ok(_)));
+        assert!(res.is_ok());
 
         let ReachedState(q) = ts.induced(&"ab", s0).unwrap();
         assert_eq!(q, s0);

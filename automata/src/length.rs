@@ -119,11 +119,11 @@ impl Length for FiniteLength {
     }
 
     fn last_position(&self) -> Option<usize> {
-        Some(self.0.checked_sub(1).unwrap_or(0))
+        Some(self.0.saturating_sub(1))
     }
 
     fn subtract_front(&self, offset: usize) -> Self {
-        Self(self.0.checked_sub(offset).unwrap_or(0))
+        Self(self.0.saturating_sub(offset))
     }
 
     fn add_front(&self, additional: usize) -> Self {

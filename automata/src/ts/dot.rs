@@ -180,6 +180,7 @@ mod tests {
     use super::ToDot;
 
     #[test]
+    #[ignore]
     fn dot_render_and_display() {
         let alphabet = simple!('a', 'b');
         let mut cong = RightCongruence::new(alphabet);

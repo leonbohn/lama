@@ -12,6 +12,7 @@ use crate::{prefixtree::prefix_tree, Sample};
 
 use owo_colors::OwoColorize;
 
+/// Stores two DFAs and a set of conflicts between them.
 #[derive(Clone)]
 pub struct ConflictRelation<A: Alphabet> {
     dfas: [RightCongruence<A>; 2],
@@ -19,6 +20,7 @@ pub struct ConflictRelation<A: Alphabet> {
 }
 
 impl<A: Alphabet> ConflictRelation<A> {
+    /// Verifies that a given congruence is consistent with the conflicts.
     pub fn consistent(&self, cong: &RightCongruence<A>) -> bool {
         let left = cong.product(&self.dfas[0]);
         let right = cong.product(&self.dfas[1]);
@@ -38,6 +40,7 @@ impl<A: Alphabet> ConflictRelation<A> {
     }
 }
 
+/// Computes a conflict relation encoding prefix consistency.
 pub fn prefix_consistency_conflicts<
     A: Alphabet,
     S: std::borrow::Borrow<Sample<A, InfiniteLength, bool>>,
@@ -83,6 +86,7 @@ pub fn prefix_consistency_conflicts<
     }
 }
 
+/// Runs the omega-sprout algorithm on a given conflict relation.
 pub fn omega_sprout_conflicts<A: Alphabet>(
     alphabet: A,
     conflicts: ConflictRelation<A>,

@@ -29,7 +29,7 @@ pub enum WalkerStep<Ts: Successor> {
     End,
 }
 
-impl<'a, Ts: Successor> WalkerStep<Ts> {
+impl<Ts: Successor> WalkerStep<Ts> {
     fn is_successful(&self) -> bool {
         matches!(self, Self::End) || matches!(self, Self::Cycle)
     }

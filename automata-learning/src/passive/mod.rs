@@ -3,6 +3,7 @@ use automata::{alphabet::Alphabet, FiniteLength, InfiniteLength, Word, DBA, DFA,
 pub use sample::*;
 use tracing::trace;
 
+/// Module containing the implementations of the sprout/glerc algorithm.
 pub mod sprout;
 
 /// Executes the RPNI algorithm on the given sample. This returns a DFA that is

@@ -125,13 +125,9 @@ impl Header {
         let version = just(Token::Header("HOA".to_string()))
             .ignore_then(value::identifier())
             .map(HeaderItem::Version);
-        version.then(item().repeated()).map(|(version, headers)| {
-            Header(
-                std::iter::once(version)
-                    .chain(headers.into_iter())
-                    .collect(),
-            )
-        })
+        version
+            .then(item().repeated())
+            .map(|(version, headers)| Header(std::iter::once(version).chain(headers).collect()))
     }
 
     /// Constructs a new header from a vector of header items.

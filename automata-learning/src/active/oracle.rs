@@ -13,6 +13,7 @@ use automata::{
 /// the `Output` type, but it also enables us to learn a regular language/deterministic finite automaton by using
 /// `bool` as the `Output` type.
 pub trait Oracle<Pos: ColorPosition = OnStates>: HasAlphabet {
+    /// The length type of the words that this oracle can handle.
     type Length: Length;
     /// The output type, for a DFA that would be a boolean, but a Mealy Machine might output a [`Priority`] instead.
     type Output: Color;

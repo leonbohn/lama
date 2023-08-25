@@ -9,8 +9,8 @@ use automata::{
     alphabet::{self, Symbol},
     ts::{FiniteState, HasStates, Pointed, Product, Sproutable},
     word::{Normalized, OmegaWord, RawSymbols},
-    Acceptor, Alphabet, Color, FiniteLength, HasLength, InfiniteLength, Length, Map, MooreMachine,
-    RightCongruence, Set, Successor, Word, DFA,
+    Acceptor, Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length, Map,
+    MooreMachine, RightCongruence, Set, Successor, Word, DFA,
 };
 use itertools::Itertools;
 use tracing::trace;
@@ -25,22 +25,28 @@ pub struct Sample<A: Alphabet, L: Length, C: Color = bool> {
     pub words: Map<Normalized<A::Symbol, L>, C>,
 }
 
+/// An `OmegaSample` is just a sample that contains infinite words.
 pub type OmegaSample<A, C = bool> = Sample<A, InfiniteLength, C>;
 
 impl<A: Alphabet, L: Length> Sample<A, L, bool> {
+    /// Gives an iterator over all positive words in the sample.
     pub fn positive_words(&self) -> impl Iterator<Item = &'_ Normalized<A::Symbol, L>> + '_ {
         self.words_with_color(true)
     }
+
+    /// Gives an iterator over all negative words in the sample.
     pub fn negative_words(&self) -> impl Iterator<Item = &'_ Normalized<A::Symbol, L>> + '_ {
         self.words_with_color(false)
     }
 }
 
 impl<A: Alphabet, L: Length, C: Color> Sample<A, L, C> {
+    /// Gives an iterator over all words in the sample.
     pub fn words(&self) -> impl Iterator<Item = &'_ Normalized<A::Symbol, L>> + '_ {
-        self.words.iter().map(|(w, _)| w)
+        self.words.keys()
     }
 
+    /// Gives an iterator over all words in the sample with the associated color.
     pub fn words_with_color(
         &self,
         color: C,
@@ -52,6 +58,8 @@ impl<A: Alphabet, L: Length, C: Color> Sample<A, L, C> {
 }
 
 impl<A: Alphabet, C: Color> Sample<A, FiniteLength, C> {
+    /// Create a new sample of finite words from the given alphabet and iterator over annotated words. The sample is given
+    /// as an iterator over its symbols. The words are given as an iterator of pairs (word, color).
     pub fn new_finite<I: IntoIterator<Item = A::Symbol>, J: IntoIterator<Item = (I, C)>>(
         alphabet: A,
         words: J,
@@ -65,6 +73,8 @@ impl<A: Alphabet, C: Color> Sample<A, FiniteLength, C> {
 }
 
 impl<A: Alphabet, C: Color> OmegaSample<A, C> {
+    /// Create a new sample of infinite words. The alphabet is given as something which implements [`RawSymbols`]. The words
+    /// in the sample are given as an iterator yielding (word, color) pairs.
     pub fn new_omega<R: RawSymbols<A::Symbol>, J: IntoIterator<Item = (R, usize, C)>>(
         alphabet: A,
         words: J,
@@ -83,6 +93,7 @@ impl<A: Alphabet, C: Color> OmegaSample<A, C> {
 }
 
 impl<A: Alphabet> OmegaSample<A, bool> {
+    /// Computes the [`RightCongruence`] underlying the sample.
     pub fn right_congruence(&self) -> RightCongruence<A> {
         omega_sprout_conflicts(
             self.alphabet.clone(),
@@ -91,19 +102,33 @@ impl<A: Alphabet> OmegaSample<A, bool> {
     }
 }
 
+/// An [`OmegaSample`] restricted/split onto one [`Class`] of a [`RightCongruence`].
 #[derive(Debug, Clone)]
-pub struct SplitOmegaSample<'a, A: Alphabet, C: Color> {
+pub struct ClassOmegaSample<'a, A: Alphabet, C: Color> {
     congruence: &'a RightCongruence<A>,
+    class: Class<A::Symbol>,
     sample: Sample<A, InfiniteLength, C>,
 }
 
-impl<'a, A: Alphabet, C: Color> SplitOmegaSample<'a, A, C> {
-    pub fn new(congruence: &'a RightCongruence<A>, sample: Sample<A, InfiniteLength, C>) -> Self {
-        Self { congruence, sample }
-    }
-    pub fn empty(congruence: &'a RightCongruence<A>, alphabet: A) -> Self {
+impl<'a, A: Alphabet, C: Color> ClassOmegaSample<'a, A, C> {
+    /// Creates a new [`ClassOmegaSample`] from a [`RightCongruence`], a [`Class`] and a [`Sample`].
+    pub fn new(
+        congruence: &'a RightCongruence<A>,
+        class: Class<A::Symbol>,
+        sample: Sample<A, InfiniteLength, C>,
+    ) -> Self {
         Self {
             congruence,
+            class,
+            sample,
+        }
+    }
+
+    /// Creates an empty [`ClassOmegaSample`] from a [`RightCongruence`], a [`Class`] and an alphabet.
+    pub fn empty(congruence: &'a RightCongruence<A>, class: Class<A::Symbol>, alphabet: A) -> Self {
+        Self {
+            congruence,
+            class,
             sample: Sample {
                 alphabet,
                 words: Map::new(),
@@ -111,11 +136,13 @@ impl<'a, A: Alphabet, C: Color> SplitOmegaSample<'a, A, C> {
         }
     }
 }
+
 impl<A: Alphabet, C: Color> OmegaSample<A, C> {
+    /// Splits the sample into a map of [`ClassOmegaSample`]s, one for each class of the underlying [`RightCongruence`].
     pub fn split<'a>(
         &self,
         cong: &'a RightCongruence<A>,
-    ) -> Map<usize, SplitOmegaSample<'a, A, C>> {
+    ) -> Map<usize, ClassOmegaSample<'a, A, C>> {
         debug_assert!(
             cong.size() > 0,
             "Makes only sense for non-empty congruences"
@@ -123,7 +150,10 @@ impl<A: Alphabet, C: Color> OmegaSample<A, C> {
         let initial = cong.initial();
         // take self as is for epsilon
         let mut out = Map::new();
-        out.insert(initial, SplitOmegaSample::new(cong, self.clone()));
+        out.insert(
+            initial,
+            ClassOmegaSample::new(cong, Class::epsilon(), self.clone()),
+        );
         let mut queue: VecDeque<_> = self
             .words
             .iter()
@@ -138,7 +168,13 @@ impl<A: Alphabet, C: Color> OmegaSample<A, C> {
                 trace!("\tReached successor {reached}");
                 if out
                     .entry(reached)
-                    .or_insert_with(|| SplitOmegaSample::empty(cong, self.alphabet.clone()))
+                    .or_insert_with(|| {
+                        ClassOmegaSample::empty(
+                            cong,
+                            cong.state_color(reached),
+                            self.alphabet.clone(),
+                        )
+                    })
                     .sample
                     .words
                     .insert(suffix.normalized(), color.clone())

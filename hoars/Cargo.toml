@@ -16,6 +16,9 @@ edition = "2021"
 [dependencies]
 tracing = "0.1"
 tracing-subscriber = "0.3"
-ariadne = "0.2"
-chumsky = { version = "0.9", default-features = false, features = ["ahash", "std"] }
-itertools = "0.10"
+ariadne = "0.3.0"
+chumsky = { version = "0.9", default-features = false, features = [
+    "ahash",
+    "std",
+] }
+itertools = "0.11.0"
