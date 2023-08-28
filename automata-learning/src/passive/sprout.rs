@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use automata::{
     alphabet::Symbol,
     ts::{operations::ProductIndex, FiniteState, Product, Sproutable, ToDot},
-    Alphabet, InfiniteLength, Pointed, RightCongruence, Successor,
+    Alphabet, Class, InfiniteLength, Pointed, RightCongruence, Successor,
 };
 use itertools::Itertools;
 use tracing::trace;
@@ -11,6 +11,8 @@ use tracing::trace;
 use crate::{prefixtree::prefix_tree, Sample};
 
 use owo_colors::OwoColorize;
+
+use super::{OmegaSample, SplitOmegaSample};
 
 /// Stores two DFAs and a set of conflicts between them.
 #[derive(Clone)]
@@ -40,6 +42,15 @@ impl<A: Alphabet> ConflictRelation<A> {
     }
 }
 
+pub fn iteration_consistency_conflicts<A: Alphabet>(
+    samples: &SplitOmegaSample<'_, A, bool>,
+    class: Class<A::Symbol>,
+) -> ConflictRelation<A> {
+    let Some(sample) = samples.get(&class) else {
+        panic!("Sample for class {:?} does not exist!", class)
+    };
+    todo!()
+}
 /// Computes a conflict relation encoding prefix consistency.
 pub fn prefix_consistency_conflicts<
     A: Alphabet,
