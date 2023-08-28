@@ -24,7 +24,7 @@ pub use automaton::{
     Acceptor, MealyMachine, MooreMachine, Transformer, DBA, DFA, DPA, SBDBA, SBDPA,
 };
 
-mod congurence;
+pub mod congurence;
 pub use congurence::{Class, RightCongruence};
 
 /// Module that contains definitions for dealing with words.

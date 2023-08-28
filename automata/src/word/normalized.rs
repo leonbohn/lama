@@ -12,7 +12,7 @@ pub struct Normalized<S: Symbol, L: Length> {
 }
 
 #[macro_export]
-macro_rules! normalized_upw {
+macro_rules! nupw {
     ($recur:expr) => {
         $crate::word::Normalized::new_omega($recur, automata::InfiniteLength($recur.len(), 0))
     };
@@ -52,6 +52,15 @@ impl<S: Symbol, L: Length> Normalized<S, L> {
 
     pub fn first(&self) -> Option<S> {
         self.word.first()
+    }
+}
+
+impl From<(&str, usize)> for Normalized<char, InfiniteLength> {
+    fn from(value: (&str, usize)) -> Self {
+        let (word, loop_index) = value;
+        let word = word.chars().collect_vec();
+        let length = InfiniteLength(word.len(), loop_index);
+        Self { word, length }
     }
 }
 

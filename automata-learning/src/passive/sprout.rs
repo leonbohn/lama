@@ -168,11 +168,11 @@ mod tests {
         let sample = Sample::new_omega(
             alphabet.clone(),
             vec![
-                ("b", 0, true),
-                ("abab", 3, true),
-                ("abbab", 4, true),
-                ("ab", 1, false),
-                ("a", 0, false),
+                (("b", 0), true),
+                (("abab", 3), true),
+                (("abbab", 4), true),
+                (("ab", 1), false),
+                (("a", 0), false),
             ],
         );
         let mut expected_cong = RightCongruence::new(simple!('a', 'b'));
@@ -199,7 +199,7 @@ mod tests {
     #[test]
     fn prefix_consistency_sprout_one() {
         let alphabet = simple!('a', 'b');
-        let sample = Sample::new_omega(alphabet.clone(), vec![("a", 0, false), ("b", 0, true)]);
+        let sample = Sample::new_omega(alphabet.clone(), vec![(("a", 0), false), (("b", 0), true)]);
         let conflicts = super::prefix_consistency_conflicts(&alphabet, sample);
         let cong = super::omega_sprout_conflicts(alphabet, conflicts);
 
@@ -213,17 +213,17 @@ mod tests {
         let sample = Sample::new_omega(
             alphabet.clone(),
             vec![
-                ("aac", 2, true),
-                ("ab", 1, true),
-                ("aab", 2, true),
-                ("abaac", 4, true),
-                ("abbaac", 5, true),
-                ("abc", 2, false),
-                ("c", 0, false),
-                ("ac", 1, false),
-                ("b", 0, false),
-                ("abac", 3, false),
-                ("abbc", 3, false),
+                (("aac", 2), true),
+                (("ab", 1), true),
+                (("aab", 2), true),
+                (("abaac", 4), true),
+                (("abbaac", 5), true),
+                (("abc", 2), false),
+                (("c", 0), false),
+                (("ac", 1), false),
+                (("b", 0), false),
+                (("abac", 3), false),
+                (("abbc", 3), false),
             ],
         );
 

@@ -7,6 +7,7 @@ use std::{
 
 use automata::{
     alphabet::{self, Symbol},
+    congurence::IndexesRightCongruence,
     ts::{FiniteState, HasStates, Pointed, Product, Sproutable},
     word::{Normalized, OmegaWord, RawSymbols},
     Acceptor, Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length, Map,
@@ -46,6 +47,11 @@ impl<A: Alphabet, L: Length, C: Color> Sample<A, L, C> {
         self.words.keys()
     }
 
+    /// Checks whether a word is contained in the sample.
+    pub fn contains(&self, word: &Normalized<A::Symbol, L>) -> bool {
+        self.words.contains_key(word)
+    }
+
     /// Gives an iterator over all words in the sample with the associated color.
     pub fn words_with_color(
         &self,
@@ -75,18 +81,16 @@ impl<A: Alphabet, C: Color> Sample<A, FiniteLength, C> {
 impl<A: Alphabet, C: Color> OmegaSample<A, C> {
     /// Create a new sample of infinite words. The alphabet is given as something which implements [`RawSymbols`]. The words
     /// in the sample are given as an iterator yielding (word, color) pairs.
-    pub fn new_omega<R: RawSymbols<A::Symbol>, J: IntoIterator<Item = (R, usize, C)>>(
+    pub fn new_omega<
+        W: Into<Normalized<A::Symbol, InfiniteLength>>,
+        J: IntoIterator<Item = (W, C)>,
+    >(
         alphabet: A,
         words: J,
     ) -> Self {
         let words = words
             .into_iter()
-            .map(|(word, loop_index, color)| {
-                (
-                    Normalized::new_omega(word, InfiniteLength(0, loop_index)),
-                    color,
-                )
-            })
+            .map(|(word, color)| (word.into(), color))
             .collect();
         Self { alphabet, words }
     }
@@ -103,11 +107,25 @@ impl<A: Alphabet> OmegaSample<A, bool> {
 }
 
 /// An [`OmegaSample`] restricted/split onto one [`Class`] of a [`RightCongruence`].
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClassOmegaSample<'a, A: Alphabet, C: Color> {
     congruence: &'a RightCongruence<A>,
     class: Class<A::Symbol>,
     sample: Sample<A, InfiniteLength, C>,
+}
+
+impl<'a, A: Alphabet, C: Color> std::ops::Deref for ClassOmegaSample<'a, A, C> {
+    type Target = Sample<A, InfiniteLength, C>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.sample
+    }
+}
+
+impl<'a, A: Alphabet, C: Color> std::ops::DerefMut for ClassOmegaSample<'a, A, C> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.sample
+    }
 }
 
 impl<'a, A: Alphabet, C: Color> ClassOmegaSample<'a, A, C> {
@@ -137,20 +155,45 @@ impl<'a, A: Alphabet, C: Color> ClassOmegaSample<'a, A, C> {
     }
 }
 
+/// Represents a right congruence relation together with a collection of split samples, one
+/// associated with each class of the congruence.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct SplitOmegaSample<'a, A: Alphabet, C: Color> {
+    congruence: &'a RightCongruence<A>,
+    split: Map<usize, ClassOmegaSample<'a, A, C>>,
+}
+
+impl<'a, A: Alphabet, C: Color> SplitOmegaSample<'a, A, C> {
+    /// Creates a new object from the given congruence and the split
+    pub fn new(
+        congruence: &'a RightCongruence<A>,
+        split: Map<usize, ClassOmegaSample<'a, A, C>>,
+    ) -> Self {
+        Self { congruence, split }
+    }
+
+    /// Obtain a reference to the split sample for the given class/index.
+    pub fn get<I: IndexesRightCongruence<A>>(
+        &self,
+        index: I,
+    ) -> Option<&ClassOmegaSample<'a, A, C>> {
+        index
+            .to_index(self.congruence)
+            .and_then(|idx| self.split.get(&idx))
+    }
+}
+
 impl<A: Alphabet, C: Color> OmegaSample<A, C> {
     /// Splits the sample into a map of [`ClassOmegaSample`]s, one for each class of the underlying [`RightCongruence`].
-    pub fn split<'a>(
-        &self,
-        cong: &'a RightCongruence<A>,
-    ) -> Map<usize, ClassOmegaSample<'a, A, C>> {
+    pub fn split<'a>(&self, cong: &'a RightCongruence<A>) -> SplitOmegaSample<'a, A, C> {
         debug_assert!(
             cong.size() > 0,
             "Makes only sense for non-empty congruences"
         );
         let initial = cong.initial();
         // take self as is for epsilon
-        let mut out = Map::new();
-        out.insert(
+        let mut spilt = Map::new();
+        spilt.insert(
             initial,
             ClassOmegaSample::new(cong, Class::epsilon(), self.clone()),
         );
@@ -166,7 +209,7 @@ impl<A: Alphabet, C: Color> OmegaSample<A, C> {
             // unwrap okay because words are infinite
             if let Some(reached) = cong.successor_index(state, sym) {
                 trace!("\tReached successor {reached}");
-                if out
+                if spilt
                     .entry(reached)
                     .or_insert_with(|| {
                         ClassOmegaSample::empty(
@@ -185,7 +228,8 @@ impl<A: Alphabet, C: Color> OmegaSample<A, C> {
                 }
             }
         }
-        out
+
+        SplitOmegaSample::new(cong, spilt)
     }
 }
 
@@ -209,7 +253,7 @@ where
 mod tests {
     use automata::{
         alphabet::Simple,
-        normalized_upw, simple,
+        nupw, simple,
         ts::{finite::ReachedColor, Congruence, HasStates, Sproutable},
         upw, Acceptor, HasLength, Pointed, RightCongruence, Successor,
     };
@@ -229,33 +273,37 @@ mod tests {
         let sample = Sample::new_omega(
             alphabet.clone(),
             vec![
-                ("b", 0, true),
-                ("abab", 3, true),
-                ("abbab", 4, true),
-                ("ab", 1, false),
-                ("a", 0, false),
+                (("b", 0), true),
+                (("abab", 3), true),
+                (("abbab", 4), true),
+                (("ab", 1), false),
+                (("a", 0), false),
             ],
         );
         let cong = sample.right_congruence();
-        println!("{:?}", cong);
         let split = sample.split(&cong);
-        println!("{:?}", split.get(&0).unwrap());
-        println!("{:?}", split.get(&1).unwrap());
+
+        for w in ["b"] {
+            assert!(split.get(0).unwrap().contains(&nupw!(w)))
+        }
+
+        println!("{:?}", split.get(0).unwrap());
+        println!("{:?}", split.get(1).unwrap());
     }
 
     #[test]
     fn omega_prefix_tree() {
-        let mut w = normalized_upw!("aba", "b");
+        let mut w = nupw!("aba", "b");
         let x = w.pop_front();
 
         let words = vec![
-            normalized_upw!("aba", "b"),
-            normalized_upw!("a"),
-            normalized_upw!("ab"),
-            normalized_upw!("bba"),
-            normalized_upw!("b", "a"),
-            normalized_upw!("b"),
-            normalized_upw!("aa", "b"),
+            nupw!("aba", "b"),
+            nupw!("a"),
+            nupw!("ab"),
+            nupw!("bba"),
+            nupw!("b", "a"),
+            nupw!("b"),
+            nupw!("aa", "b"),
         ];
 
         let time_start = std::time::Instant::now();

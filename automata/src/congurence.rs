@@ -110,6 +110,24 @@ impl<A: Alphabet> Debug for RightCongruence<A> {
     }
 }
 
+/// Implementors of this trait can be used as indices for the right congruence.
+pub trait IndexesRightCongruence<A: Alphabet> {
+    /// Turns `self` into an index for the given right congruence.
+    fn to_index(&self, congruence: &RightCongruence<A>) -> Option<usize>;
+}
+
+impl<A: Alphabet> IndexesRightCongruence<A> for usize {
+    fn to_index(&self, congruence: &RightCongruence<A>) -> Option<usize> {
+        Some(*self)
+    }
+}
+
+impl<A: Alphabet> IndexesRightCongruence<A> for &Class<A::Symbol> {
+    fn to_index(&self, congruence: &RightCongruence<A>) -> Option<usize> {
+        congruence.class_to_index(self)
+    }
+}
+
 impl<A: Alphabet> RightCongruence<A> {
     fn recompute_labels(&mut self) {
         for (mr, id) in self
