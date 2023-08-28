@@ -18,7 +18,7 @@ mod concat;
 pub use concat::Concat;
 
 mod normalized;
-pub use normalized::Normalized;
+pub use normalized::{Normalized, NormalizedPeriodic};
 
 #[autoimpl(for<T: trait> &T, &mut T)]
 pub trait RawSymbols<S> {

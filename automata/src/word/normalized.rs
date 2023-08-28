@@ -5,12 +5,6 @@ use itertools::Itertools;
 
 use super::OmegaWord;
 
-#[derive(Clone, Eq, PartialEq, Hash)]
-pub struct Normalized<S: Symbol, L: Length> {
-    pub word: Vec<S>,
-    pub length: L,
-}
-
 #[macro_export]
 macro_rules! nupw {
     ($recur:expr) => {
@@ -22,6 +16,34 @@ macro_rules! nupw {
             automata::InfiniteLength($base.len() + $recur.len(), $base.len()),
         )
     };
+}
+#[macro_export]
+macro_rules! npw {
+    ($recur:expr) => {
+        $crate::word::NormalizedPeriodic::new($recur.chars().collect_vec())
+    };
+}
+
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub struct Normalized<S: Symbol, L: Length> {
+    pub word: Vec<S>,
+    pub length: L,
+}
+
+impl<S: Symbol, L: Length> Normalized<S, L> {
+    pub fn new(word: Vec<S>, length: L) -> Self {
+        Self { word, length }
+    }
+
+    pub fn first(&self) -> Option<S> {
+        self.word.first()
+    }
+}
+
+impl<S: Symbol> Normalized<S, InfiniteLength> {
+    pub fn is_periodic(&self) -> bool {
+        self.length.loop_index() == 0
+    }
 }
 
 impl<S: Symbol, L: Length> Word for Normalized<S, L>
@@ -36,22 +58,11 @@ where
             .and_then(|pos| self.word.get(pos.position()).cloned())
     }
 }
-
 impl<S: Symbol, L: Length> HasLength for Normalized<S, L> {
     type Length = L;
 
     fn length(&self) -> Self::Length {
         self.length
-    }
-}
-
-impl<S: Symbol, L: Length> Normalized<S, L> {
-    pub fn new(word: Vec<S>, length: L) -> Self {
-        Self { word, length }
-    }
-
-    pub fn first(&self) -> Option<S> {
-        self.word.first()
     }
 }
 
@@ -69,6 +80,51 @@ impl<S: Symbol> Normalized<S, FiniteLength> {
         let word = word.into_iter().collect_vec();
         let length = FiniteLength(word.len());
         Self { word, length }
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct NormalizedPeriodic<S: Symbol> {
+    pub word: Vec<S>,
+}
+
+impl<S: Symbol> NormalizedPeriodic<S> {
+    pub fn new(word: Vec<S>) -> Self {
+        Self {
+            word: deduplicate(word),
+        }
+    }
+}
+
+impl<S: Symbol> TryFrom<Normalized<S, InfiniteLength>> for NormalizedPeriodic<S> {
+    type Error = ();
+
+    fn try_from(value: Normalized<S, InfiniteLength>) -> Result<Self, Self::Error> {
+        if value.is_periodic() {
+            debug_assert!(
+                deduplicate(value.word.clone()) == value.word,
+                "word is no deduplicated"
+            );
+            Ok(Self::new(value.word))
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl<S: Symbol> Word for NormalizedPeriodic<S> {
+    type Symbol = S;
+
+    fn nth(&self, position: usize) -> Option<Self::Symbol> {
+        self.word.get(position % self.word.len()).cloned()
+    }
+}
+
+impl<S: Symbol> HasLength for NormalizedPeriodic<S> {
+    type Length = InfiniteLength;
+
+    fn length(&self) -> Self::Length {
+        InfiniteLength(self.word.len(), 0)
     }
 }
 
@@ -152,6 +208,15 @@ impl<S: Symbol> std::fmt::Debug for Normalized<S, InfiniteLength> {
                 .iter()
                 .map(|s| format!("{:?}", s))
                 .join("")
+        ))
+    }
+}
+
+impl<S: Symbol> std::fmt::Debug for NormalizedPeriodic<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "{}⁰",
+            self.word.iter().map(|s| format!("{:?}", s)).join("")
         ))
     }
 }

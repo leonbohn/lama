@@ -9,7 +9,7 @@ use automata::{
     alphabet::{self, Symbol},
     congurence::IndexesRightCongruence,
     ts::{FiniteState, HasStates, Pointed, Product, Sproutable},
-    word::{Normalized, OmegaWord, RawSymbols},
+    word::{Normalized, NormalizedPeriodic, OmegaWord, RawSymbols},
     Acceptor, Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length, Map,
     MooreMachine, RightCongruence, Set, Successor, Word, DFA,
 };
@@ -97,12 +97,113 @@ impl<A: Alphabet, C: Color> OmegaSample<A, C> {
 }
 
 impl<A: Alphabet> OmegaSample<A, bool> {
+    /// Creates a new `OmegaSample` from an alphabet as well as two iterators, one
+    /// over positive words and one over negative words.
+    pub fn new_omega_from_pos_neg<
+        W: Into<Normalized<A::Symbol, InfiniteLength>>,
+        I: IntoIterator<Item = W>,
+        J: IntoIterator<Item = W>,
+    >(
+        alphabet: A,
+        positive: I,
+        negative: J,
+    ) -> Self {
+        Self {
+            alphabet,
+            words: positive
+                .into_iter()
+                .map(|w| (w.into(), true))
+                .chain(negative.into_iter().map(|w| (w.into(), false)))
+                .collect(),
+        }
+    }
+
+    /// Returns an iterator over the positive periodic words in the sample.
+    pub fn positive_periodic(&self) -> impl Iterator<Item = NormalizedPeriodic<A::Symbol>> + '_ {
+        self.positive_words()
+            .filter_map(|w| NormalizedPeriodic::try_from(w.clone()).ok())
+    }
+
+    /// Returns an iterator over the negative periodic words in the sample.
+    pub fn negative_periodic(&self) -> impl Iterator<Item = NormalizedPeriodic<A::Symbol>> + '_ {
+        self.negative_words()
+            .filter_map(|w| NormalizedPeriodic::try_from(w.clone()).ok())
+    }
+
+    /// Computes a `PeriodicOmegaSample` containing only the periodic words in the sample.
+    pub fn to_periodic_sample(&self) -> PeriodicOmegaSample<A> {
+        PeriodicOmegaSample {
+            alphabet: self.alphabet.clone(),
+            positive: self.positive_periodic().collect(),
+            negative: self.negative_periodic().collect(),
+        }
+    }
+}
+
+impl<A: Alphabet> OmegaSample<A, bool> {
     /// Computes the [`RightCongruence`] underlying the sample.
     pub fn right_congruence(&self) -> RightCongruence<A> {
         omega_sprout_conflicts(
             self.alphabet.clone(),
             prefix_consistency_conflicts(&self.alphabet, self),
         )
+    }
+}
+
+/// A [`PeriodicOmegaSample`] is an omega sample containing only periodic words.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct PeriodicOmegaSample<A: Alphabet> {
+    alphabet: A,
+    positive: BTreeSet<NormalizedPeriodic<A::Symbol>>,
+    negative: BTreeSet<NormalizedPeriodic<A::Symbol>>,
+}
+
+impl<A: Alphabet> PeriodicOmegaSample<A> {
+    /// Gives an iterator over all positive periodic words in the sample.
+    pub fn positive(&self) -> impl Iterator<Item = &NormalizedPeriodic<A::Symbol>> + '_ {
+        self.positive.iter()
+    }
+
+    /// Gives an iterator over all negative periodic words in the sample.
+    pub fn negative(&self) -> impl Iterator<Item = &NormalizedPeriodic<A::Symbol>> + '_ {
+        self.negative.iter()
+    }
+
+    /// Gives the size i.e. number of positive words.
+    pub fn positive_size(&self) -> usize {
+        self.positive.len()
+    }
+
+    /// Gives the size i.e. number of negative words.
+    pub fn negative_size(&self) -> usize {
+        self.negative.len()
+    }
+
+    /// Returns the size i.e. number of words.
+    pub fn size(&self) -> usize {
+        self.positive_size() + self.negative_size()
+    }
+
+    /// Returns a reference to the alphabet underlying the sample.
+    pub fn alphabet(&self) -> &A {
+        &self.alphabet
+    }
+
+    /// Classify the given word, i.e. return `true` if it is a positive word, `false` if it is a negative word and `None` if it is neither.
+    pub fn classify<W: Into<NormalizedPeriodic<A::Symbol>>>(&self, word: W) -> Option<bool> {
+        let word = word.into();
+        if self.positive.contains(&word) {
+            Some(true)
+        } else if self.negative.contains(&word) {
+            Some(false)
+        } else {
+            None
+        }
+    }
+
+    /// Check whether the given word is contained in the sample.
+    pub fn contains<W: Into<NormalizedPeriodic<A::Symbol>>>(&self, word: W) -> bool {
+        self.classify(word).is_some()
     }
 }
 
@@ -253,7 +354,7 @@ where
 mod tests {
     use automata::{
         alphabet::Simple,
-        nupw, simple,
+        npw, nupw, simple,
         ts::{finite::ReachedColor, Congruence, HasStates, Sproutable},
         upw, Acceptor, HasLength, Pointed, RightCongruence, Successor,
     };
@@ -264,6 +365,23 @@ mod tests {
     use crate::Sample;
 
     use super::Normalized;
+
+    #[test]
+    fn to_periodic_sample() {
+        let alphabet = simple!('a', 'b');
+        // represents congruence e ~ b ~ aa ~\~ a ~ ab
+        let sample = Sample::new_omega_from_pos_neg(
+            alphabet,
+            [nupw!("ab", "b"), nupw!("a", "b"), nupw!("bbbbbb")],
+            [nupw!("aa")],
+        );
+        let periodic_sample = sample.to_periodic_sample();
+        assert_eq!(periodic_sample.positive_size(), 1);
+        assert_eq!(periodic_sample.negative_size(), 1);
+        assert!(periodic_sample.contains(npw!("b")));
+        assert!(periodic_sample.contains(npw!("a")));
+        assert_eq!(periodic_sample.classify(npw!("bb")), Some(true));
+    }
 
     #[test]
     #[traced_test]
