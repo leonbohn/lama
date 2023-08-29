@@ -30,6 +30,46 @@ pub struct Normalized<S: Symbol, L: Length> {
     pub length: L,
 }
 
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub enum NormalizedParseError {
+    Empty,
+    EmptyLoop,
+    TooManyCommas,
+}
+
+impl TryFrom<&str> for Normalized<char, InfiniteLength> {
+    type Error = NormalizedParseError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value.split_once(',') {
+            None => {
+                if value.is_empty() {
+                    Err(NormalizedParseError::Empty)
+                } else {
+                    Ok(Self::new_periodic(value.trim()))
+                }
+            }
+            Some((initial, repeating)) => {
+                if repeating.is_empty() {
+                    Err(NormalizedParseError::EmptyLoop)
+                } else {
+                    if repeating.contains(',') {
+                        return Err(NormalizedParseError::TooManyCommas);
+                    }
+                    Ok(Self::new_omega(
+                        initial
+                            .trim()
+                            .chars()
+                            .chain(repeating.trim().chars())
+                            .collect_vec(),
+                        InfiniteLength(initial.len() + repeating.len(), initial.len()),
+                    ))
+                }
+            }
+        }
+    }
+}
+
 impl<S: Symbol, L: Length> Normalized<S, L> {
     pub fn new(word: Vec<S>, length: L) -> Self {
         Self { word, length }
@@ -87,6 +127,13 @@ impl<S: Symbol> From<NormalizedPeriodic<S>> for Normalized<S, InfiniteLength> {
     fn from(value: NormalizedPeriodic<S>) -> Self {
         let len = value.word.len();
         Self::new_omega(value.word, InfiniteLength(len, 0))
+    }
+}
+
+impl<S: Symbol> From<&NormalizedPeriodic<S>> for Normalized<S, InfiniteLength> {
+    fn from(value: &NormalizedPeriodic<S>) -> Self {
+        let len = value.word.len();
+        Self::new_omega(value.word.clone(), InfiniteLength(len, 0))
     }
 }
 
@@ -154,6 +201,15 @@ fn deduplicate<S: Symbol>(input: Vec<S>) -> Vec<S> {
 }
 
 impl<S: Symbol> Normalized<S, InfiniteLength> {
+    pub fn new_periodic<R: RawSymbols<S>>(raw: R) -> Self {
+        let word = raw.to_vec();
+        debug_assert!(word.len() > 0);
+        Self {
+            length: InfiniteLength(word.len(), 0),
+            word,
+        }
+    }
+
     pub fn new_omega<R: RawSymbols<S>>(raw: R, length: InfiniteLength) -> Self {
         // first we "roll in the periodic part" by moving the loop index to
         // the front and popping symbols from the back.

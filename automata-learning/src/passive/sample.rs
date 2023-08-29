@@ -6,7 +6,7 @@ use std::{
 };
 
 use automata::{
-    alphabet::{self, Symbol},
+    alphabet::{self, Simple, Symbol},
     congurence::IndexesRightCongruence,
     ts::{FiniteState, HasStates, Pointed, Product, Sproutable},
     word::{Normalized, NormalizedPeriodic, OmegaWord, RawSymbols},
@@ -29,6 +29,71 @@ pub struct Sample<A: Alphabet, L: Length, C: Color = bool> {
 /// An `OmegaSample` is just a sample that contains infinite words.
 pub type OmegaSample<A, C = bool> = Sample<A, InfiniteLength, C>;
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum OmegaSampleParseError {
+    MissingHeader,
+    MissingAlphabet,
+    MissingDelimiter,
+    MalformedAlphabetSymbol,
+    MalformedSample,
+    UnknownCharacterInWord,
+}
+
+impl TryFrom<&str> for OmegaSample<Simple, bool> {
+    type Error = OmegaSampleParseError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let mut lines = value.lines();
+        if lines.next().map(|line| line.trim()) != Some("omega") {
+            return Err(OmegaSampleParseError::MissingHeader);
+        }
+
+        let alphabet = lines
+            .next()
+            .and_then(|line| line.split_once(':'))
+            .map(|(header, symbols)| {
+                if header.trim() == "alphabet" {
+                    symbols.split(',').try_fold(Vec::new(), |mut acc, x| {
+                        let sym = x.trim();
+                        if sym.len() != 1 {
+                            Err(OmegaSampleParseError::MalformedAlphabetSymbol)
+                        } else {
+                            acc.push(sym.chars().next().unwrap());
+                            Ok(acc)
+                        }
+                    })
+                } else {
+                    Err(OmegaSampleParseError::MissingAlphabet)
+                }
+            })
+            .ok_or(OmegaSampleParseError::MissingDelimiter)??
+            .into();
+
+        if lines.next().map(|line| line.trim()) != Some("positive:") {
+            return Err(OmegaSampleParseError::MalformedSample);
+        }
+
+        let mut words = Map::new();
+        'positive: loop {
+            match lines.next().map(|line| line.trim()) {
+                Some("negative:") => break 'positive,
+                Some(word) => {
+                    let parsed = Normalized::try_from(word)
+                        .map_err(|_| OmegaSampleParseError::UnknownCharacterInWord)?;
+                    words.insert(parsed, true);
+                }
+                None => return Err(OmegaSampleParseError::MalformedSample),
+            }
+        }
+        for word in lines {
+            let parsed = Normalized::try_from(word)
+                .map_err(|_| OmegaSampleParseError::UnknownCharacterInWord)?;
+            words.insert(parsed, false);
+        }
+        Ok(Sample::new_omega(alphabet, words))
+    }
+}
+
 impl<A: Alphabet, L: Length> Sample<A, L, bool> {
     /// Gives an iterator over all positive words in the sample.
     pub fn positive_words(&self) -> impl Iterator<Item = &'_ Normalized<A::Symbol, L>> + '_ {
@@ -45,6 +110,11 @@ impl<A: Alphabet, L: Length, C: Color> Sample<A, L, C> {
     /// Gives an iterator over all words in the sample.
     pub fn words(&self) -> impl Iterator<Item = &'_ Normalized<A::Symbol, L>> + '_ {
         self.words.keys()
+    }
+
+    pub fn classify<W: Into<Normalized<A::Symbol, L>>>(&self, word: W) -> Option<C> {
+        let word = word.into();
+        self.words.get(&word).cloned()
     }
 
     /// Checks whether a word is contained in the sample.
@@ -77,25 +147,6 @@ impl<A: Alphabet, C: Color> Sample<A, FiniteLength, C> {
         Self { alphabet, words }
     }
 }
-
-impl<A: Alphabet, C: Color> OmegaSample<A, C> {
-    /// Create a new sample of infinite words. The alphabet is given as something which implements [`RawSymbols`]. The words
-    /// in the sample are given as an iterator yielding (word, color) pairs.
-    pub fn new_omega<
-        W: Into<Normalized<A::Symbol, InfiniteLength>>,
-        J: IntoIterator<Item = (W, C)>,
-    >(
-        alphabet: A,
-        words: J,
-    ) -> Self {
-        let words = words
-            .into_iter()
-            .map(|(word, color)| (word.into(), color))
-            .collect();
-        Self { alphabet, words }
-    }
-}
-
 impl<A: Alphabet> OmegaSample<A, bool> {
     /// Creates a new `OmegaSample` from an alphabet as well as two iterators, one
     /// over positive words and one over negative words.
@@ -138,15 +189,22 @@ impl<A: Alphabet> OmegaSample<A, bool> {
             negative: self.negative_periodic().collect(),
         }
     }
-}
 
-impl<A: Alphabet> OmegaSample<A, bool> {
     /// Computes the [`RightCongruence`] underlying the sample.
     pub fn right_congruence(&self) -> RightCongruence<A> {
         omega_sprout_conflicts(
             self.alphabet.clone(),
             prefix_consistency_conflicts(&self.alphabet, self),
+            true,
         )
+    }
+
+    pub fn positive_size(&self) -> usize {
+        self.words_with_color(true).count()
+    }
+
+    pub fn negative_size(&self) -> usize {
+        self.words_with_color(false).count()
     }
 }
 
@@ -285,6 +343,22 @@ impl<'a, A: Alphabet, C: Color> SplitOmegaSample<'a, A, C> {
 }
 
 impl<A: Alphabet, C: Color> OmegaSample<A, C> {
+    /// Create a new sample of infinite words. The alphabet is given as something which implements [`RawSymbols`]. The words
+    /// in the sample are given as an iterator yielding (word, color) pairs.
+    pub fn new_omega<
+        W: Into<Normalized<A::Symbol, InfiniteLength>>,
+        J: IntoIterator<Item = (W, C)>,
+    >(
+        alphabet: A,
+        words: J,
+    ) -> Self {
+        let words = words
+            .into_iter()
+            .map(|(word, color)| (word.into(), color))
+            .collect();
+        Self { alphabet, words }
+    }
+
     /// Splits the sample into a map of [`ClassOmegaSample`]s, one for each class of the underlying [`RightCongruence`].
     pub fn split<'a>(&self, cong: &'a RightCongruence<A>) -> SplitOmegaSample<'a, A, C> {
         debug_assert!(
@@ -365,6 +439,31 @@ mod tests {
     use crate::Sample;
 
     use super::Normalized;
+
+    #[test]
+    fn parse_sample() {
+        let sample_str = r#"omega
+        alphabet: a, b
+        positive:
+        a
+        b,a
+        aab
+        baa
+        negative:
+        b
+        ab
+        abb"#;
+
+        let sample = match Sample::try_from(sample_str) {
+            Ok(s) => s,
+            Err(e) => panic!("Error parsing sample: {:?}", e),
+        };
+
+        assert_eq!(sample.alphabet, simple!('a', 'b'));
+        assert_eq!(sample.positive_size(), 4);
+        assert_eq!(sample.negative_size(), 3);
+        assert_eq!(sample.classify(nupw!("ab")), Some(false));
+    }
 
     #[test]
     fn to_periodic_sample() {

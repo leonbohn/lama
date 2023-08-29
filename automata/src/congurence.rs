@@ -130,6 +130,10 @@ impl<A: Alphabet> IndexesRightCongruence<A> for &Class<A::Symbol> {
 }
 
 impl<A: Alphabet> RightCongruence<A> {
+    pub fn from_ts(ts: IndexTS<A, Class<A::Symbol>, OnStates>) -> Self {
+        Self { ts }
+    }
+
     pub(crate) fn recompute_labels(&mut self) {
         for (mr, id) in self
             .ts

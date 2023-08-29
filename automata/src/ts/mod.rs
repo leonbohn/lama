@@ -648,6 +648,10 @@ pub trait Congruence: TransitionSystem + Pointed {
 
         let states = self.state_indices();
         for state in &states {
+            if self.initial() == *state {
+                map.insert(*state, cong.initial());
+                continue;
+            }
             map.insert(*state, cong.add_state(Class::epsilon()));
         }
 

@@ -44,6 +44,10 @@ impl<A: Alphabet> ConflictRelation<A> {
         }
         true
     }
+
+    pub fn threshold(&self) -> usize {
+        self.dfas[0].size() * self.dfas[1].size()
+    }
 }
 
 pub fn iteration_consistency_conflicts<A: Alphabet>(
@@ -54,15 +58,28 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
         panic!("Sample for class {:?} does not exist!", class)
     };
     let periodic_sample = sample.to_periodic_sample();
+    trace!(
+        "Positive periodic words: {}\nNegative periodic words: {}",
+        periodic_sample
+            .positive()
+            .map(|w| format!("{:?}", w))
+            .join(","),
+        periodic_sample
+            .negative()
+            .map(|w| format!("{:?}", w))
+            .join(",")
+    );
 
     let looping_words = sample.right_congruence().looping_words(&class);
 
-    let left_pta = prefix_tree(sample.alphabet.clone(), sample.positive_periodic())
-        .map_colors(|mr| periodic_sample.classify(mr.omega_power()) == Some(true))
+    let left_pta = prefix_tree(sample.alphabet.clone(), periodic_sample.positive())
+        .map_colors(|mr| !mr.is_empty() && periodic_sample.classify(mr.omega_power()) == Some(true))
         .intersection(&looping_words);
 
-    let right_pta = prefix_tree(sample.alphabet.clone(), sample.negative_periodic())
-        .map_colors(|mr| periodic_sample.classify(mr.omega_power()) == Some(false))
+    let right_pta = prefix_tree(sample.alphabet.clone(), periodic_sample.negative())
+        .map_colors(|mr| {
+            !mr.is_empty() && periodic_sample.classify(mr.omega_power()) == Some(false)
+        })
         .intersection(&looping_words);
 
     let mut conflicts = Set::new();
@@ -70,7 +87,7 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
         left_pta
             .accepting_states()
             .into_iter()
-            .cartesian_product(right_pta.accepting_states().into_iter()),
+            .cartesian_product(right_pta.accepting_states()),
     );
     while let Some((left, right)) = queue.pop_front() {
         if !conflicts.insert((left, right)) {
@@ -86,6 +103,12 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
     }
 
     let (left, left_map) = left_pta.build_right_congruence();
+    println!(
+        "left size old {}, left size new {}",
+        left.size(),
+        left_pta.size()
+    );
+    debug_assert!(left.size() == left_pta.size());
     let (right, right_map) = right_pta.build_right_congruence();
 
     ConflictRelation {
@@ -147,9 +170,11 @@ pub fn prefix_consistency_conflicts<
 pub fn omega_sprout_conflicts<A: Alphabet>(
     alphabet: A,
     conflicts: ConflictRelation<A>,
+    allow_transitions_into_epsilon: bool,
 ) -> RightCongruence<A> {
     let mut cong = RightCongruence::new(alphabet.clone());
     let initial = cong.initial();
+    let threshold = conflicts.threshold();
 
     // We maintain a set of missing transitions and go through them in order of creation for the states and in order
     // give by alphabet for the symbols for one state (this amouts to BFS).
@@ -161,6 +186,9 @@ pub fn omega_sprout_conflicts<A: Alphabet>(
             sym.show().blue()
         );
         for target in cong.state_indices() {
+            if !allow_transitions_into_epsilon && target == initial {
+                continue;
+            }
             cong.add_edge(source, A::expression(sym), target, ());
 
             if conflicts.consistent(&cong) {
@@ -194,7 +222,7 @@ pub fn omega_sprout_conflicts<A: Alphabet>(
         );
 
         let new_state = cong.add_state(new_state_label);
-        if new_state > 4 {
+        if new_state > threshold {
             panic!("TOO MANY STATES")
         }
         cong.add_edge(source, A::expression(sym), new_state, ());
@@ -213,14 +241,14 @@ mod tests {
             finite::{ReachedColor, ReachedState},
             FiniteState, Sproutable, ToDot,
         },
-        Pointed, RightCongruence, Successor,
+        Class, Pointed, RightCongruence, Successor,
     };
     use itertools::Itertools;
     use tracing_test::traced_test;
 
     use crate::{passive::OmegaSample, Sample};
 
-    fn testing_forc_sample() -> (Simple, OmegaSample<Simple, bool>) {
+    fn testing_larger_forc_sample() -> (Simple, OmegaSample<Simple, bool>) {
         let alphabet = simple!('a', 'b', 'c');
         (
             alphabet.clone(),
@@ -228,24 +256,88 @@ mod tests {
                 alphabet,
                 [
                     nupw!("b"),
+                    nupw!("cbb"),
+                    nupw!("bbc"),
                     nupw!("a", "c"),
+                    nupw!("aa", "c"),
                     nupw!("ab", "a"),
+                    nupw!("abb", "a"),
                     nupw!("", "abc"),
                 ],
-                [nupw!("c"), nupw!("a"), nupw!("a", "b")],
+                [nupw!("c"), nupw!("a"), nupw!("a", "b"), nupw!("cb")],
+            ),
+        )
+    }
+
+    fn testing_smaller_forc_smaple() -> (Simple, OmegaSample<Simple, bool>) {
+        let alphabet = simple!('a', 'b', 'c');
+        (
+            alphabet.clone(),
+            Sample::new_omega_from_pos_neg(
+                alphabet,
+                [
+                    nupw!("a"),
+                    nupw!("baa"),
+                    nupw!("aca"),
+                    nupw!("caab"),
+                    nupw!("abca"),
+                ],
+                [
+                    nupw!("b"),
+                    nupw!("c"),
+                    nupw!("ab"),
+                    nupw!("ac"),
+                    nupw!("abc"),
+                ],
             ),
         )
     }
 
     #[test]
-    fn learn_a_forc() {
-        let (alphabet, sample) = testing_forc_sample();
+    #[traced_test]
+    fn learn_small_forc() {
+        let (alphabet, sample) = testing_smaller_forc_smaple();
+        let cong = sample.right_congruence();
+        assert_eq!(cong.size(), 1);
+
+        let split_sample = sample.split(&cong);
+        let eps = Class::epsilon();
+        let eps_sample = split_sample.get(&eps).unwrap();
+
+        let conflicts = super::iteration_consistency_conflicts(&split_sample, eps);
+        conflicts.dfas[0].display_rendered(Some(conflicts.dfas[0].initial()));
+        conflicts.dfas[1].display_rendered(Some(conflicts.dfas[1].initial()));
+        println!(
+            "{}",
+            conflicts
+                .conflicts
+                .iter()
+                .map(|(l, r)| format!("({l},{r})"))
+                .join(", ")
+        );
+        let prc_eps = super::omega_sprout_conflicts(alphabet, conflicts, false);
+        prc_eps.display_rendered(Some(prc_eps.initial()));
+    }
+
+    #[test]
+    fn learn_larger_forc() {
+        let (alphabet, sample) = testing_larger_forc_sample();
 
         let cong = sample.right_congruence();
         assert_eq!(cong.size(), 3);
         assert!(cong.can_separate(&"a", &""));
         assert!(cong.can_separate(&"", &"ab"));
         assert!(cong.can_separate(&"a", &"ab"));
+        cong.display_rendered(Some(cong.initial()));
+
+        let class_sample = sample.split(&cong);
+        let eps = Class::epsilon();
+        let epsilon_sample = class_sample.get(&eps).unwrap();
+
+        println!("{:?}", epsilon_sample);
+        let conflicts = super::iteration_consistency_conflicts(&class_sample, eps);
+        let prc_eps = super::omega_sprout_conflicts(alphabet, conflicts, false);
+        prc_eps.display_rendered(Some(prc_eps.initial()));
     }
 
     #[test]
@@ -271,7 +363,7 @@ mod tests {
 
         let conflicts = super::prefix_consistency_conflicts(&alphabet, sample);
 
-        let cong = super::omega_sprout_conflicts(alphabet, conflicts);
+        let cong = super::omega_sprout_conflicts(alphabet, conflicts, true);
 
         assert_eq!(cong.size(), expected_cong.size());
         for word in ["aba", "abbabb", "baabaaba", "bababaaba", "b", "a", ""] {
@@ -287,7 +379,7 @@ mod tests {
         let alphabet = simple!('a', 'b');
         let sample = Sample::new_omega(alphabet.clone(), vec![(("a", 0), false), (("b", 0), true)]);
         let conflicts = super::prefix_consistency_conflicts(&alphabet, sample);
-        let cong = super::omega_sprout_conflicts(alphabet, conflicts);
+        let cong = super::omega_sprout_conflicts(alphabet, conflicts, true);
 
         assert_eq!(cong.size(), 1);
         assert!(cong.contains_state_color(&vec![].into()));
@@ -327,7 +419,7 @@ mod tests {
                 .join(", ")
         );
 
-        let cong = super::omega_sprout_conflicts(alphabet, conflicts);
+        let cong = super::omega_sprout_conflicts(alphabet, conflicts, true);
 
         assert_eq!(cong.size(), 4);
         for class in ["", "a", "ab", "aa"] {

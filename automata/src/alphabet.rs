@@ -111,6 +111,12 @@ macro_rules! simple {
     };
 }
 
+impl From<Vec<char>> for Simple {
+    fn from(value: Vec<char>) -> Self {
+        Self(value)
+    }
+}
+
 impl FromIterator<char> for Simple {
     fn from_iter<T: IntoIterator<Item = char>>(iter: T) -> Self {
         Self(iter.into_iter().collect())
