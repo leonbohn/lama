@@ -48,6 +48,28 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Position: ColorPosition> IndexTS<A, 
         }
     }
 
+    pub(crate) fn from_parts(
+        alphabet: A,
+        states: BTreeMap<Idx, State<Position::StateColor<C>>>,
+        edges: Vec<Edge<A::Expression, Position::EdgeColor<C>, Idx>>,
+    ) -> Self {
+        Self {
+            alphabet,
+            states,
+            edges,
+        }
+    }
+
+    pub(crate) fn into_parts(
+        self,
+    ) -> (
+        A,
+        BTreeMap<Idx, State<Position::StateColor<C>>>,
+        Vec<Edge<A::Expression, Position::EdgeColor<C>, Idx>>,
+    ) {
+        (self.alphabet, self.states, self.edges)
+    }
+
     pub fn with_capacity(alphabet: A, states: usize) -> Self
     where
         StateColor<Self>: Default,
@@ -91,7 +113,10 @@ impl<A: Alphabet, Idx: IndexType, Pos: ColorPosition, C: Color> IndexTS<A, C, Po
     }
 
     /// Returns an iterator over references to the edges leaving the given state.
-    pub fn edges_from(&self, source: Idx) -> EdgesFrom<'_, A::Expression, EdgeColor<Self>, Idx> {
+    pub(crate) fn index_ts_edges_from(
+        &self,
+        source: Idx,
+    ) -> EdgesFrom<'_, A::Expression, EdgeColor<Self>, Idx> {
         EdgesFrom::new(&self.edges, self.state(source).and_then(|s| s.first_edge()))
     }
 
@@ -200,7 +225,7 @@ impl<A: Alphabet, Idx: IndexType, Pos: ColorPosition, C: Color> Successor
         state: Idx,
         symbol: A::Symbol,
     ) -> Option<Transition<Idx, A::Symbol, EdgeColor<Self>>> {
-        self.edges_from(state)
+        self.index_ts_edges_from(state)
             .find(|e| self.alphabet().matches(e.trigger(), symbol))
             .map(|e| Transition::new(state, symbol, e.target(), e.color().clone()))
     }
@@ -209,6 +234,37 @@ impl<A: Alphabet, Idx: IndexType, Pos: ColorPosition, C: Color> Successor
         self.state(index)
             .map(|s| s.color().clone())
             .expect("cannot be called if state does not exist!")
+    }
+
+    fn predecessors(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<(
+        Self::StateIndex,
+        crate::alphabet::ExpressionOf<Self>,
+        EdgeColor<Self>,
+    )> {
+        self.edges
+            .iter()
+            .filter_map(|edge| {
+                if edge.target() == state {
+                    Some((edge.source(), edge.trigger().clone(), edge.color().clone()))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    fn edges_from(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<Edge<crate::alphabet::ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>> {
+        self.edges
+            .iter()
+            .filter(|edge| edge.source() == state)
+            .cloned()
+            .collect()
     }
 }
 
@@ -297,6 +353,6 @@ mod tests {
         println!("{:?}", ts);
         assert!(ts.successor(s0, 'a').is_some());
         assert_eq!(ts.successor(s1, 'a'), Some(Transition::new(s1, 'a', s1, 0)));
-        assert_eq!(ts.edges_from(s0).count(), 2);
+        assert_eq!(ts.index_ts_edges_from(s0).count(), 2);
     }
 }

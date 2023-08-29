@@ -14,7 +14,7 @@ pub use operations::Product;
 
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
-    Color,
+    Class, Color, Map, RightCongruence,
 };
 
 mod index_ts;
@@ -112,6 +112,13 @@ impl<Q> State<Q> {
         Self {
             color,
             first_edge: None,
+        }
+    }
+
+    pub fn recolor<P: Color>(self, color: P) -> State<P> {
+        State {
+            color,
+            first_edge: self.first_edge,
         }
     }
 
@@ -498,7 +505,37 @@ pub trait Sproutable: Successor {
     where
         X: Into<Self::StateIndex>,
         Y: Into<Self::StateIndex>;
+
     fn undo_add_edge(&mut self);
+
+    /// Turns the automaton into a complete one, by adding a sink state and adding transitions
+    /// to it from all states that do not have a transition for a given symbol.
+    fn complete_with_sink(&mut self, sink_color: Self::Color) -> Self::StateIndex
+    where
+        Self: FiniteState,
+    {
+        let sink = self.add_state(<Self::Position as ColorPosition>::state_color(
+            sink_color.clone(),
+        ));
+
+        let universe = self.alphabet().universe().cloned().collect_vec();
+
+        let edge_color = <Self::Position as ColorPosition>::edge_color(sink_color);
+        for state in self.state_indices() {
+            for &sym in &universe {
+                if self.successor(state, sym).is_none() {
+                    self.add_edge(
+                        state,
+                        <Self::Alphabet as Alphabet>::expression(sym),
+                        sink,
+                        edge_color.clone(),
+                    );
+                }
+            }
+        }
+
+        sink
+    }
 }
 
 /// Implementors of this trait have a distinguished (initial) state.
@@ -599,5 +636,38 @@ pub use dot::ToDot;
 /// A congruence is a [`TransitionSystem`], which additionally has a distinguished initial state. On top
 /// of that, a congruence does not have any coloring on either states or symbols. This
 /// functionality is abstracted in [`Pointed`]. This trait is automatically implemented.
-pub trait Congruence: TransitionSystem<Color = (), Position = OnBoth> + Pointed {}
-impl<Sim: TransitionSystem<Color = (), Position = OnBoth> + Pointed> Congruence for Sim {}
+pub trait Congruence: TransitionSystem + Pointed {
+    fn build_right_congruence(
+        &self,
+    ) -> (
+        RightCongruence<Self::Alphabet>,
+        Map<Self::StateIndex, usize>,
+    ) {
+        let mut cong = RightCongruence::new_for_alphabet(self.alphabet().clone());
+        let mut map = Map::new();
+
+        let states = self.state_indices();
+        for state in &states {
+            map.insert(*state, cong.add_state(Class::epsilon()));
+        }
+
+        for state in states {
+            for edge in self.edges_from(state) {
+                let target = edge.target();
+                let target_class = map.get(&target).unwrap();
+                let color = edge.color().clone();
+                let target_class = cong.add_edge(
+                    *map.get(&state).unwrap(),
+                    edge.trigger().clone(),
+                    *target_class,
+                    (),
+                );
+            }
+        }
+
+        cong.recompute_labels();
+
+        (cong, map)
+    }
+}
+impl<Sim: TransitionSystem + Pointed> Congruence for Sim {}

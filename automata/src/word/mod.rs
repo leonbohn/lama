@@ -78,6 +78,10 @@ pub trait Word: HasLength {
         self.nth(0)
     }
 
+    fn omega_power(&self) -> NormalizedPeriodic<Self::Symbol> {
+        NormalizedPeriodic::new(self.raw_to_vec())
+    }
+
     fn append<W: Word<Symbol = Self::Symbol>>(self, other: W) -> Concat<Self, W>
     where
         Self: Sized + HasLength<Length = FiniteLength>,

@@ -83,6 +83,19 @@ impl<S: Symbol> Normalized<S, FiniteLength> {
     }
 }
 
+impl<S: Symbol> From<NormalizedPeriodic<S>> for Normalized<S, InfiniteLength> {
+    fn from(value: NormalizedPeriodic<S>) -> Self {
+        let len = value.word.len();
+        Self::new_omega(value.word, InfiniteLength(len, 0))
+    }
+}
+
+impl<S: Symbol> From<&Normalized<S, InfiniteLength>> for Normalized<S, InfiniteLength> {
+    fn from(value: &Normalized<S, InfiniteLength>) -> Self {
+        Self::new(value.word.clone(), value.length)
+    }
+}
+
 #[derive(Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct NormalizedPeriodic<S: Symbol> {
     pub word: Vec<S>,

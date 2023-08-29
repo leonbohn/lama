@@ -57,6 +57,46 @@ where
         assert!((self.filter)(state));
         self.ts.state_color(state)
     }
+
+    fn predecessors(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<(
+        Self::StateIndex,
+        crate::alphabet::ExpressionOf<Self>,
+        crate::ts::EdgeColor<Self>,
+    )> {
+        if (self.filter)(state) {
+            self.ts
+                .predecessors(state)
+                .into_iter()
+                .filter(|(predecessor, _, _)| (self.filter)(*predecessor))
+                .collect()
+        } else {
+            vec![]
+        }
+    }
+
+    fn edges_from(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<
+        crate::ts::Edge<
+            crate::alphabet::ExpressionOf<Self>,
+            crate::ts::EdgeColor<Self>,
+            Self::StateIndex,
+        >,
+    > {
+        if (self.filter)(state) {
+            self.ts
+                .edges_from(state)
+                .into_iter()
+                .filter(|edge| (self.filter)(edge.target()))
+                .collect()
+        } else {
+            vec![]
+        }
+    }
 }
 
 impl<Ts: Successor, F> RestrictByStateIndex<Ts, F> {

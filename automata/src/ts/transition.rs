@@ -58,6 +58,17 @@ impl<E, C, Idx> Edge<E, C, Idx> {
         }
     }
 
+    pub fn recolor<D: Color>(self, color: D) -> Edge<E, D, Idx> {
+        Edge {
+            source: self.source,
+            target: self.target,
+            color,
+            trigger: self.trigger,
+            next_edge: self.next_edge,
+            prev_edge: self.prev_edge,
+        }
+    }
+
     /// Sets the previous edge index.
     pub fn set_prev(&mut self, prev: EdgeIndex) {
         self.prev_edge = Some(prev);

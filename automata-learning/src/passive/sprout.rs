@@ -2,8 +2,12 @@ use std::collections::VecDeque;
 
 use automata::{
     alphabet::Symbol,
-    ts::{operations::ProductIndex, FiniteState, Product, Sproutable, ToDot},
-    Alphabet, Class, InfiniteLength, Pointed, RightCongruence, Successor,
+    automaton::IsDfa,
+    ts::{
+        operations::ProductIndex, Congruence, FiniteState, Product, Sproutable, ToDot,
+        TransitionSystem,
+    },
+    Alphabet, Class, InfiniteLength, Pointed, RightCongruence, Set, Successor, Word,
 };
 use itertools::Itertools;
 use tracing::trace;
@@ -18,14 +22,14 @@ use super::{OmegaSample, SplitOmegaSample};
 #[derive(Clone)]
 pub struct ConflictRelation<A: Alphabet> {
     dfas: [RightCongruence<A>; 2],
-    conflicts: Vec<(usize, usize)>,
+    conflicts: Set<(usize, usize)>,
 }
 
 impl<A: Alphabet> ConflictRelation<A> {
     /// Verifies that a given congruence is consistent with the conflicts.
     pub fn consistent(&self, cong: &RightCongruence<A>) -> bool {
-        let left = cong.product(&self.dfas[0]);
-        let right = cong.product(&self.dfas[1]);
+        let left = cong.ts_product(&self.dfas[0]);
+        let right = cong.ts_product(&self.dfas[1]);
 
         for ProductIndex(lcong, ldfa) in left.reachable_state_indices() {
             for ProductIndex(rcong, rdfa) in right.reachable_state_indices() {
@@ -49,8 +53,50 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
     let Some(sample) = samples.get(&class) else {
         panic!("Sample for class {:?} does not exist!", class)
     };
-    todo!()
+    let periodic_sample = sample.to_periodic_sample();
+
+    let looping_words = sample.right_congruence().looping_words(&class);
+
+    let left_pta = prefix_tree(sample.alphabet.clone(), sample.positive_periodic())
+        .map_colors(|mr| periodic_sample.classify(mr.omega_power()) == Some(true))
+        .intersection(&looping_words);
+
+    let right_pta = prefix_tree(sample.alphabet.clone(), sample.negative_periodic())
+        .map_colors(|mr| periodic_sample.classify(mr.omega_power()) == Some(false))
+        .intersection(&looping_words);
+
+    let mut conflicts = Set::new();
+    let mut queue = VecDeque::from_iter(
+        left_pta
+            .accepting_states()
+            .into_iter()
+            .cartesian_product(right_pta.accepting_states().into_iter()),
+    );
+    while let Some((left, right)) = queue.pop_front() {
+        if !conflicts.insert((left, right)) {
+            continue;
+        }
+        for (left_predecessor, left_expression, _) in left_pta.predecessors(left) {
+            for (right_predecessor, right_expression, _) in right_pta.predecessors(right) {
+                if left_expression == right_expression {
+                    queue.push_back((left_predecessor, right_predecessor));
+                }
+            }
+        }
+    }
+
+    let (left, left_map) = left_pta.build_right_congruence();
+    let (right, right_map) = right_pta.build_right_congruence();
+
+    ConflictRelation {
+        dfas: [left, right],
+        conflicts: conflicts
+            .into_iter()
+            .map(|(l, r)| (left_map[&l], right_map[&r]))
+            .collect(),
+    }
 }
+
 /// Computes a conflict relation encoding prefix consistency.
 pub fn prefix_consistency_conflicts<
     A: Alphabet,
@@ -60,10 +106,10 @@ pub fn prefix_consistency_conflicts<
     sample: S,
 ) -> ConflictRelation<A> {
     let sample = sample.borrow();
-    let left_pta = prefix_tree(alphabet.clone(), sample.positive_words().cloned().collect());
-    let right_pta = prefix_tree(alphabet.clone(), sample.negative_words().cloned().collect());
+    let left_pta = prefix_tree(alphabet.clone(), sample.positive_words());
+    let right_pta = prefix_tree(alphabet.clone(), sample.negative_words());
 
-    let dfa = (&left_pta).product(&right_pta);
+    let dfa = (&left_pta).ts_product(&right_pta);
 
     let sccs = dfa.sccs();
     let states_with_infinite_run: Vec<(usize, usize)> = sccs
@@ -78,7 +124,7 @@ pub fn prefix_consistency_conflicts<
         .flatten()
         .collect();
 
-    let mut conflicts = vec![];
+    let mut conflicts = Set::new();
     for ProductIndex(l, r) in dfa.state_indices() {
         let reachable = dfa
             .reachable_state_indices_from(ProductIndex(l, r))
@@ -87,7 +133,7 @@ pub fn prefix_consistency_conflicts<
             .iter()
             .any(|ProductIndex(p, q)| states_with_infinite_run.contains(&(*p, *q)))
         {
-            conflicts.push((l, r))
+            conflicts.insert((l, r));
         }
     }
 
@@ -161,7 +207,8 @@ pub fn omega_sprout_conflicts<A: Alphabet>(
 #[cfg(test)]
 mod tests {
     use automata::{
-        alphabet, simple,
+        alphabet::{self, Simple},
+        nupw, simple,
         ts::{
             finite::{ReachedColor, ReachedState},
             FiniteState, Sproutable, ToDot,
@@ -171,7 +218,35 @@ mod tests {
     use itertools::Itertools;
     use tracing_test::traced_test;
 
-    use crate::Sample;
+    use crate::{passive::OmegaSample, Sample};
+
+    fn testing_forc_sample() -> (Simple, OmegaSample<Simple, bool>) {
+        let alphabet = simple!('a', 'b', 'c');
+        (
+            alphabet.clone(),
+            Sample::new_omega_from_pos_neg(
+                alphabet,
+                [
+                    nupw!("b"),
+                    nupw!("a", "c"),
+                    nupw!("ab", "a"),
+                    nupw!("", "abc"),
+                ],
+                [nupw!("c"), nupw!("a"), nupw!("a", "b")],
+            ),
+        )
+    }
+
+    #[test]
+    fn learn_a_forc() {
+        let (alphabet, sample) = testing_forc_sample();
+
+        let cong = sample.right_congruence();
+        assert_eq!(cong.size(), 3);
+        assert!(cong.can_separate(&"a", &""));
+        assert!(cong.can_separate(&"", &"ab"));
+        assert!(cong.can_separate(&"a", &"ab"));
+    }
 
     #[test]
     fn prefix_consistency_sprout_two() {

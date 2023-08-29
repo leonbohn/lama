@@ -183,6 +183,26 @@ mod boilerplate_impls {
         fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
             self.ts().state_color(state)
         }
+
+        fn predecessors(
+            &self,
+            state: Self::StateIndex,
+        ) -> Vec<(
+            Self::StateIndex,
+            crate::alphabet::ExpressionOf<Self>,
+            EdgeColor<Self>,
+        )> {
+            self.ts().predecessors(state)
+        }
+
+        fn edges_from(
+            &self,
+            state: Self::StateIndex,
+        ) -> Vec<
+            crate::ts::Edge<crate::alphabet::ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>,
+        > {
+            self.ts().edges_from(state)
+        }
     }
 }
 
@@ -326,6 +346,16 @@ pub trait IsDfa:
     + Acceptor<SymbolOf<Self>, FiniteLength>
     + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>
 {
+    fn accepting_states(&self) -> Vec<Self::StateIndex>
+    where
+        Self: FiniteState,
+    {
+        self.state_indices()
+            .into_iter()
+            .filter(|&index| self.state_color(index))
+            .collect_vec()
+    }
+
     fn dfa_give_word(&self) -> Option<Vec<SymbolOf<Self>>> {
         self.minimal_representatives().find_map(|(mr, index)| {
             if self.state_color(index) {
@@ -341,14 +371,14 @@ pub trait IsDfa:
     }
 
     fn union<Ts: IsDfa<Alphabet = Self::Alphabet>>(self, other: Ts) -> DfaProductReduced<Self, Ts> {
-        self.product(other).map_colors(|(a, b)| a || b)
+        self.ts_product(other).map_colors(|(a, b)| a || b)
     }
 
     fn intersection<Ts: IsDfa<Alphabet = Self::Alphabet>>(
         self,
         other: Ts,
     ) -> DfaProductReduced<Self, Ts> {
-        self.product(other).map_colors(|(a, b)| a && b)
+        self.ts_product(other).map_colors(|(a, b)| a && b)
     }
 
     fn negation(self) -> MapColors<Self, fn(bool) -> bool> {

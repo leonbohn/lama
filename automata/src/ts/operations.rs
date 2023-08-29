@@ -3,12 +3,12 @@ use std::{fmt::Display, marker::PhantomData};
 use itertools::Itertools;
 
 use crate::{
-    alphabet::{Alphabet, Expression, HasAlphabet, Symbol, SymbolOf},
+    alphabet::{Alphabet, Expression, ExpressionOf, HasAlphabet, Symbol, SymbolOf},
     Acceptor, Color, FiniteLength, Length, Transformer,
 };
 
 use super::{
-    ColorPosition, EdgeColor, FiniteState, HasStates, OnEdges, OnStates, Pointed, State,
+    ColorPosition, Edge, EdgeColor, FiniteState, HasStates, OnEdges, OnStates, Pointed, State,
     StateColor, StateIndex, Successor, Transition,
 };
 
@@ -18,7 +18,7 @@ pub trait Product: Successor + Sized {
         Position = Self::Position,
         Color = (Self::Color, Ts::Color),
     >;
-    fn product<Ts: Successor<Alphabet = Self::Alphabet, Position = Self::Position>>(
+    fn ts_product<Ts: Successor<Alphabet = Self::Alphabet, Position = Self::Position>>(
         self,
         other: Ts,
     ) -> Self::Output<Ts>;
@@ -28,7 +28,7 @@ impl<Lts: Successor + Sized> Product for Lts {
     type Output<Ts: Successor<Alphabet = Self::Alphabet, Position = Self::Position>> =
         MatchingProduct<Self, Ts>;
 
-    fn product<Ts: Successor<Alphabet = Self::Alphabet, Position = Self::Position>>(
+    fn ts_product<Ts: Successor<Alphabet = Self::Alphabet, Position = Self::Position>>(
         self,
         other: Ts,
     ) -> Self::Output<Ts> {
@@ -58,7 +58,7 @@ impl<L, R> Pointed for MatchingProduct<L, R>
 where
     L: Pointed,
     R: Pointed<Position = L::Position>,
-    R::Alphabet: Alphabet<Symbol = SymbolOf<L>>,
+    R::Alphabet: Alphabet<Symbol = SymbolOf<L>, Expression = ExpressionOf<L>>,
 {
     fn initial(&self) -> Self::StateIndex {
         ProductIndex(self.0.initial(), self.1.initial())
@@ -77,7 +77,8 @@ impl<L, R> FiniteState for MatchingProduct<L, R>
 where
     L: FiniteState,
     R: FiniteState<Position = L::Position>,
-    R::Alphabet: Alphabet<Symbol = SymbolOf<L>>,
+    R::Alphabet: Alphabet<Symbol = SymbolOf<L>, Expression = ExpressionOf<L>>,
+
     L::Color: Clone,
     R::Color: Clone,
 {
@@ -95,7 +96,7 @@ impl<L, R> Successor for MatchingProduct<L, R>
 where
     L: Successor,
     R: Successor<Position = L::Position>,
-    R::Alphabet: Alphabet<Symbol = SymbolOf<L>>,
+    R::Alphabet: Alphabet<Symbol = SymbolOf<L>, Expression = ExpressionOf<L>>,
     L::Color: Clone,
     R::Color: Clone,
 {
@@ -126,6 +127,60 @@ where
         let right = self.1.state_color(r);
         <L::Position as ColorPosition>::combine_states(left, right)
     }
+
+    fn predecessors(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<(
+        Self::StateIndex,
+        crate::alphabet::ExpressionOf<Self>,
+        EdgeColor<Self>,
+    )> {
+        let ProductIndex(l, r) = state;
+        let mut result: Vec<(
+            Self::StateIndex,
+            crate::alphabet::ExpressionOf<Self>,
+            EdgeColor<Self>,
+        )> = Vec::new();
+        for (ll, ex1, c1) in self.0.predecessors(l) {
+            for (rr, ex2, c2) in self.1.predecessors(r) {
+                if ex1 == ex2 {
+                    result.push((
+                        ProductIndex(ll, rr),
+                        ex1.clone(),
+                        <L::Position as ColorPosition>::combine_edges(c1.clone(), c2),
+                    ));
+                }
+            }
+        }
+        result
+    }
+
+    fn edges_from(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<super::Edge<ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>> {
+        let ProductIndex(l, r) = state;
+        let mut result = Vec::new();
+
+        for ledge in self.0.edges_from(l) {
+            for redge in self.1.edges_from(r) {
+                if ledge.trigger() == redge.trigger() {
+                    result.push(Edge::new(
+                        ProductIndex(l, r),
+                        ProductIndex(ledge.target(), redge.target()),
+                        <L::Position as ColorPosition>::combine_edges(
+                            ledge.color().clone(),
+                            redge.color().clone(),
+                        ),
+                        ledge.trigger().clone(),
+                    ));
+                }
+            }
+        }
+
+        result
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -146,7 +201,12 @@ impl<Ts, F> MapColors<Ts, F> {
     }
 }
 
-impl<D: Color, Ts: Successor, F: Fn(Ts::Color) -> D> Successor for MapColors<Ts, F> {
+impl<D, Ts, F> Successor for MapColors<Ts, F>
+where
+    D: Color,
+    Ts: Successor,
+    F: Fn(Ts::Color) -> D,
+{
     type StateIndex = Ts::StateIndex;
 
     type Position = Ts::Position;
@@ -168,6 +228,43 @@ impl<D: Color, Ts: Successor, F: Fn(Ts::Color) -> D> Successor for MapColors<Ts,
     fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
         let color = self.ts.state_color(state);
         <Ts::Position as ColorPosition>::map_state_color(color, &self.f)
+    }
+
+    fn predecessors(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<(
+        Self::StateIndex,
+        crate::alphabet::ExpressionOf<Self>,
+        EdgeColor<Self>,
+    )> {
+        self.ts
+            .predecessors(state)
+            .into_iter()
+            .map(|(predecessor, expression, color)| {
+                (
+                    predecessor,
+                    expression,
+                    <Ts::Position as ColorPosition>::map_edge_color(color, &self.f),
+                )
+            })
+            .collect()
+    }
+
+    fn edges_from(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<super::Edge<ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>> {
+        self.ts
+            .edges_from(state)
+            .into_iter()
+            .map(|edge| {
+                let color = edge.color().clone();
+                edge.recolor(<Ts::Position as ColorPosition>::map_edge_color(
+                    color, &self.f,
+                ))
+            })
+            .collect()
     }
 }
 
@@ -215,7 +312,7 @@ mod tests {
         let _e2 = dfb.add_edge(s1, 'a', s1, ());
         let _e3 = dfb.add_edge(s1, 'b', s0, ());
 
-        let xxx = dfa.product(dfb);
+        let xxx = dfa.ts_product(dfb);
         if let Some(ReachedState(q)) = xxx.induced(&"abb", ProductIndex(0, 0)) {}
         let c = xxx.transform("aa");
 

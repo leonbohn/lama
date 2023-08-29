@@ -19,7 +19,7 @@ pub mod ts;
 pub use ts::{Pointed, Successor};
 
 #[allow(clippy::upper_case_acronyms)]
-mod automaton;
+pub mod automaton;
 pub use automaton::{
     Acceptor, MealyMachine, MooreMachine, Transformer, DBA, DFA, DPA, SBDBA, SBDPA,
 };

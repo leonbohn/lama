@@ -6,9 +6,10 @@ use crate::{
     alphabet::{HasAlphabet, Symbol},
     automaton::WithInitial,
     ts::{
-        FiniteState, HasMutableStates, HasStates, IndexTS, OnStates, Sproutable, TransitionSystem,
+        ColorPosition, FiniteState, HasMutableStates, HasStates, IndexTS, OnStates, Sproutable,
+        State, TransitionSystem,
     },
-    Alphabet, FiniteLength, HasLength, Pointed, Successor, Word, DFA,
+    Alphabet, Color, FiniteLength, HasLength, Pointed, Successor, Word, DFA,
 };
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -129,7 +130,7 @@ impl<A: Alphabet> IndexesRightCongruence<A> for &Class<A::Symbol> {
 }
 
 impl<A: Alphabet> RightCongruence<A> {
-    fn recompute_labels(&mut self) {
+    pub(crate) fn recompute_labels(&mut self) {
         for (mr, id) in self
             .ts
             .minimal_representatives_from(self.initial())
@@ -229,6 +230,30 @@ impl<A: Alphabet> Successor for RightCongruence<A> {
 
     fn state_color(&self, state: Self::StateIndex) -> crate::ts::StateColor<Self> {
         self.ts.state_color(state)
+    }
+
+    fn predecessors(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<(
+        Self::StateIndex,
+        crate::alphabet::ExpressionOf<Self>,
+        crate::ts::EdgeColor<Self>,
+    )> {
+        self.ts.predecessors(state)
+    }
+
+    fn edges_from(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<
+        crate::ts::Edge<
+            crate::alphabet::ExpressionOf<Self>,
+            crate::ts::EdgeColor<Self>,
+            Self::StateIndex,
+        >,
+    > {
+        self.ts.edges_from(state)
     }
 }
 

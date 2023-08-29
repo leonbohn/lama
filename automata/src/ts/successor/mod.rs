@@ -1,10 +1,10 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    alphabet::{HasAlphabet, Symbol, SymbolOf},
+    alphabet::{ExpressionOf, HasAlphabet, Symbol, SymbolOf},
     automaton::WithInitial,
     word::OmegaWord,
-    Color, Pointed, Word,
+    Alphabet, Color, Pointed, Word,
 };
 
 use self::{
@@ -14,9 +14,9 @@ use self::{
 };
 
 use super::{
-    finite::ReachedColor,
+    finite::{ReachedColor, ReachedState},
     operations::{MapColors, MatchingProduct},
-    CanInduce, ColorPosition, EdgeColor, FiniteState, IndexTS, IndexType, Induced, Path,
+    CanInduce, ColorPosition, Edge, EdgeColor, FiniteState, IndexTS, IndexType, Induced, Path,
     StateColor, StateIndex, Transition,
 };
 
@@ -62,6 +62,16 @@ pub trait Successor: HasAlphabet {
         state: Self::StateIndex,
         symbol: SymbolOf<Self>,
     ) -> Option<Transition<Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>>;
+
+    fn edges_from(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<Edge<ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>>;
+
+    fn predecessors(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<(Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>)>;
 
     fn state_color(&self, state: Self::StateIndex) -> StateColor<Self>;
 
@@ -195,6 +205,34 @@ pub trait Successor: HasAlphabet {
         self.induced(word, self.initial())
     }
 
+    fn can_separate<'a, 'b, 'c, R, RR>(&'a self, left: &'b R, right: &'c RR) -> bool
+    where
+        Successful<'a, 'b, R, Self>: CanInduce<ReachedState<Self::StateIndex>>,
+        Successful<'a, 'c, RR, Self>: CanInduce<ReachedState<Self::StateIndex>>,
+        Self: Sized + Pointed,
+        R: Word<Symbol = SymbolOf<Self>>,
+        RR: Word<Symbol = SymbolOf<Self>>,
+    {
+        let left = self.induced(left, self.initial());
+        let right = self.induced(right, self.initial());
+        match (left, right) {
+            (Some(ReachedState(l)), Some(ReachedState(r))) => l != r,
+            _ => true,
+        }
+    }
+
+    fn reached_state_index<'a, 'b, R>(
+        &'a self,
+        word: &'b R,
+    ) -> Option<ReachedState<Self::StateIndex>>
+    where
+        Successful<'a, 'b, R, Self>: CanInduce<ReachedState<Self::StateIndex>>,
+        Self: Sized + Pointed,
+        R: Word<Symbol = SymbolOf<Self>>,
+    {
+        self.induced(word, self.initial())
+    }
+
     fn make_edge_color(&self, color: Self::Color) -> EdgeColor<Self> {
         <Self::Position as ColorPosition>::edge_color(color)
     }
@@ -270,6 +308,19 @@ impl<Ts: Successor> Successor for &Ts {
     fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
         Ts::state_color(self, state)
     }
+
+    fn predecessors(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<(Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>)> {
+        Ts::predecessors(self, state)
+    }
+    fn edges_from(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<Edge<ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>> {
+        Ts::edges_from(self, state)
+    }
 }
 impl<Ts: Successor> Successor for &mut Ts {
     type StateIndex = Ts::StateIndex;
@@ -288,6 +339,20 @@ impl<Ts: Successor> Successor for &mut Ts {
 
     fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
         Ts::state_color(self, state)
+    }
+
+    fn predecessors(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<(Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>)> {
+        Ts::predecessors(self, state)
+    }
+
+    fn edges_from(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<Edge<ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>> {
+        Ts::edges_from(self, state)
     }
 }
 

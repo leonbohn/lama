@@ -73,6 +73,8 @@ pub trait HasAlphabet {
 
 /// Helper trait for extracting the [`Symbol`] type from an an object which implements [`HasAlphabet`].
 pub type SymbolOf<A> = <<A as HasAlphabet>::Alphabet as Alphabet>::Symbol;
+/// Helper trait for extracting the [`Expression`] type from an an object which implements [`HasAlphabet`].
+pub type ExpressionOf<A> = <<A as HasAlphabet>::Alphabet as Alphabet>::Expression;
 
 /// A propositional alphabet is an alphabet where a [`Symbol`] is a valuation of all propositional variables.
 ///
