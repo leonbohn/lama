@@ -30,7 +30,7 @@ pub struct Normalized<S: Symbol, L: Length> {
     pub length: L,
 }
 
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum NormalizedParseError {
     Empty,
     EmptyLoop,

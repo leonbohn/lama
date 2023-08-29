@@ -9,7 +9,7 @@ use automata::{
     alphabet::{self, Simple, Symbol},
     congurence::IndexesRightCongruence,
     ts::{FiniteState, HasStates, Pointed, Product, Sproutable},
-    word::{Normalized, NormalizedPeriodic, OmegaWord, RawSymbols},
+    word::{Normalized, NormalizedParseError, NormalizedPeriodic, OmegaWord, RawSymbols},
     Acceptor, Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length, Map,
     MooreMachine, RightCongruence, Set, Successor, Word, DFA,
 };
@@ -36,21 +36,34 @@ pub enum OmegaSampleParseError {
     MissingDelimiter,
     MalformedAlphabetSymbol,
     MalformedSample,
-    UnknownCharacterInWord,
+    OmegaWordParseError(NormalizedParseError),
 }
 
 impl TryFrom<&str> for OmegaSample<Simple, bool> {
     type Error = OmegaSampleParseError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let mut lines = value.lines();
-        if lines.next().map(|line| line.trim()) != Some("omega") {
+        Self::try_from(value.lines().map(|s| s.to_string()).collect_vec())
+    }
+}
+
+impl TryFrom<Vec<String>> for OmegaSample<Simple, bool> {
+    type Error = OmegaSampleParseError;
+
+    fn try_from(value: Vec<String>) -> Result<Self, Self::Error> {
+        let mut lines = value
+            .into_iter()
+            .filter(|line| !line.trim().is_empty() && !line.starts_with('#'));
+        if lines.next().unwrap_or_default().trim() != "omega" {
             return Err(OmegaSampleParseError::MissingHeader);
         }
 
         let alphabet = lines
             .next()
-            .and_then(|line| line.split_once(':'))
+            .and_then(|line| {
+                line.split_once(':')
+                    .map(|(header, symbols)| (header.to_string(), symbols.to_string()))
+            })
             .map(|(header, symbols)| {
                 if header.trim() == "alphabet" {
                     symbols.split(',').try_fold(Vec::new(), |mut acc, x| {
@@ -69,25 +82,30 @@ impl TryFrom<&str> for OmegaSample<Simple, bool> {
             .ok_or(OmegaSampleParseError::MissingDelimiter)??
             .into();
 
-        if lines.next().map(|line| line.trim()) != Some("positive:") {
+        if lines.next().unwrap_or_default().trim() != "positive:" {
             return Err(OmegaSampleParseError::MalformedSample);
         }
 
         let mut words = Map::new();
         'positive: loop {
-            match lines.next().map(|line| line.trim()) {
-                Some("negative:") => break 'positive,
+            match lines.next() {
                 Some(word) => {
-                    let parsed = Normalized::try_from(word)
-                        .map_err(|_| OmegaSampleParseError::UnknownCharacterInWord)?;
+                    trace!("Parsing positive word \"{word}\"");
+                    let trim = word.trim();
+                    if trim.is_empty() || trim.starts_with('#') || trim == "negative:" {
+                        break 'positive;
+                    }
+                    let parsed = Normalized::try_from(word.as_str())
+                        .map_err(OmegaSampleParseError::OmegaWordParseError)?;
                     words.insert(parsed, true);
                 }
                 None => return Err(OmegaSampleParseError::MalformedSample),
             }
         }
         for word in lines {
-            let parsed = Normalized::try_from(word)
-                .map_err(|_| OmegaSampleParseError::UnknownCharacterInWord)?;
+            trace!("Parsing negative word \"{word}\"");
+            let parsed = Normalized::try_from(word.as_str())
+                .map_err(OmegaSampleParseError::OmegaWordParseError)?;
             words.insert(parsed, false);
         }
         Ok(Sample::new_omega(alphabet, words))
