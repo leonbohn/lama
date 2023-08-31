@@ -163,11 +163,13 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Successor for BTS<A, Q, C,
         &self,
         state: Idx,
         symbol: A::Symbol,
-    ) -> Option<Transition<Idx, A::Symbol, EdgeColor<Self>>> {
+    ) -> Option<Transition<Idx, A::Expression, EdgeColor<Self>>> {
         self.states
             .get(&state)
             .and_then(|o| A::search_edge(&o.edges, symbol))
-            .map(|(target, color)| Transition::new(state, symbol, *target, color.clone()))
+            .map(|(expression, (target, color))| {
+                Transition::new(state, expression.clone(), *target, color.clone())
+            })
     }
 
     fn state_color(&self, index: Idx) -> StateColor<Self> {
@@ -210,6 +212,16 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Successor for BTS<A, Q, C,
                     .collect_vec()
             })
             .unwrap_or_default()
+    }
+
+    fn edge_color(
+        &self,
+        state: Self::StateIndex,
+        expression: &crate::alphabet::ExpressionOf<Self>,
+    ) -> Option<EdgeColor<Self>> {
+        self.states
+            .get(&state)
+            .and_then(|o| o.edges.get(expression).map(|(_, c)| c.clone()))
     }
 }
 

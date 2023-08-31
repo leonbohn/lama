@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use crate::{
     alphabet::{Alphabet, Symbol},
     length::{HasLength, RawPosition},
@@ -19,7 +21,7 @@ use super::Successor;
 pub struct Successful<'a, 'b, R, Ts: Successor> {
     word: &'b R,
     ts: &'a Ts,
-    path: Path<Ts::Alphabet, Ts::StateIndex, Ts::StateColor, Ts::EdgeColor>,
+    path: Path<Ts::Alphabet, Ts::StateIndex>,
     loop_index: Option<usize>,
 }
 
@@ -29,7 +31,7 @@ where
     Ts::StateColor: Clone,
 {
     fn induce(&self) -> SeenColors<Ts::StateColor> {
-        SeenColors(self.path.state_colors().collect())
+        SeenColors(self.path.state_colors(self.ts).collect())
     }
 }
 
@@ -39,7 +41,7 @@ where
     Ts::StateColor: Clone,
 {
     fn induce(&self) -> InfinityColors<Ts::EdgeColor> {
-        InfinityColors(self.path.transition_colors().collect())
+        InfinityColors(self.path.edge_colors(self.ts).collect())
     }
 }
 
@@ -49,13 +51,13 @@ where
     Ts::StateColor: Clone,
 {
     fn induce(&self) -> InfinityStateColors<Ts::StateColor> {
-        debug_assert!(self.path.state_colors_len() > 0);
-        InfinityStateColors(
-            self.path
-                .state_colors()
-                .skip(self.loop_index.unwrap_or(0))
-                .collect(),
-        )
+        let state_colors: BTreeSet<_> = self
+            .path
+            .state_colors(self.ts)
+            .skip(self.loop_index.unwrap_or(0))
+            .collect();
+        debug_assert!(!state_colors.is_empty());
+        InfinityStateColors(state_colors)
     }
 }
 
@@ -65,7 +67,7 @@ where
     Ts::StateColor: Clone,
 {
     fn induce(&self) -> ReachedColor<Ts::StateColor> {
-        ReachedColor(self.path.state_colors_last().clone())
+        ReachedColor(self.path.reached_state_color(self.ts))
     }
 }
 
@@ -81,7 +83,7 @@ impl<'a, 'b, R, Ts: Successor> CanInduce<TransitionColorSequence<Ts::EdgeColor>>
     for Successful<'a, 'b, R, Ts>
 {
     fn induce(&self) -> TransitionColorSequence<Ts::EdgeColor> {
-        TransitionColorSequence(self.path.transition_colors().collect())
+        TransitionColorSequence(self.path.edge_colors(self.ts).collect())
     }
 }
 
@@ -90,7 +92,7 @@ impl<'a, 'b, R, Ts: Successor> Successful<'a, 'b, R, Ts> {
         word: &'b R,
         ts: &'a Ts,
         loop_index: Option<usize>,
-        path: Path<Ts::Alphabet, Ts::StateIndex, Ts::StateColor, Ts::EdgeColor>,
+        path: Path<Ts::Alphabet, Ts::StateIndex>,
     ) -> Self {
         Self {
             word,

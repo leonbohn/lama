@@ -62,7 +62,13 @@ pub trait Successor: HasAlphabet {
         &self,
         state: Self::StateIndex,
         symbol: SymbolOf<Self>,
-    ) -> Option<Transition<Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>>;
+    ) -> Option<Transition<Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>>>;
+
+    fn edge_color(
+        &self,
+        state: Self::StateIndex,
+        expression: &ExpressionOf<Self>,
+    ) -> Option<EdgeColor<Self>>;
 
     fn edges_from(
         &self,
@@ -292,7 +298,7 @@ impl<Ts: Successor> Successor for &Ts {
         &self,
         state: Self::StateIndex,
         symbol: SymbolOf<Self>,
-    ) -> Option<Transition<Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>> {
+    ) -> Option<Transition<Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>>> {
         Ts::successor(self, state, symbol)
     }
 
@@ -311,6 +317,14 @@ impl<Ts: Successor> Successor for &Ts {
         state: Self::StateIndex,
     ) -> Vec<Edge<ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>> {
         Ts::edges_from(self, state)
+    }
+
+    fn edge_color(
+        &self,
+        state: Self::StateIndex,
+        expression: &ExpressionOf<Self>,
+    ) -> Option<EdgeColor<Self>> {
+        Ts::edge_color(self, state, expression)
     }
 }
 impl<Ts: Successor> Successor for &mut Ts {
@@ -322,7 +336,7 @@ impl<Ts: Successor> Successor for &mut Ts {
         &self,
         state: Self::StateIndex,
         symbol: SymbolOf<Self>,
-    ) -> Option<Transition<Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>> {
+    ) -> Option<Transition<Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>>> {
         Ts::successor(self, state, symbol)
     }
 
@@ -342,6 +356,14 @@ impl<Ts: Successor> Successor for &mut Ts {
         state: Self::StateIndex,
     ) -> Vec<Edge<ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>> {
         Ts::edges_from(self, state)
+    }
+
+    fn edge_color(
+        &self,
+        state: Self::StateIndex,
+        expression: &ExpressionOf<Self>,
+    ) -> Option<EdgeColor<Self>> {
+        Ts::edge_color(self, state, expression)
     }
 }
 

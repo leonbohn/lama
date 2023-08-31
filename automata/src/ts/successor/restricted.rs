@@ -42,7 +42,7 @@ where
     ) -> Option<
         crate::ts::Transition<
             Self::StateIndex,
-            crate::alphabet::SymbolOf<Self>,
+            crate::alphabet::ExpressionOf<Self>,
             crate::ts::EdgeColor<Self>,
         >,
     > {
@@ -94,6 +94,16 @@ where
         } else {
             vec![]
         }
+    }
+
+    fn edge_color(
+        &self,
+        state: Self::StateIndex,
+        expression: &crate::alphabet::ExpressionOf<Self>,
+    ) -> Option<crate::ts::EdgeColor<Self>> {
+        self.ts
+            .edge_color(state, expression)
+            .filter(|_| (self.filter)(state))
     }
 }
 

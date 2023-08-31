@@ -251,7 +251,7 @@ impl<A: Alphabet> Successor for RightCongruence<A> {
     ) -> Option<
         crate::ts::Transition<
             Self::StateIndex,
-            crate::alphabet::SymbolOf<Self>,
+            crate::alphabet::ExpressionOf<Self>,
             crate::ts::EdgeColor<Self>,
         >,
     > {
@@ -284,6 +284,14 @@ impl<A: Alphabet> Successor for RightCongruence<A> {
         >,
     > {
         self.ts.edges_from(state)
+    }
+
+    fn edge_color(
+        &self,
+        state: Self::StateIndex,
+        expression: &crate::alphabet::ExpressionOf<Self>,
+    ) -> Option<crate::ts::EdgeColor<Self>> {
+        self.ts.edge_color(state, expression)
     }
 }
 

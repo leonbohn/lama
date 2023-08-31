@@ -176,14 +176,6 @@ mod boilerplate_impls {
         type StateColor = Ts::StateColor;
         type EdgeColor = Ts::EdgeColor;
 
-        fn successor(
-            &self,
-            state: Self::StateIndex,
-            symbol: SymbolOf<Self>,
-        ) -> Option<Transition<Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>> {
-            self.ts().successor(state, symbol)
-        }
-
         fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
             self.ts().state_color(state)
         }
@@ -206,6 +198,24 @@ mod boilerplate_impls {
             crate::ts::Edge<crate::alphabet::ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>,
         > {
             self.ts().edges_from(state)
+        }
+
+        fn edge_color(
+            &self,
+            state: Self::StateIndex,
+            expression: &crate::alphabet::ExpressionOf<Self>,
+        ) -> Option<EdgeColor<Self>> {
+            self.ts().edge_color(state, expression)
+        }
+
+        fn successor(
+            &self,
+            state: Self::StateIndex,
+            symbol: SymbolOf<Self>,
+        ) -> Option<
+            Transition<Self::StateIndex, crate::alphabet::ExpressionOf<Self>, EdgeColor<Self>>,
+        > {
+            self.ts().successor(state, symbol)
         }
     }
 }

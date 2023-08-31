@@ -100,14 +100,14 @@ where
         &self,
         state: Self::StateIndex,
         symbol: SymbolOf<Self>,
-    ) -> Option<Transition<Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>> {
+    ) -> Option<Transition<Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>>> {
         let ProductIndex(l, r) = state;
-        let symbol = symbol;
+
         let ll = self.0.successor(l, symbol)?;
         let rr = self.1.successor(r, symbol)?;
         Some(Transition::new(
             state,
-            symbol,
+            ll.symbol(),
             ProductIndex(ll.target(), rr.target()),
             (ll.color().clone(), rr.color().clone()),
         ))
@@ -166,6 +166,17 @@ where
 
         result
     }
+
+    fn edge_color(
+        &self,
+        state: Self::StateIndex,
+        expression: &ExpressionOf<Self>,
+    ) -> Option<EdgeColor<Self>> {
+        let ProductIndex(l, r) = state;
+        let left = self.0.edge_color(l, expression)?;
+        let right = self.1.edge_color(r, expression)?;
+        Some((left, right))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -208,7 +219,7 @@ where
         &self,
         state: Self::StateIndex,
         symbol: SymbolOf<Self>,
-    ) -> Option<Transition<Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>> {
+    ) -> Option<Transition<Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>>> {
         self.ts.successor(state, symbol).map(|t| {
             Transition::new(
                 t.source(),
@@ -255,6 +266,14 @@ where
             })
             .collect()
     }
+
+    fn edge_color(
+        &self,
+        state: Self::StateIndex,
+        expression: &ExpressionOf<Self>,
+    ) -> Option<EdgeColor<Self>> {
+        self.ts.edge_color(state, expression).map(|c| (self.f)(c))
+    }
 }
 
 impl<D: Color, Ts: FiniteState, F: Fn(Ts::EdgeColor) -> D> FiniteState for MapEdgeColor<Ts, F> {
@@ -295,7 +314,7 @@ where
         &self,
         state: Self::StateIndex,
         symbol: SymbolOf<Self>,
-    ) -> Option<Transition<Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>> {
+    ) -> Option<Transition<Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>>> {
         self.ts.successor(state, symbol)
     }
 
@@ -320,6 +339,14 @@ where
         state: Self::StateIndex,
     ) -> Vec<super::Edge<ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>> {
         self.ts.edges_from(state)
+    }
+
+    fn edge_color(
+        &self,
+        state: Self::StateIndex,
+        expression: &ExpressionOf<Self>,
+    ) -> Option<EdgeColor<Self>> {
+        self.ts.edge_color(state, expression)
     }
 }
 
