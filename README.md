@@ -1,0 +1,2 @@
+### Profiling while Benchmarking
+We can profile the benchmark code with `cargo bench --bench forc_paper -- --profile-time 20` where `20` is the time for which the benchmarks will be run. A flamegraph will be generated and placed in `target/criterion/forc_paper/profile/flamegraph.csv`.

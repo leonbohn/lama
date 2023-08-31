@@ -7,7 +7,7 @@ use std::{
 
 use automata::{
     alphabet::{self, Simple, Symbol},
-    congurence::IndexesRightCongruence,
+    congurence::{IndexesRightCongruence, FORC},
     ts::{FiniteState, HasStates, Pointed, Product, Sproutable},
     word::{Normalized, NormalizedParseError, NormalizedPeriodic, OmegaWord, RawSymbols},
     Acceptor, Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length, Map,
@@ -15,6 +15,8 @@ use automata::{
 };
 use itertools::Itertools;
 use tracing::{debug, trace};
+
+use crate::passive::sprout::iteration_consistency_conflicts;
 
 use super::sprout::{omega_sprout_conflicts, prefix_consistency_conflicts};
 
@@ -237,14 +239,39 @@ impl<A: Alphabet> OmegaSample<A, bool> {
     }
 
     /// Computes the [`RightCongruence`] underlying the sample.
-    pub fn right_congruence(&self) -> RightCongruence<A> {
+    pub fn infer_right_congruence(&self) -> RightCongruence<A> {
         omega_sprout_conflicts(prefix_consistency_conflicts(self), true)
     }
 
+    /// Computes the [`FORC`] underlying the sample.
+    pub fn infer_forc(&self) -> FORC<A> {
+        let cong = self.infer_right_congruence();
+        let split_sample = self.split(&cong);
+
+        let conflict_relations: Map<_, _> = split_sample
+            .classes()
+            .map(|c| {
+                (
+                    c.clone(),
+                    iteration_consistency_conflicts(&split_sample, c.clone()),
+                )
+            })
+            .collect();
+
+        FORC::from_iter(
+            cong,
+            conflict_relations
+                .into_iter()
+                .map(|(c, conflicts)| (c, omega_sprout_conflicts(conflicts, false))),
+        )
+    }
+
+    /// Returns the positive size, i.e. the number of positive words.
     pub fn positive_size(&self) -> usize {
         self.words_with_color(true).count()
     }
 
+    /// Returns the negative size, i.e. the number of negative words.
     pub fn negative_size(&self) -> usize {
         self.words_with_color(false).count()
     }
@@ -544,7 +571,7 @@ mod tests {
                 (("a", 0), false),
             ],
         );
-        let cong = sample.right_congruence();
+        let cong = sample.infer_right_congruence();
         let split = sample.split(&cong);
 
         for w in ["b"] {

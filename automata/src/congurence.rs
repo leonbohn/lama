@@ -308,6 +308,10 @@ impl<A: Alphabet> FORC<A> {
         Self { leading, progress }
     }
 
+    pub fn insert(&mut self, class: Class<A::Symbol>, congruence: RightCongruence<A>) {
+        self.progress.insert(class, congruence);
+    }
+
     pub fn from_iter<I: IntoIterator<Item = (Class<A::Symbol>, RightCongruence<A>)>>(
         leading: RightCongruence<A>,
         progress: I,

@@ -128,7 +128,7 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
             .join(",")
     );
 
-    let looping_words = sample.right_congruence().looping_words(&class);
+    let looping_words = sample.infer_right_congruence().looping_words(&class);
 
     let left_pta = prefix_tree(sample.alphabet.clone(), periodic_sample.positive())
         .map_colors(|mr| !mr.is_empty() && periodic_sample.classify(mr.omega_power()) == Some(true))
@@ -414,7 +414,7 @@ mod tests {
     #[traced_test]
     fn learn_small_forc() {
         let (alphabet, sample) = testing_smaller_forc_smaple();
-        let cong = sample.right_congruence();
+        let cong = sample.infer_right_congruence();
         assert_eq!(cong.size(), 1);
 
         let split_sample = sample.split(&cong);
@@ -440,7 +440,7 @@ mod tests {
     fn learn_larger_forc() {
         let (alphabet, sample) = testing_larger_forc_sample();
 
-        let cong = sample.right_congruence();
+        let cong = sample.infer_right_congruence();
         assert_eq!(cong.size(), 3);
         assert!(cong.can_separate(&"a", &""));
         assert!(cong.can_separate(&"", &"ab"));

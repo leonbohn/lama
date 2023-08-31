@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use automata::{
     congurence::FORC,
     ts::{dot::display_dot, ToDot},
@@ -10,6 +12,7 @@ use automata_learning::passive::{
     OmegaSample,
 };
 use clap::{arg, command, Arg, ArgAction, Command};
+use pprof::protos::Message;
 use tracing::{debug, error, info, trace, Level};
 
 fn conflicts_arg() -> Arg {
@@ -44,6 +47,7 @@ fn main() {
                 .arg(Arg::new("show").short('s').long("show").action(ArgAction::SetTrue))
                 .arg(Arg::new("input").short('i').long("input"))
                 .arg(Arg::new("output").short('o').long("output"))
+                .arg(Arg::new("nooutput").long("no-output").action(ArgAction::SetTrue).help("Skip producing output and simply forget it"))
                 .arg(Arg::new("conflicts").help("Prefix for outputting the conflict relation(s). If a single conflict relation is used (e.g. when learning a right congruence), this is a single image. If multiple conflict relations are used (e.g. when learning a FORC), then we append the name of the respective conflict relation to the prefix.").short('c').long("output-conflicts"))
                 .subcommand(
                     Command::new("rc")
@@ -104,10 +108,21 @@ fn main() {
                         }
 
                         let cong = omega_sprout_conflicts(conflicts, true);
-                        cong.dot_representation()
+
+                        if passive_matches.get_flag("nooutput") {
+                            "".to_string()
+                        } else {
+                            cong.dot_representation()
+                        }
                     }
                     Some(("forc", _)) => {
-                        let cong = sample.right_congruence();
+                        let guard = pprof::ProfilerGuardBuilder::default()
+                            .frequency(2000)
+                            .blocklist(&["libc", "libgcc", "pthread", "vdso"])
+                            .build()
+                            .unwrap();
+
+                        let cong = sample.infer_right_congruence();
                         let split_sample = sample.split(&cong);
 
                         let conflict_relations: Map<_, _> = split_sample
@@ -139,7 +154,17 @@ fn main() {
                                 (c, omega_sprout_conflicts(conflicts, false))
                             }),
                         );
-                        forc.dot_representation()
+
+                        if let Ok(report) = guard.report().build() {
+                            let flamegraph = std::fs::File::create("pprof_flamegraph.svg").unwrap();
+                            report.flamegraph(flamegraph).unwrap();
+                        }
+
+                        if passive_matches.get_flag("nooutput") {
+                            "".to_string()
+                        } else {
+                            forc.dot_representation()
+                        }
                     }
                     _ => unreachable!(),
                 },

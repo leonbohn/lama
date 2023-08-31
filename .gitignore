@@ -12,3 +12,5 @@ Cargo.lock
 # Ignore anything in samples directory that is not itself a sample
 samples/*
 !samples/*.smpl
+
+.perf
