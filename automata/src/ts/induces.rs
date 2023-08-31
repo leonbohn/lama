@@ -2,7 +2,7 @@ use impl_tools::autoimpl;
 
 use crate::Color;
 
-use super::{State, StateIndex, Transition};
+use super::{BTState, StateIndex, Transition};
 
 /// Abstracts induced objects. Induced objects are objects that are induced by a run of a transition
 /// system. For example, a run of a transition system can induce a [`State`] or a [`StateColorSequence`].
@@ -21,6 +21,8 @@ pub trait CanInduce<I: Induced> {
 
 #[allow(missing_docs)]
 pub mod finite {
+    use std::collections::BTreeSet;
+
     use crate::ts::StateIndex;
 
     #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,6 +30,11 @@ pub mod finite {
 
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct ReachedState<Idx>(pub Idx);
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub struct InfinityColors<C>(pub BTreeSet<C>);
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub struct InfinityStateColors<C>(pub BTreeSet<C>);
 
     #[derive(Debug, Clone, PartialEq, Eq)]
 
@@ -63,9 +70,9 @@ pub mod infinite {
     use std::collections::BTreeSet;
 
     #[derive(Debug, Clone, PartialEq, Eq)]
-    pub struct InfinitySet<C>(pub BTreeSet<C>);
+    pub struct InfinityStateColors<C>(pub BTreeSet<C>);
 
-    impl<C> std::ops::Deref for InfinitySet<C> {
+    impl<C> std::ops::Deref for InfinityStateColors<C> {
         type Target = BTreeSet<C>;
 
         fn deref(&self) -> &Self::Target {

@@ -20,7 +20,7 @@ impl<S: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash + Display> Symbo
 /// An expression is used to label [`crate::ts::Edge`]s of a [`crate::ts::TransitionSystem`]. For [`Simple`]
 /// alphabets, an expression is simply a single symbol, whereas for a [`Propositional`] alphabet, an expression
 /// is a propositional formula over the atomic propositions. See [`Propositional`] for more details.
-pub trait Expression<S: Symbol>: Clone + Eq {
+pub trait Expression<S: Symbol>: Clone + Eq + Ord {
     /// Type of iterator over the concrete symbols matched by this expression.
     type SymbolsIter: Iterator<Item = S>;
     /// Returns an iterator over the [`Symbol`]s that match this expression.

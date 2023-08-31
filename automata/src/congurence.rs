@@ -5,10 +5,7 @@ use itertools::Itertools;
 use crate::{
     alphabet::{HasAlphabet, Symbol},
     automaton::WithInitial,
-    ts::{
-        ColorPosition, FiniteState, HasMutableStates, HasStates, IndexTS, OnStates, Sproutable,
-        State, TransitionSystem,
-    },
+    ts::{BTState, FiniteState, HasMutableStates, HasStates, Sproutable, TransitionSystem, BTS},
     Alphabet, Color, FiniteLength, HasLength, Map, Pointed, Successor, Word, DFA,
 };
 
@@ -125,7 +122,7 @@ impl<S: Ord> PartialOrd for Class<S> {
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct RightCongruence<A: Alphabet> {
-    ts: IndexTS<A, Class<A::Symbol>, OnStates>,
+    ts: BTS<A, Class<A::Symbol>, ()>,
 }
 
 impl<A: Alphabet> Debug for RightCongruence<A> {
@@ -153,7 +150,7 @@ impl<A: Alphabet> IndexesRightCongruence<A> for &Class<A::Symbol> {
 }
 
 impl<A: Alphabet> RightCongruence<A> {
-    pub fn from_ts(ts: IndexTS<A, Class<A::Symbol>, OnStates>) -> Self {
+    pub fn from_ts(ts: BTS<A, Class<A::Symbol>, ()>) -> Self {
         Self { ts }
     }
 
@@ -205,13 +202,19 @@ impl<A: Alphabet> Sproutable for RightCongruence<A> {
         self.ts.set_state_color(index, color)
     }
 
+    fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
+        let mut ts = BTS::new_for_alphabet(alphabet);
+        let initial = ts.add_state(Class::epsilon());
+        Self { ts }
+    }
+
     fn add_edge<X, Y>(
         &mut self,
         from: X,
         on: <Self::Alphabet as Alphabet>::Expression,
         to: Y,
         color: crate::ts::EdgeColor<Self>,
-    ) -> crate::ts::EdgeIndex
+    ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
         X: Into<Self::StateIndex>,
         Y: Into<Self::StateIndex>,
@@ -219,14 +222,12 @@ impl<A: Alphabet> Sproutable for RightCongruence<A> {
         self.ts.add_edge(from, on, to, color)
     }
 
-    fn undo_add_edge(&mut self) {
-        self.ts.undo_add_edge()
-    }
-
-    fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
-        let mut ts = IndexTS::new_for_alphabet(alphabet);
-        let initial = ts.add_state(Class::epsilon());
-        Self { ts }
+    fn remove_edge(
+        &mut self,
+        from: Self::StateIndex,
+        on: <Self::Alphabet as Alphabet>::Expression,
+    ) -> Option<(Self::StateIndex, Self::EdgeColor)> {
+        self.ts.remove_edge(from, on)
     }
 }
 
@@ -240,10 +241,8 @@ impl<A: Alphabet> HasAlphabet for RightCongruence<A> {
 
 impl<A: Alphabet> Successor for RightCongruence<A> {
     type StateIndex = usize;
-
-    type Position = OnStates;
-
-    type Color = Class<A::Symbol>;
+    type EdgeColor = ();
+    type StateColor = Class<A::Symbol>;
 
     fn successor(
         &self,

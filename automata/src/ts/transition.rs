@@ -185,13 +185,6 @@ impl<'a, E, C, Idx> Iterator for EdgeIndicesFrom<'a, E, C, Idx> {
     }
 }
 
-impl<'a, E, C, Idx> EdgeIndicesFrom<'a, E, C, Idx> {
-    /// Creates a new `EdgeIndicesFrom` from the given slice of edges and the next edge index.
-    pub fn new(edges: &'a [Edge<E, C, Idx>], next: Option<EdgeIndex>) -> Self {
-        Self { edges, next }
-    }
-}
-
 /// A transition is a concrete instantiation of a [`Edge`] in a [`TransitionSystem`].
 /// While edges can be labeled with arbitrary expressions, transitions are labeled with
 /// concrete symbols from the alphabet.

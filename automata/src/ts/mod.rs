@@ -1,5 +1,5 @@
 mod successor;
-use std::{fmt::Display, hash::Hash, ops::Deref};
+use std::{collections::BTreeMap, fmt::Display, hash::Hash, ops::Deref};
 
 use impl_tools::autoimpl;
 use itertools::{Itertools, Position};
@@ -18,7 +18,7 @@ use crate::{
 };
 
 mod index_ts;
-pub use index_ts::IndexTS;
+pub use index_ts::BTS;
 
 pub mod path;
 pub use path::Path;
@@ -88,37 +88,49 @@ impl Display for StateIndex {
 /// A state in a transition system. This stores the color of the state and the index of the
 /// first edge leaving the state.
 #[derive(Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
-pub struct State<Q> {
+pub struct BTState<A: Alphabet, Q, C, Idx> {
     color: Q,
-    first_edge: Option<EdgeIndex>,
+    edges: BTreeMap<A::Expression, (Idx, C)>,
 }
 
-impl<Q: Color> HasColorMut for State<Q> {
+impl<A: Alphabet, Q: Color, C, Idx> HasColorMut for BTState<A, Q, C, Idx> {
     fn set_color(&mut self, color: Q) {
         self.color = color;
     }
 }
 
-impl<Q: Color> HasColor for State<Q> {
+impl<A: Alphabet, Q: Color, C, Idx> HasColor for BTState<A, Q, C, Idx> {
     type Color = Q;
     fn color(&self) -> &Q {
         &self.color
     }
 }
 
-impl<Q> State<Q> {
+impl<A: Alphabet, Q, C, Idx> BTState<A, Q, C, Idx> {
     /// Creates a new state with the given color.
     pub fn new(color: Q) -> Self {
         Self {
             color,
-            first_edge: None,
+            edges: BTreeMap::new(),
         }
     }
 
-    pub fn recolor<P: Color>(self, color: P) -> State<P> {
-        State {
+    pub fn edges(&self) -> impl Iterator<Item = (&A::Expression, &(Idx, C))> {
+        self.edges.iter()
+    }
+
+    pub fn add_edge(&mut self, on: A::Expression, to: Idx, color: C) -> Option<(Idx, C)> {
+        self.edges.insert(on, (to, color))
+    }
+
+    pub fn remove_edge(&mut self, on: A::Expression) -> Option<(Idx, C)> {
+        self.edges.remove(&on)
+    }
+
+    pub fn recolor<P: Color>(self, color: P) -> BTState<A, P, C, Idx> {
+        BTState {
             color,
-            first_edge: self.first_edge,
+            edges: self.edges,
         }
     }
 
@@ -126,23 +138,9 @@ impl<Q> State<Q> {
     pub fn color(&self) -> &Q {
         &self.color
     }
-
-    pub fn clear_first_edge(&mut self) {
-        self.first_edge = None;
-    }
-
-    /// Sets the first outgoing edge of the state to the given index.
-    pub fn set_first_edge(&mut self, index: EdgeIndex) {
-        self.first_edge = Some(index);
-    }
-
-    /// Obtains the index of the first outgoing edge.
-    pub fn first_edge(&self) -> Option<EdgeIndex> {
-        self.first_edge
-    }
 }
 
-impl<Q: Display> Display for State<Q> {
+impl<A: Alphabet, Q: Display, C, Idx> Display for BTState<A, Q, C, Idx> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.color)
     }
@@ -188,236 +186,8 @@ impl<'a, Q> StateReference<'a, Q> {
     }
 }
 
-pub trait ColorPosition: Ord + Eq + Copy + std::fmt::Debug + Display + Hash {
-    type EdgeColor<C: Color>: Color;
-    type Fused<C: Color,I: IntoIterator<Item = Self::StateColor<C>>,J: IntoIterator<Item = Self::EdgeColor<C>>>: Iterator<Item = C>;
-
-    fn fuse_iters<
-        C: Color,
-        I: IntoIterator<Item = Self::StateColor<C>>,
-        J: IntoIterator<Item = Self::EdgeColor<C>>,
-    >(
-        left: I,
-        right: J,
-    ) -> Self::Fused<C, I, J>;
-
-    fn edge_color<C: Color>(color: C) -> Self::EdgeColor<C>;
-    type StateColor<C: Color>: Color;
-    fn state_color<C: Color>(color: C) -> Self::StateColor<C>;
-    fn combine_edges<C: Color, D: Color>(
-        left: Self::EdgeColor<C>,
-        right: Self::EdgeColor<D>,
-    ) -> Self::EdgeColor<(C, D)>;
-    fn combine_states<C: Color, D: Color>(
-        left: Self::StateColor<C>,
-        right: Self::StateColor<D>,
-    ) -> Self::StateColor<(C, D)>;
-    fn map_state_color<C: Color, D: Color>(
-        color: Self::StateColor<C>,
-        f: impl FnOnce(C) -> D,
-    ) -> Self::StateColor<D>;
-    fn map_edge_color<C: Color, D: Color>(
-        color: Self::EdgeColor<C>,
-        f: impl FnOnce(C) -> D,
-    ) -> Self::EdgeColor<D>;
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
-pub struct OnEdges;
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
-pub struct OnStates;
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
-pub struct OnBoth;
-
-impl Display for OnEdges {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "on edges")
-    }
-}
-impl Display for OnStates {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "on states")
-    }
-}
-impl Display for OnBoth {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "on both")
-    }
-}
-
-impl ColorPosition for OnEdges {
-    type EdgeColor<C: Color> = C;
-
-    type StateColor<C: Color> = ();
-
-    fn edge_color<C: Color>(color: C) -> Self::EdgeColor<C> {
-        color
-    }
-
-    fn state_color<C: Color>(_color: C) -> Self::StateColor<C> {}
-
-    fn combine_edges<C: Color, D: Color>(
-        left: Self::EdgeColor<C>,
-        right: Self::EdgeColor<D>,
-    ) -> Self::EdgeColor<(C, D)> {
-        (left, right)
-    }
-
-    fn combine_states<C: Color, D: Color>(
-        left: Self::StateColor<C>,
-        right: Self::StateColor<C>,
-    ) -> Self::StateColor<(C, D)> {
-    }
-
-    fn map_state_color<C: Color, D: Color>(
-        color: Self::StateColor<C>,
-        f: impl FnOnce(C) -> D,
-    ) -> Self::StateColor<D> {
-    }
-
-    fn map_edge_color<C: Color, D: Color>(
-        color: Self::EdgeColor<C>,
-        f: impl FnOnce(C) -> D,
-    ) -> Self::EdgeColor<D> {
-        (f)(color)
-    }
-
-    type Fused<
-        C: Color,
-        I: IntoIterator<Item = Self::StateColor<C>>,
-        J: IntoIterator<Item = Self::EdgeColor<C>>,
-    > = J::IntoIter;
-
-    fn fuse_iters<
-        C: Color,
-        I: IntoIterator<Item = Self::StateColor<C>>,
-        J: IntoIterator<Item = Self::EdgeColor<C>>,
-    >(
-        left: I,
-        right: J,
-    ) -> Self::Fused<C, I, J> {
-        right.into_iter()
-    }
-}
-
-impl ColorPosition for OnStates {
-    type EdgeColor<C: Color> = ();
-
-    type StateColor<C: Color> = C;
-
-    fn edge_color<C: Color>(color: C) -> Self::EdgeColor<C> {}
-
-    fn state_color<C: Color>(color: C) -> Self::StateColor<C> {
-        color
-    }
-
-    fn combine_edges<C: Color, D: Color>(
-        left: Self::EdgeColor<C>,
-        right: Self::EdgeColor<D>,
-    ) -> Self::EdgeColor<(C, D)> {
-    }
-
-    fn combine_states<C: Color, D: Color>(
-        left: Self::StateColor<C>,
-        right: Self::StateColor<D>,
-    ) -> Self::StateColor<(C, D)> {
-        (left, right)
-    }
-
-    fn map_state_color<C: Color, D: Color>(
-        color: Self::StateColor<C>,
-        f: impl FnOnce(C) -> D,
-    ) -> Self::StateColor<D> {
-        (f)(color)
-    }
-
-    fn map_edge_color<C: Color, D: Color>(
-        color: Self::EdgeColor<C>,
-        f: impl FnOnce(C) -> D,
-    ) -> Self::EdgeColor<D> {
-    }
-
-    type Fused<
-        C: Color,
-        I: IntoIterator<Item = Self::StateColor<C>>,
-        J: IntoIterator<Item = Self::EdgeColor<C>>,
-    > = I::IntoIter;
-
-    fn fuse_iters<
-        C: Color,
-        I: IntoIterator<Item = Self::StateColor<C>>,
-        J: IntoIterator<Item = Self::EdgeColor<C>>,
-    >(
-        left: I,
-        right: J,
-    ) -> Self::Fused<C, I, J> {
-        left.into_iter()
-    }
-}
-
-impl ColorPosition for OnBoth {
-    type EdgeColor<C: Color> = C;
-
-    fn edge_color<C: Color>(color: C) -> Self::EdgeColor<C> {
-        color
-    }
-
-    type StateColor<C: Color> = C;
-
-    fn state_color<C: Color>(color: C) -> Self::StateColor<C> {
-        color
-    }
-
-    fn combine_edges<C: Color, D: Color>(
-        left: Self::EdgeColor<C>,
-        right: Self::EdgeColor<D>,
-    ) -> Self::EdgeColor<(C, D)> {
-        (left, right)
-    }
-
-    fn combine_states<C: Color, D: Color>(
-        left: Self::StateColor<C>,
-        right: Self::StateColor<D>,
-    ) -> Self::StateColor<(C, D)> {
-        (left, right)
-    }
-
-    fn map_state_color<C: Color, D: Color>(
-        color: Self::StateColor<C>,
-        f: impl FnOnce(C) -> D,
-    ) -> Self::StateColor<D> {
-        (f)(color)
-    }
-
-    fn map_edge_color<C: Color, D: Color>(
-        color: Self::EdgeColor<C>,
-        f: impl FnOnce(C) -> D,
-    ) -> Self::EdgeColor<D> {
-        (f)(color)
-    }
-
-    type Fused<
-        C: Color,
-        I: IntoIterator<Item = Self::StateColor<C>>,
-        J: IntoIterator<Item = Self::EdgeColor<C>>,
-    > = I::IntoIter;
-
-    fn fuse_iters<
-        C: Color,
-        I: IntoIterator<Item = Self::StateColor<C>>,
-        J: IntoIterator<Item = Self::EdgeColor<C>>,
-    >(
-        left: I,
-        right: J,
-    ) -> Self::Fused<C, I, J> {
-        unimplemented!("This does not make sense, we should handle this beter...")
-    }
-}
-
-pub type EdgeColor<C> =
-    <<C as Successor>::Position as ColorPosition>::EdgeColor<<C as Successor>::Color>;
-pub type StateColor<C> =
-    <<C as Successor>::Position as ColorPosition>::StateColor<<C as Successor>::Color>;
+pub type StateColor<X> = <X as Successor>::StateColor;
+pub type EdgeColor<X> = <X as Successor>::EdgeColor;
 
 /// Abstracts possessing a set of states. Note, that implementors of this trait must
 /// be able to iterate over the set of states.
@@ -501,40 +271,28 @@ pub trait Sproutable: Successor {
         on: <Self::Alphabet as Alphabet>::Expression,
         to: Y,
         color: EdgeColor<Self>,
-    ) -> EdgeIndex
+    ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
         X: Into<Self::StateIndex>,
         Y: Into<Self::StateIndex>;
 
-    fn undo_add_edge(&mut self);
+    fn remove_edge(
+        &mut self,
+        from: Self::StateIndex,
+        on: <Self::Alphabet as Alphabet>::Expression,
+    ) -> Option<(Self::StateIndex, Self::EdgeColor)>;
 
     /// Turns the automaton into a complete one, by adding a sink state and adding transitions
     /// to it from all states that do not have a transition for a given symbol.
-    fn complete_with_sink(&mut self, sink_color: Self::Color) -> Self::StateIndex
+    fn complete_with_sink(&mut self, sink_color: Self::StateColor) -> Self::StateIndex
     where
         Self: FiniteState,
     {
-        let sink = self.add_state(<Self::Position as ColorPosition>::state_color(
-            sink_color.clone(),
-        ));
+        let sink = self.add_state(sink_color.clone());
 
         let universe = self.alphabet().universe().cloned().collect_vec();
 
-        let edge_color = <Self::Position as ColorPosition>::edge_color(sink_color);
-        for state in self.state_indices() {
-            for &sym in &universe {
-                if self.successor(state, sym).is_none() {
-                    self.add_edge(
-                        state,
-                        <Self::Alphabet as Alphabet>::expression(sym),
-                        sink,
-                        edge_color.clone(),
-                    );
-                }
-            }
-        }
-
-        sink
+        todo!()
     }
 }
 
@@ -577,8 +335,8 @@ pub trait TransitionSystem: FiniteState + Successor {
             .to_string()
     }
 
-    fn collect_ts(&self) -> IndexTS<Self::Alphabet, Self::Color, Self::Position> {
-        let mut ts = IndexTS::new_for_alphabet(self.alphabet().clone());
+    fn collect_ts(&self) -> BTS<Self::Alphabet, Self::StateColor, Self::EdgeColor> {
+        let mut ts = BTS::new_for_alphabet(self.alphabet().clone());
         let mut map = std::collections::HashMap::new();
         for index in self.state_indices() {
             map.insert(index, ts.add_state(self.state_color(index)));
@@ -600,8 +358,8 @@ pub trait TransitionSystem: FiniteState + Successor {
 
     fn collect_into_ts<
         Ts: TransitionSystem<
-                Position = Self::Position,
-                Color = Self::Color,
+                StateColor = Self::StateColor,
+                EdgeColor = Self::EdgeColor,
                 Alphabet = Self::Alphabet,
             > + Sproutable,
     >(

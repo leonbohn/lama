@@ -17,7 +17,7 @@ pub struct Walker<'a, 'b, Ts: Successor, R> {
     word: &'b R,
     position: usize,
     seen: BTreeSet<(RawPosition, Ts::StateIndex)>,
-    seq: Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>,
+    seq: Path<Ts::Alphabet, Ts::StateIndex, Ts::StateColor, Ts::EdgeColor>,
 }
 
 pub type RunResult<'a, 'b, Ts, R> = Result<Successful<'a, 'b, R, Ts>, Partial<'a, 'b, R, Ts>>;

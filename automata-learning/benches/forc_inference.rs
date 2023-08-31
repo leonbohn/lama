@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use automata::{alphabet::Simple, congurence::FORC};
 use automata_learning::passive::OmegaSample;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
@@ -62,7 +64,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
 criterion_group! {
     name = benches;
-    config = Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
+    config = Criterion::default().measurement_time(Duration::from_secs(10)).with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
     targets = criterion_benchmark
 }
 criterion_main!(benches);

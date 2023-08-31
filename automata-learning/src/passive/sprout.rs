@@ -245,7 +245,7 @@ pub fn omega_sprout_conflicts<A: Alphabet>(
             if !allow_transitions_into_epsilon && target == initial {
                 continue;
             }
-            cong.add_edge(source, A::expression(sym), target, ());
+            let old_edge = cong.add_edge(source, A::expression(sym), target, ());
 
             if conflicts.consistent(&cong) {
                 trace!(
@@ -262,7 +262,9 @@ pub fn omega_sprout_conflicts<A: Alphabet>(
                     sym.show(),
                     cong.state_color(target).red()
                 );
-                cong.undo_add_edge();
+                if let Some((old_target, _)) = old_edge {
+                    cong.remove_edge(source, A::expression(sym));
+                }
             }
         }
 

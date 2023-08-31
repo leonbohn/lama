@@ -3,10 +3,11 @@ use crate::{
     length::{HasLength, RawPosition},
     ts::{
         finite::{
-            ReachedColor, ReachedState, SeenColors, StateColorSequence, TransitionColorSequence,
+            InfinityColors, ReachedColor, ReachedState, SeenColors, StateColorSequence,
+            TransitionColorSequence,
         },
-        infinite::InfinitySet,
-        CanInduce, EdgeColor, OnEdges, Path, StateColor, StateIndex, TransitionSystem,
+        infinite::InfinityStateColors,
+        CanInduce, EdgeColor, Path, StateColor, StateIndex, TransitionSystem,
     },
     word::OmegaWord,
     Color, FiniteLength, Length,
@@ -18,49 +19,53 @@ use super::Successor;
 pub struct Successful<'a, 'b, R, Ts: Successor> {
     word: &'b R,
     ts: &'a Ts,
-    path: Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>,
+    path: Path<Ts::Alphabet, Ts::StateIndex, Ts::StateColor, Ts::EdgeColor>,
     loop_index: Option<usize>,
 }
 
-impl<'a, 'b, R, Ts> CanInduce<SeenColors<Ts::Color>> for Successful<'a, 'b, R, Ts>
+impl<'a, 'b, R, Ts> CanInduce<SeenColors<Ts::StateColor>> for Successful<'a, 'b, R, Ts>
 where
     Ts: Successor,
-    Ts::Color: Clone,
+    Ts::StateColor: Clone,
 {
-    fn induce(&self) -> SeenColors<Ts::Color> {
-        SeenColors(self.path.colors_vec())
+    fn induce(&self) -> SeenColors<Ts::StateColor> {
+        SeenColors(self.path.state_colors().collect())
     }
 }
 
-impl<'a, 'b, R, Ts> CanInduce<InfinitySet<Ts::Color>> for Successful<'a, 'b, R, Ts>
+impl<'a, 'b, R, Ts> CanInduce<InfinityColors<Ts::EdgeColor>> for Successful<'a, 'b, R, Ts>
 where
     Ts: Successor,
-    Ts::Color: Clone,
+    Ts::StateColor: Clone,
 {
-    fn induce(&self) -> InfinitySet<Ts::Color> {
-        InfinitySet(
-            (self
-                .loop_index
-                .expect("Cannot get the infinity set of a finite run!")
-                ..self.path.colors_length())
-                .map(|i| {
-                    self.path
-                        .nth_color(i)
-                        .expect("The length does not match!")
-                        .clone()
-                })
+    fn induce(&self) -> InfinityColors<Ts::EdgeColor> {
+        InfinityColors(self.path.transition_colors().collect())
+    }
+}
+
+impl<'a, 'b, R, Ts> CanInduce<InfinityStateColors<Ts::StateColor>> for Successful<'a, 'b, R, Ts>
+where
+    Ts: Successor,
+    Ts::StateColor: Clone,
+{
+    fn induce(&self) -> InfinityStateColors<Ts::StateColor> {
+        debug_assert!(self.path.state_colors_len() > 0);
+        InfinityStateColors(
+            self.path
+                .state_colors()
+                .skip(self.loop_index.unwrap_or(0))
                 .collect(),
         )
     }
 }
 
-impl<'a, 'b, R, Ts> CanInduce<ReachedColor<Ts::Color>> for Successful<'a, 'b, R, Ts>
+impl<'a, 'b, R, Ts> CanInduce<ReachedColor<Ts::StateColor>> for Successful<'a, 'b, R, Ts>
 where
     Ts: Successor,
-    Ts::Color: Clone,
+    Ts::StateColor: Clone,
 {
-    fn induce(&self) -> ReachedColor<Ts::Color> {
-        ReachedColor(self.path.colors_vec().last().unwrap().clone())
+    fn induce(&self) -> ReachedColor<Ts::StateColor> {
+        ReachedColor(self.path.state_colors_last().clone())
     }
 }
 
@@ -72,11 +77,11 @@ impl<'a, 'b, R, Ts: Successor> CanInduce<ReachedState<Ts::StateIndex>>
     }
 }
 
-impl<'a, 'b, R, Ts: Successor<Position = OnEdges>> CanInduce<TransitionColorSequence<Ts::Color>>
+impl<'a, 'b, R, Ts: Successor> CanInduce<TransitionColorSequence<Ts::EdgeColor>>
     for Successful<'a, 'b, R, Ts>
 {
-    fn induce(&self) -> TransitionColorSequence<Ts::Color> {
-        TransitionColorSequence(self.path.colors_vec())
+    fn induce(&self) -> TransitionColorSequence<Ts::EdgeColor> {
+        TransitionColorSequence(self.path.transition_colors().collect())
     }
 }
 
@@ -85,7 +90,7 @@ impl<'a, 'b, R, Ts: Successor> Successful<'a, 'b, R, Ts> {
         word: &'b R,
         ts: &'a Ts,
         loop_index: Option<usize>,
-        path: Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>,
+        path: Path<Ts::Alphabet, Ts::StateIndex, Ts::StateColor, Ts::EdgeColor>,
     ) -> Self {
         Self {
             word,

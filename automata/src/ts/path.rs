@@ -6,10 +6,7 @@ use crate::{
     Color, FiniteLength,
 };
 
-use super::{
-    ColorPosition, EdgeColor, IndexType, OnEdges, OnStates, State, StateColor, StateIndex,
-    Successor, Transition,
-};
+use super::{BTState, EdgeColor, IndexType, StateColor, StateIndex, Successor, Transition};
 
 /// Represents a path through a transition system. Note, that the path itself is decoupled from the
 /// transition system, which allows to use it for multiple transition systems. In particular, it is possible
@@ -19,13 +16,13 @@ use super::{
 /// A path consists of an `origin`, which is simply the [`StateIndex`] of the state where the path starts. It stores
 /// a sequence of transitions and the colors of the states it visits.
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub struct Path<A: Alphabet, Idx, C: Color, Pos: ColorPosition> {
+pub struct Path<A: Alphabet, Idx, Q: Color, C: Color> {
     origin: Idx,
-    colors: Vec<Pos::StateColor<C>>,
-    transitions: Vec<Transition<Idx, A::Symbol, Pos::EdgeColor<C>>>,
+    colors: Vec<Q>,
+    transitions: Vec<Transition<Idx, A::Symbol, C>>,
 }
 
-impl<A: Alphabet, Idx, Pos: ColorPosition, C: Color> Path<A, Idx, C, Pos> {
+impl<A: Alphabet, Idx, Q: Color, C: Color> Path<A, Idx, Q, C> {
     /// Returns the index of the state that is reached by the path.
     pub fn reached(&self) -> Idx
     where
@@ -38,24 +35,24 @@ impl<A: Alphabet, Idx, Pos: ColorPosition, C: Color> Path<A, Idx, C, Pos> {
         }
     }
 
-    fn transition_colors(&self) -> impl Iterator<Item = Pos::EdgeColor<C>> + '_ {
+    pub fn state_colors(&self) -> impl Iterator<Item = Q> + '_ {
+        self.colors.iter().cloned()
+    }
+
+    pub fn state_colors_last(&self) -> &Q {
+        self.colors.last().unwrap()
+    }
+
+    pub fn state_colors_len(&self) -> usize {
+        self.colors.len()
+    }
+
+    pub fn transition_colors(&self) -> impl Iterator<Item = C> + '_ {
         self.transitions.iter().map(|t| t.color().clone())
     }
 
-    pub fn colors_length(&self) -> usize {
-        self.colors_vec().len()
-    }
-
-    pub fn colors_vec(&self) -> Vec<C> {
-        Pos::fuse_iters(self.colors.clone(), self.transition_colors()).collect()
-    }
-
-    pub fn nth_color(&self, n: usize) -> Option<C> {
-        self.colors_vec().get(n).cloned()
-    }
-
     /// Returns true if the path is empty/trivial, meaning it consists of only one state.
-    pub fn empty(state: Idx, color: Pos::StateColor<C>) -> Self {
+    pub fn empty(state: Idx, color: Q) -> Self {
         Self {
             origin: state,
             colors: vec![color],
@@ -72,7 +69,7 @@ impl<A: Alphabet, Idx, Pos: ColorPosition, C: Color> Path<A, Idx, C, Pos> {
     ) -> Option<Transition<Idx, A::Symbol, EdgeColor<Ts>>>
     where
         Idx: IndexType,
-        Ts: Successor<Alphabet = A, StateIndex = Idx, Color = C, Position = Pos>,
+        Ts: Successor<Alphabet = A, StateIndex = Idx, StateColor = Q, EdgeColor = C>,
     {
         let state = self.reached();
         let transition = ts.successor(state, symbol)?;

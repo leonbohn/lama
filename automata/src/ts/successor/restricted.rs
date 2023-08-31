@@ -32,10 +32,8 @@ where
     F: Fn(Ts::StateIndex) -> bool,
 {
     type StateIndex = Ts::StateIndex;
-
-    type Position = Ts::Position;
-
-    type Color = Ts::Color;
+    type EdgeColor = Ts::EdgeColor;
+    type StateColor = Ts::StateColor;
 
     fn successor(
         &self,

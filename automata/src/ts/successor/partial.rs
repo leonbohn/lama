@@ -12,7 +12,7 @@ pub struct Partial<'a, 'b, R, Ts: Successor> {
     word: &'b R,
     ts: &'a Ts,
     position: usize,
-    path: Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>,
+    path: Path<Ts::Alphabet, Ts::StateIndex, Ts::StateColor, Ts::EdgeColor>,
 }
 
 impl<'a, 'b, R, Ts: Successor> Partial<'a, 'b, R, Ts> {
@@ -20,7 +20,7 @@ impl<'a, 'b, R, Ts: Successor> Partial<'a, 'b, R, Ts> {
         word: &'b R,
         ts: &'a Ts,
         position: usize,
-        path: Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>,
+        path: Path<Ts::Alphabet, Ts::StateIndex, Ts::StateColor, Ts::EdgeColor>,
     ) -> Self {
         Self {
             word,

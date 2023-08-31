@@ -15,9 +15,9 @@ use self::{
 
 use super::{
     finite::{ReachedColor, ReachedState},
-    operations::{MapColors, MatchingProduct},
-    CanInduce, ColorPosition, Edge, EdgeColor, FiniteState, IndexTS, IndexType, Induced, Path,
-    StateColor, StateIndex, Transition,
+    operations::{MapStateColor, MatchingProduct},
+    CanInduce, Edge, EdgeColor, FiniteState, IndexType, Induced, Path, StateColor, StateIndex,
+    Transition, BTS,
 };
 
 mod partial;
@@ -53,8 +53,9 @@ pub use sccs::Tarjan;
 /// an edge may represent any different number of transitions.
 pub trait Successor: HasAlphabet {
     type StateIndex: IndexType;
-    type Position: ColorPosition;
-    type Color: Color;
+
+    type StateColor: Color;
+    type EdgeColor: Color;
 
     /// For a given `state` and `symbol`, returns the transition that is taken, if it exists.
     fn successor(
@@ -73,7 +74,7 @@ pub trait Successor: HasAlphabet {
         state: Self::StateIndex,
     ) -> Vec<(Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>)>;
 
-    fn state_color(&self, state: Self::StateIndex) -> StateColor<Self>;
+    fn state_color(&self, state: Self::StateIndex) -> Self::StateColor;
 
     fn with_initial(self, initial: Self::StateIndex) -> WithInitial<Self>
     where
@@ -92,14 +93,14 @@ pub trait Successor: HasAlphabet {
         RestrictByStateIndex::new(self, filter)
     }
 
-    fn map_colors<D: Color, F: Fn(Self::Color) -> D>(self, f: F) -> MapColors<Self, F>
+    fn map_colors<D: Color, F: Fn(Self::StateColor) -> D>(self, f: F) -> MapStateColor<Self, F>
     where
         Self: Sized,
     {
-        MapColors::new(self, f)
+        MapStateColor::new(self, f)
     }
 
-    fn all_accepting_dfa(self) -> MapColors<Self, fn(Self::Color) -> bool>
+    fn all_accepting_dfa(self) -> MapStateColor<Self, fn(Self::StateColor) -> bool>
     where
         Self: Sized,
     {
@@ -233,14 +234,6 @@ pub trait Successor: HasAlphabet {
         self.induced(word, self.initial())
     }
 
-    fn make_edge_color(&self, color: Self::Color) -> EdgeColor<Self> {
-        <Self::Position as ColorPosition>::edge_color(color)
-    }
-
-    fn make_state_color(&self, color: Self::Color) -> StateColor<Self> {
-        <Self::Position as ColorPosition>::state_color(color)
-    }
-
     fn minimal_representatives(&self) -> MinimalRepresentatives<&Self>
     where
         Self: Sized + Pointed,
@@ -292,10 +285,8 @@ pub trait Successor: HasAlphabet {
 
 impl<Ts: Successor> Successor for &Ts {
     type StateIndex = Ts::StateIndex;
-
-    type Position = Ts::Position;
-
-    type Color = Ts::Color;
+    type EdgeColor = Ts::EdgeColor;
+    type StateColor = Ts::StateColor;
 
     fn successor(
         &self,
@@ -324,10 +315,8 @@ impl<Ts: Successor> Successor for &Ts {
 }
 impl<Ts: Successor> Successor for &mut Ts {
     type StateIndex = Ts::StateIndex;
-
-    type Position = Ts::Position;
-
-    type Color = Ts::Color;
+    type EdgeColor = Ts::EdgeColor;
+    type StateColor = Ts::StateColor;
 
     fn successor(
         &self,
@@ -366,7 +355,7 @@ mod tests {
         ts::{
             finite::{self, ReachedColor, ReachedState},
             index_ts::MealyTS,
-            IndexTS, Sproutable,
+            Sproutable, BTS,
         },
         word::OmegaWord,
         FiniteLength, Word,

@@ -172,7 +172,7 @@ impl<'a, Ts: Successor> Scc<'a, Ts> {
         self.0
     }
 
-    pub fn colors(&self) -> Option<Vec<Ts::Color>> {
+    pub fn colors(&self) -> Option<Vec<Ts::StateColor>> {
         debug_assert!(!self.is_empty());
         let maximal_word = self.maximal_word()?;
         let SeenColors(colors) = self.ts().run(&maximal_word, self.1[0]).ok()?.induce();
