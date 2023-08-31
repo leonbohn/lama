@@ -150,8 +150,11 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
         &mut self,
         from: Self::StateIndex,
         on: <Self::Alphabet as Alphabet>::Expression,
-    ) -> Option<(Self::StateIndex, Self::EdgeColor)> {
-        self.states.get_mut(&from).and_then(|o| o.remove_edge(on))
+    ) -> bool {
+        self.states
+            .get_mut(&from)
+            .and_then(|o| o.remove_edge(on))
+            .is_some()
     }
 }
 

@@ -226,7 +226,7 @@ impl<A: Alphabet> Sproutable for RightCongruence<A> {
         &mut self,
         from: Self::StateIndex,
         on: <Self::Alphabet as Alphabet>::Expression,
-    ) -> Option<(Self::StateIndex, Self::EdgeColor)> {
+    ) -> bool {
         self.ts.remove_edge(from, on)
     }
 }

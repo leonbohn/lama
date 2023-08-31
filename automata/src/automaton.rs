@@ -20,7 +20,7 @@ use crate::{
         Pointed, Product, Sproutable, StateColor, StateIndex, Successor, Transition,
         TransitionSystem, BTS,
     },
-    word::OmegaWord,
+    word::{Normalized, OmegaWord},
     Color, FiniteLength, HasLength, InfiniteLength, Length, Set, Word,
 };
 
@@ -130,7 +130,7 @@ mod boilerplate_impls {
             &mut self,
             from: Self::StateIndex,
             on: <Self::Alphabet as Alphabet>::Expression,
-        ) -> Option<(Self::StateIndex, Self::EdgeColor)> {
+        ) -> bool {
             self.ts_mut().remove_edge(from, on)
         }
     }
@@ -289,6 +289,22 @@ where
             c
         } else {
             unreachable!()
+        }
+    }
+}
+
+pub trait Classifies<X> {
+    fn classify(&self, x: X) -> bool;
+}
+
+impl<A: Alphabet, Idx: IndexType> Classifies<Normalized<A::Symbol, InfiniteLength>> for DBA<A, Idx>
+where
+    A::Symbol: Clone + Ord,
+{
+    fn classify(&self, x: Normalized<A::Symbol, InfiniteLength>) -> bool {
+        match self.omega_run(self.initial(), x.initial_segment(), x.repeating_segment()) {
+            Ok(path) => path.infinity_set(self).contains(&true),
+            Err(_) => false,
         }
     }
 }

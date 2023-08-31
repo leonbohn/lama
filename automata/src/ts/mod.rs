@@ -280,7 +280,7 @@ pub trait Sproutable: Successor {
         &mut self,
         from: Self::StateIndex,
         on: <Self::Alphabet as Alphabet>::Expression,
-    ) -> Option<(Self::StateIndex, Self::EdgeColor)>;
+    ) -> bool;
 
     /// Turns the automaton into a complete one, by adding a sink state and adding transitions
     /// to it from all states that do not have a transition for a given symbol.

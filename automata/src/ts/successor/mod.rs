@@ -4,7 +4,7 @@ use crate::{
     alphabet::{ExpressionOf, HasAlphabet, Symbol, SymbolOf},
     automaton::WithInitial,
     word::OmegaWord,
-    Alphabet, Color, Pointed, Word,
+    Alphabet, Color, Map, Pointed, Set, Word,
 };
 
 use self::{
@@ -16,6 +16,7 @@ use self::{
 use super::{
     finite::{ReachedColor, ReachedState},
     operations::{MapStateColor, MatchingProduct},
+    path::Lasso,
     CanInduce, Edge, EdgeColor, FiniteState, IndexType, Induced, Path, StateColor, StateIndex,
     Transition, BTS,
 };
@@ -168,6 +169,60 @@ pub trait Successor: HasAlphabet {
     {
         self.reachable_state_indices_from(origin)
             .any(|s| s == state)
+    }
+
+    fn finite_run(
+        &self,
+        origin: Self::StateIndex,
+        word: &[SymbolOf<Self>],
+    ) -> Result<Path<Self::Alphabet, Self::StateIndex>, Path<Self::Alphabet, Self::StateIndex>>
+    where
+        Self: Sized,
+    {
+        let mut current = origin;
+        let mut path = Path::empty(current);
+        for symbol in word {
+            if let Some(o) = path.extend_in(&self, *symbol) {
+                current = o.target();
+            } else {
+                return Err(path);
+            }
+        }
+        Ok(path)
+    }
+
+    fn omega_run(
+        &self,
+        origin: Self::StateIndex,
+        base: &[SymbolOf<Self>],
+        recur: &[SymbolOf<Self>],
+    ) -> Result<Lasso<Self::Alphabet, Self::StateIndex>, Path<Self::Alphabet, Self::StateIndex>>
+    where
+        Self: Pointed + Sized,
+    {
+        let mut path = self.finite_run(origin, base)?;
+        let mut position = path.len();
+        let mut seen = Map::new();
+
+        loop {
+            match seen.insert(path.reached(), position) {
+                Some(p) => {
+                    return Ok(path.loop_back_to(p));
+                }
+                None => match self.finite_run(path.reached(), recur) {
+                    Ok(p) => {
+                        position += p.len();
+                        path.extend_with(p);
+                    }
+                    Err(p) => {
+                        path.extend_with(p);
+                        return Err(path);
+                    }
+                },
+            }
+        }
+
+        unreachable!()
     }
 
     /// Runs the given `word` on the transition system, starting from `state`, which means starting

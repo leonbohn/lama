@@ -1,9 +1,11 @@
 use std::collections::BTreeMap;
 
+use itertools::Itertools;
+
 use crate::{
     alphabet::{Alphabet, Symbol, SymbolOf},
     length::HasLength,
-    Color, FiniteLength,
+    Color, FiniteLength, Set,
 };
 
 use super::{BTState, EdgeColor, IndexType, StateColor, StateIndex, Successor, Transition};
@@ -17,8 +19,8 @@ use super::{BTState, EdgeColor, IndexType, StateColor, StateIndex, Successor, Tr
 /// a sequence of transitions and the colors of the states it visits.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Path<A: Alphabet, Idx> {
-    origin: Idx,
-    transitions: Vec<(A::Expression, Idx)>,
+    end: Idx,
+    transitions: Vec<(Idx, A::Expression)>,
 }
 
 impl<A: Alphabet, Idx> Path<A, Idx> {
@@ -27,11 +29,27 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
     where
         Idx: IndexType,
     {
-        if self.transitions.is_empty() {
-            self.origin
-        } else {
-            self.transitions.last().unwrap().1
-        }
+        self.end
+    }
+
+    pub fn len(&self) -> usize {
+        self.transitions.len()
+    }
+
+    pub fn loop_back_to(self, position: usize) -> Lasso<A, Idx>
+    where
+        Idx: IndexType,
+    {
+        debug_assert!(position < self.len());
+        debug_assert!(self.end == self.transitions[position].0);
+
+        Lasso::new(
+            Path::new(
+                self.transitions[position].0,
+                self.transitions[..position].to_vec(),
+            ),
+            Path::new(self.end, self.transitions[position..].to_vec()),
+        )
     }
 
     pub fn edge_colors<'a, TS>(&'a self, ts: &'a TS) -> impl Iterator<Item = TS::EdgeColor> + 'a
@@ -42,7 +60,7 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
     {
         self.transitions
             .iter()
-            .map(move |(symbol, target)| ts.edge_color(self.reached(), symbol).expect("These transitions must exist, otherwise the path cannot have been built with a ts that is consistent with the given one."))
+            .map(move |(source, sym)| ts.edge_color(*source, sym).expect("These transitions must exist, otherwise the path cannot have been built with a ts that is consistent with the given one."))
     }
 
     pub fn reached_state_color<'a, TS>(&'a self, ts: &'a TS) -> TS::StateColor
@@ -60,18 +78,22 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
         Idx: IndexType,
         TS::StateColor: Clone,
     {
-        std::iter::once(ts.state_color(self.origin)).chain(
-            self.transitions
-                .iter()
-                .map(move |(_, target)| ts.state_color(*target)),
-        )
+        self.state_sequence()
+            .map(move |state| ts.state_color(state))
     }
 
     /// Returns true if the path is empty/trivial, meaning it consists of only one state.
     pub fn empty(state: Idx) -> Self {
         Self {
-            origin: state,
+            end: state,
             transitions: Vec::new(),
+        }
+    }
+
+    pub fn new(state: Idx, transitions: Vec<(Idx, A::Expression)>) -> Self {
+        Self {
+            end: state,
+            transitions,
         }
     }
 
@@ -86,11 +108,14 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
         Idx: IndexType,
         Ts: Successor<Alphabet = A, StateIndex = Idx>,
     {
-        let state = self.reached();
-        let transition = ts.successor(state, symbol)?;
-        self.transitions
-            .push((transition.symbol(), transition.target()));
+        let transition = ts.successor(self.end, symbol)?;
+        self.transitions.push((self.end, transition.symbol()));
+        self.end = transition.target();
         Some(transition)
+    }
+
+    pub fn extend_with(&mut self, other: Path<A, Idx>) {
+        self.transitions.extend(other.transitions.into_iter());
     }
 
     /// Returns an iterator over the [`StateIndex`]es of the states visited by the path.
@@ -98,6 +123,29 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
     where
         Idx: IndexType,
     {
-        std::iter::once(self.origin).chain(self.transitions.iter().map(|(_, target)| *target))
+        self.transitions
+            .iter()
+            .map(|(source, _)| *source)
+            .chain(std::iter::once(self.end))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Lasso<A: Alphabet, Idx> {
+    base: Path<A, Idx>,
+    cycle: Path<A, Idx>,
+}
+
+impl<A: Alphabet, Idx> Lasso<A, Idx> {
+    pub fn new(base: Path<A, Idx>, cycle: Path<A, Idx>) -> Self {
+        Self { base, cycle }
+    }
+
+    pub fn infinity_set<Ts>(self, ts: Ts) -> Set<Ts::EdgeColor>
+    where
+        Ts: Successor<Alphabet = A, StateIndex = Idx>,
+        Idx: IndexType,
+    {
+        self.cycle.edge_colors(&ts).collect()
     }
 }

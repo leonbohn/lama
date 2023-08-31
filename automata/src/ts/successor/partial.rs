@@ -16,6 +16,10 @@ pub struct Partial<'a, 'b, R, Ts: Successor> {
 }
 
 impl<'a, 'b, R, Ts: Successor> Partial<'a, 'b, R, Ts> {
+    pub fn path(self) -> Path<Ts::Alphabet, Ts::StateIndex> {
+        self.path
+    }
+
     pub fn new(
         word: &'b R,
         ts: &'a Ts,
