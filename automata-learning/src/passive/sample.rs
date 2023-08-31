@@ -39,6 +39,21 @@ pub enum OmegaSampleParseError {
     OmegaWordParseError(NormalizedParseError),
 }
 
+impl std::fmt::Display for OmegaSampleParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OmegaSampleParseError::MissingHeader => write!(f, "Missing header"),
+            OmegaSampleParseError::MissingAlphabet => write!(f, "Missing alphabet"),
+            OmegaSampleParseError::MissingDelimiter => write!(f, "Missing delimiter"),
+            OmegaSampleParseError::MalformedAlphabetSymbol => write!(f, "Malformed alphabet"),
+            OmegaSampleParseError::MalformedSample => write!(f, "Malformed sample"),
+            OmegaSampleParseError::OmegaWordParseError(err) => {
+                write!(f, "Could not parse omega-word: {}", err)
+            }
+        }
+    }
+}
+
 impl TryFrom<&str> for OmegaSample<Simple, bool> {
     type Error = OmegaSampleParseError;
 
@@ -210,11 +225,7 @@ impl<A: Alphabet> OmegaSample<A, bool> {
 
     /// Computes the [`RightCongruence`] underlying the sample.
     pub fn right_congruence(&self) -> RightCongruence<A> {
-        omega_sprout_conflicts(
-            self.alphabet.clone(),
-            prefix_consistency_conflicts(&self.alphabet, self),
-            true,
-        )
+        omega_sprout_conflicts(prefix_consistency_conflicts(self), true)
     }
 
     pub fn positive_size(&self) -> usize {

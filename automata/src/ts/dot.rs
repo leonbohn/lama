@@ -1,65 +1,33 @@
+use std::fmt::Display;
+
 use itertools::Itertools;
 
-use crate::Alphabet;
+use crate::{
+    congurence::FORC, ts::FiniteState, Alphabet, Class, Pointed, RightCongruence, Successor,
+};
 
 use super::TransitionSystem;
 
 /// Trait that encapsulates the functionality of converting an object
 /// into a [graphviz](https://graphviz.org/) representation.
-pub trait ToDot: TransitionSystem {
+pub trait ToDot {
     /// Compute the graphviz representation, for more information on the DOT format,
     /// see the [graphviz documentation](https://graphviz.org/doc/info/lang.html).
-    fn dot_representation(&self, with_initial: Option<Self::StateIndex>) -> String {
-        let mut lines = vec![
-            "fontname=\"Helvetica,Arial,sans-serif\"\nrankdir=LR".to_string(),
-            "init [label=\"\", shape=none]".into(),
-            "node [shape=rect]".into(),
-        ];
-        if let Some(initial) = with_initial {
-            lines.push(format!(
-                "init -> \"{}|{:?}\" [style=\"solid\"]",
-                initial,
-                self.state_color(initial)
-            ));
-        }
+    fn dot_representation(&self) -> String;
 
-        let to_consider = if let Some(initial) = with_initial {
-            self.reachable_state_indices_from(initial).collect()
-        } else {
-            self.state_indices()
-        };
-
-        for state in to_consider {
-            for &sym in self.alphabet().universe() {
-                if let Some(edge) = self.successor(state, sym) {
-                    lines.push(format!(
-                        "\"{}|{:?}\" -> \"{}|{:?}\" [label = \"{:?}\"]",
-                        state,
-                        self.state_color(state),
-                        edge.target(),
-                        self.state_color(edge.target()),
-                        sym
-                    ));
-                }
-            }
-        }
-
-        format!(
-            "digraph A {{\n{}\n}}\n",
-            lines.into_iter().map(|line| format!("{line};")).join("\n")
-        )
-    }
+    fn header(&self) -> String;
+    fn body(&self, prefix: &str) -> String;
 
     /// Renders the object visually (as PNG) and returns a vec of bytes/u8s encoding
     /// the rendered image. This method is only available on the `graphviz` crate feature
     /// and makes use of temporary files.
     #[cfg(feature = "graphviz")]
-    fn render(&self, with_initial: Option<Self::StateIndex>) -> Result<Vec<u8>, std::io::Error> {
+    fn render(&self) -> Result<Vec<u8>, std::io::Error> {
         use std::{
             io::{Read, Write},
             path::Path,
         };
-        let dot = self.dot_representation(with_initial);
+        let dot = self.dot_representation();
 
         let mut child = std::process::Command::new("dot")
             .arg("-Tpng")
@@ -90,10 +58,7 @@ pub trait ToDot: TransitionSystem {
     /// Similar to the [`render`] method, but returns a [`tempfile::TempPath`] instead
     /// of a buffer of bytes.
     #[cfg(feature = "graphviz")]
-    fn render_tempfile(
-        &self,
-        with_initial: Option<Self::StateIndex>,
-    ) -> Result<tempfile::TempPath, std::io::Error> {
+    fn render_tempfile(&self) -> Result<tempfile::TempPath, std::io::Error> {
         use std::{
             io::{Read, Write},
             path::Path,
@@ -101,13 +66,14 @@ pub trait ToDot: TransitionSystem {
         use tracing::trace;
 
         trace!("Outputting dot and rendering to png");
-        let dot = self.dot_representation(with_initial);
+        let dot = self.dot_representation();
+        println!("{}", dot);
 
         let mut tempfile = tempfile::NamedTempFile::new()?;
         tempfile.write_all(dot.as_bytes())?;
         let tempfile_name = tempfile.path();
 
-        let image_tempfile = tempfile::Builder::new().suffix(".png").tempfile()?;
+        let image_tempfile = tempfile::Builder::new().prefix(".png").tempfile()?;
         let image_tempfile_name = image_tempfile.into_temp_path();
 
         let mut child = std::process::Command::new("dot")
@@ -137,18 +103,157 @@ pub trait ToDot: TransitionSystem {
     /// image is displayed using a locally installed image viewer (`eog` on linux, `qlmanage`
     /// i.e. quicklook on macos and nothing yet on windows).
     #[cfg(feature = "graphviz")]
-    fn display_rendered(
-        &self,
-        with_initial: Option<Self::StateIndex>,
-    ) -> Result<(), std::io::Error> {
+    fn display_rendered(&self) -> Result<(), std::io::Error> {
         use std::io::Write;
 
-        let rendered_path = self.render_tempfile(with_initial)?;
+        let rendered_path = self.render_tempfile()?;
         display_png(rendered_path)
     }
 }
 
-impl<Ts: TransitionSystem> ToDot for Ts {}
+impl<A: Alphabet> ToDot for RightCongruence<A>
+where
+    A::Symbol: Display,
+{
+    fn dot_representation(&self) -> String {
+        format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""),)
+    }
+
+    fn header(&self) -> String {
+        [
+            "fontname=\"Helvetica,Arial,sans-serif\"\nrankdir=LR".to_string(),
+            "node [shape=none]".into(),
+        ]
+        .join("\n")
+    }
+
+    fn body(&self, prefix: &str) -> String {
+        let mut lines = vec![format!("\"{prefix},init\" [label=\"\", shape=none]")];
+
+        lines.push(format!(
+            "\"{prefix},init\" -> \"{prefix},{}\" [style=\"solid\"]",
+            self.state_color(self.initial()),
+        ));
+
+        let to_consider = self.state_indices();
+
+        for state in to_consider {
+            for &sym in self.alphabet().universe() {
+                if let Some(edge) = self.successor(state, sym) {
+                    lines.push(format!(
+                        "\"{prefix},{}\" -> \"{prefix},{}\" [label = \"{}\"]",
+                        self.state_color(state),
+                        self.state_color(edge.target()),
+                        sym
+                    ));
+                }
+            }
+        }
+        lines.join("\n")
+    }
+}
+
+impl<A: Alphabet> ToDot for Vec<RightCongruence<A>>
+where
+    A::Symbol: Display,
+{
+    fn dot_representation(&self) -> String {
+        format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""),)
+    }
+
+    fn header(&self) -> String {
+        [
+            "compound=true".to_string(),
+            "fontname=\"Helvetica,Arial,sans-serif\"\nrankdir=LR".to_string(),
+            "init [label=\"\", shape=none]".into(),
+            "node [shape=rect]".into(),
+        ]
+        .join("\n")
+    }
+
+    fn body(&self, _prefix: &str) -> String {
+        self.iter()
+            .enumerate()
+            .map(|(i, cong)| {
+                format!(
+                    "subgraph cluster_{} {{\n{}\n{}\n}}\n",
+                    i,
+                    cong.header(),
+                    cong.body(&format!("{i}"))
+                )
+            })
+            .join("\n")
+    }
+}
+
+impl<A: Alphabet> ToDot for FORC<A>
+where
+    A::Symbol: Display,
+{
+    fn dot_representation(&self) -> String {
+        format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""),)
+    }
+
+    fn header(&self) -> String {
+        [
+            "compund=true".to_string(),
+            "fontname=\"Helvetica,Arial,sans-serif\"\nrankdir=LR".to_string(),
+            "init [label=\"\", shape=none]".into(),
+            "node [shape=rect]".into(),
+        ]
+        .join("\n")
+    }
+
+    fn body(&self, _prefix: &str) -> String {
+        let mut lines = self
+            .progress
+            .iter()
+            .map(|(class, prc)| {
+                format!(
+                    "subgraph cluster_{} {{\n{}\n{}\n}}\n",
+                    class.mr_to_string(),
+                    prc.header(),
+                    prc.body(&class.to_string())
+                )
+            })
+            .collect_vec();
+
+        lines.push("init [label=\"\", shape=none]".to_string());
+        let eps_prc = self
+            .progress
+            .get(&Class::epsilon())
+            .expect("Must have at least the epsilon prc");
+        lines.push(format!(
+            "init -> \"{},init\" [style=\"solid\"]",
+            eps_prc.state_color(eps_prc.initial())
+        ));
+
+        for state in self.leading.state_indices() {
+            for &sym in self.leading.alphabet().universe() {
+                if let Some(edge) = self.leading.successor(state, sym) {
+                    let source_prc = self
+                        .progress
+                        .get(&self.leading.state_color(state))
+                        .expect("Must have a prc for every state");
+                    let target_prc = self
+                        .progress
+                        .get(&self.leading.state_color(edge.target()))
+                        .expect("Must have a prc for every state");
+                    lines.push(format!(
+                        "\"{},init\" -> \"{},init\" [label = \"{}\", style=\"dashed\", ltail=\"cluster_{}\", lhead=\"cluster_{}\"]",
+                        self.leading.state_color(state),
+                        self.leading.state_color(edge.target()),
+                        sym,
+                        self.leading.state_color(state).mr_to_string(),
+                        self.leading.state_color(edge.target()).mr_to_string()
+                    ));
+                }
+            }
+        }
+
+        lines.join("\n")
+    }
+}
 
 fn display_png(rendered_path: tempfile::TempPath) -> Result<(), std::io::Error> {
     #[cfg(target_os = "linux")]
@@ -175,9 +280,58 @@ fn display_png(rendered_path: tempfile::TempPath) -> Result<(), std::io::Error> 
 
 #[cfg(test)]
 mod tests {
-    use crate::{alphabet::Simple, simple, ts::Sproutable, Alphabet, Pointed, RightCongruence};
+    use crate::{
+        alphabet::Simple, congurence::FORC, simple, ts::Sproutable, Alphabet, Class, Pointed,
+        RightCongruence,
+    };
 
     use super::ToDot;
+
+    #[test]
+    #[ignore]
+    fn display_forc() {
+        let alphabet = simple!('a', 'b');
+        let mut cong = RightCongruence::new(alphabet.clone());
+        let q0 = cong.initial();
+        let q1 = cong.add_state(vec!['a'].into());
+        cong.add_edge(q0, 'a', q1, ());
+        cong.add_edge(q0, 'b', q0, ());
+        cong.add_edge(q1, 'a', q0, ());
+        cong.add_edge(q1, 'b', q1, ());
+
+        let mut prc_e = RightCongruence::new(alphabet.clone());
+        let e0 = prc_e.initial();
+        let e1 = prc_e.add_state(vec!['a'].into());
+        let e2 = prc_e.add_state(vec!['b'].into());
+        prc_e.add_edge(e0, 'a', e1, ());
+        prc_e.add_edge(e0, 'b', e2, ());
+        prc_e.add_edge(e1, 'a', e1, ());
+        prc_e.add_edge(e1, 'b', e2, ());
+        prc_e.add_edge(e2, 'a', e2, ());
+        prc_e.add_edge(e2, 'b', e2, ());
+
+        let mut prc_a = RightCongruence::new(alphabet);
+        let a0 = prc_a.initial();
+        let a1 = prc_a.add_state(vec!['a'].into());
+        let a2 = prc_a.add_state(vec!['b'].into());
+        let a3 = prc_a.add_state(vec!['a', 'a'].into());
+        prc_a.add_edge(a0, 'a', a1, ());
+        prc_a.add_edge(a0, 'b', a2, ());
+        prc_a.add_edge(a1, 'a', a3, ());
+        prc_a.add_edge(a1, 'b', a2, ());
+        prc_a.add_edge(a2, 'a', a1, ());
+        prc_a.add_edge(a2, 'b', a2, ());
+        prc_a.add_edge(a3, 'a', a3, ());
+        prc_a.add_edge(a3, 'b', a3, ());
+
+        let forc = FORC::from_iter(
+            cong,
+            [(Class::epsilon(), prc_e), (Class::singleton('a'), prc_a)]
+                .iter()
+                .cloned(),
+        );
+        forc.display_rendered();
+    }
 
     #[test]
     #[ignore]
@@ -191,6 +345,8 @@ mod tests {
         cong.add_edge(q1, 'a', q0, ());
         cong.add_edge(q1, 'b', q1, ());
 
-        cong.display_rendered(Some(q0));
+        cong.display_rendered();
+        let three_congs = vec![cong.clone(), cong.clone(), cong];
+        three_congs.display_rendered();
     }
 }

@@ -37,6 +37,16 @@ pub enum NormalizedParseError {
     TooManyCommas,
 }
 
+impl std::fmt::Display for NormalizedParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NormalizedParseError::Empty => write!(f, "Word is empty"),
+            NormalizedParseError::EmptyLoop => write!(f, "Looping part of word is empty"),
+            NormalizedParseError::TooManyCommas => write!(f, "Too many commas in the word"),
+        }
+    }
+}
+
 impl TryFrom<&str> for Normalized<char, InfiniteLength> {
     type Error = NormalizedParseError;
 

@@ -45,6 +45,10 @@ impl<A: Alphabet> ConflictRelation<A> {
         true
     }
 
+    pub fn alphabet(&self) -> &A {
+        self.dfas[0].alphabet()
+    }
+
     pub fn threshold(&self) -> usize {
         self.dfas[0].size() * self.dfas[1].size()
     }
@@ -125,12 +129,11 @@ pub fn prefix_consistency_conflicts<
     A: Alphabet,
     S: std::borrow::Borrow<Sample<A, InfiniteLength, bool>>,
 >(
-    alphabet: &A,
     sample: S,
 ) -> ConflictRelation<A> {
     let sample = sample.borrow();
-    let left_pta = prefix_tree(alphabet.clone(), sample.positive_words());
-    let right_pta = prefix_tree(alphabet.clone(), sample.negative_words());
+    let left_pta = prefix_tree(sample.alphabet.clone(), sample.positive_words());
+    let right_pta = prefix_tree(sample.alphabet.clone(), sample.negative_words());
 
     let dfa = (&left_pta).ts_product(&right_pta);
 
@@ -168,17 +171,20 @@ pub fn prefix_consistency_conflicts<
 
 /// Runs the omega-sprout algorithm on a given conflict relation.
 pub fn omega_sprout_conflicts<A: Alphabet>(
-    alphabet: A,
     conflicts: ConflictRelation<A>,
     allow_transitions_into_epsilon: bool,
 ) -> RightCongruence<A> {
-    let mut cong = RightCongruence::new(alphabet.clone());
+    let mut cong = RightCongruence::new(conflicts.alphabet().clone());
     let initial = cong.initial();
     let threshold = conflicts.threshold();
 
     // We maintain a set of missing transitions and go through them in order of creation for the states and in order
     // give by alphabet for the symbols for one state (this amouts to BFS).
-    let mut queue: VecDeque<_> = alphabet.universe().map(|sym| (initial, sym)).collect();
+    let mut queue: VecDeque<_> = conflicts
+        .alphabet()
+        .universe()
+        .map(|sym| (initial, sym))
+        .collect();
     'outer: while let Some((source, &sym)) = queue.pop_front() {
         trace!(
             "Trying to add transition from {} on {}",
@@ -226,7 +232,7 @@ pub fn omega_sprout_conflicts<A: Alphabet>(
             panic!("TOO MANY STATES")
         }
         cong.add_edge(source, A::expression(sym), new_state, ());
-        queue.extend(std::iter::repeat(new_state).zip(alphabet.universe()))
+        queue.extend(std::iter::repeat(new_state).zip(conflicts.alphabet().universe()))
     }
 
     cong
@@ -305,8 +311,8 @@ mod tests {
         let eps_sample = split_sample.get(&eps).unwrap();
 
         let conflicts = super::iteration_consistency_conflicts(&split_sample, eps);
-        conflicts.dfas[0].display_rendered(Some(conflicts.dfas[0].initial()));
-        conflicts.dfas[1].display_rendered(Some(conflicts.dfas[1].initial()));
+        conflicts.dfas[0].display_rendered();
+        conflicts.dfas[1].display_rendered();
         println!(
             "{}",
             conflicts
@@ -315,8 +321,8 @@ mod tests {
                 .map(|(l, r)| format!("({l},{r})"))
                 .join(", ")
         );
-        let prc_eps = super::omega_sprout_conflicts(alphabet, conflicts, false);
-        prc_eps.display_rendered(Some(prc_eps.initial()));
+        let prc_eps = super::omega_sprout_conflicts(conflicts, false);
+        prc_eps.display_rendered();
     }
 
     #[test]
@@ -328,7 +334,7 @@ mod tests {
         assert!(cong.can_separate(&"a", &""));
         assert!(cong.can_separate(&"", &"ab"));
         assert!(cong.can_separate(&"a", &"ab"));
-        cong.display_rendered(Some(cong.initial()));
+        cong.display_rendered();
 
         let class_sample = sample.split(&cong);
         let eps = Class::epsilon();
@@ -336,8 +342,8 @@ mod tests {
 
         println!("{:?}", epsilon_sample);
         let conflicts = super::iteration_consistency_conflicts(&class_sample, eps);
-        let prc_eps = super::omega_sprout_conflicts(alphabet, conflicts, false);
-        prc_eps.display_rendered(Some(prc_eps.initial()));
+        let prc_eps = super::omega_sprout_conflicts(conflicts, false);
+        prc_eps.display_rendered();
     }
 
     #[test]
@@ -361,9 +367,9 @@ mod tests {
         expected_cong.add_edge(q0, 'b', q0, ());
         expected_cong.add_edge(q1, 'b', q1, ());
 
-        let conflicts = super::prefix_consistency_conflicts(&alphabet, sample);
+        let conflicts = super::prefix_consistency_conflicts(sample);
 
-        let cong = super::omega_sprout_conflicts(alphabet, conflicts, true);
+        let cong = super::omega_sprout_conflicts(conflicts, true);
 
         assert_eq!(cong.size(), expected_cong.size());
         for word in ["aba", "abbabb", "baabaaba", "bababaaba", "b", "a", ""] {
@@ -378,8 +384,8 @@ mod tests {
     fn prefix_consistency_sprout_one() {
         let alphabet = simple!('a', 'b');
         let sample = Sample::new_omega(alphabet.clone(), vec![(("a", 0), false), (("b", 0), true)]);
-        let conflicts = super::prefix_consistency_conflicts(&alphabet, sample);
-        let cong = super::omega_sprout_conflicts(alphabet, conflicts, true);
+        let conflicts = super::prefix_consistency_conflicts(sample);
+        let cong = super::omega_sprout_conflicts(conflicts, true);
 
         assert_eq!(cong.size(), 1);
         assert!(cong.contains_state_color(&vec![].into()));
@@ -405,7 +411,7 @@ mod tests {
             ],
         );
 
-        let conflicts = super::prefix_consistency_conflicts(&alphabet, sample);
+        let conflicts = super::prefix_consistency_conflicts(sample);
         println!(
             "{{{}}}",
             conflicts
@@ -419,7 +425,7 @@ mod tests {
                 .join(", ")
         );
 
-        let cong = super::omega_sprout_conflicts(alphabet, conflicts, true);
+        let cong = super::omega_sprout_conflicts(conflicts, true);
 
         assert_eq!(cong.size(), 4);
         for class in ["", "a", "ab", "aa"] {

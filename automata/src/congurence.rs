@@ -9,7 +9,7 @@ use crate::{
         ColorPosition, FiniteState, HasMutableStates, HasStates, IndexTS, OnStates, Sproutable,
         State, TransitionSystem,
     },
-    Alphabet, Color, FiniteLength, HasLength, Pointed, Successor, Word, DFA,
+    Alphabet, Color, FiniteLength, HasLength, Map, Pointed, Successor, Word, DFA,
 };
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -19,6 +19,21 @@ impl<S> Class<S> {
     /// Creates an instance of the empty class
     pub fn epsilon() -> Self {
         Self(vec![])
+    }
+
+    pub fn singleton(sym: S) -> Self {
+        Self(vec![sym])
+    }
+
+    pub fn mr_to_string(&self) -> String
+    where
+        S: Display,
+    {
+        if self.is_empty() {
+            "ε".to_string()
+        } else {
+            self.0.iter().map(|sym| sym.to_string()).join("")
+        }
     }
 }
 
@@ -30,7 +45,15 @@ impl<S> FromIterator<S> for Class<S> {
 
 impl<S: Symbol> Display for Class<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[{}]", self.0.iter().map(|sym| sym.show()).join(""))
+        write!(
+            f,
+            "[{}]",
+            if self.0.is_empty() {
+                "ε".to_string()
+            } else {
+                self.0.iter().map(|sym| sym.show()).join("")
+            }
+        )
     }
 }
 impl<S> HasLength for Class<S> {
@@ -132,6 +155,10 @@ impl<A: Alphabet> IndexesRightCongruence<A> for &Class<A::Symbol> {
 impl<A: Alphabet> RightCongruence<A> {
     pub fn from_ts(ts: IndexTS<A, Class<A::Symbol>, OnStates>) -> Self {
         Self { ts }
+    }
+
+    pub fn alphabet(&self) -> &A {
+        self.ts.alphabet()
     }
 
     pub(crate) fn recompute_labels(&mut self) {
@@ -264,5 +291,30 @@ impl<A: Alphabet> Successor for RightCongruence<A> {
 impl<A: Alphabet> RightCongruence<A> {
     pub fn new(alphabet: A) -> Self {
         Self::new_for_alphabet(alphabet)
+    }
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct FORC<A: Alphabet> {
+    pub(crate) leading: RightCongruence<A>,
+    pub(crate) progress: Map<Class<A::Symbol>, RightCongruence<A>>,
+}
+
+impl<A: Alphabet> FORC<A> {
+    pub fn new(
+        leading: RightCongruence<A>,
+        progress: Map<Class<A::Symbol>, RightCongruence<A>>,
+    ) -> Self {
+        Self { leading, progress }
+    }
+
+    pub fn from_iter<I: IntoIterator<Item = (Class<A::Symbol>, RightCongruence<A>)>>(
+        leading: RightCongruence<A>,
+        progress: I,
+    ) -> Self {
+        Self {
+            leading,
+            progress: progress.into_iter().collect(),
+        }
     }
 }

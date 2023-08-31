@@ -1,12 +1,16 @@
-use automata_learning::passive::OmegaSample;
+use automata::{ts::ToDot, Pointed};
+use automata_learning::passive::{
+    sprout::{omega_sprout_conflicts, prefix_consistency_conflicts},
+    OmegaSample,
+};
 use clap::{arg, command, Arg, ArgAction, Command};
 use tracing::{debug, error, info, trace, Level};
 
-fn infer_command() -> Command {
-    Command::new("rc")
-        .about("Learn a right congruence relation")
-        .arg(Arg::new("input").short('i').long("input"))
-        .arg(Arg::new("output").short('o').long("output"))
+fn conflicts_arg() -> Arg {
+    Arg::new("conflicts")
+        .short('c')
+        .long("conflicts")
+        .help("filename to output information on conflict relation")
 }
 
 fn main() {
@@ -27,7 +31,23 @@ fn main() {
                 .action(ArgAction::SetTrue)
                 .conflicts_with("verbose"),
         )
-        .subcommand(infer_command())
+        .subcommand(
+            Command::new("passive")
+                .subcommand_required(true)
+                .short_flag('l')
+                .arg(Arg::new("input").short('i').long("input"))
+                .arg(Arg::new("output").short('o').long("output"))
+                .arg(Arg::new("conflicts").short('c').long("output-conflicts"))
+                .subcommand(
+                    Command::new("rc")
+                        .about("Learn a right congruence relation")
+                        .arg(conflicts_arg()),
+                )
+                .subcommand(
+                    Command::new("forc")
+                        .about("Infer a family of right congruences (FORC) from the sample"),
+                ),
+        )
         .subcommand_required(true)
         .get_matches();
 
@@ -46,10 +66,10 @@ fn main() {
     tracing::subscriber::set_global_default(subscriber).unwrap();
 
     match matches.subcommand() {
-        Some(("rc", infer_matches)) => {
-            let raw_sample: Vec<String> = match infer_matches.get_one::<String>("input") {
+        Some(("passive", passive_matches)) => {
+            let sample_lines: Vec<String> = match passive_matches.get_one::<String>("input") {
                 None => {
-                    info!("No input files specified, using stdin");
+                    debug!("No input files specified, using stdin");
                     std::io::stdin().lines().map(|line| line.unwrap()).collect()
                 }
                 Some(file_name) => {
@@ -61,14 +81,45 @@ fn main() {
                         .collect()
                 }
             };
-            let sample = OmegaSample::try_from(raw_sample);
-            println!("{:?}", sample);
+
+            let output_dot = match OmegaSample::try_from(sample_lines) {
+                Ok(sample) => match passive_matches.subcommand() {
+                    Some(("rc", _)) => {
+                        let conflicts = prefix_consistency_conflicts(sample);
+                        let cong = omega_sprout_conflicts(conflicts, true);
+
+                        if let Some(conflicts_target) =
+                            passive_matches.get_one::<String>("conflicts")
+                        {
+                            debug!(
+                                "Outputting conflict relation and congruences to {}",
+                                conflicts_target
+                            )
+                        }
+
+                        cong.dot_representation()
+                    }
+                    Some(("forc", _)) => {
+                        todo!()
+                    }
+                    _ => unreachable!(),
+                },
+                Err(e) => {
+                    panic!("Could not parse input sample: {}", e);
+                }
+            };
+
+            match passive_matches.get_one::<String>("output") {
+                None => {
+                    debug!("No output file specified, using stdout");
+                    println!("{}", output_dot);
+                }
+                Some(file_name) => {
+                    debug!("Output file name specified: {:?}", file_name);
+                    std::fs::write(file_name, output_dot).unwrap();
+                }
+            }
         }
         _ => unreachable!(),
     };
-
-    info!("Hello, world!");
-    debug!("Hello, world!");
-    trace!("Hello, world!");
-    error!("Hello, world!");
 }
