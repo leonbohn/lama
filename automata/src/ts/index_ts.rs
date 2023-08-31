@@ -164,10 +164,10 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Successor for BTS<A, Q, C,
         state: Idx,
         symbol: A::Symbol,
     ) -> Option<Transition<Idx, A::Symbol, EdgeColor<Self>>> {
-        self.index_ts_edges_from(state).and_then(|mut o| {
-            o.find(|(e, (q, c))| self.alphabet().matches(e, symbol))
-                .map(|(e, (q, c))| Transition::new(state, symbol, *q, c.clone()))
-        })
+        self.states
+            .get(&state)
+            .and_then(|o| A::search_edge(&o.edges, symbol))
+            .map(|(target, color)| Transition::new(state, symbol, *target, color.clone()))
     }
 
     fn state_color(&self, index: Idx) -> StateColor<Self> {

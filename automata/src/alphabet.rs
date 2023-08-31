@@ -1,5 +1,6 @@
 use std::{
     borrow::Borrow,
+    collections::BTreeMap,
     fmt::{Debug, Display},
     hash::Hash,
 };
@@ -39,6 +40,8 @@ pub trait Alphabet: Clone {
     type Symbol: Symbol;
     /// The type of expressions in this alphabet.
     type Expression: Expression<Self::Symbol>;
+
+    fn search_edge<X>(map: &BTreeMap<Self::Expression, X>, sym: Self::Symbol) -> Option<&X>;
 
     /// Type for an iterator over all possible symbols in the alphabet. For [`Propositional`] alphabets,
     /// this may return quite a few symbols (exponential in the number of atomic propositions).
@@ -167,5 +170,10 @@ impl Alphabet for Simple {
 
     fn contains(&self, symbol: Self::Symbol) -> bool {
         self.0.contains(&symbol)
+    }
+
+    #[inline(always)]
+    fn search_edge<X>(map: &BTreeMap<Self::Expression, X>, sym: Self::Symbol) -> Option<&X> {
+        map.get(&sym)
     }
 }
