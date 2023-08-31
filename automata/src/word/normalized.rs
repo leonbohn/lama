@@ -212,8 +212,8 @@ fn deduplicate<S: Symbol>(input: Vec<S>) -> Vec<S> {
 
 impl<S: Symbol> Normalized<S, InfiniteLength> {
     pub fn new_periodic<R: RawSymbols<S>>(raw: R) -> Self {
-        let word = raw.to_vec();
-        debug_assert!(word.len() > 0);
+        let word = deduplicate(raw.to_vec());
+        debug_assert!(!word.is_empty());
         Self {
             length: InfiniteLength(word.len(), 0),
             word,
@@ -306,6 +306,14 @@ mod tests {
     use tracing::trace;
 
     use super::deduplicate;
+
+    #[test]
+    fn parse_normalized() {
+        let repr = "abab";
+        let nupw = super::Normalized::try_from(repr).unwrap();
+        assert_eq!(deduplicate(vec!['a', 'b', 'a', 'b']), vec!['a', 'b']);
+        assert_eq!(nupw.word, vec!['a', 'b']);
+    }
 
     #[test]
     fn deduplication() {

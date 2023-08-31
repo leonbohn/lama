@@ -3,6 +3,7 @@ alphabet: a,b,c
 positive:
 a
 aab
+aaab
 bbaa
 aca
 caa

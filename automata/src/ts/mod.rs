@@ -630,7 +630,7 @@ pub trait TransitionSystem: FiniteState + Successor {
 
 impl<Ts: FiniteState + Successor> TransitionSystem for Ts {}
 
-mod dot;
+pub mod dot;
 pub use dot::ToDot;
 
 /// A congruence is a [`TransitionSystem`], which additionally has a distinguished initial state. On top

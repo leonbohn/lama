@@ -1,4 +1,7 @@
-use std::collections::VecDeque;
+use std::{
+    collections::{BTreeSet, VecDeque},
+    fmt::Display,
+};
 
 use automata::{
     alphabet::Symbol,
@@ -7,7 +10,7 @@ use automata::{
         operations::ProductIndex, Congruence, FiniteState, Product, Sproutable, ToDot,
         TransitionSystem,
     },
-    Alphabet, Class, InfiniteLength, Pointed, RightCongruence, Set, Successor, Word,
+    Alphabet, Class, InfiniteLength, Map, Pointed, RightCongruence, Set, Successor, Word,
 };
 use itertools::Itertools;
 use tracing::trace;
@@ -51,6 +54,57 @@ impl<A: Alphabet> ConflictRelation<A> {
 
     pub fn threshold(&self) -> usize {
         self.dfas[0].size() * self.dfas[1].size()
+    }
+}
+
+impl<A: Alphabet> ToDot for ConflictRelation<A>
+where
+    A::Symbol: Display,
+{
+    fn dot_representation(&self) -> String {
+        format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""),)
+    }
+
+    fn header(&self) -> String {
+        [
+            "compund=true".to_string(),
+            "fontname=\"Helvetica,Arial,sans-serif\"\nrankdir=LR".to_string(),
+            "init [label=\"\", shape=none]".into(),
+            "node [shape=rect]".into(),
+        ]
+        .join("\n")
+    }
+
+    fn body(&self, prefix: &str) -> String {
+        let left = format!(
+            "subgraph cluster_left {{\nlabel=\"A\"\n{}\n{}\n}}",
+            self.dfas[0].header(),
+            self.dfas[0].body("A"),
+        );
+        let right = format!(
+            "subgraph cluster_right {{\nlabel=\"B\"\n{}\n{}\n}}",
+            self.dfas[0].header(),
+            self.dfas[0].body("B"),
+        );
+        let conflicts = self.conflicts.iter().fold(Map::new(), |mut acc, (l, r)| {
+            acc.entry(*l).or_insert(BTreeSet::new()).insert(*r);
+            acc
+        });
+        format!(
+            "label=\"Conflicts:\n{}\";\n{}\n{}\n",
+            conflicts
+                .into_iter()
+                .map(|(l, rs)| format!(
+                    "{}:{{{}}}",
+                    self.dfas[0].state_color(l),
+                    rs.into_iter()
+                        .map(|i| self.dfas[1].state_color(i))
+                        .join(",")
+                ))
+                .join("\\l"),
+            left,
+            right
+        )
     }
 }
 
@@ -107,11 +161,7 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
     }
 
     let (left, left_map) = left_pta.build_right_congruence();
-    println!(
-        "left size old {}, left size new {}",
-        left.size(),
-        left_pta.size()
-    );
+
     debug_assert!(left.size() == left_pta.size());
     let (right, right_map) = right_pta.build_right_congruence();
 
@@ -297,6 +347,67 @@ mod tests {
                 ],
             ),
         )
+    }
+
+    #[test]
+    #[traced_test]
+    fn infinite_looping_fix() {
+        let sample_str = r#"omega
+        alphabet: a,b
+        positive:
+        bbabab
+        ab
+        baa
+        abbab
+        babab
+        babba
+        bbaba
+        babab
+        babba
+        aba
+        aab
+        ababb
+        a
+        abab
+        baba
+        ba
+        bbaba
+        abbab
+        babbba
+        negative:
+        bba
+        abba
+        baab
+        bbba
+        abb
+        abbba
+        bab
+        bba
+        babb
+        bbab
+        b
+        bb
+        abba
+        bbaab
+        abbb
+        bbaa
+        abbaa
+        babbab
+        bbabba
+        babbb
+        bbabb"#;
+        let sample = OmegaSample::try_from(sample_str).unwrap();
+
+        let conflicts = super::prefix_consistency_conflicts(sample);
+        let cong = super::omega_sprout_conflicts(conflicts, false);
+    }
+
+    #[test]
+    #[ignore]
+    fn display_conflict_relation() {
+        let (alphabet, sample) = testing_larger_forc_sample();
+        let conflicts = super::prefix_consistency_conflicts(sample);
+        conflicts.display_rendered();
     }
 
     #[test]

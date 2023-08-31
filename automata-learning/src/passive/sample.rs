@@ -14,7 +14,7 @@ use automata::{
     MooreMachine, RightCongruence, Set, Successor, Word, DFA,
 };
 use itertools::Itertools;
-use tracing::trace;
+use tracing::{debug, trace};
 
 use super::sprout::{omega_sprout_conflicts, prefix_consistency_conflicts};
 
@@ -35,6 +35,7 @@ pub enum OmegaSampleParseError {
     MissingAlphabet,
     MissingDelimiter,
     MalformedAlphabetSymbol,
+    Inconsistent(String),
     MalformedSample,
     OmegaWordParseError(NormalizedParseError),
 }
@@ -50,6 +51,10 @@ impl std::fmt::Display for OmegaSampleParseError {
             OmegaSampleParseError::OmegaWordParseError(err) => {
                 write!(f, "Could not parse omega-word: {}", err)
             }
+            OmegaSampleParseError::Inconsistent(word) => write!(
+                f,
+                "Inconsistent sample, {word} is both positive and negative"
+            ),
         }
     }
 }
@@ -112,7 +117,9 @@ impl TryFrom<Vec<String>> for OmegaSample<Simple, bool> {
                     }
                     let parsed = Normalized::try_from(word.as_str())
                         .map_err(OmegaSampleParseError::OmegaWordParseError)?;
-                    words.insert(parsed, true);
+                    if let Some(old_classification) = words.insert(parsed, true) {
+                        debug!("Duplicate positive word found");
+                    }
                 }
                 None => return Err(OmegaSampleParseError::MalformedSample),
             }
@@ -121,8 +128,14 @@ impl TryFrom<Vec<String>> for OmegaSample<Simple, bool> {
             trace!("Parsing negative word \"{word}\"");
             let parsed = Normalized::try_from(word.as_str())
                 .map_err(OmegaSampleParseError::OmegaWordParseError)?;
-            words.insert(parsed, false);
+            if let Some(old_classification) = words.insert(parsed, false) {
+                if old_classification {
+                    return Err(OmegaSampleParseError::Inconsistent(word));
+                }
+                debug!("Duplicate negative word found");
+            };
         }
+
         Ok(Sample::new_omega(alphabet, words))
     }
 }
@@ -369,6 +382,10 @@ impl<'a, A: Alphabet, C: Color> SplitOmegaSample<'a, A, C> {
             .to_index(self.congruence)
             .and_then(|idx| self.split.get(&idx))
     }
+
+    pub fn classes(&self) -> impl Iterator<Item = &'_ Class<A::Symbol>> + '_ {
+        self.split.values().map(|sample| &sample.class)
+    }
 }
 
 impl<A: Alphabet, C: Color> OmegaSample<A, C> {
@@ -385,6 +402,7 @@ impl<A: Alphabet, C: Color> OmegaSample<A, C> {
             .into_iter()
             .map(|(word, color)| (word.into(), color))
             .collect();
+
         Self { alphabet, words }
     }
 

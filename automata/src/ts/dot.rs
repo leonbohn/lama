@@ -55,10 +55,8 @@ pub trait ToDot {
         Ok(output)
     }
 
-    /// Similar to the [`render`] method, but returns a [`tempfile::TempPath`] instead
-    /// of a buffer of bytes.
     #[cfg(feature = "graphviz")]
-    fn render_tempfile(&self) -> Result<tempfile::TempPath, std::io::Error> {
+    fn render_to_file_name(&self, filename: &str) -> Result<(), std::io::Error> {
         use std::{
             io::{Read, Write},
             path::Path,
@@ -67,22 +65,17 @@ pub trait ToDot {
 
         trace!("Outputting dot and rendering to png");
         let dot = self.dot_representation();
-        println!("{}", dot);
-
         let mut tempfile = tempfile::NamedTempFile::new()?;
+
         tempfile.write_all(dot.as_bytes())?;
         let tempfile_name = tempfile.path();
-
-        let image_tempfile = tempfile::Builder::new().prefix(".png").tempfile()?;
-        let image_tempfile_name = image_tempfile.into_temp_path();
 
         let mut child = std::process::Command::new("dot")
             .arg("-Tpng")
             .arg("-o")
-            .arg(&image_tempfile_name)
+            .arg(filename)
             .arg(tempfile_name)
             .spawn()?;
-
         if !child.wait()?.success() {
             Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
@@ -95,8 +88,23 @@ pub trait ToDot {
                     }),
             ))
         } else {
-            Ok(image_tempfile_name)
+            Ok(())
         }
+    }
+
+    /// Similar to the [`render`] method, but returns a [`tempfile::TempPath`] instead
+    /// of a buffer of bytes.
+    #[cfg(feature = "graphviz")]
+    fn render_tempfile(&self) -> Result<tempfile::TempPath, std::io::Error> {
+        use std::{
+            io::{Read, Write},
+            path::Path,
+        };
+        use tracing::trace;
+
+        trace!("Outputting dot and rendering to png");
+        let dot = self.dot_representation();
+        render_dot_to_tempfile(dot.as_str())
     }
 
     /// First creates a rendered PNG using [`render_tempfile`], after which the rendered
@@ -255,6 +263,49 @@ where
     }
 }
 
+#[cfg(feature = "graphviz")]
+pub fn display_dot(dot: &str) -> Result<(), std::io::Error> {
+    display_png(render_dot_to_tempfile(dot)?)
+}
+
+#[cfg(feature = "graphviz")]
+fn render_dot_to_tempfile(dot: &str) -> Result<tempfile::TempPath, std::io::Error> {
+    use std::{
+        io::{Read, Write},
+        path::Path,
+    };
+    use tracing::trace;
+    let mut tempfile = tempfile::NamedTempFile::new()?;
+    tempfile.write_all(dot.as_bytes())?;
+    let tempfile_name = tempfile.path();
+
+    let image_tempfile = tempfile::Builder::new().prefix(".png").tempfile()?;
+    let image_tempfile_name = image_tempfile.into_temp_path();
+
+    let mut child = std::process::Command::new("dot")
+        .arg("-Tpng")
+        .arg("-o")
+        .arg(&image_tempfile_name)
+        .arg(tempfile_name)
+        .spawn()?;
+
+    if !child.wait()?.success() {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            child
+                .stdout
+                .map_or("Error in dot...".to_string(), |mut err| {
+                    let mut buf = String::new();
+                    err.read_to_string(&mut buf);
+                    buf
+                }),
+        ))
+    } else {
+        Ok(image_tempfile_name)
+    }
+}
+
+#[cfg(feature = "graphviz")]
 fn display_png(rendered_path: tempfile::TempPath) -> Result<(), std::io::Error> {
     #[cfg(target_os = "linux")]
     std::process::Command::new("eog")
@@ -330,7 +381,7 @@ mod tests {
                 .iter()
                 .cloned(),
         );
-        forc.display_rendered();
+        forc.render_to_file_name("/home/leon/test.png");
     }
 
     #[test]
