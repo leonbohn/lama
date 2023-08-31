@@ -1,12 +1,14 @@
-use std::hash::Hash;
+use std::{
+    collections::{BTreeSet, VecDeque},
+    hash::Hash,
+};
 
 use automata::{
-    run::{EscapePrefix, InitialRun, Run},
-    AcceptanceCondition, Combined, Growable, Shrinkable, Subword, Symbol, Word,
+    ts::IntoParts, AcceptanceCondition, Combined, Growable, Shrinkable, Subword, Symbol, Word,
 };
-use tracing::trace;
+use tracing::{debug, trace, warn};
 
-use crate::sample::Sample;
+use crate::passive::Sample;
 use automata::{Class, RightCongruence};
 
 use super::{constraint::Constraint, GlercOutput, GlercSignal};
@@ -27,122 +29,48 @@ enum GlercIterationStatus<S: Symbol> {
 /// - `S` is the type of the symbols of the words in the sample
 /// - `W` is the type of the words in the sample
 #[derive(Clone, Debug)]
-pub struct GlercState<
-    's,
-    S: Symbol,
-    W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind>,
-    C: Constraint<S, <W as Run<RightCongruence<S>, <W as Word>::Kind>>::Induces>,
-> {
+pub struct GlercState<S: Symbol, C: Constraint<S>> {
     timer: Result<std::time::Duration, std::time::Instant>,
     /// The congruence constructed thus far
     pub(crate) cong: RightCongruence<S>,
+    pub(crate) alphabet: BTreeSet<S>,
+    queue: VecDeque<(Class<S>, S)>,
     /// The default congruence
     pub(crate) default: RightCongruence<S>,
-    /// The sample
-    pub(crate) sample: &'s Sample<W>,
     /// The current iteration
     pub(crate) iteration: usize,
     /// The current status
     status: GlercIterationStatus<S>,
-    /// Stores what the sample induces in the current congruence
-    pub(crate) induced: InducedPair<'s, S, W>,
-    /// Sotres the info on what escapes from the sample in the current congruence
-    pub(crate) escaping: EscapePair<'s, S, W>,
     pub(crate) constraint: C,
 }
 
-/// Alias for the result of evaluating a configuration
-type EvalResult<'s, S, W> = <W as Run<RightCongruence<S>, <W as Word>::Kind>>::Induces;
-/// Alias for the induced pair
-type InducedPair<'s, S, W> = (
-    Vec<(&'s W, EvalResult<'s, S, W>)>,
-    Vec<(&'s W, EvalResult<'s, S, W>)>,
-);
-/// Alias for the escaping pair
-type EscapePair<'s, S, W> = (
-    Vec<(&'s W, EscapePrefix<Class<S>, W>)>,
-    Vec<(&'s W, EscapePrefix<Class<S>, W>)>,
-);
-
-#[derive(Clone, Debug)]
-pub struct GlercInfo<'s, S: Symbol, W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind>>
-{
-    pub(crate) cong: &'s RightCongruence<S>,
-    pub(crate) induced: InducedPair<'s, S, W>,
-    pub(crate) escaping: EscapePair<'s, S, W>,
-}
-
-impl<'s, S, W, C> GlercState<'s, S, W, C>
+impl<S, C> GlercState<S, C>
 where
-    S: Symbol + 's,
-    W: Subword<S = S> + Clone + 's + Hash,
-    W: InitialRun<RightCongruence<S>, <W as Word>::Kind>,
-    C: Constraint<S, <W as Run<RightCongruence<S>, <W as Word>::Kind>>::Induces>,
+    S: Symbol,
+    C: Constraint<S>,
 {
     /// Creates a new state for the given sample and default congruence
-    pub fn new(sample: &'s Sample<W>, default: RightCongruence<S>, constraint: C) -> Self {
-        let cong = RightCongruence::empty_trivial();
-        let mut out = Self {
-            timer: Err(std::time::Instant::now()),
-            cong,
-            default,
-            sample,
-            iteration: 0,
-            status: GlercIterationStatus::FindMissing,
-            induced: (Vec::new(), Vec::new()),
-            escaping: (Vec::new(), Vec::new()),
-            constraint,
-        };
-        out.update_info();
-        out
-    }
-
-    pub fn new_from_congruence(
-        cong: RightCongruence<S>,
-        sample: &'s Sample<W>,
+    pub fn new<I: IntoIterator<Item = S>>(
         default: RightCongruence<S>,
+        alphabet: I,
         constraint: C,
     ) -> Self {
-        let mut out = Self {
+        let cong = RightCongruence::empty_trivial();
+        let alphabet = alphabet.into_iter().collect::<BTreeSet<_>>();
+        let queue = alphabet
+            .iter()
+            .map(|a| (Class::epsilon(), a.clone()))
+            .collect();
+
+        Self {
             timer: Err(std::time::Instant::now()),
             cong,
             default,
-            sample,
+            queue,
+            alphabet,
             iteration: 0,
             status: GlercIterationStatus::FindMissing,
-            induced: (Vec::new(), Vec::new()),
-            escaping: (Vec::new(), Vec::new()),
             constraint,
-        };
-        out.update_info();
-        out
-    }
-
-    fn update_info(&mut self) {
-        self.induced.0.clear();
-        self.induced.1.clear();
-        self.escaping.0.clear();
-        self.escaping.1.clear();
-
-        self.sample
-            .positive_iter()
-            .for_each(|word| match word.initial_run(&self.cong) {
-                Ok(run) => self.induced.0.push((word, run)),
-                Err(escape) => self.escaping.0.push((word, escape)),
-            });
-        self.sample
-            .negative_iter()
-            .for_each(|word| match word.initial_run(&self.cong) {
-                Ok(run) => self.induced.1.push((word, run)),
-                Err(escape) => self.escaping.1.push((word, escape)),
-            });
-    }
-
-    fn get_info(&'s self) -> GlercInfo<'s, S, W> {
-        GlercInfo {
-            cong: &self.cong,
-            induced: self.induced.clone(),
-            escaping: self.escaping.clone(),
         }
     }
 
@@ -150,35 +78,32 @@ where
         self.status.clone()
     }
 
-    pub fn step(&mut self) -> GlercSignal<S> {
+    /// Executes a single step of the GLERC algorithm, producing a [`GlercSignal`].
+    pub fn step(&mut self) -> GlercSignal<S, C::Output> {
+        self.iteration += 1;
         trace!("Starting iteration {}", self.iteration);
         let (new_status, result) = match &self.get_status() {
             GlercIterationStatus::TryInsertion(from, on, states, index) => {
-                trace!(
-                    "Trying insertion of {} -> {} at index {}, stateslist: [{}]",
-                    from,
-                    on,
-                    index,
-                    states
-                        .iter()
-                        .map(|s| s.to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                );
                 if let Some(target) = states.get(*index) {
-                    self.cong.add_transition(from, on.clone(), target);
-                    let success = {
-                        self.update_info();
-                        let info = self.get_info();
-                        self.constraint.satisfied(&info).is_ok()
-                    };
-                    trace!(
-                        "Insertion {} -> {} {}",
+                    debug!(
+                        "Trying insertion of {} --{}--> {} at index {}, stateslist: [{}]",
                         from,
                         on,
-                        if success { "succeeded" } else { "failed" }
+                        target,
+                        index,
+                        states
+                            .iter()
+                            .map(|s| s.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
                     );
-                    if success {
+                    self.cong.add_transition(from, on.clone(), target);
+                    let res = self.constraint.satisfied(&self.cong);
+                    if res.is_ok() {
+                        trace!(
+                            "Insertion successful!, leading to consistent TS\n{}",
+                            self.cong
+                        );
                         (
                             GlercIterationStatus::FindMissing,
                             GlercSignal::SuccessfulInsertion(
@@ -188,6 +113,10 @@ where
                             ),
                         )
                     } else {
+                        trace!(
+                            "\tInsertion failed, constraint reported {:?}",
+                            res.unwrap_err()
+                        );
                         self.cong.remove_transition(from.clone(), on.clone());
                         (
                             GlercIterationStatus::TryInsertion(
@@ -201,16 +130,42 @@ where
                     }
                     // Now we verify if the inserted transition leads to a consistent TS
                 } else {
-                    let new_state = from + on;
-                    self.cong.add_state(&new_state);
-                    self.cong.add_transition(from, on.clone(), &new_state);
-                    (
-                        GlercIterationStatus::FindMissing,
-                        GlercSignal::NewState(from.clone(), on.clone(), new_state.clone()),
-                    )
+                    // First, we check whether insertion would lead to a TS that is larget than the default
+                    if self.cong.0.size() >= self.default.0.size() {
+                        warn!("Exceeded threshold, returning default");
+                        self.cong = self.default.clone();
+                        (
+                            GlercIterationStatus::Finished,
+                            GlercSignal::Finished(super::GlercOutput::new(
+                                &self.cong,
+                                self.timer.unwrap(),
+                                self.constraint.satisfied(&self.cong).expect(
+                                    "This must not fail, since we already checked it before.",
+                                ),
+                            )),
+                        )
+                    } else {
+                        // We insert a new state since no state is left to try
+                        let new_state = from + on;
+                        self.cong.add_state(&new_state);
+                        self.cong.add_transition(from, on.clone(), &new_state);
+
+                        trace!(
+                            "No fitting target found, inserted new state {} and extending queue.",
+                            new_state
+                        );
+                        // also have to add the new state with all its symbols to the queue
+                        self.extend_queue(&new_state);
+
+                        (
+                            GlercIterationStatus::FindMissing,
+                            GlercSignal::NewState(from.clone(), on.clone(), new_state.clone()),
+                        )
+                    }
                 }
             }
             GlercIterationStatus::FindMissing => {
+                trace!("Finding missing transition target");
                 if let Some((q, a)) = self.next_missing() {
                     (
                         GlercIterationStatus::TryInsertion(
@@ -232,67 +187,68 @@ where
                         GlercSignal::Finished(super::GlercOutput::new(
                             &self.cong,
                             self.timer.unwrap(),
+                            self.constraint
+                                .satisfied(&self.cong)
+                                .expect("This must not fail, since we already checked it before."),
                         )),
                     )
                 }
             }
-            GlercIterationStatus::Finished => (
-                GlercIterationStatus::Finished,
-                GlercSignal::Finished(GlercOutput::new(&self.cong, self.timer.unwrap())),
-            ),
+            GlercIterationStatus::Finished => {
+                trace!("Finished!");
+                (
+                    GlercIterationStatus::Finished,
+                    GlercSignal::Finished(GlercOutput::new(
+                        &self.cong,
+                        self.timer.unwrap(),
+                        self.constraint
+                            .satisfied(&self.cong)
+                            .expect("This must not fail, since we already checked it before."),
+                    )),
+                )
+            }
         };
-        self.update_info();
 
         self.status = new_status;
         result
     }
 
+    fn extend_queue(&mut self, state: &Class<S>) {
+        for a in self.alphabet.iter() {
+            self.queue.push_back((state.clone(), a.clone()));
+        }
+    }
+
     /// Returns the next missing transition, if any
-    pub fn next_missing(&self) -> Option<(Class<S>, S)> {
-        self.sample
-            .iter()
-            .filter_map(|word| word.initial_run(&self.cong).err())
-            .min()
-            .map(|ep| ep.trigger())
+    pub fn next_missing(&mut self) -> Option<(Class<S>, S)> {
+        self.queue.pop_front()
     }
 
-    pub fn escaping(&self) -> EscapePair<S, W> {
-        self.escaping.clone()
-    }
-
-    /// Returns the induced pair for the current congruence
-    pub fn induced(&self) -> InducedPair<'s, S, W> {
-        self.induced.clone()
-    }
-
+    /// Obtains the output of the constraint, if it is satisfied.
     pub fn constraint_output(&self) -> Option<C::Output> {
-        self.constraint.satisfied(&self.get_info()).ok()
+        self.constraint.satisfied(&self.cong).ok()
     }
 
     /// Runs the algorithm to completion, executing [`step`] until it returns [`GlercSignal::Finished`].
-    pub fn execute(&mut self) -> GlercOutput<S> {
+    pub fn execute(&mut self) -> GlercOutput<S, C::Output> {
         let mut iteration = 0;
         loop {
-            iteration += 1;
             match self.step() {
                 GlercSignal::Finished(out) => return out,
                 signal => {
-                    trace!("Iteration {iteration}, signal: {:?}", signal)
+                    trace!("Iteration {}, signal: {:?}", self.iteration, signal)
                 }
             }
         }
     }
 }
 
-impl<'s, S, W, C, Acc> From<GlercState<'s, S, W, C>> for Combined<RightCongruence<S>, Acc>
+impl<S, C> From<GlercState<S, C>> for Combined<RightCongruence<S>, C::Output>
 where
-    Acc: AcceptanceCondition,
-    S: Symbol + 's,
-    W: Subword<S = S> + Clone + 's + Hash,
-    W: InitialRun<RightCongruence<S>, <W as Word>::Kind>,
-    C: Constraint<S, <W as Run<RightCongruence<S>, <W as Word>::Kind>>::Induces, Output = Acc>,
+    S: Symbol,
+    C: Constraint<S>,
 {
-    fn from(value: GlercState<'s, S, W, C>) -> Self {
+    fn from(value: GlercState<S, C>) -> Self {
         let mut gs = value;
         let result = gs.execute();
         let acceptance_condition = gs
@@ -307,62 +263,17 @@ where
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use automata::Growable;
-
-    use crate::glerc::constraint::EmptyConstraint;
-
-    use super::*;
-    use automata::RightCongruence;
-
-    macro_rules! induced_assert_eq {
-        ($state:expr, $input:expr) => {
-            assert_eq!(
-                (
-                    $state.induced().0.iter().cloned().map(|(_, x)| x).collect(),
-                    $state.induced().1.iter().cloned().map(|(_, y)| y).collect()
-                ),
-                $input
-            );
-        };
-    }
-
-    #[test]
-    fn test_missings() {
-        let sample = Sample::from_iters(["a", "ab"], ["", "b", "aa"]);
-        let mut glercstate =
-            GlercState::new(&sample, RightCongruence::empty_trivial(), EmptyConstraint);
-        let eps = Class::epsilon();
-        let a = Class::from('a');
-        let mut expected_induced = (vec![], vec![eps.clone()]);
-
-        assert_eq!(glercstate.next_missing(), Some((eps.clone(), 'a')));
-        induced_assert_eq!(glercstate, expected_induced);
-
-        glercstate.cong.add_state(&a);
-        glercstate.cong.add_transition(&eps, 'a', &a);
-        expected_induced.0.push(a.clone());
-        glercstate.update_info();
-        assert_eq!(glercstate.next_missing(), Some((eps.clone(), 'b')));
-        induced_assert_eq!(glercstate, expected_induced);
-
-        glercstate.cong.add_transition(&eps, 'b', &eps);
-        expected_induced.1.push(eps.clone());
-        glercstate.update_info();
-        assert_eq!(glercstate.next_missing(), Some((a.clone(), 'a')));
-        induced_assert_eq!(glercstate, expected_induced);
-
-        glercstate.cong.add_transition(&a, 'a', &eps);
-        expected_induced.1.push(eps.clone());
-        glercstate.update_info();
-        assert_eq!(glercstate.next_missing(), Some((a.clone(), 'b')));
-        induced_assert_eq!(glercstate, expected_induced);
-
-        glercstate.cong.add_transition(&a, 'b', &a);
-        expected_induced.0.push(a.clone());
-        glercstate.update_info();
-        assert_eq!(glercstate.next_missing(), None);
-        induced_assert_eq!(glercstate, expected_induced);
+impl<S, C> From<GlercState<S, C>> for RightCongruence<S>
+where
+    S: Symbol,
+    C: Constraint<S>,
+{
+    fn from(value: GlercState<S, C>) -> Self {
+        let mut gs = value;
+        let result = gs.execute();
+        result.learned_congruence
     }
 }
+
+#[cfg(test)]
+mod tests {}

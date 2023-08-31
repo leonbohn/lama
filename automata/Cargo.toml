@@ -1,21 +1,23 @@
 [package]
 name = "automata"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
 tracing = "0.1"
 tracing-subscriber = "0.3"
-ahash = {version = "0.8", optional = true}
-impl-tools = "0.8"
-itertools = "0.10"
-tabled = {version = "0.12", features=["color"]}
+ahash = { version = "0.8", optional = true }
+itertools = "0.11"
+tabled = { version = "0.14.0", features = ["color"] }
 owo-colors = "3.5"
-hoars = {version = "0.1", path = "../hoars", optional = true}
+hoars = { version = "0.1", path = "../hoars", optional = true }
 tracing-test = "0.2"
+tempfile = { version = "3.8.0", optional = true }
+impl-tools = "0.9"
 
 [features]
-default = ["det", "ahash", "hoa"]
+default = ["det", "ahash", "hoa", "graphviz"]
 det = []
 hoa = ["dep:hoars"]
 ahash = ["dep:ahash"]
+graphviz = ["dep:tempfile"]

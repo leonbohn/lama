@@ -1,91 +1,86 @@
 use automata::{
-    run::{EscapePrefix, Run},
-    Class, Equivalent, RightCongruence, Subword, Symbol, Word,
+    congruence::CongruenceTrigger, words::Length, Class, Equivalent, RightCongruence, Set, Subword,
+    Successor, Symbol, Word,
 };
 use itertools::Itertools;
 
-use crate::glerc::state::GlercInfo;
+use super::{Constraint, EscapeSeparabilityConstraint, InducedSeparabilityConstraint};
 
-use super::{
-    Constraint, ConstraintError, EscapeSeparabilityConstraint, InducedSeparabilityConstraint,
-};
-
-fn escape_consistent<'s, S: Symbol, W: Subword<S = S> + Eq>(
-    set_x: &'s [(&'s W, EscapePrefix<Class<S>, W>)],
-    set_y: &'s [(&'s W, EscapePrefix<Class<S>, W>)],
-) -> Result<(), ConstraintError<'s, S, W>>
+impl<'a, W> Constraint<W::S> for EscapeSeparabilityConstraint<'a, W>
 where
-    W::SuffixType: PartialEq,
+    W: Subword,
 {
-    if let Some(((positive_word, positive_prefix), (negative_word, negative_prefix))) = set_x
-        .iter()
-        .cartesian_product(set_y.iter())
-        .find(|(x, y)| x.1.equivalent(&y.1))
-    {
-        Err(ConstraintError::SameEscape(
-            positive_word,
-            positive_prefix,
-            negative_word,
-            negative_prefix,
-        ))
-    } else {
-        Ok(())
-    }
-}
+    type Output = (
+        Vec<<W::Len as Length>::Induces<Class<W::S>, W::S>>,
+        Vec<<W::Len as Length>::Induces<Class<W::S>, W::S>>,
+    );
 
-fn induced_consistent<'s, S: Symbol, W: Subword<S = S> + Eq>(
-    set_x: &[(&'s W, EscapePrefix<Class<S>, W>)],
-    set_y: &[(&'s W, EscapePrefix<Class<S>, W>)],
-) -> Result<(), ConstraintError<'s, S, W>> {
-    if let Some(((positive_word, _positive_induced), (negative_word, _negative_induced))) = set_x
-        .iter()
-        .cartesian_product(set_y.iter())
-        .find(|(x, y)| x.1 == y.1)
-    {
-        Err(ConstraintError::SameInduced(positive_word, negative_word))
-    } else {
-        Ok(())
-    }
-}
+    type Error = (&'a W, &'a W, W::SuffixType);
 
-impl<S: Symbol, X> Constraint<S, X> for EscapeSeparabilityConstraint {
-    type Output = ();
+    fn satisfied(&self, cong: &RightCongruence<W::S>) -> Result<Self::Output, Self::Error> {
+        let mut positive_induced = Vec::new();
+        let mut negative_induced = Vec::new();
+        let mut positive_escaping = Vec::new();
 
-    fn satisfied<
-        's,
-        W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind, Induces = X>,
-    >(
-        &self,
-        info: &'s GlercInfo<'s, S, W>,
-    ) -> Result<(), ConstraintError<'s, S, W>> {
-        for (lword, lesc) in &info.escaping.0 {
-            for (rword, resc) in &info.escaping.1 {
-                if lesc.equivalent(resc) {
-                    return Err(ConstraintError::SameEscape(*lword, lesc, *rword, resc));
+        for pos_word in self.0.positive_iter() {
+            match cong.run(pos_word) {
+                Ok(induced) => positive_induced.push(induced),
+                Err(partial_run) => {
+                    positive_escaping.push(partial_run);
                 }
             }
         }
-        Ok(())
-    }
-}
 
-impl<S: Symbol, X: Eq> Constraint<S, X> for InducedSeparabilityConstraint {
-    type Output = ();
-
-    fn satisfied<
-        's,
-        W: Subword<S = S> + Run<RightCongruence<S>, <W as Word>::Kind, Induces = X>,
-    >(
-        &self,
-        info: &'s GlercInfo<'s, S, W>,
-    ) -> Result<(), ConstraintError<'s, S, W>> {
-        for (lword, lind) in &info.induced.0 {
-            for (rword, rind) in &info.induced.1 {
-                if lind == rind {
-                    return Err(ConstraintError::SameInduced(*lword, *rword));
+        for neg_word in self.0.negative_iter() {
+            match cong.run(neg_word) {
+                Ok(induced) => negative_induced.push(induced),
+                Err(negative_partial_run) => {
+                    for positive_partial_run in &positive_escaping {
+                        if negative_partial_run.reached() == positive_partial_run.reached()
+                            && negative_partial_run.suffix() == positive_partial_run.suffix()
+                        {
+                            return Err((
+                                positive_partial_run.input(),
+                                negative_partial_run.input(),
+                                positive_partial_run.suffix(),
+                            ));
+                        }
+                    }
                 }
             }
         }
-        Ok(())
+
+        Ok((positive_induced, negative_induced))
+    }
+}
+
+impl<'a, W> Constraint<W::S> for InducedSeparabilityConstraint<'a, W>
+where
+    W: Subword,
+{
+    type Output = (
+        Vec<<W::Len as Length>::Induces<Class<W::S>, W::S>>,
+        Vec<<W::Len as Length>::Induces<Class<W::S>, W::S>>,
+    );
+
+    type Error = (&'a W, &'a W, <W::Len as Length>::Induces<Class<W::S>, W::S>);
+
+    fn satisfied(&self, cong: &RightCongruence<W::S>) -> Result<Self::Output, Self::Error> {
+        let mut positives = Vec::new();
+        let mut negatives = Vec::new();
+        for pos_word in self.0.positive_iter() {
+            if let Ok(pos_induced) = cong.run(pos_word) {
+                positives.push(pos_induced.clone());
+                for neg_word in self.0.negative_iter() {
+                    if let Ok(neg_induced) = cong.run(neg_word) {
+                        negatives.push(neg_induced.clone());
+                        if pos_induced == neg_induced {
+                            return Err((pos_word, neg_word, pos_induced));
+                        }
+                    }
+                }
+            }
+        }
+        Ok((positives, negatives))
     }
 }

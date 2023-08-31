@@ -1,330 +1,677 @@
-use std::{borrow::Borrow, fmt::Display};
-
-use crate::{run::Configuration, Set, Symbol, Word};
-
-mod transition;
-mod visit;
+mod successor;
+use std::{fmt::Display, hash::Hash, ops::Deref};
 
 use impl_tools::autoimpl;
-use itertools::Itertools;
-use owo_colors::OwoColorize;
-use tabled::{builder::Builder, settings::Style};
-pub use transition::{Transition, TransitionReference, Trigger};
+use itertools::{Itertools, Position};
+pub use successor::Successor;
 
-/// An implementation of a deterministic `TransitionSystem` in form of an edge list. The edge list is represented by a vector of tuples `(from, to, symbol)`. Is only available if the `det` feature is enabled.
-#[cfg(feature = "det")]
-pub mod transitionsystem;
-#[cfg(feature = "det")]
-pub use transitionsystem::TransitionSystem;
+mod transition;
+use tabled::builder::Builder;
+pub use transition::{Edge, EdgeIndex, EdgeIndicesFrom, EdgesFrom, Transition};
 
-pub use visit::{LengthLexicographic, LengthLexicographicEdges, Visitor, VisitorIter};
+pub mod operations;
+pub use operations::Product;
 
-use self::transition::StateReference;
+use crate::{
+    alphabet::{Alphabet, HasAlphabet},
+    Class, Color, Map, RightCongruence,
+};
 
-/// A trait for the state index type. Implementors must be comparable, hashable, clonable and debuggable. The `create` method is used to create a new state index from a `u32`
-pub trait StateIndex: Clone + PartialEq + Eq + std::hash::Hash + std::fmt::Debug + Ord {}
+mod index_ts;
+pub use index_ts::IndexTS;
 
-impl<X: Clone + Eq + PartialEq + std::hash::Hash + std::fmt::Debug + Ord> StateIndex for X {}
+pub mod path;
+pub use path::Path;
 
-// The following two type aliases might change in the future to allow for more flexibility, i.e. for example for implementing nondeterminism.
-/// Helper type for getting the symbol type of a transition system.
-pub type SymbolOf<X> = <X as HasInput>::Sigma;
-/// Helper type for getting the output type of a transition system.
-pub type StateOf<X> = <X as HasStates>::Q;
-/// Helper type for getting the trigger type of a transition system.
-pub type TriggerOf<TS> = (StateOf<TS>, SymbolOf<TS>);
-/// Helper type for getting the transition type of a transition system.
-pub type TransitionOf<TS> = (StateOf<TS>, SymbolOf<TS>, StateOf<TS>);
+mod induces;
+pub use induces::{finite, infinite, CanInduce, Induced};
 
-/// Trait that encapsulates things which have a set of states. The states can be generic, as long as they implement the [`StateIndex`] trait.
-#[autoimpl(for<T: trait> &T, &mut T)]
-pub trait HasStates {
-    /// The type of states of the object.
-    type Q: StateIndex;
-    /// An iterator over the states of the object.
-    type States<'me>: Iterator<Item = &'me Self::Q>
-    where
-        Self: 'me;
+pub trait IndexType: Copy + std::hash::Hash + std::fmt::Debug + Eq + Ord + Display {}
+impl<Idx: Copy + std::hash::Hash + std::fmt::Debug + Eq + Ord + Display> IndexType for Idx {}
 
-    /// Produces an iterator over the states of the object, may contain duplicates and should rarely be used. Instead take [`Self::states()`] to get an iterator over the states without duplicates.
-    fn raw_states_iter(&self) -> Self::States<'_>;
+/// Type for indices of states and edges.
+pub type Idx = usize;
 
-    /// Returns an iterator over the states of the object without duplicates.
-    fn states(&self) -> itertools::Unique<Self::States<'_>> {
-        self.raw_states_iter().unique()
+/// Helper trait for index types, which also allows conversion to a state or edge index.
+pub trait Index {
+    /// Turns self into an index of type [`Idx`].
+    fn index(&self) -> Idx;
+
+    /// Turns self into a state index.
+    fn as_state_index(&self) -> StateIndex {
+        StateIndex::new(self.index())
+    }
+
+    /// Turns self into an edge index.
+    fn as_edge_index(&self) -> EdgeIndex {
+        EdgeIndex::new(self.index())
     }
 }
 
-/// Trait that encapsulates things which have a set of input symbols, such as a transition system or transducer. The symbols can be generic, as long as they implement the [`Symbol`] trait.
-#[autoimpl(for<T: trait> &T, &mut T)]
-pub trait HasInput {
-    /// The type of input symbol.
-    type Sigma: Symbol;
-    /// An iterator over the input symbols.
-    type Input<'me>: Iterator<Item = &'me Self::Sigma>
-    where
-        Self: 'me;
-
-    /// Should rarely be used as it might contain duplicates, see [`Self::input_alphabet()`] instead.
-    fn raw_input_alphabet_iter(&self) -> Self::Input<'_>;
-
-    /// Returns an iterator over the input symbols without duplicates.
-    fn input_alphabet(&self) -> itertools::Unique<Self::Input<'_>> {
-        self.raw_input_alphabet_iter().unique()
+impl Index for Idx {
+    fn index(&self) -> Idx {
+        *self
     }
 }
 
-/// The base trait implemented by a deterministic transition system. A transition system is a tuple `(Q, S, δ)`, where `Q` is a finite set of states, `S` is a finite set of symbols and `δ: Q × S → Q` is a transition function. Note that the transition function is not necessarily complete and some transitions may be missing.
-/// States of a transition system are generic, and can be any type that implements the [`StateIndex`] trait.
-/// Also the symbols of a transition system are generic, and can be any type that implements the [`Alphabet`] trait.
-/// The [`TransitionTrigger`] trait is used to represent an outgoing transition. Note, that such a trigger is a pair consisting of a state and a symbol, meaning the target state is not included in a trigger.
+/// Wrapper type for indices of states in a transition system.
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
+pub struct StateIndex(Idx);
+
+impl StateIndex {
+    /// Creates a new state index.
+    pub fn new(index: Idx) -> Self {
+        Self(index)
+    }
+}
+
+impl Deref for StateIndex {
+    type Target = Idx;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Index for StateIndex {
+    fn index(&self) -> Idx {
+        self.0
+    }
+}
+
+impl Display for StateIndex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0.index())
+    }
+}
+
+/// A state in a transition system. This stores the color of the state and the index of the
+/// first edge leaving the state.
+#[derive(Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
+pub struct State<Q> {
+    color: Q,
+    first_edge: Option<EdgeIndex>,
+}
+
+impl<Q: Color> HasColorMut for State<Q> {
+    fn set_color(&mut self, color: Q) {
+        self.color = color;
+    }
+}
+
+impl<Q: Color> HasColor for State<Q> {
+    type Color = Q;
+    fn color(&self) -> &Q {
+        &self.color
+    }
+}
+
+impl<Q> State<Q> {
+    /// Creates a new state with the given color.
+    pub fn new(color: Q) -> Self {
+        Self {
+            color,
+            first_edge: None,
+        }
+    }
+
+    pub fn recolor<P: Color>(self, color: P) -> State<P> {
+        State {
+            color,
+            first_edge: self.first_edge,
+        }
+    }
+
+    /// Obtains a reference to the color of the state.
+    pub fn color(&self) -> &Q {
+        &self.color
+    }
+
+    pub fn clear_first_edge(&mut self) {
+        self.first_edge = None;
+    }
+
+    /// Sets the first outgoing edge of the state to the given index.
+    pub fn set_first_edge(&mut self, index: EdgeIndex) {
+        self.first_edge = Some(index);
+    }
+
+    /// Obtains the index of the first outgoing edge.
+    pub fn first_edge(&self) -> Option<EdgeIndex> {
+        self.first_edge
+    }
+}
+
+impl<Q: Display> Display for State<Q> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.color)
+    }
+}
+
+/// Implementors of this trait have a color, which can be obtained.
+#[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
+pub trait HasColor {
+    /// The color type of the implementor.
+    type Color: Color;
+    /// Returns a reference to the color of the implementor.
+    fn color(&self) -> &Self::Color;
+}
+
+/// Implementors of this trait have a color, which can be obtained and set.
+#[autoimpl(for<T: trait + ?Sized> &mut T)]
+pub trait HasColorMut: HasColor {
+    /// Sets the color of the implementor to the given color.
+    fn set_color(&mut self, color: Self::Color);
+}
+
+/// A reference to a state in a transition system. This stores the index of the state and a
+/// reference to the color of the state.
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
+pub struct StateReference<'a, Q> {
+    /// The [`StateIndex`] of the state that is referenced.
+    pub index: StateIndex,
+    /// A reference to the color of the state.
+    pub color: &'a Q,
+}
+
+impl<'a, Q: Color> HasColor for StateReference<'a, Q> {
+    type Color = Q;
+    fn color(&self) -> &Q {
+        self.color
+    }
+}
+
+impl<'a, Q> StateReference<'a, Q> {
+    /// Creates a new state reference.
+    pub fn new(index: StateIndex, color: &'a Q) -> Self {
+        Self { index, color }
+    }
+}
+
+pub trait ColorPosition: Ord + Eq + Copy + std::fmt::Debug + Display + Hash {
+    type EdgeColor<C: Color>: Color;
+    type Fused<C: Color,I: IntoIterator<Item = Self::StateColor<C>>,J: IntoIterator<Item = Self::EdgeColor<C>>>: Iterator<Item = C>;
+
+    fn fuse_iters<
+        C: Color,
+        I: IntoIterator<Item = Self::StateColor<C>>,
+        J: IntoIterator<Item = Self::EdgeColor<C>>,
+    >(
+        left: I,
+        right: J,
+    ) -> Self::Fused<C, I, J>;
+
+    fn edge_color<C: Color>(color: C) -> Self::EdgeColor<C>;
+    type StateColor<C: Color>: Color;
+    fn state_color<C: Color>(color: C) -> Self::StateColor<C>;
+    fn combine_edges<C: Color, D: Color>(
+        left: Self::EdgeColor<C>,
+        right: Self::EdgeColor<D>,
+    ) -> Self::EdgeColor<(C, D)>;
+    fn combine_states<C: Color, D: Color>(
+        left: Self::StateColor<C>,
+        right: Self::StateColor<D>,
+    ) -> Self::StateColor<(C, D)>;
+    fn map_state_color<C: Color, D: Color>(
+        color: Self::StateColor<C>,
+        f: impl FnOnce(C) -> D,
+    ) -> Self::StateColor<D>;
+    fn map_edge_color<C: Color, D: Color>(
+        color: Self::EdgeColor<C>,
+        f: impl FnOnce(C) -> D,
+    ) -> Self::EdgeColor<D>;
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
+pub struct OnEdges;
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
+pub struct OnStates;
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
+pub struct OnBoth;
+
+impl Display for OnEdges {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "on edges")
+    }
+}
+impl Display for OnStates {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "on states")
+    }
+}
+impl Display for OnBoth {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "on both")
+    }
+}
+
+impl ColorPosition for OnEdges {
+    type EdgeColor<C: Color> = C;
+
+    type StateColor<C: Color> = ();
+
+    fn edge_color<C: Color>(color: C) -> Self::EdgeColor<C> {
+        color
+    }
+
+    fn state_color<C: Color>(_color: C) -> Self::StateColor<C> {}
+
+    fn combine_edges<C: Color, D: Color>(
+        left: Self::EdgeColor<C>,
+        right: Self::EdgeColor<D>,
+    ) -> Self::EdgeColor<(C, D)> {
+        (left, right)
+    }
+
+    fn combine_states<C: Color, D: Color>(
+        left: Self::StateColor<C>,
+        right: Self::StateColor<C>,
+    ) -> Self::StateColor<(C, D)> {
+    }
+
+    fn map_state_color<C: Color, D: Color>(
+        color: Self::StateColor<C>,
+        f: impl FnOnce(C) -> D,
+    ) -> Self::StateColor<D> {
+    }
+
+    fn map_edge_color<C: Color, D: Color>(
+        color: Self::EdgeColor<C>,
+        f: impl FnOnce(C) -> D,
+    ) -> Self::EdgeColor<D> {
+        (f)(color)
+    }
+
+    type Fused<
+        C: Color,
+        I: IntoIterator<Item = Self::StateColor<C>>,
+        J: IntoIterator<Item = Self::EdgeColor<C>>,
+    > = J::IntoIter;
+
+    fn fuse_iters<
+        C: Color,
+        I: IntoIterator<Item = Self::StateColor<C>>,
+        J: IntoIterator<Item = Self::EdgeColor<C>>,
+    >(
+        left: I,
+        right: J,
+    ) -> Self::Fused<C, I, J> {
+        right.into_iter()
+    }
+}
+
+impl ColorPosition for OnStates {
+    type EdgeColor<C: Color> = ();
+
+    type StateColor<C: Color> = C;
+
+    fn edge_color<C: Color>(color: C) -> Self::EdgeColor<C> {}
+
+    fn state_color<C: Color>(color: C) -> Self::StateColor<C> {
+        color
+    }
+
+    fn combine_edges<C: Color, D: Color>(
+        left: Self::EdgeColor<C>,
+        right: Self::EdgeColor<D>,
+    ) -> Self::EdgeColor<(C, D)> {
+    }
+
+    fn combine_states<C: Color, D: Color>(
+        left: Self::StateColor<C>,
+        right: Self::StateColor<D>,
+    ) -> Self::StateColor<(C, D)> {
+        (left, right)
+    }
+
+    fn map_state_color<C: Color, D: Color>(
+        color: Self::StateColor<C>,
+        f: impl FnOnce(C) -> D,
+    ) -> Self::StateColor<D> {
+        (f)(color)
+    }
+
+    fn map_edge_color<C: Color, D: Color>(
+        color: Self::EdgeColor<C>,
+        f: impl FnOnce(C) -> D,
+    ) -> Self::EdgeColor<D> {
+    }
+
+    type Fused<
+        C: Color,
+        I: IntoIterator<Item = Self::StateColor<C>>,
+        J: IntoIterator<Item = Self::EdgeColor<C>>,
+    > = I::IntoIter;
+
+    fn fuse_iters<
+        C: Color,
+        I: IntoIterator<Item = Self::StateColor<C>>,
+        J: IntoIterator<Item = Self::EdgeColor<C>>,
+    >(
+        left: I,
+        right: J,
+    ) -> Self::Fused<C, I, J> {
+        left.into_iter()
+    }
+}
+
+impl ColorPosition for OnBoth {
+    type EdgeColor<C: Color> = C;
+
+    fn edge_color<C: Color>(color: C) -> Self::EdgeColor<C> {
+        color
+    }
+
+    type StateColor<C: Color> = C;
+
+    fn state_color<C: Color>(color: C) -> Self::StateColor<C> {
+        color
+    }
+
+    fn combine_edges<C: Color, D: Color>(
+        left: Self::EdgeColor<C>,
+        right: Self::EdgeColor<D>,
+    ) -> Self::EdgeColor<(C, D)> {
+        (left, right)
+    }
+
+    fn combine_states<C: Color, D: Color>(
+        left: Self::StateColor<C>,
+        right: Self::StateColor<D>,
+    ) -> Self::StateColor<(C, D)> {
+        (left, right)
+    }
+
+    fn map_state_color<C: Color, D: Color>(
+        color: Self::StateColor<C>,
+        f: impl FnOnce(C) -> D,
+    ) -> Self::StateColor<D> {
+        (f)(color)
+    }
+
+    fn map_edge_color<C: Color, D: Color>(
+        color: Self::EdgeColor<C>,
+        f: impl FnOnce(C) -> D,
+    ) -> Self::EdgeColor<D> {
+        (f)(color)
+    }
+
+    type Fused<
+        C: Color,
+        I: IntoIterator<Item = Self::StateColor<C>>,
+        J: IntoIterator<Item = Self::EdgeColor<C>>,
+    > = I::IntoIter;
+
+    fn fuse_iters<
+        C: Color,
+        I: IntoIterator<Item = Self::StateColor<C>>,
+        J: IntoIterator<Item = Self::EdgeColor<C>>,
+    >(
+        left: I,
+        right: J,
+    ) -> Self::Fused<C, I, J> {
+        unimplemented!("This does not make sense, we should handle this beter...")
+    }
+}
+
+pub type EdgeColor<C> =
+    <<C as Successor>::Position as ColorPosition>::EdgeColor<<C as Successor>::Color>;
+pub type StateColor<C> =
+    <<C as Successor>::Position as ColorPosition>::StateColor<<C as Successor>::Color>;
+
+/// Abstracts possessing a set of states. Note, that implementors of this trait must
+/// be able to iterate over the set of states.
+#[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
+pub trait HasStates: Successor + Sized {
+    /// The type of the states.
+    type State<'this>: HasColor<Color = StateColor<Self>>
+    where
+        Self: 'this;
+
+    /// The type of the iterator over the states.
+    type StatesIter<'this>: Iterator<Item = (&'this Self::StateIndex, Self::State<'this>)>
+    where
+        Self: 'this;
+
+    /// Returns a reference to the state with the given index, if it exists and `None` otherwise.
+    fn state(&self, index: Self::StateIndex) -> Option<Self::State<'_>>;
+
+    /// Returns an iterator over the states of the implementor.
+    fn states_iter(&self) -> Self::StatesIter<'_>;
+
+    fn hs_size(&self) -> usize {
+        self.states_iter().count()
+    }
+}
+
+#[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
+pub trait FiniteState: Successor + Sized {
+    fn state_indices(&self) -> Vec<Self::StateIndex>;
+
+    fn size(&self) -> usize {
+        self.state_indices().len()
+    }
+
+    fn contains_state_index(&self, index: Self::StateIndex) -> bool {
+        self.state_indices().contains(&index)
+    }
+
+    fn find_by_color(&self, color: &StateColor<Self>) -> Option<Self::StateIndex> {
+        self.state_indices()
+            .into_iter()
+            .find(|index| &self.state_color(*index) == color)
+    }
+
+    fn contains_state_color(&self, color: &StateColor<Self>) -> bool {
+        self.find_by_color(color).is_some()
+    }
+}
+
+/// Abstracts possessing a set of states, which can be mutated. Note, that implementors of this
+/// trait must be able to iterate over the set of states.
+#[autoimpl(for<T: trait + ?Sized> &mut T)]
+
+pub trait HasMutableStates: HasStates {
+    /// The type of the mutable iterator over the states.
+    type StateMut<'this>: HasColorMut<Color = StateColor<Self>>
+    where
+        Self: 'this;
+
+    /// Returns an iterator over mutable references to the states of the implementor.
+    fn state_mut(&mut self, index: Self::StateIndex) -> Option<Self::StateMut<'_>>;
+}
+
+pub trait Sproutable: Successor {
+    fn new_for_alphabet(alphabet: Self::Alphabet) -> Self;
+
+    fn add_state(&mut self, color: StateColor<Self>) -> Self::StateIndex;
+
+    fn set_state_color(&mut self, index: Self::StateIndex, color: StateColor<Self>);
+
+    fn set_initial_color(&mut self, color: StateColor<Self>)
+    where
+        Self: Pointed,
+    {
+        self.set_state_color(self.initial(), color);
+    }
+
+    fn add_edge<X, Y>(
+        &mut self,
+        from: X,
+        on: <Self::Alphabet as Alphabet>::Expression,
+        to: Y,
+        color: EdgeColor<Self>,
+    ) -> EdgeIndex
+    where
+        X: Into<Self::StateIndex>,
+        Y: Into<Self::StateIndex>;
+
+    fn undo_add_edge(&mut self);
+
+    /// Turns the automaton into a complete one, by adding a sink state and adding transitions
+    /// to it from all states that do not have a transition for a given symbol.
+    fn complete_with_sink(&mut self, sink_color: Self::Color) -> Self::StateIndex
+    where
+        Self: FiniteState,
+    {
+        let sink = self.add_state(<Self::Position as ColorPosition>::state_color(
+            sink_color.clone(),
+        ));
+
+        let universe = self.alphabet().universe().cloned().collect_vec();
+
+        let edge_color = <Self::Position as ColorPosition>::edge_color(sink_color);
+        for state in self.state_indices() {
+            for &sym in &universe {
+                if self.successor(state, sym).is_none() {
+                    self.add_edge(
+                        state,
+                        <Self::Alphabet as Alphabet>::expression(sym),
+                        sink,
+                        edge_color.clone(),
+                    );
+                }
+            }
+        }
+
+        sink
+    }
+}
+
+/// Implementors of this trait have a distinguished (initial) state.
 #[autoimpl(for<T: trait> &T, &mut T)]
-pub trait Successor: HasStates + HasInput {
-    /// Returns the successor state of the given state on the given symbol. The transition function is deterministic, meaning that if a transition exists, it is unique. On the other hand there may not be a transition for a given state and symbol, in which case `succ` returns `None`.
-    fn successor(&self, from: &Self::Q, on: &Self::Sigma) -> Option<Self::Q>;
+pub trait Pointed: Successor {
+    /// Returns the index of the initial state.
+    fn initial(&self) -> Self::StateIndex;
+}
 
-    /// Returns the successor state for the given trigger through calling [`Self::succ`].
-    fn apply_trigger(&self, trigger: &(Self::Q, Self::Sigma)) -> Option<Self::Q> {
-        self.successor(trigger.source(), trigger.sym())
-    }
-
-    /// Creates a new trigger from the given state and symbol.
-    fn make_trigger(from: &Self::Q, on: &Self::Sigma) -> (Self::Q, Self::Sigma) {
-        (from.clone(), on.clone())
-    }
-
-    /// Starts a run from the given state. A run is given by a [`Configuration`] object, which keeps track
-    /// of the current state.
-    fn run_word_from<W: Word<S = Self::Sigma>>(
-        &self,
-        on: W,
-        from: Self::Q,
-    ) -> Configuration<&Self, W>
+/// One of the main exported traits of this module. A Transition system is a collection of states,
+/// between which there exist directed transitions that are annotated with an expression from an
+/// alphabet. This trait merely combines the traits [`HasStates`], [`Successor`] and [`HasAlphabet`]
+/// and is automatically implemented.
+pub trait TransitionSystem: FiniteState + Successor {
+    fn build_transition_table<SD>(&self, state_decorator: SD) -> String
     where
-        Self: Sized,
-    {
-        Configuration::from_state(self, from, on)
-    }
-
-    /// Creates a copy of the current TS which has its initial state set.
-    fn start(&self, start: Self::Q) -> (Self, Self::Q)
-    where
-        Self: Sized + Clone,
-    {
-        (self.clone(), start)
-    }
-
-    /// Builds a string representation of the transition table of the transition system.
-    /// For this, the [`tabled`] crate is used.
-    fn display_transition_table(&self) -> String
-    where
-        Self::Q: Display,
+        SD: Fn(Self::StateIndex, StateColor<Self>) -> String,
     {
         let mut builder = Builder::default();
         builder.set_header(
-            vec!["Deterministic".to_string()].into_iter().chain(
-                self.input_alphabet()
-                    .map(|s| s.purple().to_string())
-                    .collect::<Vec<String>>(),
-            ),
+            std::iter::once("State".to_string())
+                .chain(self.alphabet().universe().map(|s| format!("{:?}", s))),
         );
-        for state in self.states() {
-            let mut row = vec![state.to_string()];
-            for sym in self.input_alphabet() {
-                row.push(if let Some(successor) = self.successor(state, sym) {
-                    successor.to_string()
+        for id in self.state_indices() {
+            let mut row = vec![format!("{}", state_decorator(id, self.state_color(id)))];
+            for &sym in self.alphabet().universe() {
+                if let Some(edge) = self.successor(id, sym) {
+                    row.push(format!("{} : {:?}", edge.target(), edge.color()));
                 } else {
-                    "-".to_string()
-                });
+                    row.push("-".to_string());
+                }
             }
             builder.push_record(row);
         }
-        let mut transition_table = builder.build();
-        transition_table.with(Style::psql());
-        transition_table.to_string()
+
+        builder
+            .build()
+            .with(tabled::settings::Style::rounded())
+            .to_string()
     }
 
-    /// Performs a breadth-first search on the transition system, starting from the given state.
-    fn bfs_from(&self, start: Self::Q) -> LengthLexicographic<&Self>
-    where
-        Self: Sized,
-    {
-        LengthLexicographic::new_from(self, start)
+    fn collect_ts(&self) -> IndexTS<Self::Alphabet, Self::Color, Self::Position> {
+        let mut ts = IndexTS::new_for_alphabet(self.alphabet().clone());
+        let mut map = std::collections::HashMap::new();
+        for index in self.state_indices() {
+            map.insert(index, ts.add_state(self.state_color(index)));
+        }
+        for index in self.state_indices() {
+            for sym in self.alphabet().universe() {
+                if let Some(edge) = self.successor(index, *sym) {
+                    ts.add_edge(
+                        *map.get(&index).unwrap(),
+                        <Self::Alphabet as Alphabet>::expression(*sym),
+                        *map.get(&edge.target()).unwrap(),
+                        edge.color().clone(),
+                    );
+                }
+            }
+        }
+        ts
     }
 
-    /// Performs a breadth-first search on the transition system, starting from the initial state.
-    fn bfs(&self) -> LengthLexicographic<&Self>
-    where
-        Self: Sized + Pointed,
-    {
-        LengthLexicographic::new(self)
-    }
-
-    /// Performs a breadth-first search on the transition system, starting from the given state, emitting each visited edge.
-    fn bfs_edges_from(&self, start: Self::Q) -> LengthLexicographicEdges<&Self>
-    where
-        Self: Sized,
-    {
-        LengthLexicographicEdges::new_from(self, start)
-    }
-
-    /// Performs a breadth-first search on the transition system, starting from the initial state, emitting each visited edge.
-    fn bfs_edges(&self) -> LengthLexicographicEdges<&Self>
-    where
-        Self: Sized + Pointed,
-    {
-        LengthLexicographicEdges::new(self)
-    }
-}
-
-/// Creates a new trivial transition system, which could either be empty (for [`TransitionSystem`]) or contain a single initial state (for [`InitializedDeterministic`]).
-pub trait Trivial: Successor {
-    /// Creates the trivial object
-    fn trivial() -> Self;
-}
-
-/// Implemented by objects which have a designated initial state.
-#[autoimpl(for<T: trait> &T, &mut T)]
-pub trait Pointed: Successor {
-    /// Get the initial state of the automaton.
-    fn initial(&self) -> Self::Q;
-
-    /// Runs the word from the given initial state.
-    fn run<'t, W>(&'t self, on: &'t W) -> Configuration<&'t Self, &'t W>
-    where
-        Self: Sized + HasInput,
-        W: Word<S = Self::Sigma>,
-    {
-        Configuration::for_pointed(self, on)
+    fn collect_into_ts<
+        Ts: TransitionSystem<
+                Position = Self::Position,
+                Color = Self::Color,
+                Alphabet = Self::Alphabet,
+            > + Sproutable,
+    >(
+        &self,
+    ) -> Ts {
+        let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
+        let mut map = std::collections::HashMap::new();
+        for index in self.state_indices() {
+            map.insert(index, ts.add_state(self.state_color(index)));
+        }
+        for index in self.state_indices() {
+            for sym in self.alphabet().universe() {
+                if let Some(edge) = self.successor(index, *sym) {
+                    ts.add_edge(
+                        *map.get(&index).unwrap(),
+                        <Self::Alphabet as Alphabet>::expression(*sym),
+                        *map.get(&edge.target()).unwrap(),
+                        edge.color().clone(),
+                    );
+                }
+            }
+        }
+        ts
     }
 }
 
-/// Trait that allows iterating over all edges in a [`TransitionSystem`].
-#[autoimpl(for<T: trait> &T, &mut T)]
-pub trait TransitionIterable: Successor {
-    /// Type of the iterator over all edges.
-    type TransitionIter<'me>: Iterator<Item = &'me (Self::Q, Self::Sigma, Self::Q)>
-    where
-        Self: 'me,
-        Self::Q: 'me,
-        Self::Sigma: 'me;
+impl<Ts: FiniteState + Successor> TransitionSystem for Ts {}
 
-    /// Returns an iterator over all edges in the transition system.
-    fn transitions_iter(&self) -> Self::TransitionIter<'_>;
+pub mod dot;
+pub use dot::ToDot;
 
-    /// Returns the set of transitions originating from a given state.
-    fn transitions_from(&self, from: &Self::Q) -> Set<(Self::Q, Self::Sigma, Self::Q)> {
-        self.transitions_iter()
-            .filter(|e| e.source() == from)
-            .cloned()
-            .collect()
+/// A congruence is a [`TransitionSystem`], which additionally has a distinguished initial state. On top
+/// of that, a congruence does not have any coloring on either states or symbols. This
+/// functionality is abstracted in [`Pointed`]. This trait is automatically implemented.
+pub trait Congruence: TransitionSystem + Pointed {
+    fn build_right_congruence(
+        &self,
+    ) -> (
+        RightCongruence<Self::Alphabet>,
+        Map<Self::StateIndex, usize>,
+    ) {
+        let mut cong = RightCongruence::new_for_alphabet(self.alphabet().clone());
+        let mut map = Map::new();
+
+        let states = self.state_indices();
+        for state in &states {
+            if self.initial() == *state {
+                map.insert(*state, cong.initial());
+                continue;
+            }
+            map.insert(*state, cong.add_state(Class::epsilon()));
+        }
+
+        for state in states {
+            for edge in self.edges_from(state) {
+                let target = edge.target();
+                let target_class = map.get(&target).unwrap();
+                let color = edge.color().clone();
+                let target_class = cong.add_edge(
+                    *map.get(&state).unwrap(),
+                    edge.trigger().clone(),
+                    *target_class,
+                    (),
+                );
+            }
+        }
+
+        cong.recompute_labels();
+
+        (cong, map)
     }
 }
-
-/// Trait that allows iterating over all triggers in a [`TransitionSystem`].
-pub trait TriggerIterable: Successor {
-    /// THe iterator type
-    type TriggerIter<'me>: Iterator<Item = &'me (Self::Q, Self::Sigma)>
-    where
-        Self: 'me;
-
-    /// Returns an iterator over all triggers in the transition system.
-    fn triggers_iter(&self) -> Self::TriggerIter<'_>;
-
-    /// Returns the set of triggers originating from a given state.
-    fn triggers_from(&self, from: &Self::Q) -> Set<&'_ (Self::Q, Self::Sigma)> {
-        self.triggers_iter()
-            .filter(|e| e.source() == from)
-            .collect()
-    }
-}
-
-/// Converts the given object in to an iterator over transitions, consumes self.
-pub trait IntoTransitions: Successor + Copy {
-    /// The type of transition output by the iterator.
-    type TransitionRef: Transition<Q = Self::Q, S = Self::Sigma>;
-    /// The type of the iterator.
-    type IntoTransitions: Iterator<Item = Self::TransitionRef>;
-
-    /// Converts the transition system into an iterator over its transitions.
-    fn into_transitions(self) -> Self::IntoTransitions;
-}
-
-impl<'a, T> IntoTransitions for &'a T
-where
-    T: IntoTransitions,
-{
-    type TransitionRef = T::TransitionRef;
-
-    type IntoTransitions = T::IntoTransitions;
-
-    fn into_transitions(self) -> Self::IntoTransitions {
-        (*self).into_transitions()
-    }
-}
-
-/// Converts the given object in to an iterator over states, consumes self.
-pub trait IntoStates: HasStates + Copy {
-    /// The type of state output by the iterator.
-    type StateRef: StateReference<Q = Self::Q>;
-    /// The type of the iterator.
-    type IntoStates: Iterator<Item = Self::StateRef>;
-
-    /// Converts the transition system into an iterator over its states.
-    fn into_states(self) -> Self::IntoStates;
-}
-
-impl<'a, T> IntoStates for &'a T
-where
-    T: IntoStates,
-{
-    type StateRef = T::StateRef;
-    type IntoStates = T::IntoStates;
-    fn into_states(self) -> Self::IntoStates {
-        (*self).into_states()
-    }
-}
-
-/// Converts the given transition system in to an Iterator over references to its states.
-pub trait IntoStateReferences<'a>: Successor + 'a {
-    /// The type of the iterator.
-    type Output: Iterator<Item = &'a Self::Q>;
-    /// Converts the transition system into an iterator over references to its states.
-    fn into_state_references(self) -> Self::Output;
-}
-
-/// Ecapsulates the ability to add states and transitions to a transition system.
-pub trait Growable: Successor {
-    /// Add a new state to the transition system..
-    fn add_state(&mut self, state: &Self::Q) -> bool;
-
-    /// Add a new transition to the transition system. If the transition did not exist before, `None` is returned. Otherwise, the old target state is returned.
-    fn add_transition<X: Borrow<Self::Q>, Y: Borrow<Self::Q>>(
-        &mut self,
-        from: X,
-        on: SymbolOf<Self>,
-        to: Y,
-    ) -> Option<Self::Q>;
-}
-
-/// Ecapsulates the ability to add anonymous states and transitions to a transition system.
-pub trait AnonymousGrowable: Growable {
-    /// Add a new state to the transition system..
-    fn add_new_state(&mut self) -> Self::Q;
-}
-
-/// Implmenetors of this trait can be shrunk, i.e. states and transitions can be removed from the transition system.
-pub trait Shrinkable: Successor {
-    /// Deletes the given state from the transition system. If the state did not exist before, `None` is returned. Otherwise, the old state is returned.
-    /// This method does not remove any transitions which point to the given state.
-    fn remove_state(&mut self, state: Self::Q) -> Option<Self::Q>;
-
-    /// Deletes the given transition from the transition system. If the transition did not exist before, `None` is returned. Otherwise, the old target state is returned.
-    fn remove_transition(&mut self, from: Self::Q, on: SymbolOf<Self>) -> Option<Self::Q>;
-}
-
-/// A trait implemented by a [`TransitionSystem`] which can be trimmed. This means that all unreachable states are removed from the transition system. Further, all transitions which point to or originate from unreachable states are removed. Note that this operation is only applicable to a [`TransitionSystem`] which is [`Pointed`], as the concept of reachability is only defined if a designated initial state is given.
-pub trait Trimable: Successor + Pointed {
-    /// Removes all unreachable states from the transition system. Additionally removes any transitions which point to or originate from unreachable states.
-    fn trim(&mut self);
-}
+impl<Sim: TransitionSystem + Pointed> Congruence for Sim {}

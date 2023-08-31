@@ -1,9 +1,9 @@
 use automata::{
-    congruence::CongruenceTrigger, run::Run, words::WordKind, Dfa, RightCongruence, Set,
-    StateIndex, Subword, Symbol,
+    congruence::CongruenceTrigger, Class, Dfa, Pair, RightCongruence, Set, State, Subword, Symbol,
+    TransitionSystem, UltimatelyPeriodicWord, DFA,
 };
 
-use crate::glerc::state::GlercInfo;
+use crate::passive::Sample;
 
 use super::Constraint;
 
@@ -11,27 +11,18 @@ use super::Constraint;
 /// detailed explanation of this constraint and its computation can be found in the proof of Lemma 23
 /// (which is in the appendix) of the (paper)[https://arxiv.org/abs/2302.11043].
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct MyhillNerodeConstraint<Q: StateIndex, S: Symbol> {
-    positive: Dfa<Q, S>,
-    negative: Dfa<Q, S>,
-    conflicts: Set<(Q, Q)>,
+pub struct MyhillNerodeConstraint<Q: State, P: State, S: Symbol> {
+    product: (TransitionSystem<Pair<Q, P>, S>, Pair<Q, P>),
+    conflicts: Set<(Q, P)>,
 }
 
-impl<Q: StateIndex, S: Symbol> Constraint<S, Set<CongruenceTrigger<S>>>
-    for MyhillNerodeConstraint<Q, S>
-{
-    type Output = ();
-
-    fn satisfied<
-        's,
-        W: Subword<S = S> + Run<RightCongruence<S>, WordKind<W>, Induces = Set<CongruenceTrigger<S>>>,
-    >(
-        &self,
-        _info: &'s GlercInfo<'s, S, W>,
-    ) -> Result<Self::Output, super::ConstraintError<'s, S, W>> {
-        // let lp = info.cong.direct_product(&self.positive);
-        // let rp = info.cong.direct_product(&self.negative);
-
-        Ok(())
+impl<Q: State, P: State, S: Symbol> MyhillNerodeConstraint<Q, P, S> {
+    /// Creates a new Myhill-Nerode constraint, which ensures that if two words
+    /// lead to the same state, they are equivalent under the right congruence.
+    pub fn new(sample: &Sample<UltimatelyPeriodicWord<S>>) -> Self {
+        // let positive = sample.positive_prefixes();
+        // let negative = sample.negative_prefixes();
+        // let product = positive.ts().product_with_transitions(&negative);
+        todo!()
     }
 }
