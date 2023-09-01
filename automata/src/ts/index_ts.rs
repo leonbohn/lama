@@ -6,7 +6,7 @@ use tabled::builder::Builder;
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
     ts::TransitionSystem,
-    Color,
+    Color, Map,
 };
 
 use super::{
@@ -18,9 +18,9 @@ use super::{
 /// the states and edges in a vector, which allows for fast access and iteration. The states and edges
 /// are indexed by their position in the respective vector.
 #[derive(Clone, PartialEq, Eq)]
-pub struct BTS<A: Alphabet, Q: Color, C: Color, Idx = usize> {
+pub struct BTS<A: Alphabet, Q: Color, C: Color, Idx: IndexType = usize> {
     alphabet: A,
-    states: BTreeMap<Idx, BTState<A, Q, C, Idx>>,
+    states: Map<Idx, BTState<A, Q, C, Idx>>,
 }
 
 impl<A: Alphabet, C: Color, Q: Color, Idx: IndexType> std::fmt::Debug for BTS<A, Q, C, Idx> {
@@ -41,15 +41,15 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
     pub fn new(alphabet: A) -> Self {
         Self {
             alphabet,
-            states: BTreeMap::new(),
+            states: Map::default(),
         }
     }
 
-    pub(crate) fn from_parts(alphabet: A, states: BTreeMap<Idx, BTState<A, Q, C, Idx>>) -> Self {
+    pub(crate) fn from_parts(alphabet: A, states: Map<Idx, BTState<A, Q, C, Idx>>) -> Self {
         Self { alphabet, states }
     }
 
-    pub(crate) fn into_parts(self) -> (A, BTreeMap<Idx, BTState<A, Q, C, Idx>>) {
+    pub(crate) fn into_parts(self) -> (A, Map<Idx, BTState<A, Q, C, Idx>>) {
         (self.alphabet, self.states)
     }
 
@@ -142,7 +142,7 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
         Self {
             alphabet,
-            states: BTreeMap::new(),
+            states: Map::default(),
         }
     }
 
@@ -243,7 +243,7 @@ where
 impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> HasStates for BTS<A, Q, C, Idx> {
     type State<'this> = &'this BTState<A, Q, C, Idx> where Self: 'this;
 
-    type StatesIter<'this> = std::collections::btree_map::Iter<'this, Idx, BTState<A, Q, C, Idx>>
+    type StatesIter<'this> = std::collections::hash_map::Iter<'this, Idx, BTState<A, Q, C, Idx>>
     where
         Self: 'this;
 

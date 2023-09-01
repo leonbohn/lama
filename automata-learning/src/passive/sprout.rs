@@ -86,10 +86,13 @@ where
             self.dfas[0].header(),
             self.dfas[0].body("B"),
         );
-        let conflicts = self.conflicts.iter().fold(Map::new(), |mut acc, (l, r)| {
-            acc.entry(*l).or_insert(BTreeSet::new()).insert(*r);
-            acc
-        });
+        let conflicts = self
+            .conflicts
+            .iter()
+            .fold(Map::default(), |mut acc, (l, r)| {
+                acc.entry(*l).or_insert(BTreeSet::new()).insert(*r);
+                acc
+            });
         format!(
             "label=\"Conflicts:\n{}\";\n{}\n{}\n",
             conflicts
@@ -140,7 +143,7 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
         })
         .intersection(&looping_words);
 
-    let mut conflicts = Set::new();
+    let mut conflicts = Set::default();
     let mut queue = VecDeque::from_iter(
         left_pta
             .accepting_states()
@@ -200,7 +203,7 @@ pub fn prefix_consistency_conflicts<
         .flatten()
         .collect();
 
-    let mut conflicts = Set::new();
+    let mut conflicts = Set::default();
     for ProductIndex(l, r) in dfa.state_indices() {
         let reachable = dfa
             .reachable_state_indices_from(ProductIndex(l, r))

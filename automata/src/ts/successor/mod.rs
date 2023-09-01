@@ -202,7 +202,7 @@ pub trait Successor: HasAlphabet {
     {
         let mut path = self.finite_run(origin, base)?;
         let mut position = path.len();
-        let mut seen = Map::new();
+        let mut seen = Map::default();
 
         loop {
             match seen.insert(path.reached(), position) {

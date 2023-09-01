@@ -32,7 +32,7 @@ impl<Idx: IndexType> Tarjan<Idx> {
             index: 0,
             component_count: usize::MAX,
             stack: Vec::new(),
-            data: Map::new(),
+            data: Map::default(),
         }
     }
 
@@ -184,7 +184,7 @@ impl<'a, Ts: Successor> Scc<'a, Ts> {
         debug_assert!(self.len() > 0);
 
         let mut should_continue = false;
-        let mut queue = Map::new();
+        let mut queue = Map::default();
         for state in self.iter() {
             for &sym in ts.alphabet().universe() {
                 if let Some(succ) = ts.successor_index(*state, sym) {

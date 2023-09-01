@@ -87,10 +87,10 @@ impl Display for StateIndex {
 
 /// A state in a transition system. This stores the color of the state and the index of the
 /// first edge leaving the state.
-#[derive(Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct BTState<A: Alphabet, Q, C, Idx> {
     color: Q,
-    edges: BTreeMap<A::Expression, (Idx, C)>,
+    edges: Map<A::Expression, (Idx, C)>,
 }
 
 impl<A: Alphabet, Q: Color, C, Idx> HasColorMut for BTState<A, Q, C, Idx> {
@@ -111,7 +111,7 @@ impl<A: Alphabet, Q, C, Idx> BTState<A, Q, C, Idx> {
     pub fn new(color: Q) -> Self {
         Self {
             color,
-            edges: BTreeMap::new(),
+            edges: Map::default(),
         }
     }
 
@@ -402,7 +402,7 @@ pub trait Congruence: TransitionSystem + Pointed {
         Map<Self::StateIndex, usize>,
     ) {
         let mut cong = RightCongruence::new_for_alphabet(self.alphabet().clone());
-        let mut map = Map::new();
+        let mut map = Map::default();
 
         let states = self.state_indices();
         for state in &states {

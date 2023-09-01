@@ -4,7 +4,6 @@ use std::{
     marker::PhantomData,
 };
 
-use ahash::HashSet;
 use impl_tools::autoimpl;
 use itertools::Itertools;
 use owo_colors::OwoColorize;

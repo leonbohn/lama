@@ -5,6 +5,8 @@ use std::{
     hash::Hash,
 };
 
+use crate::Map;
+
 /// A symbol of an alphabet, which is also the type of the symbols in a word. We consider different types
 /// of alphabets:
 /// - [`Simple`] alphabets, which are just a set of symbols.
@@ -42,7 +44,7 @@ pub trait Alphabet: Clone {
     type Expression: Expression<Self::Symbol>;
 
     fn search_edge<X>(
-        map: &BTreeMap<Self::Expression, X>,
+        map: &Map<Self::Expression, X>,
         sym: Self::Symbol,
     ) -> Option<(&Self::Expression, &X)>;
 
@@ -177,7 +179,7 @@ impl Alphabet for Simple {
 
     #[inline(always)]
     fn search_edge<X>(
-        map: &BTreeMap<Self::Expression, X>,
+        map: &Map<Self::Expression, X>,
         sym: Self::Symbol,
     ) -> Option<(&Self::Expression, &X)> {
         map.get_key_value(&sym)

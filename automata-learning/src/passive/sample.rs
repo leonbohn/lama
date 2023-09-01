@@ -108,7 +108,7 @@ impl TryFrom<Vec<String>> for OmegaSample<Simple, bool> {
             return Err(OmegaSampleParseError::MalformedSample);
         }
 
-        let mut words = Map::new();
+        let mut words = Map::default();
         'positive: loop {
             match lines.next() {
                 Some(word) => {
@@ -377,7 +377,7 @@ impl<'a, A: Alphabet, C: Color> ClassOmegaSample<'a, A, C> {
             class,
             sample: Sample {
                 alphabet,
-                words: Map::new(),
+                words: Map::default(),
             },
         }
     }
@@ -441,7 +441,7 @@ impl<A: Alphabet, C: Color> OmegaSample<A, C> {
         );
         let initial = cong.initial();
         // take self as is for epsilon
-        let mut spilt = Map::new();
+        let mut spilt = Map::default();
         spilt.insert(
             initial,
             ClassOmegaSample::new(cong, Class::epsilon(), self.clone()),

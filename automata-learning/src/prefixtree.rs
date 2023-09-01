@@ -51,7 +51,7 @@ pub fn prefix_tree<
         if words.len() == 1 && words[0].length().loop_index() == 0 {
             build_accepting_loop(&mut tree, state, access, words[0].repeating_segment());
         } else {
-            let mut map: Map<_, Set<_>> = Map::new();
+            let mut map: Map<_, Set<_>> = Map::default();
             for mut word in words {
                 let sym = word.pop_front();
                 debug_assert!(
