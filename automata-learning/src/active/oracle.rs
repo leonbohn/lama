@@ -1,6 +1,6 @@
 use automata::{
     alphabet::{Alphabet, HasAlphabet, Symbol, SymbolOf},
-    ts::{ColorPosition, OnStates, Pointed, Successor},
+    ts::{Pointed, Successor},
     Acceptor, Color, FiniteLength, Length, Map, MooreMachine, Transformer, Word,
 };
 
@@ -12,7 +12,7 @@ use automata::{
 /// non-empty finite words a value of type `Output`. This means we can learn a Mealy machine by using [`Priority`] as
 /// the `Output` type, but it also enables us to learn a regular language/deterministic finite automaton by using
 /// `bool` as the `Output` type.
-pub trait Oracle<Pos: ColorPosition = OnStates>: HasAlphabet {
+pub trait Oracle: HasAlphabet {
     /// The length type of the words that this oracle can handle.
     type Length: Length;
     /// The output type, for a DFA that would be a boolean, but a Mealy Machine might output a [`Priority`] instead.
@@ -30,6 +30,6 @@ pub trait Oracle<Pos: ColorPosition = OnStates>: HasAlphabet {
     fn equivalence<H>(&self, hypothesis: H) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)>
     where
         H: Pointed
-            + Successor<Alphabet = Self::Alphabet, Position = Pos, Color = Self::Output>
+            + Successor<Alphabet = Self::Alphabet, StateColor = Self::Output>
             + Transformer<SymbolOf<Self>, Self::Length, Output = Self::Output>;
 }

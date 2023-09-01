@@ -1,31 +1,29 @@
 use std::collections::BTreeMap;
 
+use itertools::Itertools;
 use tabled::builder::Builder;
 
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
     ts::TransitionSystem,
-    Color,
+    Color, Map,
 };
 
 use super::{
-    ColorPosition, Edge, EdgeColor, EdgeIndex, EdgeIndicesFrom, EdgesFrom, FiniteState,
-    HasColorMut, HasMutableStates, HasStates, Index, IndexType, OnEdges, OnStates, Sproutable,
-    State, StateColor, StateIndex, Successor, Transition,
+    BTState, Edge, EdgeColor, EdgeIndex, EdgeIndicesFrom, EdgesFrom, FiniteState, HasColorMut,
+    HasMutableStates, HasStates, Index, IndexType, Sproutable, StateColor, StateIndex, Successor,
+    Transition,
 };
 /// An implementation of a transition system with states of type `Q` and colors of type `C`. It stores
 /// the states and edges in a vector, which allows for fast access and iteration. The states and edges
 /// are indexed by their position in the respective vector.
 #[derive(Clone, PartialEq, Eq)]
-pub struct IndexTS<A: Alphabet, C: Color, Pos: ColorPosition, Idx = usize> {
+pub struct BTS<A: Alphabet, Q: Color, C: Color, Idx: IndexType = usize> {
     alphabet: A,
-    states: BTreeMap<Idx, State<Pos::StateColor<C>>>,
-    edges: Vec<Edge<A::Expression, Pos::EdgeColor<C>, Idx>>,
+    states: Map<Idx, BTState<A, Q, C, Idx>>,
 }
 
-impl<A: Alphabet, C: Color, Pos: ColorPosition, Idx: IndexType> std::fmt::Debug
-    for IndexTS<A, C, Pos, Idx>
-{
+impl<A: Alphabet, C: Color, Q: Color, Idx: IndexType> std::fmt::Debug for BTS<A, Q, C, Idx> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(
             f,
@@ -35,39 +33,24 @@ impl<A: Alphabet, C: Color, Pos: ColorPosition, Idx: IndexType> std::fmt::Debug
     }
 }
 
-pub type MealyTS<A, C, Idx = usize> = IndexTS<A, C, OnEdges, Idx>;
-pub type MooreTS<A, C, Idx = usize> = IndexTS<A, C, OnStates, Idx>;
+pub type MealyTS<A, C, Idx = usize> = BTS<A, (), C, Idx>;
+pub type MooreTS<A, C, Idx = usize> = BTS<A, C, (), Idx>;
 
-impl<A: Alphabet, Idx: IndexType, C: Color, Position: ColorPosition> IndexTS<A, C, Position, Idx> {
+impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
     /// Creates a new transition system with the given alphabet.
     pub fn new(alphabet: A) -> Self {
         Self {
             alphabet,
-            states: BTreeMap::new(),
-            edges: Vec::new(),
+            states: Map::default(),
         }
     }
 
-    pub(crate) fn from_parts(
-        alphabet: A,
-        states: BTreeMap<Idx, State<Position::StateColor<C>>>,
-        edges: Vec<Edge<A::Expression, Position::EdgeColor<C>, Idx>>,
-    ) -> Self {
-        Self {
-            alphabet,
-            states,
-            edges,
-        }
+    pub(crate) fn from_parts(alphabet: A, states: Map<Idx, BTState<A, Q, C, Idx>>) -> Self {
+        Self { alphabet, states }
     }
 
-    pub(crate) fn into_parts(
-        self,
-    ) -> (
-        A,
-        BTreeMap<Idx, State<Position::StateColor<C>>>,
-        Vec<Edge<A::Expression, Position::EdgeColor<C>, Idx>>,
-    ) {
-        (self.alphabet, self.states, self.edges)
+    pub(crate) fn into_parts(self) -> (A, Map<Idx, BTState<A, Q, C, Idx>>) {
+        (self.alphabet, self.states)
     }
 
     pub fn with_capacity(alphabet: A, states: usize) -> Self
@@ -81,11 +64,10 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Position: ColorPosition> IndexTS<A, 
                 .map(|i| {
                     (
                         i.into(),
-                        State::new(<StateColor<Self> as Default>::default()),
+                        BTState::new(<StateColor<Self> as Default>::default()),
                     )
                 })
                 .collect(),
-            edges: Vec::new(),
         }
     }
 
@@ -94,7 +76,7 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Position: ColorPosition> IndexTS<A, 
         &self.alphabet
     }
 
-    pub fn states(&self) -> impl Iterator<Item = &State<Position::StateColor<C>>> {
+    pub fn states(&self) -> impl Iterator<Item = &BTState<A, Q, C, Idx>> {
         self.states.values()
     }
 
@@ -103,50 +85,27 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Position: ColorPosition> IndexTS<A, 
     }
 }
 
-impl<A: Alphabet, Idx: IndexType, Pos: ColorPosition, C: Color> IndexTS<A, C, Pos, Idx> {
+impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> BTS<A, Q, C, Idx> {
     /// Returns an iterator over the [`EdgeIndex`]es of the edges leaving the given state.
-    pub fn edge_indices_from(
-        &self,
-        source: Idx,
-    ) -> EdgeIndicesFrom<'_, A::Expression, EdgeColor<Self>, Idx> {
-        EdgeIndicesFrom::new(&self.edges, self.state(source).and_then(|s| s.first_edge()))
-    }
-
-    /// Returns an iterator over references to the edges leaving the given state.
     pub(crate) fn index_ts_edges_from(
         &self,
         source: Idx,
-    ) -> EdgesFrom<'_, A::Expression, EdgeColor<Self>, Idx> {
-        EdgesFrom::new(&self.edges, self.state(source).and_then(|s| s.first_edge()))
+    ) -> Option<impl Iterator<Item = (&'_ A::Expression, &'_ (Idx, C))> + '_> {
+        self.states.get(&source).map(|s| s.edges.iter())
     }
 
     /// Checks whether the state exists.
     pub fn contains_state<I: Into<Idx>>(&self, index: I) -> bool {
         self.states.contains_key(&index.into())
     }
-
-    fn last_edge_from(&self, source: Idx) -> Option<EdgeIndex> {
-        self.edge_indices_from(source).last()
-    }
-
-    fn get_edge(&self, index: EdgeIndex) -> Option<&Edge<A::Expression, EdgeColor<Self>, Idx>> {
-        self.edges.get(index.index())
-    }
-
-    fn get_edge_mut(
-        &mut self,
-        index: EdgeIndex,
-    ) -> Option<&mut Edge<A::Expression, EdgeColor<Self>, Idx>> {
-        self.edges.get_mut(index.index())
-    }
 }
 
-impl<A: Alphabet, Pos: ColorPosition, C: Color> Sproutable for IndexTS<A, C, Pos, usize> {
+impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
     /// Adds a state with given `color` to the transition system, returning the [Idx] of
     /// the new state.
     fn add_state(&mut self, color: StateColor<Self>) -> usize {
         let id = self.states.len();
-        let state = State::new(color);
+        let state = BTState::new(color);
         self.states.insert(id, state);
         id
     }
@@ -160,7 +119,7 @@ impl<A: Alphabet, Pos: ColorPosition, C: Color> Sproutable for IndexTS<A, C, Pos
         on: <Self::Alphabet as Alphabet>::Expression,
         to: Y,
         color: EdgeColor<Self>,
-    ) -> EdgeIndex
+    ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
         X: Into<usize>,
         Y: Into<usize>,
@@ -171,34 +130,9 @@ impl<A: Alphabet, Pos: ColorPosition, C: Color> Sproutable for IndexTS<A, C, Pos
             self.contains_state(source) && self.contains_state(target),
             "Source or target vertex does not exist in the graph."
         );
-        let new_edge_id = self.edges.len().as_edge_index();
-
-        let edge: Edge<<A as Alphabet>::Expression, EdgeColor<Self>, _> =
-            if let Some(last_edge_id) = self.last_edge_from(source) {
-                self.get_edge_mut(last_edge_id)
-                    .unwrap()
-                    .set_next(new_edge_id);
-                Edge::new(source, target, color, on).with_prev(last_edge_id)
-            } else {
-                self.state_mut(source).unwrap().set_first_edge(new_edge_id);
-                Edge::new(source, target, color, on)
-            };
-        self.edges.push(edge);
-        new_edge_id
-    }
-
-    fn undo_add_edge(&mut self) {
-        if let Some(removed_edge) = self.edges.pop() {
-            if let Some(prev_edge_id) = removed_edge.get_prev() {
-                self.get_edge_mut(prev_edge_id).unwrap().clear_next();
-            } else {
-                self.state_mut(removed_edge.source())
-                    .unwrap()
-                    .clear_first_edge();
-            }
-        } else {
-            panic!("Cannot undo add_edge: No edge to remove!");
-        }
+        self.states
+            .get_mut(&source)
+            .and_then(|o| o.add_edge(on, target, color))
     }
 
     fn set_state_color(&mut self, index: Self::StateIndex, color: StateColor<Self>) {
@@ -208,26 +142,37 @@ impl<A: Alphabet, Pos: ColorPosition, C: Color> Sproutable for IndexTS<A, C, Pos
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
         Self {
             alphabet,
-            states: BTreeMap::new(),
-            edges: Vec::new(),
+            states: Map::default(),
         }
+    }
+
+    fn remove_edge(
+        &mut self,
+        from: Self::StateIndex,
+        on: <Self::Alphabet as Alphabet>::Expression,
+    ) -> bool {
+        self.states
+            .get_mut(&from)
+            .and_then(|o| o.remove_edge(on))
+            .is_some()
     }
 }
 
-impl<A: Alphabet, Idx: IndexType, Pos: ColorPosition, C: Color> Successor
-    for IndexTS<A, C, Pos, Idx>
-{
-    type Position = Pos;
-    type Color = C;
+impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Successor for BTS<A, Q, C, Idx> {
+    type StateColor = Q;
+    type EdgeColor = C;
     type StateIndex = Idx;
     fn successor(
         &self,
         state: Idx,
         symbol: A::Symbol,
-    ) -> Option<Transition<Idx, A::Symbol, EdgeColor<Self>>> {
-        self.index_ts_edges_from(state)
-            .find(|e| self.alphabet().matches(e.trigger(), symbol))
-            .map(|e| Transition::new(state, symbol, e.target(), e.color().clone()))
+    ) -> Option<Transition<Idx, A::Expression, EdgeColor<Self>>> {
+        self.states
+            .get(&state)
+            .and_then(|o| A::search_edge(&o.edges, symbol))
+            .map(|(expression, (target, color))| {
+                Transition::new(state, expression.clone(), *target, color.clone())
+            })
     }
 
     fn state_color(&self, index: Idx) -> StateColor<Self> {
@@ -244,14 +189,16 @@ impl<A: Alphabet, Idx: IndexType, Pos: ColorPosition, C: Color> Successor
         crate::alphabet::ExpressionOf<Self>,
         EdgeColor<Self>,
     )> {
-        self.edges
+        self.states
             .iter()
-            .filter_map(|edge| {
-                if edge.target() == state {
-                    Some((edge.source(), edge.trigger().clone(), edge.color().clone()))
-                } else {
-                    None
-                }
+            .flat_map(|(id, q)| {
+                q.edges().filter_map(|(e, (p, c))| {
+                    if *p == state {
+                        Some((*id, e.clone(), c.clone()))
+                    } else {
+                        None
+                    }
+                })
             })
             .collect()
     }
@@ -260,19 +207,32 @@ impl<A: Alphabet, Idx: IndexType, Pos: ColorPosition, C: Color> Successor
         &self,
         state: Self::StateIndex,
     ) -> Vec<Edge<crate::alphabet::ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>> {
-        self.edges
-            .iter()
-            .filter(|edge| edge.source() == state)
-            .cloned()
-            .collect()
+        self.states
+            .get(&state)
+            .map(|o| {
+                o.edges()
+                    .map(|(e, (p, c))| Edge::new(state, *p, c.clone(), e.clone()))
+                    .collect_vec()
+            })
+            .unwrap_or_default()
+    }
+
+    fn edge_color(
+        &self,
+        state: Self::StateIndex,
+        expression: &crate::alphabet::ExpressionOf<Self>,
+    ) -> Option<EdgeColor<Self>> {
+        self.states
+            .get(&state)
+            .and_then(|o| o.edges.get(expression).map(|(_, c)| c.clone()))
     }
 }
 
-impl<A, Idx, Pos, C> FiniteState for IndexTS<A, C, Pos, Idx>
+impl<A, Q, Idx, C> FiniteState for BTS<A, Q, C, Idx>
 where
     A: Alphabet,
+    Q: Color,
     Idx: IndexType,
-    Pos: ColorPosition,
     C: Color,
 {
     fn state_indices(&self) -> Vec<Self::StateIndex> {
@@ -280,12 +240,10 @@ where
     }
 }
 
-impl<A: Alphabet, Idx: IndexType, Pos: ColorPosition, C: Color> HasStates
-    for IndexTS<A, C, Pos, Idx>
-{
-    type State<'this> = &'this State<Pos::StateColor<C>> where Self: 'this;
+impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> HasStates for BTS<A, Q, C, Idx> {
+    type State<'this> = &'this BTState<A, Q, C, Idx> where Self: 'this;
 
-    type StatesIter<'this> = std::collections::btree_map::Iter<'this, Idx, State<Pos::StateColor<C>>>
+    type StatesIter<'this> = std::collections::hash_map::Iter<'this, Idx, BTState<A, Q, C, Idx>>
     where
         Self: 'this;
 
@@ -300,19 +258,15 @@ impl<A: Alphabet, Idx: IndexType, Pos: ColorPosition, C: Color> HasStates
     }
 }
 
-impl<A: Alphabet, Idx: IndexType, Pos: ColorPosition, C: Color> HasMutableStates
-    for IndexTS<A, C, Pos, Idx>
-{
-    type StateMut<'this> = &'this mut State<Pos::StateColor<C>> where Self: 'this;
+impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> HasMutableStates for BTS<A, Q, C, Idx> {
+    type StateMut<'this> = &'this mut BTState<A, Q, C, Idx>where Self: 'this;
 
     fn state_mut(&mut self, index: Idx) -> Option<Self::StateMut<'_>> {
         self.states.get_mut(&index)
     }
 }
 
-impl<A: Alphabet, Idx: IndexType, Pos: ColorPosition, C: Color> HasAlphabet
-    for IndexTS<A, C, Pos, Idx>
-{
+impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> HasAlphabet for BTS<A, Q, C, Idx> {
     type Alphabet = A;
     fn alphabet(&self) -> &Self::Alphabet {
         &self.alphabet
@@ -339,7 +293,7 @@ mod tests {
         ts::{index_ts::MealyTS, Sproutable, Successor, Transition},
     };
 
-    use super::IndexTS;
+    use super::BTS;
 
     #[test]
     fn build_ts() {
@@ -353,6 +307,6 @@ mod tests {
         println!("{:?}", ts);
         assert!(ts.successor(s0, 'a').is_some());
         assert_eq!(ts.successor(s1, 'a'), Some(Transition::new(s1, 'a', s1, 0)));
-        assert_eq!(ts.index_ts_edges_from(s0).count(), 2);
+        assert_eq!(ts.index_ts_edges_from(s0).unwrap().count(), 2);
     }
 }

@@ -1,9 +1,9 @@
-use std::io::Write;
+
 
 use automata::{
     congurence::FORC,
     ts::{dot::display_dot, ToDot},
-    Map, Pointed,
+    Map,
 };
 use automata_learning::passive::{
     sprout::{
@@ -11,9 +11,8 @@ use automata_learning::passive::{
     },
     OmegaSample,
 };
-use clap::{arg, command, Arg, ArgAction, Command};
-use pprof::protos::Message;
-use tracing::{debug, error, info, trace, Level};
+use clap::{command, Arg, ArgAction, Command};
+use tracing::{debug, error, Level};
 
 fn conflicts_arg() -> Arg {
     Arg::new("conflicts")
@@ -116,12 +115,6 @@ fn main() {
                         }
                     }
                     Some(("forc", _)) => {
-                        let guard = pprof::ProfilerGuardBuilder::default()
-                            .frequency(2000)
-                            .blocklist(&["libc", "libgcc", "pthread", "vdso"])
-                            .build()
-                            .unwrap();
-
                         let cong = sample.infer_right_congruence();
                         let split_sample = sample.split(&cong);
 
@@ -154,11 +147,6 @@ fn main() {
                                 (c, omega_sprout_conflicts(conflicts, false))
                             }),
                         );
-
-                        if let Ok(report) = guard.report().build() {
-                            let flamegraph = std::fs::File::create("pprof_flamegraph.svg").unwrap();
-                            report.flamegraph(flamegraph).unwrap();
-                        }
 
                         if passive_matches.get_flag("nooutput") {
                             "".to_string()

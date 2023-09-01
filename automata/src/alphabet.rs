@@ -1,8 +1,11 @@
 use std::{
     borrow::Borrow,
+    collections::BTreeMap,
     fmt::{Debug, Display},
     hash::Hash,
 };
+
+use crate::Map;
 
 /// A symbol of an alphabet, which is also the type of the symbols in a word. We consider different types
 /// of alphabets:
@@ -20,7 +23,7 @@ impl<S: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash + Display> Symbo
 /// An expression is used to label [`crate::ts::Edge`]s of a [`crate::ts::TransitionSystem`]. For [`Simple`]
 /// alphabets, an expression is simply a single symbol, whereas for a [`Propositional`] alphabet, an expression
 /// is a propositional formula over the atomic propositions. See [`Propositional`] for more details.
-pub trait Expression<S: Symbol>: Clone + Eq {
+pub trait Expression<S: Symbol>: Hash + Clone + Debug + Eq + Ord {
     /// Type of iterator over the concrete symbols matched by this expression.
     type SymbolsIter: Iterator<Item = S>;
     /// Returns an iterator over the [`Symbol`]s that match this expression.
@@ -39,6 +42,11 @@ pub trait Alphabet: Clone {
     type Symbol: Symbol;
     /// The type of expressions in this alphabet.
     type Expression: Expression<Self::Symbol>;
+
+    fn search_edge<X>(
+        map: &Map<Self::Expression, X>,
+        sym: Self::Symbol,
+    ) -> Option<(&Self::Expression, &X)>;
 
     /// Type for an iterator over all possible symbols in the alphabet. For [`Propositional`] alphabets,
     /// this may return quite a few symbols (exponential in the number of atomic propositions).
@@ -167,5 +175,13 @@ impl Alphabet for Simple {
 
     fn contains(&self, symbol: Self::Symbol) -> bool {
         self.0.contains(&symbol)
+    }
+
+    #[inline(always)]
+    fn search_edge<X>(
+        map: &Map<Self::Expression, X>,
+        sym: Self::Symbol,
+    ) -> Option<(&Self::Expression, &X)> {
+        map.get_key_value(&sym)
     }
 }

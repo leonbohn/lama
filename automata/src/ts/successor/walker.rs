@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use tracing::trace;
 
 use crate::{
-    alphabet::{HasAlphabet, SymbolOf},
+    alphabet::{ExpressionOf, HasAlphabet, SymbolOf},
     length::RawPosition,
     ts::{EdgeColor, Path, StateColor, StateIndex, Transition, TransitionSystem},
     Length, Word,
@@ -17,13 +17,13 @@ pub struct Walker<'a, 'b, Ts: Successor, R> {
     word: &'b R,
     position: usize,
     seen: BTreeSet<(RawPosition, Ts::StateIndex)>,
-    seq: Path<Ts::Alphabet, Ts::StateIndex, Ts::Color, Ts::Position>,
+    seq: Path<Ts::Alphabet, Ts::StateIndex>,
 }
 
 pub type RunResult<'a, 'b, Ts, R> = Result<Successful<'a, 'b, R, Ts>, Partial<'a, 'b, R, Ts>>;
 
 pub enum WalkerStep<Ts: Successor> {
-    Transition(Transition<Ts::StateIndex, SymbolOf<Ts>, EdgeColor<Ts>>),
+    Transition(Transition<Ts::StateIndex, ExpressionOf<Ts>, EdgeColor<Ts>>),
     Missing(Ts::StateIndex, SymbolOf<Ts>),
     Cycle,
     End,
@@ -42,7 +42,7 @@ impl<'a, 'b, Ts: Successor, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b, Ts, R
             word,
             position: 0,
             seen: BTreeSet::new(),
-            seq: Path::empty(origin, ts.state_color(origin)),
+            seq: Path::empty(origin),
         }
     }
 
@@ -104,7 +104,7 @@ impl<'a, 'b, Ts: Successor, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b, Ts, R
         }
     }
 
-    pub fn step(&mut self) -> Option<Transition<Ts::StateIndex, SymbolOf<Ts>, EdgeColor<Ts>>> {
+    pub fn step(&mut self) -> Option<Transition<Ts::StateIndex, ExpressionOf<Ts>, EdgeColor<Ts>>> {
         match self.take_transition() {
             WalkerStep::Transition(t) => {
                 trace!("Took transition {:?} at position {}", t, self.position);

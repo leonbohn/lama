@@ -66,13 +66,13 @@ impl TryFrom<&str> for Normalized<char, InfiniteLength> {
                     if repeating.contains(',') {
                         return Err(NormalizedParseError::TooManyCommas);
                     }
+                    let initial = initial.trim();
+                    let base_len = initial.len();
+                    let repeating = repeating.trim();
+                    let repeating_len = repeating.len();
                     Ok(Self::new_omega(
-                        initial
-                            .trim()
-                            .chars()
-                            .chain(repeating.trim().chars())
-                            .collect_vec(),
-                        InfiniteLength(initial.len() + repeating.len(), initial.len()),
+                        initial.chars().chain(repeating.chars()).collect_vec(),
+                        InfiniteLength(base_len + repeating_len, base_len),
                     ))
                 }
             }

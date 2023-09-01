@@ -4,7 +4,7 @@ use crate::{
     alphabet::{ExpressionOf, HasAlphabet, Symbol, SymbolOf},
     automaton::WithInitial,
     word::OmegaWord,
-    Alphabet, Color, Pointed, Word,
+    Alphabet, Color, Map, Pointed, Set, Word,
 };
 
 use self::{
@@ -15,9 +15,10 @@ use self::{
 
 use super::{
     finite::{ReachedColor, ReachedState},
-    operations::{MapColors, MatchingProduct},
-    CanInduce, ColorPosition, Edge, EdgeColor, FiniteState, IndexTS, IndexType, Induced, Path,
-    StateColor, StateIndex, Transition,
+    operations::{MapStateColor, MatchingProduct},
+    path::Lasso,
+    CanInduce, Edge, EdgeColor, FiniteState, IndexType, Induced, Path, StateColor, StateIndex,
+    Transition, BTS,
 };
 
 mod partial;
@@ -53,15 +54,22 @@ pub use sccs::Tarjan;
 /// an edge may represent any different number of transitions.
 pub trait Successor: HasAlphabet {
     type StateIndex: IndexType;
-    type Position: ColorPosition;
-    type Color: Color;
+
+    type StateColor: Color;
+    type EdgeColor: Color;
 
     /// For a given `state` and `symbol`, returns the transition that is taken, if it exists.
     fn successor(
         &self,
         state: Self::StateIndex,
         symbol: SymbolOf<Self>,
-    ) -> Option<Transition<Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>>;
+    ) -> Option<Transition<Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>>>;
+
+    fn edge_color(
+        &self,
+        state: Self::StateIndex,
+        expression: &ExpressionOf<Self>,
+    ) -> Option<EdgeColor<Self>>;
 
     fn edges_from(
         &self,
@@ -73,7 +81,7 @@ pub trait Successor: HasAlphabet {
         state: Self::StateIndex,
     ) -> Vec<(Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>)>;
 
-    fn state_color(&self, state: Self::StateIndex) -> StateColor<Self>;
+    fn state_color(&self, state: Self::StateIndex) -> Self::StateColor;
 
     fn with_initial(self, initial: Self::StateIndex) -> WithInitial<Self>
     where
@@ -92,14 +100,14 @@ pub trait Successor: HasAlphabet {
         RestrictByStateIndex::new(self, filter)
     }
 
-    fn map_colors<D: Color, F: Fn(Self::Color) -> D>(self, f: F) -> MapColors<Self, F>
+    fn map_colors<D: Color, F: Fn(Self::StateColor) -> D>(self, f: F) -> MapStateColor<Self, F>
     where
         Self: Sized,
     {
-        MapColors::new(self, f)
+        MapStateColor::new(self, f)
     }
 
-    fn all_accepting_dfa(self) -> MapColors<Self, fn(Self::Color) -> bool>
+    fn all_accepting_dfa(self) -> MapStateColor<Self, fn(Self::StateColor) -> bool>
     where
         Self: Sized,
     {
@@ -161,6 +169,60 @@ pub trait Successor: HasAlphabet {
     {
         self.reachable_state_indices_from(origin)
             .any(|s| s == state)
+    }
+
+    fn finite_run(
+        &self,
+        origin: Self::StateIndex,
+        word: &[SymbolOf<Self>],
+    ) -> Result<Path<Self::Alphabet, Self::StateIndex>, Path<Self::Alphabet, Self::StateIndex>>
+    where
+        Self: Sized,
+    {
+        let mut current = origin;
+        let mut path = Path::empty(current);
+        for symbol in word {
+            if let Some(o) = path.extend_in(&self, *symbol) {
+                current = o.target();
+            } else {
+                return Err(path);
+            }
+        }
+        Ok(path)
+    }
+
+    fn omega_run(
+        &self,
+        origin: Self::StateIndex,
+        base: &[SymbolOf<Self>],
+        recur: &[SymbolOf<Self>],
+    ) -> Result<Lasso<Self::Alphabet, Self::StateIndex>, Path<Self::Alphabet, Self::StateIndex>>
+    where
+        Self: Pointed + Sized,
+    {
+        let mut path = self.finite_run(origin, base)?;
+        let mut position = path.len();
+        let mut seen = Map::default();
+
+        loop {
+            match seen.insert(path.reached(), position) {
+                Some(p) => {
+                    return Ok(path.loop_back_to(p));
+                }
+                None => match self.finite_run(path.reached(), recur) {
+                    Ok(p) => {
+                        position += p.len();
+                        path.extend_with(p);
+                    }
+                    Err(p) => {
+                        path.extend_with(p);
+                        return Err(path);
+                    }
+                },
+            }
+        }
+
+        unreachable!()
     }
 
     /// Runs the given `word` on the transition system, starting from `state`, which means starting
@@ -233,14 +295,6 @@ pub trait Successor: HasAlphabet {
         self.induced(word, self.initial())
     }
 
-    fn make_edge_color(&self, color: Self::Color) -> EdgeColor<Self> {
-        <Self::Position as ColorPosition>::edge_color(color)
-    }
-
-    fn make_state_color(&self, color: Self::Color) -> StateColor<Self> {
-        <Self::Position as ColorPosition>::state_color(color)
-    }
-
     fn minimal_representatives(&self) -> MinimalRepresentatives<&Self>
     where
         Self: Sized + Pointed,
@@ -292,16 +346,14 @@ pub trait Successor: HasAlphabet {
 
 impl<Ts: Successor> Successor for &Ts {
     type StateIndex = Ts::StateIndex;
-
-    type Position = Ts::Position;
-
-    type Color = Ts::Color;
+    type EdgeColor = Ts::EdgeColor;
+    type StateColor = Ts::StateColor;
 
     fn successor(
         &self,
         state: Self::StateIndex,
         symbol: SymbolOf<Self>,
-    ) -> Option<Transition<Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>> {
+    ) -> Option<Transition<Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>>> {
         Ts::successor(self, state, symbol)
     }
 
@@ -320,20 +372,26 @@ impl<Ts: Successor> Successor for &Ts {
         state: Self::StateIndex,
     ) -> Vec<Edge<ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>> {
         Ts::edges_from(self, state)
+    }
+
+    fn edge_color(
+        &self,
+        state: Self::StateIndex,
+        expression: &ExpressionOf<Self>,
+    ) -> Option<EdgeColor<Self>> {
+        Ts::edge_color(self, state, expression)
     }
 }
 impl<Ts: Successor> Successor for &mut Ts {
     type StateIndex = Ts::StateIndex;
-
-    type Position = Ts::Position;
-
-    type Color = Ts::Color;
+    type EdgeColor = Ts::EdgeColor;
+    type StateColor = Ts::StateColor;
 
     fn successor(
         &self,
         state: Self::StateIndex,
         symbol: SymbolOf<Self>,
-    ) -> Option<Transition<Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>> {
+    ) -> Option<Transition<Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>>> {
         Ts::successor(self, state, symbol)
     }
 
@@ -353,6 +411,14 @@ impl<Ts: Successor> Successor for &mut Ts {
         state: Self::StateIndex,
     ) -> Vec<Edge<ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>> {
         Ts::edges_from(self, state)
+    }
+
+    fn edge_color(
+        &self,
+        state: Self::StateIndex,
+        expression: &ExpressionOf<Self>,
+    ) -> Option<EdgeColor<Self>> {
+        Ts::edge_color(self, state, expression)
     }
 }
 
@@ -366,7 +432,7 @@ mod tests {
         ts::{
             finite::{self, ReachedColor, ReachedState},
             index_ts::MealyTS,
-            IndexTS, Sproutable,
+            Sproutable, BTS,
         },
         word::OmegaWord,
         FiniteLength, Word,

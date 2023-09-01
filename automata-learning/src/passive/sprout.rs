@@ -86,10 +86,13 @@ where
             self.dfas[0].header(),
             self.dfas[0].body("B"),
         );
-        let conflicts = self.conflicts.iter().fold(Map::new(), |mut acc, (l, r)| {
-            acc.entry(*l).or_insert(BTreeSet::new()).insert(*r);
-            acc
-        });
+        let conflicts = self
+            .conflicts
+            .iter()
+            .fold(Map::default(), |mut acc, (l, r)| {
+                acc.entry(*l).or_insert(BTreeSet::new()).insert(*r);
+                acc
+            });
         format!(
             "label=\"Conflicts:\n{}\";\n{}\n{}\n",
             conflicts
@@ -140,7 +143,7 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
         })
         .intersection(&looping_words);
 
-    let mut conflicts = Set::new();
+    let mut conflicts = Set::default();
     let mut queue = VecDeque::from_iter(
         left_pta
             .accepting_states()
@@ -200,7 +203,7 @@ pub fn prefix_consistency_conflicts<
         .flatten()
         .collect();
 
-    let mut conflicts = Set::new();
+    let mut conflicts = Set::default();
     for ProductIndex(l, r) in dfa.state_indices() {
         let reachable = dfa
             .reachable_state_indices_from(ProductIndex(l, r))
@@ -245,7 +248,7 @@ pub fn omega_sprout_conflicts<A: Alphabet>(
             if !allow_transitions_into_epsilon && target == initial {
                 continue;
             }
-            cong.add_edge(source, A::expression(sym), target, ());
+            let old_edge = cong.add_edge(source, A::expression(sym), target, ());
 
             if conflicts.consistent(&cong) {
                 trace!(
@@ -262,7 +265,9 @@ pub fn omega_sprout_conflicts<A: Alphabet>(
                     sym.show(),
                     cong.state_color(target).red()
                 );
-                cong.undo_add_edge();
+                if let Some((old_target, _)) = old_edge {
+                    cong.remove_edge(source, A::expression(sym));
+                }
             }
         }
 

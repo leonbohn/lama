@@ -1,5 +1,5 @@
 use automata::alphabet::{Alphabet, Symbol};
-use automata::ts::{HasColorMut, HasMutableStates, OnStates, Pointed, Sproutable, Successor};
+use automata::ts::{HasColorMut, HasMutableStates, Pointed, Sproutable, Successor};
 use automata::{Color, FiniteLength, MooreMachine, Transformer, Word};
 use itertools::Itertools;
 use tracing::trace;
@@ -44,7 +44,7 @@ pub struct LStar<A: Alphabet, C: Color, T: Oracle<Alphabet = A, Output = C>> {
 impl<
         A: Alphabet,
         C: Color + Default,
-        T: Oracle<OnStates, Length = FiniteLength, Alphabet = A, Output = C>,
+        T: Oracle<Length = FiniteLength, Alphabet = A, Output = C>,
     > LStar<A, C, T>
 {
     pub fn new(teacher: T, alphabet: A) -> Self {
@@ -293,11 +293,8 @@ mod tests {
         ) -> Result<(), (Vec<automata::alphabet::SymbolOf<Self>>, Self::Output)>
         where
             H: automata::ts::Pointed
-                + automata::ts::Successor<
-                    Alphabet = Self::Alphabet,
-                    Position = automata::ts::OnStates,
-                    Color = Self::Output,
-                > + automata::Transformer<
+                + automata::ts::Successor<Alphabet = Self::Alphabet, StateColor = Self::Output>
+                + automata::Transformer<
                     automata::alphabet::SymbolOf<Self>,
                     FiniteLength,
                     Output = Self::Output,
@@ -339,11 +336,7 @@ mod tests {
 
         fn equivalence<
             H: automata::ts::Pointed
-                + automata::ts::Successor<
-                    Alphabet = Self::Alphabet,
-                    Position = automata::ts::OnStates,
-                    Color = Self::Output,
-                >,
+                + automata::ts::Successor<Alphabet = Self::Alphabet, StateColor = Self::Output>,
         >(
             &self,
             hypothesis: H,

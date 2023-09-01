@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 tracing = "0.1"
 tracing-subscriber = "0.3"
-ahash = { version = "0.8", optional = true }
+fxhash = "0.2"
 itertools = "0.11"
 tabled = { version = "0.14.0", features = ["color"] }
 owo-colors = "3.5"
@@ -16,8 +16,15 @@ tempfile = { version = "3.8.0", optional = true }
 impl-tools = "0.9"
 
 [features]
-default = ["det", "ahash", "hoa", "graphviz"]
+default = ["det", "hoa", "graphviz"]
 det = []
 hoa = ["dep:hoars"]
-ahash = ["dep:ahash"]
 graphviz = ["dep:tempfile"]
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+pprof = { version = "0.12", features = ["flamegraph", "criterion"] }
+
+[[bench]]
+name = "ts"
+harness = false

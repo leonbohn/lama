@@ -47,5 +47,5 @@ pub trait Color: std::fmt::Debug + Clone + Eq + Ord + Hash {
 
 impl<T: Eq + Ord + std::fmt::Debug + Clone + Hash> Color for T {}
 
-pub type Set<S> = std::collections::HashSet<S>;
-pub type Map<K, V> = std::collections::HashMap<K, V>;
+pub type Set<S> = fxhash::FxHashSet<S>;
+pub type Map<K, V> = fxhash::FxHashMap<K, V>;

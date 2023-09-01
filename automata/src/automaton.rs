@@ -4,7 +4,6 @@ use std::{
     marker::PhantomData,
 };
 
-use ahash::HashSet;
 use impl_tools::autoimpl;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
@@ -13,14 +12,14 @@ use tracing::trace;
 use crate::{
     alphabet::{Alphabet, HasAlphabet, Symbol, SymbolOf},
     ts::{
-        finite::{ReachedColor, ReachedState, SeenColors, TransitionColorSequence},
-        infinite::InfinitySet,
-        operations::{MapColors, MatchingProduct},
-        ColorPosition, Congruence, EdgeColor, FiniteState, HasMutableStates, HasStates, IndexTS,
-        IndexType, OnEdges, OnStates, Path, Pointed, Product, Sproutable, State, StateColor,
-        StateIndex, Successor, Transition, TransitionSystem,
+        finite::{InfinityColors, ReachedColor, ReachedState, SeenColors, TransitionColorSequence},
+        infinite::InfinityStateColors,
+        operations::{MapStateColor, MatchingProduct},
+        BTState, Congruence, EdgeColor, FiniteState, HasMutableStates, HasStates, IndexType, Path,
+        Pointed, Product, Sproutable, StateColor, StateIndex, Successor, Transition,
+        TransitionSystem, BTS,
     },
-    word::OmegaWord,
+    word::{Normalized, OmegaWord},
     Color, FiniteLength, HasLength, InfiniteLength, Length, Set, Word,
 };
 
@@ -45,7 +44,7 @@ impl<Ts: TransitionSystem> std::fmt::Debug for WithInitial<Ts> {
 }
 
 mod boilerplate_impls {
-    use crate::ts::{ColorPosition, FiniteState};
+    use crate::ts::FiniteState;
 
     use super::*;
 
@@ -61,17 +60,17 @@ mod boilerplate_impls {
         }
     }
 
-    impl<A, C, Pos> WithInitial<IndexTS<A, C, Pos, usize>>
+    impl<A, C, Q> WithInitial<BTS<A, Q, C, usize>>
     where
         A: Alphabet,
         C: Color,
-        Pos: ColorPosition,
+        Q: Color,
     {
         pub fn new(alphabet: A) -> Self
         where
             StateColor<Self>: Default,
         {
-            let mut ts = IndexTS::new(alphabet);
+            let mut ts = BTS::new(alphabet);
             let initial = ts.add_state(<StateColor<Self> as Default>::default());
             Self(ts, initial)
         }
@@ -80,7 +79,7 @@ mod boilerplate_impls {
         where
             StateColor<Self>: Default,
         {
-            let mut ts = IndexTS::with_capacity(alphabet, size);
+            let mut ts = BTS::with_capacity(alphabet, size);
             let initial = ts.add_state(<StateColor<Self> as Default>::default());
             Self(ts, initial)
         }
@@ -102,24 +101,6 @@ mod boilerplate_impls {
             self.ts_mut().add_state(color)
         }
 
-        fn add_edge<X, Y>(
-            &mut self,
-            from: X,
-            on: <Self::Alphabet as Alphabet>::Expression,
-            to: Y,
-            color: EdgeColor<Self>,
-        ) -> crate::ts::EdgeIndex
-        where
-            X: Into<Self::StateIndex>,
-            Y: Into<Self::StateIndex>,
-        {
-            self.ts_mut().add_edge(from, on, to, color)
-        }
-
-        fn undo_add_edge(&mut self) {
-            self.ts_mut().undo_add_edge()
-        }
-
         fn set_state_color(&mut self, index: Self::StateIndex, color: StateColor<Self>) {
             self.ts_mut().set_state_color(index, color)
         }
@@ -128,6 +109,28 @@ mod boilerplate_impls {
             let mut ts = Ts::new_for_alphabet(alphabet);
             let initial = ts.add_state(<StateColor<Ts> as Default>::default());
             Self(ts, initial)
+        }
+
+        fn add_edge<X, Y>(
+            &mut self,
+            from: X,
+            on: <Self::Alphabet as Alphabet>::Expression,
+            to: Y,
+            color: EdgeColor<Self>,
+        ) -> Option<(Self::StateIndex, Self::EdgeColor)>
+        where
+            X: Into<Self::StateIndex>,
+            Y: Into<Self::StateIndex>,
+        {
+            self.ts_mut().add_edge(from, on, to, color)
+        }
+
+        fn remove_edge(
+            &mut self,
+            from: Self::StateIndex,
+            on: <Self::Alphabet as Alphabet>::Expression,
+        ) -> bool {
+            self.ts_mut().remove_edge(from, on)
         }
     }
     impl<Ts: Successor + HasStates> HasStates for WithInitial<Ts> {
@@ -169,16 +172,8 @@ mod boilerplate_impls {
     }
     impl<Ts: Successor> Successor for WithInitial<Ts> {
         type StateIndex = Ts::StateIndex;
-        type Color = Ts::Color;
-        type Position = Ts::Position;
-
-        fn successor(
-            &self,
-            state: Self::StateIndex,
-            symbol: SymbolOf<Self>,
-        ) -> Option<Transition<Self::StateIndex, SymbolOf<Self>, EdgeColor<Self>>> {
-            self.ts().successor(state, symbol)
-        }
+        type StateColor = Ts::StateColor;
+        type EdgeColor = Ts::EdgeColor;
 
         fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
             self.ts().state_color(state)
@@ -203,11 +198,29 @@ mod boilerplate_impls {
         > {
             self.ts().edges_from(state)
         }
+
+        fn edge_color(
+            &self,
+            state: Self::StateIndex,
+            expression: &crate::alphabet::ExpressionOf<Self>,
+        ) -> Option<EdgeColor<Self>> {
+            self.ts().edge_color(state, expression)
+        }
+
+        fn successor(
+            &self,
+            state: Self::StateIndex,
+            symbol: SymbolOf<Self>,
+        ) -> Option<
+            Transition<Self::StateIndex, crate::alphabet::ExpressionOf<Self>, EdgeColor<Self>>,
+        > {
+            self.ts().successor(state, symbol)
+        }
     }
 }
 
-pub type MooreMachine<A, C, Idx = usize> = WithInitial<IndexTS<A, C, OnStates, Idx>>;
-pub type MealyMachine<A, C, Idx = usize> = WithInitial<IndexTS<A, C, OnEdges, Idx>>;
+pub type MooreMachine<A, Q, Idx = usize> = WithInitial<BTS<A, Q, (), Idx>>;
+pub type MealyMachine<A, C, Idx = usize> = WithInitial<BTS<A, (), C, Idx>>;
 
 pub type DFA<A, Idx = usize> = MooreMachine<A, bool, Idx>;
 pub type DBA<A, Idx = usize> = MealyMachine<A, bool, Idx>;
@@ -244,9 +257,9 @@ pub trait Transformer<S, Len: Length> {
 impl<Ts> Transformer<SymbolOf<Ts>, FiniteLength> for Ts
 where
     Ts: Successor + Pointed,
-    Ts::Color: Clone + Default,
+    Ts::StateColor: Clone + Default,
 {
-    type Output = Ts::Color;
+    type Output = Ts::StateColor;
 
     fn transform<W: Word<Symbol = SymbolOf<Ts>, Length = FiniteLength>>(
         &self,
@@ -263,18 +276,34 @@ where
 impl<Ts> Transformer<SymbolOf<Ts>, InfiniteLength> for Ts
 where
     Ts: Successor + Pointed,
-    Ts::Color: Clone,
+    Ts::EdgeColor: Clone,
 {
-    type Output = BTreeSet<Ts::Color>;
+    type Output = BTreeSet<Ts::EdgeColor>;
 
     fn transform<W: Word<Symbol = SymbolOf<Ts>, Length = InfiniteLength>>(
         &self,
         input: W,
     ) -> Self::Output {
-        if let Some(InfinitySet(c)) = self.induced(&input, self.initial()) {
+        if let Some(InfinityColors(c)) = self.induced(&input, self.initial()) {
             c
         } else {
             unreachable!()
+        }
+    }
+}
+
+pub trait Classifies<X> {
+    fn classify(&self, x: X) -> bool;
+}
+
+impl<A: Alphabet, Idx: IndexType> Classifies<Normalized<A::Symbol, InfiniteLength>> for DBA<A, Idx>
+where
+    A::Symbol: Clone + Ord,
+{
+    fn classify(&self, x: Normalized<A::Symbol, InfiniteLength>) -> bool {
+        match self.omega_run(self.initial(), x.initial_segment(), x.repeating_segment()) {
+            Ok(path) => path.infinity_set(self).contains(&true),
+            Err(_) => false,
         }
     }
 }
@@ -337,10 +366,10 @@ where
     }
 }
 
-type DfaProductReduced<L, R> = MapColors<MatchingProduct<L, R>, fn((bool, bool)) -> bool>;
+type DfaProductReduced<L, R> = MapStateColor<MatchingProduct<L, R>, fn((bool, bool)) -> bool>;
 
 pub trait IsDfa:
-    Successor<Color = bool, Position = OnStates>
+    Successor<StateColor = bool>
     + Pointed
     + Sized
     + Acceptor<SymbolOf<Self>, FiniteLength>
@@ -381,13 +410,13 @@ pub trait IsDfa:
         self.ts_product(other).map_colors(|(a, b)| a && b)
     }
 
-    fn negation(self) -> MapColors<Self, fn(bool) -> bool> {
+    fn negation(self) -> MapStateColor<Self, fn(bool) -> bool> {
         self.map_colors(|x| !x)
     }
 }
 
 impl<Ts> IsDfa for Ts where
-    Ts: Successor<Color = bool, Position = OnStates>
+    Ts: Successor<StateColor = bool>
         + Pointed
         + Sized
         + Acceptor<SymbolOf<Self>, FiniteLength>
@@ -396,7 +425,7 @@ impl<Ts> IsDfa for Ts where
 }
 
 pub trait IsDba:
-    Successor<Color = bool>
+    Successor<EdgeColor = bool>
     + Pointed
     + Sized
     + Acceptor<SymbolOf<Self>, InfiniteLength>
@@ -408,7 +437,7 @@ pub trait IsDba:
     {
         for good_scc in self.sccs().iter().filter(|scc| self.is_reachable(scc[0])) {
             if let Some(full_word) = good_scc.maximal_word() {
-                let SeenColors(colors) = self
+                let InfinityColors(colors) = self
                     .induced(&full_word, self.initial())
                     .expect("word is valid");
                 if colors.contains(&true) {
@@ -431,7 +460,7 @@ pub trait IsDba:
 }
 
 impl<Ts> IsDba for Ts where
-    Ts: Successor<Color = bool>
+    Ts: Successor<EdgeColor = bool>
         + Pointed
         + Sized
         + Acceptor<SymbolOf<Self>, InfiniteLength>
@@ -440,7 +469,7 @@ impl<Ts> IsDba for Ts where
 }
 
 pub trait IsDpa:
-    Successor<Color = usize>
+    Successor<EdgeColor = usize>
     + Pointed
     + Sized
     + Acceptor<SymbolOf<Self>, InfiniteLength>
@@ -449,7 +478,7 @@ pub trait IsDpa:
 }
 
 impl<Ts> IsDpa for Ts where
-    Ts: Successor<Color = usize>
+    Ts: Successor<EdgeColor = usize>
         + Pointed
         + Sized
         + Acceptor<SymbolOf<Self>, InfiniteLength>
@@ -463,7 +492,7 @@ mod tests {
     use crate::{
         alphabet::{self, Simple},
         automaton::{Acceptor, IsDba, Transformer},
-        ts::{HasColorMut, HasMutableStates, IndexTS, Pointed, Product, Sproutable, Successor},
+        ts::{HasColorMut, HasMutableStates, Pointed, Product, Sproutable, Successor, BTS},
         upw,
         word::OmegaWord,
         InfiniteLength,
