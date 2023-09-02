@@ -22,9 +22,15 @@ hoa = ["dep:hoars"]
 graphviz = ["dep:tempfile"]
 
 [dev-dependencies]
+lazy_static = "1.4"
 criterion = { version = "0.5", features = ["html_reports"] }
 pprof = { version = "0.12", features = ["flamegraph", "criterion"] }
+iai = { git = "https://github.com/sigaloid/iai", rev = "6c83e942" }
 
 [[bench]]
 name = "ts"
+harness = false
+
+[[bench]]
+name = "iai"
 harness = false
