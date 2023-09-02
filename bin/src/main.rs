@@ -1,5 +1,3 @@
-
-
 use automata::{
     congurence::FORC,
     ts::{dot::display_dot, ToDot},
