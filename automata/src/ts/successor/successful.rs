@@ -9,7 +9,7 @@ use crate::{
             TransitionColorSequence,
         },
         infinite::InfinityStateColors,
-        CanInduce, EdgeColor, Path, StateColor, StateIndex, TransitionSystem,
+        CanInduce, EdgeColor, Path, StateColor, StateIndex,
     },
     word::OmegaWord,
     Color, FiniteLength, Length,

@@ -8,8 +8,8 @@ use crate::{
 };
 
 use super::{
-    BTState, Edge, EdgeColor, FiniteState, HasStates, Pointed, StateColor, StateIndex, Successor,
-    Transition,
+    BTState, Edge, EdgeColor, FiniteState, FiniteStatesIterType, HasFiniteStates, HasStates,
+    Pointed, StateColor, StateIndex, Successor, Transition,
 };
 
 pub trait Product: Successor + Sized {
@@ -65,22 +65,34 @@ impl<L: HasAlphabet, R> HasAlphabet for MatchingProduct<L, R> {
     }
 }
 
+impl<'a, L, R> HasFiniteStates<'a> for MatchingProduct<L, R>
+where
+    L: HasFiniteStates<'a>,
+    R: HasFiniteStates<'a>,
+    R::Alphabet: Alphabet<Symbol = SymbolOf<L>, Expression = ExpressionOf<L>>,
+    L::StateColor: Clone,
+    R::StateColor: Clone,
+    R::StateIndicesIter: Clone,
+{
+    type StateIndicesIter = std::iter::Map<
+        itertools::Product<L::StateIndicesIter, R::StateIndicesIter>,
+        fn((L::StateIndex, R::StateIndex)) -> ProductIndex<L::StateIndex, R::StateIndex>,
+    >;
+}
+
 impl<L, R> FiniteState for MatchingProduct<L, R>
 where
     L: FiniteState,
     R: FiniteState,
     R::Alphabet: Alphabet<Symbol = SymbolOf<L>, Expression = ExpressionOf<L>>,
-
     L::StateColor: Clone,
     R::StateColor: Clone,
 {
-    fn state_indices(&self) -> Vec<Self::StateIndex> {
+    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
         self.0
             .state_indices()
-            .into_iter()
             .cartesian_product(self.1.state_indices())
             .map(|(l, r)| ProductIndex(l, r))
-            .collect()
     }
 }
 
@@ -276,8 +288,14 @@ where
     }
 }
 
+impl<'a, D: Color, Ts: FiniteState, F: Fn(Ts::EdgeColor) -> D> HasFiniteStates<'a>
+    for MapEdgeColor<Ts, F>
+{
+    type StateIndicesIter = FiniteStatesIterType<'a, Ts>;
+}
+
 impl<D: Color, Ts: FiniteState, F: Fn(Ts::EdgeColor) -> D> FiniteState for MapEdgeColor<Ts, F> {
-    fn state_indices(&self) -> Vec<Self::StateIndex> {
+    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
         self.ts.state_indices()
     }
 }
@@ -294,8 +312,14 @@ impl<Ts, F> MapStateColor<Ts, F> {
     }
 }
 
+impl<'a, D: Color, Ts: FiniteState, F: Fn(Ts::StateColor) -> D> HasFiniteStates<'a>
+    for MapStateColor<Ts, F>
+{
+    type StateIndicesIter = FiniteStatesIterType<'a, Ts>;
+}
+
 impl<D: Color, Ts: FiniteState, F: Fn(Ts::StateColor) -> D> FiniteState for MapStateColor<Ts, F> {
-    fn state_indices(&self) -> Vec<Self::StateIndex> {
+    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
         self.ts.state_indices()
     }
 }

@@ -5,7 +5,7 @@ use tracing::trace;
 use crate::{
     alphabet::{ExpressionOf, HasAlphabet, SymbolOf},
     length::RawPosition,
-    ts::{EdgeColor, Path, StateColor, StateIndex, Transition, TransitionSystem},
+    ts::{EdgeColor, Path, StateColor, StateIndex, Transition},
     Length, Word,
 };
 

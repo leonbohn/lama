@@ -342,6 +342,91 @@ pub trait Successor: HasAlphabet {
     {
         ReachableStates::new(self, self.initial())
     }
+
+    fn build_transition_table<SD>(&self, state_decorator: SD) -> String
+    where
+        SD: Fn(Self::StateIndex, StateColor<Self>) -> String,
+        Self: FiniteState,
+    {
+        let mut builder = tabled::builder::Builder::default();
+        builder.set_header(
+            std::iter::once("State".to_string())
+                .chain(self.alphabet().universe().map(|s| format!("{:?}", s))),
+        );
+        for id in self.state_indices() {
+            let mut row = vec![format!("{}", state_decorator(id, self.state_color(id)))];
+            for &sym in self.alphabet().universe() {
+                if let Some(edge) = self.successor(id, sym) {
+                    row.push(format!("{} : {:?}", edge.target(), edge.color()));
+                } else {
+                    row.push("-".to_string());
+                }
+            }
+            builder.push_record(row);
+        }
+
+        builder
+            .build()
+            .with(tabled::settings::Style::rounded())
+            .to_string()
+    }
+
+    fn collect_ts(&self) -> BTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>
+    where
+        Self: FiniteState,
+    {
+        use crate::ts::Sproutable;
+        let mut ts = BTS::new_for_alphabet(self.alphabet().clone());
+        let mut map = std::collections::HashMap::new();
+        for index in self.state_indices() {
+            map.insert(index, ts.add_state(self.state_color(index)));
+        }
+        for index in self.state_indices() {
+            for sym in self.alphabet().universe() {
+                if let Some(edge) = self.successor(index, *sym) {
+                    ts.add_edge(
+                        *map.get(&index).unwrap(),
+                        <Self::Alphabet as Alphabet>::expression(*sym),
+                        *map.get(&edge.target()).unwrap(),
+                        edge.color().clone(),
+                    );
+                }
+            }
+        }
+        ts
+    }
+
+    fn collect_into_ts<
+        Ts: Successor<
+                StateColor = Self::StateColor,
+                EdgeColor = Self::EdgeColor,
+                Alphabet = Self::Alphabet,
+            > + super::Sproutable,
+    >(
+        &self,
+    ) -> Ts
+    where
+        Self: FiniteState,
+    {
+        let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
+        let mut map = std::collections::HashMap::new();
+        for index in self.state_indices() {
+            map.insert(index, ts.add_state(self.state_color(index)));
+        }
+        for index in self.state_indices() {
+            for sym in self.alphabet().universe() {
+                if let Some(edge) = self.successor(index, *sym) {
+                    ts.add_edge(
+                        *map.get(&index).unwrap(),
+                        <Self::Alphabet as Alphabet>::expression(*sym),
+                        *map.get(&edge.target()).unwrap(),
+                        edge.color().clone(),
+                    );
+                }
+            }
+        }
+        ts
+    }
 }
 
 impl<Ts: Successor> Successor for &Ts {

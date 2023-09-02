@@ -214,12 +214,22 @@ pub trait HasStates: Successor + Sized {
     }
 }
 
-#[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
-pub trait FiniteState: Successor + Sized {
-    fn state_indices(&self) -> Vec<Self::StateIndex>;
+pub trait HasFiniteStates<'a, Outlives = &'a Self>: Successor {
+    type StateIndicesIter: Iterator<Item = Self::StateIndex> + Clone;
+}
+
+impl<'a, 'b, HFS: HasFiniteStates<'a>> HasFiniteStates<'a> for &'b HFS {
+    type StateIndicesIter = <HFS as HasFiniteStates<'a>>::StateIndicesIter;
+}
+
+pub type FiniteStatesIterType<'a, This> = <This as HasFiniteStates<'a>>::StateIndicesIter;
+
+// #[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
+pub trait FiniteState: Sized + for<'a> HasFiniteStates<'a> {
+    fn state_indices(&self) -> FiniteStatesIterType<'_, Self>;
 
     fn size(&self) -> usize {
-        self.state_indices().len()
+        self.state_indices().count()
     }
 
     fn contains_state_index(&self, index: Self::StateIndex) -> bool {
@@ -234,6 +244,12 @@ pub trait FiniteState: Successor + Sized {
 
     fn contains_state_color(&self, color: &StateColor<Self>) -> bool {
         self.find_by_color(color).is_some()
+    }
+}
+
+impl<'a, FS: FiniteState> FiniteState for &'a FS {
+    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
+        FS::state_indices(self)
     }
 }
 
@@ -303,117 +319,34 @@ pub trait Pointed: Successor {
     fn initial(&self) -> Self::StateIndex;
 }
 
-/// One of the main exported traits of this module. A Transition system is a collection of states,
-/// between which there exist directed transitions that are annotated with an expression from an
-/// alphabet. This trait merely combines the traits [`HasStates`], [`Successor`] and [`HasAlphabet`]
-/// and is automatically implemented.
-pub trait TransitionSystem: FiniteState + Successor {
-    fn build_transition_table<SD>(&self, state_decorator: SD) -> String
-    where
-        SD: Fn(Self::StateIndex, StateColor<Self>) -> String,
-    {
-        let mut builder = Builder::default();
-        builder.set_header(
-            std::iter::once("State".to_string())
-                .chain(self.alphabet().universe().map(|s| format!("{:?}", s))),
-        );
-        for id in self.state_indices() {
-            let mut row = vec![format!("{}", state_decorator(id, self.state_color(id)))];
-            for &sym in self.alphabet().universe() {
-                if let Some(edge) = self.successor(id, sym) {
-                    row.push(format!("{} : {:?}", edge.target(), edge.color()));
-                } else {
-                    row.push("-".to_string());
-                }
-            }
-            builder.push_record(row);
-        }
-
-        builder
-            .build()
-            .with(tabled::settings::Style::rounded())
-            .to_string()
-    }
-
-    fn collect_ts(&self) -> BTS<Self::Alphabet, Self::StateColor, Self::EdgeColor> {
-        let mut ts = BTS::new_for_alphabet(self.alphabet().clone());
-        let mut map = std::collections::HashMap::new();
-        for index in self.state_indices() {
-            map.insert(index, ts.add_state(self.state_color(index)));
-        }
-        for index in self.state_indices() {
-            for sym in self.alphabet().universe() {
-                if let Some(edge) = self.successor(index, *sym) {
-                    ts.add_edge(
-                        *map.get(&index).unwrap(),
-                        <Self::Alphabet as Alphabet>::expression(*sym),
-                        *map.get(&edge.target()).unwrap(),
-                        edge.color().clone(),
-                    );
-                }
-            }
-        }
-        ts
-    }
-
-    fn collect_into_ts<
-        Ts: TransitionSystem<
-                StateColor = Self::StateColor,
-                EdgeColor = Self::EdgeColor,
-                Alphabet = Self::Alphabet,
-            > + Sproutable,
-    >(
-        &self,
-    ) -> Ts {
-        let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
-        let mut map = std::collections::HashMap::new();
-        for index in self.state_indices() {
-            map.insert(index, ts.add_state(self.state_color(index)));
-        }
-        for index in self.state_indices() {
-            for sym in self.alphabet().universe() {
-                if let Some(edge) = self.successor(index, *sym) {
-                    ts.add_edge(
-                        *map.get(&index).unwrap(),
-                        <Self::Alphabet as Alphabet>::expression(*sym),
-                        *map.get(&edge.target()).unwrap(),
-                        edge.color().clone(),
-                    );
-                }
-            }
-        }
-        ts
-    }
-}
-
-impl<Ts: FiniteState + Successor> TransitionSystem for Ts {}
-
 pub mod dot;
 pub use dot::ToDot;
 
 /// A congruence is a [`TransitionSystem`], which additionally has a distinguished initial state. On top
 /// of that, a congruence does not have any coloring on either states or symbols. This
 /// functionality is abstracted in [`Pointed`]. This trait is automatically implemented.
-pub trait Congruence: TransitionSystem + Pointed {
+pub trait Congruence: Successor + Pointed {
     fn build_right_congruence(
         &self,
     ) -> (
         RightCongruence<Self::Alphabet>,
         Map<Self::StateIndex, usize>,
-    ) {
+    )
+    where
+        Self: FiniteState,
+    {
         let mut cong = RightCongruence::new_for_alphabet(self.alphabet().clone());
         let mut map = Map::default();
 
-        let states = self.state_indices();
-        for state in &states {
-            if self.initial() == *state {
-                map.insert(*state, cong.initial());
+        for state in self.state_indices() {
+            if self.initial() == state {
+                map.insert(state, cong.initial());
                 continue;
             }
-            map.insert(*state, cong.add_state(Class::epsilon()));
+            map.insert(state, cong.add_state(Class::epsilon()));
         }
 
-        for state in states {
+        for state in self.state_indices() {
             for edge in self.edges_from(state) {
                 let target = edge.target();
                 let target_class = map.get(&target).unwrap();
@@ -432,4 +365,4 @@ pub trait Congruence: TransitionSystem + Pointed {
         (cong, map)
     }
 }
-impl<Sim: TransitionSystem + Pointed> Congruence for Sim {}
+impl<Sim: Successor + Pointed> Congruence for Sim {}

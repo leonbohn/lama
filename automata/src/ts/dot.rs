@@ -6,8 +6,6 @@ use crate::{
     congurence::FORC, ts::FiniteState, Alphabet, Class, Pointed, RightCongruence, Successor,
 };
 
-use super::TransitionSystem;
-
 /// Trait that encapsulates the functionality of converting an object
 /// into a [graphviz](https://graphviz.org/) representation.
 pub trait ToDot {

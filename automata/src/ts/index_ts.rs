@@ -5,14 +5,13 @@ use tabled::builder::Builder;
 
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
-    ts::TransitionSystem,
     Color, Map,
 };
 
 use super::{
-    BTState, Edge, EdgeColor, EdgeIndex, EdgeIndicesFrom, EdgesFrom, FiniteState, HasColorMut,
-    HasMutableStates, HasStates, Index, IndexType, Sproutable, StateColor, StateIndex, Successor,
-    Transition,
+    BTState, Edge, EdgeColor, EdgeIndex, EdgeIndicesFrom, EdgesFrom, FiniteState,
+    FiniteStatesIterType, HasColorMut, HasFiniteStates, HasMutableStates, HasStates, Index,
+    IndexType, Sproutable, StateColor, StateIndex, Successor, Transition,
 };
 /// An implementation of a transition system with states of type `Q` and colors of type `C`. It stores
 /// the states and edges in a vector, which allows for fast access and iteration. The states and edges
@@ -228,6 +227,17 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Successor for BTS<A, Q, C,
     }
 }
 
+impl<'a, A, Q, Idx, C> HasFiniteStates<'a> for BTS<A, Q, C, Idx>
+where
+    A: Alphabet,
+    Q: Color,
+    Idx: IndexType,
+    C: Color,
+{
+    type StateIndicesIter =
+        std::iter::Cloned<std::collections::hash_map::Keys<'a, Idx, BTState<A, Q, C, Idx>>>;
+}
+
 impl<A, Q, Idx, C> FiniteState for BTS<A, Q, C, Idx>
 where
     A: Alphabet,
@@ -235,8 +245,22 @@ where
     Idx: IndexType,
     C: Color,
 {
-    fn state_indices(&self) -> Vec<Self::StateIndex> {
-        self.states.keys().copied().collect()
+    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
+        self.states.keys().cloned()
+    }
+
+    fn size(&self) -> usize {
+        self.states.len()
+    }
+
+    fn contains_state_index(&self, index: Self::StateIndex) -> bool {
+        self.states.contains_key(&index)
+    }
+
+    fn find_by_color(&self, color: &StateColor<Self>) -> Option<Self::StateIndex> {
+        self.states
+            .iter()
+            .find_map(|(id, s)| if s.color() == color { Some(*id) } else { None })
     }
 }
 

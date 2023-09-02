@@ -6,10 +6,7 @@ use std::{
 use automata::{
     alphabet::Symbol,
     automaton::IsDfa,
-    ts::{
-        operations::ProductIndex, Congruence, FiniteState, Product, Sproutable, ToDot,
-        TransitionSystem,
-    },
+    ts::{operations::ProductIndex, Congruence, FiniteState, Product, Sproutable, ToDot},
     Alphabet, Class, InfiniteLength, Map, Pointed, RightCongruence, Set, Successor, Word,
 };
 use itertools::Itertools;
@@ -244,7 +241,10 @@ pub fn omega_sprout_conflicts<A: Alphabet>(
             cong.state_color(source).blue(),
             sym.show().blue()
         );
-        for target in cong.state_indices() {
+
+        // FIXME: This is a hack to avoid lifetime issues, find a better way...
+        // TODO: figure out if this is the best way, we just take the upper bound on the number and assume that all states have sequential ids...
+        for target in (0..cong.size()) {
             if !allow_transitions_into_epsilon && target == initial {
                 continue;
             }

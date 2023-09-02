@@ -5,7 +5,10 @@ use itertools::Itertools;
 use crate::{
     alphabet::{HasAlphabet, Symbol},
     automaton::WithInitial,
-    ts::{BTState, FiniteState, HasMutableStates, HasStates, Sproutable, TransitionSystem, BTS},
+    ts::{
+        BTState, FiniteState, FiniteStatesIterType, HasFiniteStates, HasMutableStates, HasStates,
+        Sproutable, BTS,
+    },
     Alphabet, Color, FiniteLength, HasLength, Map, Pointed, Successor, Word, DFA,
 };
 
@@ -181,8 +184,12 @@ impl<A: Alphabet> RightCongruence<A> {
     }
 }
 
+impl<'a, A: Alphabet> HasFiniteStates<'a> for RightCongruence<A> {
+    type StateIndicesIter = FiniteStatesIterType<'a, BTS<A, Class<A::Symbol>, (), usize>>;
+}
+
 impl<A: Alphabet> FiniteState for RightCongruence<A> {
-    fn state_indices(&self) -> Vec<Self::StateIndex> {
+    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
         self.ts.state_indices()
     }
 }

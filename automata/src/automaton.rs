@@ -16,8 +16,7 @@ use crate::{
         infinite::InfinityStateColors,
         operations::{MapStateColor, MatchingProduct},
         BTState, Congruence, EdgeColor, FiniteState, HasMutableStates, HasStates, IndexType, Path,
-        Pointed, Product, Sproutable, StateColor, StateIndex, Successor, Transition,
-        TransitionSystem, BTS,
+        Pointed, Product, Sproutable, StateColor, StateIndex, Successor, Transition, BTS,
     },
     word::{Normalized, OmegaWord},
     Color, FiniteLength, HasLength, InfiniteLength, Length, Set, Word,
@@ -26,7 +25,10 @@ use crate::{
 #[derive(Clone, PartialEq)]
 pub struct WithInitial<Ts: Successor>(Ts, Ts::StateIndex);
 
-impl<Ts: TransitionSystem> std::fmt::Debug for WithInitial<Ts> {
+impl<Ts> std::fmt::Debug for WithInitial<Ts>
+where
+    Ts: Successor + FiniteState,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(
             f,
@@ -44,7 +46,7 @@ impl<Ts: TransitionSystem> std::fmt::Debug for WithInitial<Ts> {
 }
 
 mod boilerplate_impls {
-    use crate::ts::FiniteState;
+    use crate::ts::{FiniteState, FiniteStatesIterType, HasFiniteStates};
 
     use super::*;
 
@@ -54,9 +56,13 @@ mod boilerplate_impls {
         }
     }
 
+    impl<'a, Ts: Successor + HasFiniteStates<'a>> HasFiniteStates<'a> for WithInitial<Ts> {
+        type StateIndicesIter = Ts::StateIndicesIter;
+    }
+
     impl<Ts: FiniteState> FiniteState for WithInitial<Ts> {
-        fn state_indices(&self) -> Vec<Self::StateIndex> {
-            self.0.state_indices()
+        fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
+            self.ts().state_indices()
         }
     }
 
@@ -380,7 +386,6 @@ pub trait IsDfa:
         Self: FiniteState,
     {
         self.state_indices()
-            .into_iter()
             .filter(|&index| self.state_color(index))
             .collect_vec()
     }
@@ -516,7 +521,7 @@ mod tests {
         assert!(!dba.dba_is_empty());
         println!("{:?}", dba.dba_give_word());
 
-        println!("{:?}", dba);
+        println!("{:?}", &dba);
     }
 
     #[test]
