@@ -8,7 +8,7 @@ use itertools::Itertools;
 use crate::{
     alphabet::SymbolOf,
     ts::{finite::SeenColors, CanInduce, FiniteState, IndexType},
-    Alphabet, Map, Set, Successor,
+    Alphabet, Map, Set, TransitionSystem,
 };
 
 #[derive(Debug, Clone)]
@@ -38,7 +38,7 @@ impl<Idx: IndexType> Tarjan<Idx> {
 
     pub fn visit<Ts, F>(&mut self, ts: &Ts, v: Idx, f: &mut F)
     where
-        Ts: Successor<StateIndex = Idx>,
+        Ts: TransitionSystem<StateIndex = Idx>,
         F: FnMut(&[Idx]),
     {
         let mut node_v_is_root = true;
@@ -98,7 +98,7 @@ impl<Idx: IndexType> Tarjan<Idx> {
 
     pub fn execute<Ts, F>(&mut self, ts: &Ts, mut f: F)
     where
-        Ts: Successor<StateIndex = Idx> + FiniteState,
+        Ts: TransitionSystem<StateIndex = Idx> + FiniteState,
         F: FnMut(&[Idx]),
     {
         self.data.clear();
@@ -113,9 +113,9 @@ impl<Idx: IndexType> Tarjan<Idx> {
 }
 
 #[derive(Clone, Debug)]
-pub struct Scc<'a, Ts: Successor>(&'a Ts, Vec<Ts::StateIndex>);
+pub struct Scc<'a, Ts: TransitionSystem>(&'a Ts, Vec<Ts::StateIndex>);
 
-impl<'a, Ts: Successor> IntoIterator for Scc<'a, Ts> {
+impl<'a, Ts: TransitionSystem> IntoIterator for Scc<'a, Ts> {
     type IntoIter = std::vec::IntoIter<Ts::StateIndex>;
     type Item = Ts::StateIndex;
     fn into_iter(self) -> Self::IntoIter {
@@ -123,7 +123,7 @@ impl<'a, Ts: Successor> IntoIterator for Scc<'a, Ts> {
     }
 }
 
-impl<'a, Ts: Successor> std::ops::Deref for Scc<'a, Ts> {
+impl<'a, Ts: TransitionSystem> std::ops::Deref for Scc<'a, Ts> {
     type Target = Vec<Ts::StateIndex>;
 
     fn deref(&self) -> &Self::Target {
@@ -131,29 +131,29 @@ impl<'a, Ts: Successor> std::ops::Deref for Scc<'a, Ts> {
     }
 }
 
-impl<'a, Ts: Successor> PartialEq for Scc<'a, Ts> {
+impl<'a, Ts: TransitionSystem> PartialEq for Scc<'a, Ts> {
     fn eq(&self, other: &Self) -> bool {
         self.1 == other.1
     }
 }
-impl<'a, Ts: Successor> Eq for Scc<'a, Ts> {}
-impl<'a, Ts: Successor> PartialOrd for Scc<'a, Ts> {
+impl<'a, Ts: TransitionSystem> Eq for Scc<'a, Ts> {}
+impl<'a, Ts: TransitionSystem> PartialOrd for Scc<'a, Ts> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
-impl<'a, Ts: Successor> Ord for Scc<'a, Ts> {
+impl<'a, Ts: TransitionSystem> Ord for Scc<'a, Ts> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.1[0].cmp(&other.1[0])
     }
 }
-impl<'a, Ts: Successor> std::hash::Hash for Scc<'a, Ts> {
+impl<'a, Ts: TransitionSystem> std::hash::Hash for Scc<'a, Ts> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.1.hash(state);
     }
 }
 
-impl<'a, Ts: Successor> Scc<'a, Ts> {
+impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
     pub fn new(ts: &'a Ts, indices: Vec<Ts::StateIndex>) -> Self {
         assert!(!indices.is_empty(), "Cannot have empty SCC!");
         let mut indices = indices;
@@ -261,9 +261,9 @@ impl<'a, Ts: Successor> Scc<'a, Ts> {
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SccDecomposition<'a, Ts: Successor + FiniteState>(&'a Ts, Vec<Scc<'a, Ts>>);
+pub struct SccDecomposition<'a, Ts: TransitionSystem + FiniteState>(&'a Ts, Vec<Scc<'a, Ts>>);
 
-impl<'a, Ts: Successor + FiniteState> std::ops::Deref for SccDecomposition<'a, Ts> {
+impl<'a, Ts: TransitionSystem + FiniteState> std::ops::Deref for SccDecomposition<'a, Ts> {
     type Target = Vec<Scc<'a, Ts>>;
 
     fn deref(&self) -> &Self::Target {
@@ -271,13 +271,13 @@ impl<'a, Ts: Successor + FiniteState> std::ops::Deref for SccDecomposition<'a, T
     }
 }
 
-impl<'a, Ts: Successor + FiniteState> SccDecomposition<'a, Ts> {
+impl<'a, Ts: TransitionSystem + FiniteState> SccDecomposition<'a, Ts> {
     pub fn new(ts: &'a Ts, sccs: Vec<Scc<'a, Ts>>) -> Self {
         Self(ts, sccs)
     }
 }
 
-impl<'a, Ts: Successor + FiniteState + Debug> std::fmt::Debug for SccDecomposition<'a, Ts> {
+impl<'a, Ts: TransitionSystem + FiniteState + Debug> std::fmt::Debug for SccDecomposition<'a, Ts> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(
             f,
@@ -293,7 +293,7 @@ impl<'a, Ts: Successor + FiniteState + Debug> std::fmt::Debug for SccDecompositi
 
 pub fn tarjan_scc<Ts>(ts: &Ts) -> SccDecomposition<'_, Ts>
 where
-    Ts: Successor + FiniteState,
+    Ts: TransitionSystem + FiniteState,
 {
     let mut sccs = Vec::new();
     {

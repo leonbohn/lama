@@ -16,7 +16,7 @@ pub use length::{FiniteLength, HasLength, InfiniteLength, Length};
 
 /// This module defines transition systems and successor functions and such.
 pub mod ts;
-pub use ts::{Pointed, Successor};
+pub use ts::{Pointed, TransitionSystem};
 
 #[allow(clippy::upper_case_acronyms)]
 pub mod automaton;

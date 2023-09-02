@@ -3,8 +3,10 @@ use std::fmt::Display;
 use itertools::Itertools;
 
 use crate::{
-    congurence::FORC, ts::FiniteState, Alphabet, Class, Pointed, RightCongruence, Successor,
+    congurence::FORC, ts::FiniteState, Alphabet, Class, Pointed, RightCongruence, TransitionSystem,
 };
+
+use super::successor::IsTransition;
 
 /// Trait that encapsulates the functionality of converting an object
 /// into a [graphviz](https://graphviz.org/) representation.
@@ -145,7 +147,7 @@ where
 
         for state in to_consider {
             for &sym in self.alphabet().universe() {
-                if let Some(edge) = self.successor(state, sym) {
+                if let Some(edge) = self.transition(state, sym) {
                     lines.push(format!(
                         "\"{prefix},{}\" -> \"{prefix},{}\" [label = \"{}\"]",
                         self.state_color(state),
@@ -236,7 +238,7 @@ where
 
         for state in self.leading.state_indices() {
             for &sym in self.leading.alphabet().universe() {
-                if let Some(edge) = self.leading.successor(state, sym) {
+                if let Some(edge) = self.leading.transition(state, sym) {
                     let source_prc = self
                         .progress
                         .get(&self.leading.state_color(state))

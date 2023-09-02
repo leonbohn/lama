@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    alphabet::{ExpressionOf, HasAlphabet, Symbol, SymbolOf},
+    alphabet::{Expression, ExpressionOf, HasAlphabet, Symbol, SymbolOf},
     automaton::WithInitial,
     word::OmegaWord,
     Alphabet, Color, Map, Pointed, Set, Word,
@@ -39,6 +39,63 @@ pub use restricted::RestrictByStateIndex;
 mod sccs;
 pub use sccs::Tarjan;
 
+pub trait IsTransition<E, Idx, C> {
+    fn source(&self) -> Idx;
+    fn target(&self) -> Idx;
+    fn color(&self) -> C;
+    fn expression(&self) -> &E;
+    fn into_tuple(self) -> (Idx, E, Idx, C)
+    where
+        E: Clone,
+        Self: Sized,
+    {
+        (
+            self.source(),
+            self.expression().clone(),
+            self.target(),
+            self.color(),
+        )
+    }
+}
+
+impl<'a, Idx: IndexType, E, C: Color, T: IsTransition<E, Idx, C>> IsTransition<E, Idx, C>
+    for &'a T
+{
+    fn source(&self) -> Idx {
+        (*self).source()
+    }
+
+    fn target(&self) -> Idx {
+        (*self).target()
+    }
+
+    fn color(&self) -> C {
+        (*self).color()
+    }
+
+    fn expression(&self) -> &E {
+        (*self).expression()
+    }
+}
+
+impl<'a, Idx: IndexType, E, C: Color> IsTransition<E, Idx, C> for (Idx, (&'a E, &'a (Idx, C))) {
+    fn source(&self) -> Idx {
+        self.0
+    }
+
+    fn target(&self) -> Idx {
+        self.1 .1 .0
+    }
+
+    fn color(&self) -> C {
+        self.1 .1 .1.clone()
+    }
+
+    fn expression(&self) -> &E {
+        self.1 .0
+    }
+}
+
 /// Encapsulates the transition function δ of a (finite) transition system. This is the main trait that
 /// is used to query a transition system. Transitions are labeled with a [`Alphabet::Expression`], which
 /// determines on which [`Alphabet::Symbol`]s the transition can be taken. Additionally, every transition
@@ -52,18 +109,20 @@ pub use sccs::Tarjan;
 /// with an expression, while a [`Transition`] is labelled with an actual symbol (that [`Alphabet::matches`]
 /// the expression). So a transition is a concrete edge that is taken (usually by the run on a word), while
 /// an edge may represent any different number of transitions.
-pub trait Successor: HasAlphabet {
+pub trait TransitionSystem: HasAlphabet {
     type StateIndex: IndexType;
-
     type StateColor: Color;
     type EdgeColor: Color;
+    type TransitionRef<'this>: IsTransition<ExpressionOf<Self>, Self::StateIndex, EdgeColor<Self>>
+    where
+        Self: 'this;
 
     /// For a given `state` and `symbol`, returns the transition that is taken, if it exists.
-    fn successor(
+    fn transition(
         &self,
         state: Self::StateIndex,
         symbol: SymbolOf<Self>,
-    ) -> Option<Transition<Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>>>;
+    ) -> Option<Self::TransitionRef<'_>>;
 
     fn edge_color(
         &self,
@@ -128,7 +187,7 @@ pub trait Successor: HasAlphabet {
         state: Self::StateIndex,
         symbol: SymbolOf<Self>,
     ) -> Option<Self::StateIndex> {
-        self.successor(state, symbol).map(|t| t.target())
+        self.transition(state, symbol).map(|t| t.target())
     }
 
     /// Starts a new [`Walker`] that can be used to successively take transitions from `state` on
@@ -171,6 +230,12 @@ pub trait Successor: HasAlphabet {
             .any(|s| s == state)
     }
 
+    /// Runs the given `word` on the transition system, starting from `state`. The result is
+    /// - [`Ok`] if the run is successful (i.e. for all symbols of `word` a suitable transition
+    ///  can be taken),
+    /// - [`Err`] if the run is unsuccessful, meaning a symbol is encountered for which no
+    /// transition exists.
+    #[allow(clippy::type_complexity)]
     fn finite_run(
         &self,
         origin: Self::StateIndex,
@@ -191,6 +256,8 @@ pub trait Successor: HasAlphabet {
         Ok(path)
     }
 
+    /// Runs the given `word` on the transition system, starting from `state`.
+    #[allow(clippy::type_complexity)]
     fn omega_run(
         &self,
         origin: Self::StateIndex,
@@ -356,7 +423,7 @@ pub trait Successor: HasAlphabet {
         for id in self.state_indices() {
             let mut row = vec![format!("{}", state_decorator(id, self.state_color(id)))];
             for &sym in self.alphabet().universe() {
-                if let Some(edge) = self.successor(id, sym) {
+                if let Some(edge) = self.transition(id, sym) {
                     row.push(format!("{} : {:?}", edge.target(), edge.color()));
                 } else {
                     row.push("-".to_string());
@@ -383,7 +450,7 @@ pub trait Successor: HasAlphabet {
         }
         for index in self.state_indices() {
             for sym in self.alphabet().universe() {
-                if let Some(edge) = self.successor(index, *sym) {
+                if let Some(edge) = self.transition(index, *sym) {
                     ts.add_edge(
                         *map.get(&index).unwrap(),
                         <Self::Alphabet as Alphabet>::expression(*sym),
@@ -397,7 +464,7 @@ pub trait Successor: HasAlphabet {
     }
 
     fn collect_into_ts<
-        Ts: Successor<
+        Ts: TransitionSystem<
                 StateColor = Self::StateColor,
                 EdgeColor = Self::EdgeColor,
                 Alphabet = Self::Alphabet,
@@ -415,7 +482,7 @@ pub trait Successor: HasAlphabet {
         }
         for index in self.state_indices() {
             for sym in self.alphabet().universe() {
-                if let Some(edge) = self.successor(index, *sym) {
+                if let Some(edge) = self.transition(index, *sym) {
                     ts.add_edge(
                         *map.get(&index).unwrap(),
                         <Self::Alphabet as Alphabet>::expression(*sym),
@@ -429,17 +496,18 @@ pub trait Successor: HasAlphabet {
     }
 }
 
-impl<Ts: Successor> Successor for &Ts {
+impl<Ts: TransitionSystem> TransitionSystem for &Ts {
     type StateIndex = Ts::StateIndex;
     type EdgeColor = Ts::EdgeColor;
     type StateColor = Ts::StateColor;
+    type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
 
-    fn successor(
+    fn transition(
         &self,
         state: Self::StateIndex,
         symbol: SymbolOf<Self>,
-    ) -> Option<Transition<Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>>> {
-        Ts::successor(self, state, symbol)
+    ) -> Option<Self::TransitionRef<'_>> {
+        Ts::transition(self, state, symbol)
     }
 
     fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
@@ -467,17 +535,18 @@ impl<Ts: Successor> Successor for &Ts {
         Ts::edge_color(self, state, expression)
     }
 }
-impl<Ts: Successor> Successor for &mut Ts {
+impl<Ts: TransitionSystem> TransitionSystem for &mut Ts {
     type StateIndex = Ts::StateIndex;
     type EdgeColor = Ts::EdgeColor;
     type StateColor = Ts::StateColor;
+    type TransitionRef<'this> = Ts::TransitionRef<'this> where Self : 'this;
 
-    fn successor(
+    fn transition(
         &self,
         state: Self::StateIndex,
         symbol: SymbolOf<Self>,
-    ) -> Option<Transition<Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>>> {
-        Ts::successor(self, state, symbol)
+    ) -> Option<Self::TransitionRef<'_>> {
+        Ts::transition(self, state, symbol)
     }
 
     fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
@@ -511,7 +580,7 @@ impl<Ts: Successor> Successor for &mut Ts {
 mod tests {
     use tracing_test::traced_test;
 
-    use super::Successor;
+    use super::TransitionSystem;
     use crate::{
         alphabet,
         ts::{

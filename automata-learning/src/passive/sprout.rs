@@ -7,7 +7,7 @@ use automata::{
     alphabet::Symbol,
     automaton::IsDfa,
     ts::{operations::ProductIndex, Congruence, FiniteState, Product, Sproutable, ToDot},
-    Alphabet, Class, InfiniteLength, Map, Pointed, RightCongruence, Set, Successor, Word,
+    Alphabet, Class, InfiniteLength, Map, Pointed, RightCongruence, Set, TransitionSystem, Word,
 };
 use itertools::Itertools;
 use tracing::trace;
@@ -45,12 +45,15 @@ impl<A: Alphabet> ConflictRelation<A> {
         true
     }
 
+    /// Returns a reference to the underlying alphabet of one of the DFAs. We assure that both DFAs use the same
+    /// alphabet.
     pub fn alphabet(&self) -> &A {
         self.dfas[0].alphabet()
     }
 
+    /// Returns a preliminary threshold for the number of states in the product of the two DFAs.
     pub fn threshold(&self) -> usize {
-        self.dfas[0].size() * self.dfas[1].size()
+        2 * self.dfas[0].size() * self.dfas[1].size()
     }
 }
 
@@ -108,6 +111,8 @@ where
     }
 }
 
+/// Computes a conflict relation encoding iteration consistency. For more details on the construction,
+/// see Lemma 29 in [this paper](https://arxiv.org/pdf/2302.11043.pdf).
 pub fn iteration_consistency_conflicts<A: Alphabet>(
     samples: &SplitOmegaSample<'_, A, bool>,
     class: Class<A::Symbol>,
@@ -174,7 +179,8 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
     }
 }
 
-/// Computes a conflict relation encoding prefix consistency.
+/// Computes a conflict relation encoding prefix consistency. For more details on how this works, see
+/// Lemma 28 in [this paper](https://arxiv.org/pdf/2302.11043.pdf).
 pub fn prefix_consistency_conflicts<
     A: Alphabet,
     S: std::borrow::Borrow<Sample<A, InfiniteLength, bool>>,
@@ -302,7 +308,7 @@ mod tests {
             finite::{ReachedColor, ReachedState},
             FiniteState, Sproutable, ToDot,
         },
-        Class, Pointed, RightCongruence, Successor,
+        Class, Pointed, RightCongruence, TransitionSystem,
     };
     use itertools::Itertools;
     use tracing_test::traced_test;

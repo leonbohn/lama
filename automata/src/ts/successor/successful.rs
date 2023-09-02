@@ -15,10 +15,10 @@ use crate::{
     Color, FiniteLength, Length,
 };
 
-use super::Successor;
+use super::TransitionSystem;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Successful<'a, 'b, R, Ts: Successor> {
+pub struct Successful<'a, 'b, R, Ts: TransitionSystem> {
     word: &'b R,
     ts: &'a Ts,
     path: Path<Ts::Alphabet, Ts::StateIndex>,
@@ -27,7 +27,7 @@ pub struct Successful<'a, 'b, R, Ts: Successor> {
 
 impl<'a, 'b, R, Ts> CanInduce<SeenColors<Ts::StateColor>> for Successful<'a, 'b, R, Ts>
 where
-    Ts: Successor,
+    Ts: TransitionSystem,
     Ts::StateColor: Clone,
 {
     fn induce(&self) -> SeenColors<Ts::StateColor> {
@@ -37,7 +37,7 @@ where
 
 impl<'a, 'b, R, Ts> CanInduce<InfinityColors<Ts::EdgeColor>> for Successful<'a, 'b, R, Ts>
 where
-    Ts: Successor,
+    Ts: TransitionSystem,
     Ts::StateColor: Clone,
 {
     fn induce(&self) -> InfinityColors<Ts::EdgeColor> {
@@ -47,7 +47,7 @@ where
 
 impl<'a, 'b, R, Ts> CanInduce<InfinityStateColors<Ts::StateColor>> for Successful<'a, 'b, R, Ts>
 where
-    Ts: Successor,
+    Ts: TransitionSystem,
     Ts::StateColor: Clone,
 {
     fn induce(&self) -> InfinityStateColors<Ts::StateColor> {
@@ -63,7 +63,7 @@ where
 
 impl<'a, 'b, R, Ts> CanInduce<ReachedColor<Ts::StateColor>> for Successful<'a, 'b, R, Ts>
 where
-    Ts: Successor,
+    Ts: TransitionSystem,
     Ts::StateColor: Clone,
 {
     fn induce(&self) -> ReachedColor<Ts::StateColor> {
@@ -71,7 +71,7 @@ where
     }
 }
 
-impl<'a, 'b, R, Ts: Successor> CanInduce<ReachedState<Ts::StateIndex>>
+impl<'a, 'b, R, Ts: TransitionSystem> CanInduce<ReachedState<Ts::StateIndex>>
     for Successful<'a, 'b, R, Ts>
 {
     fn induce(&self) -> ReachedState<Ts::StateIndex> {
@@ -79,7 +79,7 @@ impl<'a, 'b, R, Ts: Successor> CanInduce<ReachedState<Ts::StateIndex>>
     }
 }
 
-impl<'a, 'b, R, Ts: Successor> CanInduce<TransitionColorSequence<Ts::EdgeColor>>
+impl<'a, 'b, R, Ts: TransitionSystem> CanInduce<TransitionColorSequence<Ts::EdgeColor>>
     for Successful<'a, 'b, R, Ts>
 {
     fn induce(&self) -> TransitionColorSequence<Ts::EdgeColor> {
@@ -87,7 +87,7 @@ impl<'a, 'b, R, Ts: Successor> CanInduce<TransitionColorSequence<Ts::EdgeColor>>
     }
 }
 
-impl<'a, 'b, R, Ts: Successor> Successful<'a, 'b, R, Ts> {
+impl<'a, 'b, R, Ts: TransitionSystem> Successful<'a, 'b, R, Ts> {
     pub fn new(
         word: &'b R,
         ts: &'a Ts,

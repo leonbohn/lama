@@ -9,10 +9,10 @@ use crate::{
     Length, Word,
 };
 
-use super::{Partial, Successful, Successor};
+use super::{IsTransition, Partial, Successful, TransitionSystem};
 
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub struct Walker<'a, 'b, Ts: Successor, R> {
+pub struct Walker<'a, 'b, Ts: TransitionSystem, R> {
     ts: &'a Ts,
     word: &'b R,
     position: usize,
@@ -22,20 +22,27 @@ pub struct Walker<'a, 'b, Ts: Successor, R> {
 
 pub type RunResult<'a, 'b, Ts, R> = Result<Successful<'a, 'b, R, Ts>, Partial<'a, 'b, R, Ts>>;
 
-pub enum WalkerStep<Ts: Successor> {
-    Transition(Transition<Ts::StateIndex, ExpressionOf<Ts>, EdgeColor<Ts>>),
+pub enum WalkerStep<Ts: TransitionSystem> {
+    Transition(
+        (
+            Ts::StateIndex,
+            ExpressionOf<Ts>,
+            Ts::StateIndex,
+            EdgeColor<Ts>,
+        ),
+    ),
     Missing(Ts::StateIndex, SymbolOf<Ts>),
     Cycle,
     End,
 }
 
-impl<Ts: Successor> WalkerStep<Ts> {
+impl<Ts: TransitionSystem> WalkerStep<Ts> {
     fn is_successful(&self) -> bool {
         matches!(self, Self::End) || matches!(self, Self::Cycle)
     }
 }
 
-impl<'a, 'b, Ts: Successor, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b, Ts, R> {
+impl<'a, 'b, Ts: TransitionSystem, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b, Ts, R> {
     pub fn new(word: &'b R, ts: &'a Ts, origin: Ts::StateIndex) -> Self {
         Self {
             ts,
@@ -95,7 +102,7 @@ impl<'a, 'b, Ts: Successor, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b, Ts, R
 
             if let Some(transition) = self.seq.extend_in(self.ts, symbol) {
                 self.position += 1;
-                WalkerStep::Transition(transition)
+                WalkerStep::Transition(transition.into_tuple())
             } else {
                 WalkerStep::Missing(self.seq.reached(), symbol)
             }
@@ -104,7 +111,16 @@ impl<'a, 'b, Ts: Successor, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b, Ts, R
         }
     }
 
-    pub fn step(&mut self) -> Option<Transition<Ts::StateIndex, ExpressionOf<Ts>, EdgeColor<Ts>>> {
+    /// Takes a single step in the automaton.
+    #[allow(clippy::type_complexity)]
+    pub fn step(
+        &mut self,
+    ) -> Option<(
+        Ts::StateIndex,
+        ExpressionOf<Ts>,
+        Ts::StateIndex,
+        Ts::EdgeColor,
+    )> {
         match self.take_transition() {
             WalkerStep::Transition(t) => {
                 trace!("Took transition {:?} at position {}", t, self.position);

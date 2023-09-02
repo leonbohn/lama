@@ -1,5 +1,5 @@
 use automata::alphabet::{Alphabet, Symbol};
-use automata::ts::{HasColorMut, HasMutableStates, Pointed, Sproutable, Successor};
+use automata::ts::{HasColorMut, HasMutableStates, Pointed, Sproutable, TransitionSystem};
 use automata::{Color, FiniteLength, MooreMachine, Transformer, Word};
 use itertools::Itertools;
 use tracing::trace;
@@ -293,7 +293,7 @@ mod tests {
         ) -> Result<(), (Vec<automata::alphabet::SymbolOf<Self>>, Self::Output)>
         where
             H: automata::ts::Pointed
-                + automata::ts::Successor<Alphabet = Self::Alphabet, StateColor = Self::Output>
+                + automata::ts::TransitionSystem<Alphabet = Self::Alphabet, StateColor = Self::Output>
                 + automata::Transformer<
                     automata::alphabet::SymbolOf<Self>,
                     FiniteLength,
@@ -336,7 +336,7 @@ mod tests {
 
         fn equivalence<
             H: automata::ts::Pointed
-                + automata::ts::Successor<Alphabet = Self::Alphabet, StateColor = Self::Output>,
+                + automata::ts::TransitionSystem<Alphabet = Self::Alphabet, StateColor = Self::Output>,
         >(
             &self,
             hypothesis: H,

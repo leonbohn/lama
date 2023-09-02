@@ -9,7 +9,7 @@ use crate::{
         BTState, FiniteState, FiniteStatesIterType, HasFiniteStates, HasMutableStates, HasStates,
         Sproutable, BTS,
     },
-    Alphabet, Color, FiniteLength, HasLength, Map, Pointed, Successor, Word, DFA,
+    Alphabet, Color, FiniteLength, HasLength, Map, Pointed, TransitionSystem, Word, DFA,
 };
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -246,23 +246,18 @@ impl<A: Alphabet> HasAlphabet for RightCongruence<A> {
     }
 }
 
-impl<A: Alphabet> Successor for RightCongruence<A> {
+impl<A: Alphabet> TransitionSystem for RightCongruence<A> {
     type StateIndex = usize;
     type EdgeColor = ();
     type StateColor = Class<A::Symbol>;
+    type TransitionRef<'this> = (usize, (&'this A::Expression, &'this (usize, ()))) where Self: 'this;
 
-    fn successor(
+    fn transition(
         &self,
         state: Self::StateIndex,
         symbol: crate::alphabet::SymbolOf<Self>,
-    ) -> Option<
-        crate::ts::Transition<
-            Self::StateIndex,
-            crate::alphabet::ExpressionOf<Self>,
-            crate::ts::EdgeColor<Self>,
-        >,
-    > {
-        self.ts.successor(state, symbol)
+    ) -> Option<Self::TransitionRef<'_>> {
+        self.ts.transition(state, symbol)
     }
 
     fn state_color(&self, state: Self::StateIndex) -> crate::ts::StateColor<Self> {

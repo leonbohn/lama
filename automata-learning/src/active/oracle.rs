@@ -1,6 +1,6 @@
 use automata::{
     alphabet::{Alphabet, HasAlphabet, Symbol, SymbolOf},
-    ts::{Pointed, Successor},
+    ts::{Pointed, TransitionSystem},
     Acceptor, Color, FiniteLength, Length, Map, MooreMachine, Transformer, Word,
 };
 
@@ -30,6 +30,6 @@ pub trait Oracle: HasAlphabet {
     fn equivalence<H>(&self, hypothesis: H) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)>
     where
         H: Pointed
-            + Successor<Alphabet = Self::Alphabet, StateColor = Self::Output>
+            + TransitionSystem<Alphabet = Self::Alphabet, StateColor = Self::Output>
             + Transformer<SymbolOf<Self>, Self::Length, Output = Self::Output>;
 }

@@ -5,17 +5,17 @@ use crate::{
     Color, FiniteLength,
 };
 
-use super::Successor;
+use super::TransitionSystem;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Partial<'a, 'b, R, Ts: Successor> {
+pub struct Partial<'a, 'b, R, Ts: TransitionSystem> {
     word: &'b R,
     ts: &'a Ts,
     position: usize,
     path: Path<Ts::Alphabet, Ts::StateIndex>,
 }
 
-impl<'a, 'b, R, Ts: Successor> Partial<'a, 'b, R, Ts> {
+impl<'a, 'b, R, Ts: TransitionSystem> Partial<'a, 'b, R, Ts> {
     pub fn path(self) -> Path<Ts::Alphabet, Ts::StateIndex> {
         self.path
     }

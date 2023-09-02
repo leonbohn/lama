@@ -8,22 +8,29 @@ use crate::{
 };
 
 use super::{
-    BTState, Edge, EdgeColor, FiniteState, FiniteStatesIterType, HasFiniteStates, HasStates,
-    Pointed, StateColor, StateIndex, Successor, Transition,
+    successor::IsTransition, BTState, Edge, EdgeColor, FiniteState, FiniteStatesIterType,
+    HasFiniteStates, HasStates, IndexType, Pointed, StateColor, StateIndex, Transition,
+    TransitionSystem,
 };
 
-pub trait Product: Successor + Sized {
-    type Output<Ts: Successor<Alphabet = Self::Alphabet>>: Successor<
+pub trait Product: TransitionSystem + Sized {
+    type Output<Ts: TransitionSystem<Alphabet = Self::Alphabet>>: TransitionSystem<
         Alphabet = Self::Alphabet,
         StateColor = (Self::StateColor, Ts::StateColor),
     >;
-    fn ts_product<Ts: Successor<Alphabet = Self::Alphabet>>(self, other: Ts) -> Self::Output<Ts>;
+    fn ts_product<Ts: TransitionSystem<Alphabet = Self::Alphabet>>(
+        self,
+        other: Ts,
+    ) -> Self::Output<Ts>;
 }
 
-impl<Lts: Successor + Sized> Product for Lts {
-    type Output<Ts: Successor<Alphabet = Self::Alphabet>> = MatchingProduct<Self, Ts>;
+impl<Lts: TransitionSystem + Sized> Product for Lts {
+    type Output<Ts: TransitionSystem<Alphabet = Self::Alphabet>> = MatchingProduct<Self, Ts>;
 
-    fn ts_product<Ts: Successor<Alphabet = Self::Alphabet>>(self, other: Ts) -> Self::Output<Ts> {
+    fn ts_product<Ts: TransitionSystem<Alphabet = Self::Alphabet>>(
+        self,
+        other: Ts,
+    ) -> Self::Output<Ts> {
         MatchingProduct(self, other)
     }
 }
@@ -96,10 +103,35 @@ where
     }
 }
 
-impl<L, R> Successor for MatchingProduct<L, R>
+pub struct ProductTransition<L, R>(L, R);
+
+impl<Idx, Jdx, E, C, D, L, R> IsTransition<E, ProductIndex<Idx, Jdx>, (C, D)>
+    for ProductTransition<L, R>
 where
-    L: Successor,
-    R: Successor,
+    L: IsTransition<E, Idx, C>,
+    R: IsTransition<E, Jdx, D>,
+{
+    fn source(&self) -> ProductIndex<Idx, Jdx> {
+        ProductIndex(self.0.source(), self.1.source())
+    }
+
+    fn target(&self) -> ProductIndex<Idx, Jdx> {
+        ProductIndex(self.0.target(), self.1.target())
+    }
+
+    fn color(&self) -> (C, D) {
+        (self.0.color(), self.1.color())
+    }
+
+    fn expression(&self) -> &E {
+        self.0.expression()
+    }
+}
+
+impl<L, R> TransitionSystem for MatchingProduct<L, R>
+where
+    L: TransitionSystem,
+    R: TransitionSystem,
     R::Alphabet: Alphabet<Symbol = SymbolOf<L>, Expression = ExpressionOf<L>>,
     L::StateColor: Clone,
     R::StateColor: Clone,
@@ -107,22 +139,18 @@ where
     type StateIndex = ProductIndex<L::StateIndex, R::StateIndex>;
     type EdgeColor = (L::EdgeColor, R::EdgeColor);
     type StateColor = (L::StateColor, R::StateColor);
+    type TransitionRef<'this> = ProductTransition<L::TransitionRef<'this>, R::TransitionRef<'this>> where Self: 'this;
 
-    fn successor(
+    fn transition(
         &self,
         state: Self::StateIndex,
         symbol: SymbolOf<Self>,
-    ) -> Option<Transition<Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>>> {
+    ) -> Option<Self::TransitionRef<'_>> {
         let ProductIndex(l, r) = state;
 
-        let ll = self.0.successor(l, symbol)?;
-        let rr = self.1.successor(r, symbol)?;
-        Some(Transition::new(
-            state,
-            ll.symbol(),
-            ProductIndex(ll.target(), rr.target()),
-            (ll.color().clone(), rr.color().clone()),
-        ))
+        let ll = self.0.transition(l, symbol)?;
+        let rr = self.1.transition(r, symbol)?;
+        Some(ProductTransition(ll, rr))
     }
 
     fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
@@ -203,13 +231,15 @@ impl<Ts, F> MapEdgeColor<Ts, F> {
     }
 }
 
-impl<D: Color, Ts: Successor + Pointed, F: Fn(Ts::EdgeColor) -> D> Pointed for MapEdgeColor<Ts, F> {
+impl<D: Color, Ts: TransitionSystem + Pointed, F: Fn(Ts::EdgeColor) -> D> Pointed
+    for MapEdgeColor<Ts, F>
+{
     fn initial(&self) -> Self::StateIndex {
         self.ts.initial()
     }
 }
 
-impl<Ts: Successor, F> HasAlphabet for MapEdgeColor<Ts, F> {
+impl<Ts: TransitionSystem, F> HasAlphabet for MapEdgeColor<Ts, F> {
     type Alphabet = Ts::Alphabet;
 
     fn alphabet(&self) -> &Self::Alphabet {
@@ -217,29 +247,62 @@ impl<Ts: Successor, F> HasAlphabet for MapEdgeColor<Ts, F> {
     }
 }
 
-impl<D, Ts, F> Successor for MapEdgeColor<Ts, F>
+pub struct MappedTransition<T, F, C> {
+    transition: T,
+    f: F,
+    _old_color: PhantomData<C>,
+}
+
+impl<T, F, C> MappedTransition<T, F, C> {
+    pub fn new(transition: T, f: F) -> Self {
+        Self {
+            transition,
+            f,
+            _old_color: PhantomData,
+        }
+    }
+}
+
+impl<Idx: IndexType, E, C: Color, D: Color, F: Fn(C) -> D, T: IsTransition<E, Idx, C>>
+    IsTransition<E, Idx, D> for MappedTransition<T, F, C>
+{
+    fn source(&self) -> Idx {
+        self.transition.source()
+    }
+
+    fn target(&self) -> Idx {
+        self.transition.target()
+    }
+
+    fn color(&self) -> D {
+        (self.f)(self.transition.color())
+    }
+
+    fn expression(&self) -> &E {
+        self.transition.expression()
+    }
+}
+
+impl<D, Ts, F> TransitionSystem for MapEdgeColor<Ts, F>
 where
     D: Color,
-    Ts: Successor,
+    Ts: TransitionSystem,
     F: Fn(Ts::EdgeColor) -> D,
 {
     type StateIndex = Ts::StateIndex;
     type EdgeColor = D;
     type StateColor = Ts::StateColor;
+    type TransitionRef<'this> = MappedTransition<Ts::TransitionRef<'this>, &'this F, Ts::EdgeColor> where Self: 'this;
 
-    fn successor(
+    fn transition(
         &self,
         state: Self::StateIndex,
         symbol: SymbolOf<Self>,
-    ) -> Option<Transition<Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>>> {
-        self.ts.successor(state, symbol).map(|t| {
-            Transition::new(
-                t.source(),
-                t.symbol(),
-                t.target(),
-                (self.f)(t.color().clone()),
-            )
-        })
+    ) -> Option<Self::TransitionRef<'_>> {
+        Some(MappedTransition::new(
+            self.ts.transition(state, symbol)?,
+            &self.f,
+        ))
     }
 
     fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
@@ -324,22 +387,23 @@ impl<D: Color, Ts: FiniteState, F: Fn(Ts::StateColor) -> D> FiniteState for MapS
     }
 }
 
-impl<D, Ts, F> Successor for MapStateColor<Ts, F>
+impl<D, Ts, F> TransitionSystem for MapStateColor<Ts, F>
 where
     D: Color,
-    Ts: Successor,
+    Ts: TransitionSystem,
     F: Fn(Ts::StateColor) -> D,
 {
     type StateIndex = Ts::StateIndex;
     type EdgeColor = Ts::EdgeColor;
     type StateColor = D;
+    type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
 
-    fn successor(
+    fn transition(
         &self,
         state: Self::StateIndex,
         symbol: SymbolOf<Self>,
-    ) -> Option<Transition<Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>>> {
-        self.ts.successor(state, symbol)
+    ) -> Option<Self::TransitionRef<'_>> {
+        self.ts.transition(state, symbol)
     }
 
     fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
@@ -374,7 +438,7 @@ where
     }
 }
 
-impl<D: Color, Ts: Successor + Pointed, F: Fn(Ts::StateColor) -> D> Pointed
+impl<D: Color, Ts: TransitionSystem + Pointed, F: Fn(Ts::StateColor) -> D> Pointed
     for MapStateColor<Ts, F>
 {
     fn initial(&self) -> Self::StateIndex {
@@ -382,7 +446,7 @@ impl<D: Color, Ts: Successor + Pointed, F: Fn(Ts::StateColor) -> D> Pointed
     }
 }
 
-impl<Ts: Successor, F> HasAlphabet for MapStateColor<Ts, F> {
+impl<Ts: TransitionSystem, F> HasAlphabet for MapStateColor<Ts, F> {
     type Alphabet = Ts::Alphabet;
 
     fn alphabet(&self) -> &Self::Alphabet {
@@ -394,7 +458,10 @@ impl<Ts: Successor, F> HasAlphabet for MapStateColor<Ts, F> {
 mod tests {
     use crate::{
         alphabet::Simple,
-        ts::{finite::ReachedState, HasColorMut, HasMutableStates, Pointed, Sproutable, Successor},
+        ts::{
+            finite::ReachedState, HasColorMut, HasMutableStates, Pointed, Sproutable,
+            TransitionSystem,
+        },
         Transformer,
     };
 

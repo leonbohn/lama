@@ -1,7 +1,7 @@
 use automata::alphabet::Simple;
 use automata::word::Normalized;
 use automata::{simple, ts::Sproutable};
-use automata::{InfiniteLength, MooreMachine, Pointed, Successor};
+use automata::{InfiniteLength, MooreMachine, Pointed, TransitionSystem};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn pseudorandom_sprout(states: usize, n: usize) -> MooreMachine<Simple, usize> {

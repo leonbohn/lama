@@ -8,7 +8,10 @@ use crate::{
     Color, FiniteLength, Set,
 };
 
-use super::{BTState, EdgeColor, IndexType, StateColor, StateIndex, Successor, Transition};
+use super::{
+    successor::IsTransition, BTState, EdgeColor, IndexType, StateColor, StateIndex, Transition,
+    TransitionSystem,
+};
 
 /// Represents a path through a transition system. Note, that the path itself is decoupled from the
 /// transition system, which allows to use it for multiple transition systems. In particular, it is possible
@@ -32,10 +35,17 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
         self.end
     }
 
+    /// Returns true if the path is empty/trivial, meaning it consists of only one state.
+    pub fn is_empty(&self) -> bool {
+        self.transitions.is_empty()
+    }
+
+    /// Returns the length of the path.
     pub fn len(&self) -> usize {
         self.transitions.len()
     }
 
+    /// Creates a looping path by pointing the last transition to the given `position`.
     pub fn loop_back_to(self, position: usize) -> Lasso<A, Idx>
     where
         Idx: IndexType,
@@ -54,7 +64,7 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
 
     pub fn edge_colors<'a, TS>(&'a self, ts: &'a TS) -> impl Iterator<Item = TS::EdgeColor> + 'a
     where
-        TS: Successor<Alphabet = A, StateIndex = Idx>,
+        TS: TransitionSystem<Alphabet = A, StateIndex = Idx>,
         Idx: IndexType,
         TS::EdgeColor: Clone,
     {
@@ -65,7 +75,7 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
 
     pub fn reached_state_color<'a, TS>(&'a self, ts: &'a TS) -> TS::StateColor
     where
-        TS: Successor<Alphabet = A, StateIndex = Idx>,
+        TS: TransitionSystem<Alphabet = A, StateIndex = Idx>,
         Idx: IndexType,
         TS::StateColor: Clone,
     {
@@ -74,7 +84,7 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
 
     pub fn state_colors<'a, TS>(&'a self, ts: &'a TS) -> impl Iterator<Item = TS::StateColor> + 'a
     where
-        TS: Successor<Alphabet = A, StateIndex = Idx>,
+        TS: TransitionSystem<Alphabet = A, StateIndex = Idx>,
         Idx: IndexType,
         TS::StateColor: Clone,
     {
@@ -99,23 +109,24 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
 
     /// Attempts to extend the path in the given `ts` by the given `symbol`. If the path can be extended,
     /// the transition is returned. Otherwise, `None` is returned.
-    pub fn extend_in<Ts>(
+    pub fn extend_in<'a, Ts>(
         &mut self,
-        ts: &Ts,
+        ts: &'a Ts,
         symbol: A::Symbol,
-    ) -> Option<Transition<Idx, A::Expression, EdgeColor<Ts>>>
+    ) -> Option<Ts::TransitionRef<'a>>
     where
         Idx: IndexType,
-        Ts: Successor<Alphabet = A, StateIndex = Idx>,
+        Ts: TransitionSystem<Alphabet = A, StateIndex = Idx>,
     {
-        let transition = ts.successor(self.end, symbol)?;
-        self.transitions.push((self.end, transition.symbol()));
+        let transition = ts.transition(self.end, symbol)?;
+        self.transitions
+            .push((self.end, transition.expression().clone()));
         self.end = transition.target();
         Some(transition)
     }
 
     pub fn extend_with(&mut self, other: Path<A, Idx>) {
-        self.transitions.extend(other.transitions.into_iter());
+        self.transitions.extend(other.transitions);
     }
 
     /// Returns an iterator over the [`StateIndex`]es of the states visited by the path.
@@ -143,7 +154,7 @@ impl<A: Alphabet, Idx> Lasso<A, Idx> {
 
     pub fn infinity_set<Ts>(self, ts: Ts) -> Set<Ts::EdgeColor>
     where
-        Ts: Successor<Alphabet = A, StateIndex = Idx>,
+        Ts: TransitionSystem<Alphabet = A, StateIndex = Idx>,
         Idx: IndexType,
     {
         self.cycle.edge_colors(&ts).collect()

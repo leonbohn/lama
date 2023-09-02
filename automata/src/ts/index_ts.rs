@@ -11,7 +11,7 @@ use crate::{
 use super::{
     BTState, Edge, EdgeColor, EdgeIndex, EdgeIndicesFrom, EdgesFrom, FiniteState,
     FiniteStatesIterType, HasColorMut, HasFiniteStates, HasMutableStates, HasStates, Index,
-    IndexType, Sproutable, StateColor, StateIndex, Successor, Transition,
+    IndexType, Sproutable, StateColor, StateIndex, Transition, TransitionSystem,
 };
 /// An implementation of a transition system with states of type `Q` and colors of type `C`. It stores
 /// the states and edges in a vector, which allows for fast access and iteration. The states and edges
@@ -44,14 +44,18 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
         }
     }
 
+    /// Creates a `BTS` from the given alphabet and states.
     pub(crate) fn from_parts(alphabet: A, states: Map<Idx, BTState<A, Q, C, Idx>>) -> Self {
         Self { alphabet, states }
     }
 
+    /// Decomposes the `BTS` into its constituent parts.
+    #[allow(clippy::type_complexity)]
     pub(crate) fn into_parts(self) -> (A, Map<Idx, BTState<A, Q, C, Idx>>) {
         (self.alphabet, self.states)
     }
 
+    /// Creates an empty `BTS` ensuring the given capacity.
     pub fn with_capacity(alphabet: A, states: usize) -> Self
     where
         StateColor<Self>: Default,
@@ -157,21 +161,17 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
     }
 }
 
-impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Successor for BTS<A, Q, C, Idx> {
+impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A, Q, C, Idx> {
     type StateColor = Q;
     type EdgeColor = C;
     type StateIndex = Idx;
-    fn successor(
-        &self,
-        state: Idx,
-        symbol: A::Symbol,
-    ) -> Option<Transition<Idx, A::Expression, EdgeColor<Self>>> {
+    type TransitionRef<'this> = (Idx, (&'this A::Expression, &'this (Idx, C))) where Self: 'this;
+
+    fn transition(&self, state: Idx, symbol: A::Symbol) -> Option<Self::TransitionRef<'_>> {
         self.states
             .get(&state)
             .and_then(|o| A::search_edge(&o.edges, symbol))
-            .map(|(expression, (target, color))| {
-                Transition::new(state, expression.clone(), *target, color.clone())
-            })
+            .map(|o| (state, o))
     }
 
     fn state_color(&self, index: Idx) -> StateColor<Self> {
@@ -314,7 +314,9 @@ where
 mod tests {
     use crate::{
         alphabet,
-        ts::{index_ts::MealyTS, Sproutable, Successor, Transition},
+        ts::{
+            index_ts::MealyTS, successor::IsTransition, Sproutable, Transition, TransitionSystem,
+        },
     };
 
     use super::BTS;
@@ -329,8 +331,8 @@ mod tests {
         let _e2 = ts.add_edge(s1, 'a', s1, 0);
         let _e3 = ts.add_edge(s1, 'b', s0, 1);
         println!("{:?}", ts);
-        assert!(ts.successor(s0, 'a').is_some());
-        assert_eq!(ts.successor(s1, 'a'), Some(Transition::new(s1, 'a', s1, 0)));
+        assert!(ts.transition(s0, 'a').is_some());
+        assert_eq!(ts.transition(s1, 'a').unwrap().target(), s1);
         assert_eq!(ts.index_ts_edges_from(s0).unwrap().count(), 2);
     }
 }

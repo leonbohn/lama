@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, fmt::Display, hash::Hash, ops::Deref};
 
 use impl_tools::autoimpl;
 use itertools::{Itertools, Position};
-pub use successor::Successor;
+pub use successor::TransitionSystem;
 
 mod transition;
 use tabled::builder::Builder;
@@ -186,13 +186,13 @@ impl<'a, Q> StateReference<'a, Q> {
     }
 }
 
-pub type StateColor<X> = <X as Successor>::StateColor;
-pub type EdgeColor<X> = <X as Successor>::EdgeColor;
+pub type StateColor<X> = <X as TransitionSystem>::StateColor;
+pub type EdgeColor<X> = <X as TransitionSystem>::EdgeColor;
 
 /// Abstracts possessing a set of states. Note, that implementors of this trait must
 /// be able to iterate over the set of states.
 #[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
-pub trait HasStates: Successor + Sized {
+pub trait HasStates: TransitionSystem + Sized {
     /// The type of the states.
     type State<'this>: HasColor<Color = StateColor<Self>>
     where
@@ -214,7 +214,7 @@ pub trait HasStates: Successor + Sized {
     }
 }
 
-pub trait HasFiniteStates<'a, Outlives = &'a Self>: Successor {
+pub trait HasFiniteStates<'a, Outlives = &'a Self>: TransitionSystem {
     type StateIndicesIter: Iterator<Item = Self::StateIndex> + Clone;
 }
 
@@ -238,7 +238,6 @@ pub trait FiniteState: Sized + for<'a> HasFiniteStates<'a> {
 
     fn find_by_color(&self, color: &StateColor<Self>) -> Option<Self::StateIndex> {
         self.state_indices()
-            .into_iter()
             .find(|index| &self.state_color(*index) == color)
     }
 
@@ -267,7 +266,7 @@ pub trait HasMutableStates: HasStates {
     fn state_mut(&mut self, index: Self::StateIndex) -> Option<Self::StateMut<'_>>;
 }
 
-pub trait Sproutable: Successor {
+pub trait Sproutable: TransitionSystem {
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self;
 
     fn add_state(&mut self, color: StateColor<Self>) -> Self::StateIndex;
@@ -314,7 +313,7 @@ pub trait Sproutable: Successor {
 
 /// Implementors of this trait have a distinguished (initial) state.
 #[autoimpl(for<T: trait> &T, &mut T)]
-pub trait Pointed: Successor {
+pub trait Pointed: TransitionSystem {
     /// Returns the index of the initial state.
     fn initial(&self) -> Self::StateIndex;
 }
@@ -325,7 +324,7 @@ pub use dot::ToDot;
 /// A congruence is a [`TransitionSystem`], which additionally has a distinguished initial state. On top
 /// of that, a congruence does not have any coloring on either states or symbols. This
 /// functionality is abstracted in [`Pointed`]. This trait is automatically implemented.
-pub trait Congruence: Successor + Pointed {
+pub trait Congruence: TransitionSystem + Pointed {
     fn build_right_congruence(
         &self,
     ) -> (
@@ -365,4 +364,4 @@ pub trait Congruence: Successor + Pointed {
         (cong, map)
     }
 }
-impl<Sim: Successor + Pointed> Congruence for Sim {}
+impl<Sim: TransitionSystem + Pointed> Congruence for Sim {}

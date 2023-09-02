@@ -1,15 +1,17 @@
 use crate::{
     alphabet::{HasAlphabet, SymbolOf},
     ts::HasStates,
-    Pointed, Successor,
+    Pointed, TransitionSystem,
 };
 
-pub struct RestrictByStateIndex<Ts: Successor, F> {
+use super::IsTransition;
+
+pub struct RestrictByStateIndex<Ts: TransitionSystem, F> {
     ts: Ts,
     filter: F,
 }
 
-impl<Ts: Successor + Pointed, F> Pointed for RestrictByStateIndex<Ts, F>
+impl<Ts: TransitionSystem + Pointed, F> Pointed for RestrictByStateIndex<Ts, F>
 where
     F: Fn(Ts::StateIndex) -> bool,
 {
@@ -20,34 +22,29 @@ where
     }
 }
 
-impl<Ts: Successor, F> HasAlphabet for RestrictByStateIndex<Ts, F> {
+impl<Ts: TransitionSystem, F> HasAlphabet for RestrictByStateIndex<Ts, F> {
     type Alphabet = Ts::Alphabet;
     fn alphabet(&self) -> &Self::Alphabet {
         self.ts.alphabet()
     }
 }
 
-impl<Ts: Successor, F> Successor for RestrictByStateIndex<Ts, F>
+impl<Ts: TransitionSystem, F> TransitionSystem for RestrictByStateIndex<Ts, F>
 where
     F: Fn(Ts::StateIndex) -> bool,
 {
     type StateIndex = Ts::StateIndex;
     type EdgeColor = Ts::EdgeColor;
     type StateColor = Ts::StateColor;
+    type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
 
-    fn successor(
+    fn transition(
         &self,
         state: Self::StateIndex,
         symbol: crate::alphabet::SymbolOf<Self>,
-    ) -> Option<
-        crate::ts::Transition<
-            Self::StateIndex,
-            crate::alphabet::ExpressionOf<Self>,
-            crate::ts::EdgeColor<Self>,
-        >,
-    > {
+    ) -> Option<Self::TransitionRef<'_>> {
         self.ts
-            .successor(state, symbol)
+            .transition(state, symbol)
             .filter(|successor| (self.filter)(state) && (self.filter)(successor.target()))
     }
 
@@ -107,7 +104,7 @@ where
     }
 }
 
-impl<Ts: Successor, F> RestrictByStateIndex<Ts, F> {
+impl<Ts: TransitionSystem, F> RestrictByStateIndex<Ts, F> {
     pub fn new(ts: Ts, filter: F) -> Self {
         Self { ts, filter }
     }
@@ -115,7 +112,7 @@ impl<Ts: Successor, F> RestrictByStateIndex<Ts, F> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{simple, ts::Sproutable, Acceptor, Pointed, Successor, DFA};
+    use crate::{simple, ts::Sproutable, Acceptor, Pointed, TransitionSystem, DFA};
 
     #[test]
     fn restrict_ts_by_state_index() {

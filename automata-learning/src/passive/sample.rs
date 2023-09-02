@@ -11,7 +11,7 @@ use automata::{
     ts::{FiniteState, HasStates, Pointed, Product, Sproutable},
     word::{Normalized, NormalizedParseError, NormalizedPeriodic, OmegaWord, RawSymbols},
     Acceptor, Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length, Map,
-    MooreMachine, RightCongruence, Set, Successor, Word, DFA,
+    MooreMachine, RightCongruence, Set, TransitionSystem, Word, DFA,
 };
 use itertools::Itertools;
 use tracing::{debug, trace};
@@ -31,7 +31,9 @@ pub struct Sample<A: Alphabet, L: Length, C: Color = bool> {
 /// An `OmegaSample` is just a sample that contains infinite words.
 pub type OmegaSample<A, C = bool> = Sample<A, InfiniteLength, C>;
 
+/// Abstracts the types of errors that can occur when parsing an `OmegaSample` from a string.
 #[derive(Debug, Clone, Eq, PartialEq)]
+#[allow(missing_docs)]
 pub enum OmegaSampleParseError {
     MissingHeader,
     MissingAlphabet,
@@ -160,6 +162,7 @@ impl<A: Alphabet, L: Length, C: Color> Sample<A, L, C> {
         self.words.keys()
     }
 
+    /// Classifying a word returns the color that is associated with it.
     pub fn classify<W: Into<Normalized<A::Symbol, L>>>(&self, word: W) -> Option<C> {
         let word = word.into();
         self.words.get(&word).cloned()
@@ -410,6 +413,7 @@ impl<'a, A: Alphabet, C: Color> SplitOmegaSample<'a, A, C> {
             .and_then(|idx| self.split.get(&idx))
     }
 
+    /// Obtains an iterator over all classes in the split sample.
     pub fn classes(&self) -> impl Iterator<Item = &'_ Class<A::Symbol>> + '_ {
         self.split.values().map(|sample| &sample.class)
     }
@@ -504,7 +508,7 @@ mod tests {
         alphabet::Simple,
         npw, nupw, simple,
         ts::{finite::ReachedColor, Congruence, HasStates, Sproutable},
-        upw, Acceptor, HasLength, Pointed, RightCongruence, Successor,
+        upw, Acceptor, HasLength, Pointed, RightCongruence, TransitionSystem,
     };
     use itertools::Itertools;
     use tracing::info;

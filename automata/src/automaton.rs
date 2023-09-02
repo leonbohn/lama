@@ -16,18 +16,18 @@ use crate::{
         infinite::InfinityStateColors,
         operations::{MapStateColor, MatchingProduct},
         BTState, Congruence, EdgeColor, FiniteState, HasMutableStates, HasStates, IndexType, Path,
-        Pointed, Product, Sproutable, StateColor, StateIndex, Successor, Transition, BTS,
+        Pointed, Product, Sproutable, StateColor, StateIndex, Transition, TransitionSystem, BTS,
     },
     word::{Normalized, OmegaWord},
     Color, FiniteLength, HasLength, InfiniteLength, Length, Set, Word,
 };
 
 #[derive(Clone, PartialEq)]
-pub struct WithInitial<Ts: Successor>(Ts, Ts::StateIndex);
+pub struct WithInitial<Ts: TransitionSystem>(Ts, Ts::StateIndex);
 
 impl<Ts> std::fmt::Debug for WithInitial<Ts>
 where
-    Ts: Successor + FiniteState,
+    Ts: TransitionSystem + FiniteState,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(
@@ -50,13 +50,13 @@ mod boilerplate_impls {
 
     use super::*;
 
-    impl<Ts: Successor> From<(Ts, Ts::StateIndex)> for WithInitial<Ts> {
+    impl<Ts: TransitionSystem> From<(Ts, Ts::StateIndex)> for WithInitial<Ts> {
         fn from(value: (Ts, Ts::StateIndex)) -> Self {
             Self(value.0, value.1)
         }
     }
 
-    impl<'a, Ts: Successor + HasFiniteStates<'a>> HasFiniteStates<'a> for WithInitial<Ts> {
+    impl<'a, Ts: TransitionSystem + HasFiniteStates<'a>> HasFiniteStates<'a> for WithInitial<Ts> {
         type StateIndicesIter = Ts::StateIndicesIter;
     }
 
@@ -91,7 +91,7 @@ mod boilerplate_impls {
         }
     }
 
-    impl<Ts: Successor> WithInitial<Ts> {
+    impl<Ts: TransitionSystem> WithInitial<Ts> {
         pub fn ts(&self) -> &Ts {
             &self.0
         }
@@ -99,7 +99,7 @@ mod boilerplate_impls {
             &mut self.0
         }
     }
-    impl<Ts: Successor + Sproutable> Sproutable for WithInitial<Ts>
+    impl<Ts: TransitionSystem + Sproutable> Sproutable for WithInitial<Ts>
     where
         StateColor<Ts>: Default,
     {
@@ -139,7 +139,7 @@ mod boilerplate_impls {
             self.ts_mut().remove_edge(from, on)
         }
     }
-    impl<Ts: Successor + HasStates> HasStates for WithInitial<Ts> {
+    impl<Ts: TransitionSystem + HasStates> HasStates for WithInitial<Ts> {
         type State<'this> = Ts::State<'this>
         where
             Self: 'this;
@@ -156,14 +156,14 @@ mod boilerplate_impls {
             self.ts().states_iter()
         }
     }
-    impl<Ts: Successor + HasMutableStates> HasMutableStates for WithInitial<Ts> {
+    impl<Ts: TransitionSystem + HasMutableStates> HasMutableStates for WithInitial<Ts> {
         type StateMut<'this>  = Ts::StateMut<'this> where Self:'this;
 
         fn state_mut(&mut self, index: Self::StateIndex) -> Option<Self::StateMut<'_>> {
             self.ts_mut().state_mut(index)
         }
     }
-    impl<Ts: Successor + HasAlphabet> HasAlphabet for WithInitial<Ts> {
+    impl<Ts: TransitionSystem + HasAlphabet> HasAlphabet for WithInitial<Ts> {
         type Alphabet = Ts::Alphabet;
 
         fn alphabet(&self) -> &Self::Alphabet {
@@ -171,15 +171,24 @@ mod boilerplate_impls {
         }
     }
 
-    impl<Ts: Successor> Pointed for WithInitial<Ts> {
+    impl<Ts: TransitionSystem> Pointed for WithInitial<Ts> {
         fn initial(&self) -> Self::StateIndex {
             self.1
         }
     }
-    impl<Ts: Successor> Successor for WithInitial<Ts> {
+    impl<Ts: TransitionSystem> TransitionSystem for WithInitial<Ts> {
         type StateIndex = Ts::StateIndex;
         type StateColor = Ts::StateColor;
         type EdgeColor = Ts::EdgeColor;
+        type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
+
+        fn transition(
+            &self,
+            state: Self::StateIndex,
+            symbol: SymbolOf<Self>,
+        ) -> Option<Self::TransitionRef<'_>> {
+            self.ts().transition(state, symbol)
+        }
 
         fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
             self.ts().state_color(state)
@@ -211,16 +220,6 @@ mod boilerplate_impls {
             expression: &crate::alphabet::ExpressionOf<Self>,
         ) -> Option<EdgeColor<Self>> {
             self.ts().edge_color(state, expression)
-        }
-
-        fn successor(
-            &self,
-            state: Self::StateIndex,
-            symbol: SymbolOf<Self>,
-        ) -> Option<
-            Transition<Self::StateIndex, crate::alphabet::ExpressionOf<Self>, EdgeColor<Self>>,
-        > {
-            self.ts().successor(state, symbol)
         }
     }
 }
@@ -262,7 +261,7 @@ pub trait Transformer<S, Len: Length> {
 
 impl<Ts> Transformer<SymbolOf<Ts>, FiniteLength> for Ts
 where
-    Ts: Successor + Pointed,
+    Ts: TransitionSystem + Pointed,
     Ts::StateColor: Clone + Default,
 {
     type Output = Ts::StateColor;
@@ -281,7 +280,7 @@ where
 
 impl<Ts> Transformer<SymbolOf<Ts>, InfiniteLength> for Ts
 where
-    Ts: Successor + Pointed,
+    Ts: TransitionSystem + Pointed,
     Ts::EdgeColor: Clone,
 {
     type Output = BTreeSet<Ts::EdgeColor>;
@@ -375,7 +374,7 @@ where
 type DfaProductReduced<L, R> = MapStateColor<MatchingProduct<L, R>, fn((bool, bool)) -> bool>;
 
 pub trait IsDfa:
-    Successor<StateColor = bool>
+    TransitionSystem<StateColor = bool>
     + Pointed
     + Sized
     + Acceptor<SymbolOf<Self>, FiniteLength>
@@ -421,7 +420,7 @@ pub trait IsDfa:
 }
 
 impl<Ts> IsDfa for Ts where
-    Ts: Successor<StateColor = bool>
+    Ts: TransitionSystem<StateColor = bool>
         + Pointed
         + Sized
         + Acceptor<SymbolOf<Self>, FiniteLength>
@@ -430,7 +429,7 @@ impl<Ts> IsDfa for Ts where
 }
 
 pub trait IsDba:
-    Successor<EdgeColor = bool>
+    TransitionSystem<EdgeColor = bool>
     + Pointed
     + Sized
     + Acceptor<SymbolOf<Self>, InfiniteLength>
@@ -465,7 +464,7 @@ pub trait IsDba:
 }
 
 impl<Ts> IsDba for Ts where
-    Ts: Successor<EdgeColor = bool>
+    Ts: TransitionSystem<EdgeColor = bool>
         + Pointed
         + Sized
         + Acceptor<SymbolOf<Self>, InfiniteLength>
@@ -474,7 +473,7 @@ impl<Ts> IsDba for Ts where
 }
 
 pub trait IsDpa:
-    Successor<EdgeColor = usize>
+    TransitionSystem<EdgeColor = usize>
     + Pointed
     + Sized
     + Acceptor<SymbolOf<Self>, InfiniteLength>
@@ -483,7 +482,7 @@ pub trait IsDpa:
 }
 
 impl<Ts> IsDpa for Ts where
-    Ts: Successor<EdgeColor = usize>
+    Ts: TransitionSystem<EdgeColor = usize>
         + Pointed
         + Sized
         + Acceptor<SymbolOf<Self>, InfiniteLength>
@@ -497,7 +496,7 @@ mod tests {
     use crate::{
         alphabet::{self, Simple},
         automaton::{Acceptor, IsDba, Transformer},
-        ts::{HasColorMut, HasMutableStates, Pointed, Product, Sproutable, Successor, BTS},
+        ts::{HasColorMut, HasMutableStates, Pointed, Product, Sproutable, TransitionSystem, BTS},
         upw,
         word::OmegaWord,
         InfiniteLength,

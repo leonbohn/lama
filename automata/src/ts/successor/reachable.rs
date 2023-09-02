@@ -1,9 +1,9 @@
 use std::collections::VecDeque;
 
-use crate::{alphabet::SymbolOf, ts::StateColor, Alphabet, Set, Successor};
+use crate::{alphabet::SymbolOf, ts::StateColor, Alphabet, Set, TransitionSystem};
 
 #[derive(Debug, Clone)]
-pub struct MinimalRepresentatives<Ts: Successor> {
+pub struct MinimalRepresentatives<Ts: TransitionSystem> {
     ts: Ts,
     origin: Ts::StateIndex,
     seen: Set<Ts::StateIndex>,
@@ -12,7 +12,7 @@ pub struct MinimalRepresentatives<Ts: Successor> {
 
 impl<Ts> MinimalRepresentatives<Ts>
 where
-    Ts: Successor,
+    Ts: TransitionSystem,
 {
     pub fn new(ts: Ts, origin: Ts::StateIndex) -> Self {
         let mut seen = Set::from_iter([origin]);
@@ -28,7 +28,7 @@ where
 
 impl<Ts> Iterator for MinimalRepresentatives<Ts>
 where
-    Ts: Successor,
+    Ts: TransitionSystem,
 {
     type Item = (Vec<SymbolOf<Ts>>, Ts::StateIndex);
 
@@ -50,11 +50,11 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub struct ReachableStates<Ts: Successor>(MinimalRepresentatives<Ts>);
+pub struct ReachableStates<Ts: TransitionSystem>(MinimalRepresentatives<Ts>);
 
 impl<Ts> ReachableStates<Ts>
 where
-    Ts: Successor,
+    Ts: TransitionSystem,
 {
     pub fn new(ts: Ts, origin: Ts::StateIndex) -> Self {
         Self(MinimalRepresentatives::new(ts, origin))
@@ -63,7 +63,7 @@ where
 
 impl<Ts> Iterator for ReachableStates<Ts>
 where
-    Ts: Successor,
+    Ts: TransitionSystem,
 {
     type Item = (Ts::StateIndex, StateColor<Ts>);
 
@@ -73,11 +73,11 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub struct ReachableStateIndices<Ts: Successor>(MinimalRepresentatives<Ts>);
+pub struct ReachableStateIndices<Ts: TransitionSystem>(MinimalRepresentatives<Ts>);
 
 impl<Ts> Iterator for ReachableStateIndices<Ts>
 where
-    Ts: Successor,
+    Ts: TransitionSystem,
 {
     type Item = Ts::StateIndex;
 
@@ -88,7 +88,7 @@ where
 
 impl<Ts> ReachableStateIndices<Ts>
 where
-    Ts: Successor,
+    Ts: TransitionSystem,
 {
     pub fn new(ts: Ts, origin: Ts::StateIndex) -> Self {
         Self(MinimalRepresentatives::new(ts, origin))
@@ -99,7 +99,7 @@ where
 mod tests {
     use itertools::Itertools;
 
-    use crate::{alphabet::Simple, ts::Sproutable, Pointed, Successor};
+    use crate::{alphabet::Simple, ts::Sproutable, Pointed, TransitionSystem};
 
     #[test]
     fn reachable_states() {
