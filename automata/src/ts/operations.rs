@@ -8,7 +8,7 @@ use crate::{
 };
 
 use super::{
-    successor::IsTransition, BTState, Edge, EdgeColor, FiniteState, FiniteStatesIterType,
+    transition_system::IsTransition, BTState, Edge, EdgeColor, FiniteState, FiniteStatesIterType,
     HasFiniteStates, HasStates, IndexType, Pointed, StateColor, StateIndex, Transition,
     TransitionSystem,
 };
@@ -103,7 +103,7 @@ where
     }
 }
 
-pub struct ProductTransition<L, R>(L, R);
+pub struct ProductTransition<L, R>(pub L, pub R);
 
 impl<Idx, Jdx, E, C, D, L, R> IsTransition<E, ProductIndex<Idx, Jdx>, (C, D)>
     for ProductTransition<L, R>
@@ -111,10 +111,6 @@ where
     L: IsTransition<E, Idx, C>,
     R: IsTransition<E, Jdx, D>,
 {
-    fn source(&self) -> ProductIndex<Idx, Jdx> {
-        ProductIndex(self.0.source(), self.1.source())
-    }
-
     fn target(&self) -> ProductIndex<Idx, Jdx> {
         ProductIndex(self.0.target(), self.1.target())
     }
@@ -128,94 +124,45 @@ where
     }
 }
 
-impl<L, R> TransitionSystem for MatchingProduct<L, R>
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProductEdgesFrom<'a, L: TransitionSystem, R: TransitionSystem, I> {
+    left: &'a L,
+    right: &'a R,
+    it: I,
+    index: ProductIndex<L::StateIndex, R::StateIndex>,
+}
+
+impl<'a, L: TransitionSystem, R: TransitionSystem>
+    ProductEdgesFrom<'a, L, R, <L::Alphabet as Alphabet>::Universe<'a>>
+{
+    pub fn new(
+        left: &'a L,
+        right: &'a R,
+        index: ProductIndex<L::StateIndex, R::StateIndex>,
+    ) -> Self {
+        Self {
+            it: left.alphabet().universe(),
+            left,
+            right,
+            index,
+        }
+    }
+}
+
+impl<'a, L, R, I> Iterator for ProductEdgesFrom<'a, L, R, I>
 where
     L: TransitionSystem,
     R: TransitionSystem,
+    I: Iterator<Item = &'a SymbolOf<L>>,
     R::Alphabet: Alphabet<Symbol = SymbolOf<L>, Expression = ExpressionOf<L>>,
-    L::StateColor: Clone,
-    R::StateColor: Clone,
 {
-    type StateIndex = ProductIndex<L::StateIndex, R::StateIndex>;
-    type EdgeColor = (L::EdgeColor, R::EdgeColor);
-    type StateColor = (L::StateColor, R::StateColor);
-    type TransitionRef<'this> = ProductTransition<L::TransitionRef<'this>, R::TransitionRef<'this>> where Self: 'this;
+    type Item = ProductTransition<L::TransitionRef<'a>, R::TransitionRef<'a>>;
 
-    fn transition(
-        &self,
-        state: Self::StateIndex,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        let ProductIndex(l, r) = state;
-
-        let ll = self.0.transition(l, symbol)?;
-        let rr = self.1.transition(r, symbol)?;
-        Some(ProductTransition(ll, rr))
-    }
-
-    fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
-        let ProductIndex(l, r) = state;
-        let left = self.0.state_color(l);
-        let right = self.1.state_color(r);
-        (left, right)
-    }
-
-    fn predecessors(
-        &self,
-        state: Self::StateIndex,
-    ) -> Vec<(
-        Self::StateIndex,
-        crate::alphabet::ExpressionOf<Self>,
-        EdgeColor<Self>,
-    )> {
-        let ProductIndex(l, r) = state;
-        let mut result: Vec<(
-            Self::StateIndex,
-            crate::alphabet::ExpressionOf<Self>,
-            EdgeColor<Self>,
-        )> = Vec::new();
-        for (ll, ex1, c1) in self.0.predecessors(l) {
-            for (rr, ex2, c2) in self.1.predecessors(r) {
-                if ex1 == ex2 {
-                    result.push((ProductIndex(ll, rr), ex1.clone(), (c1.clone(), c2.clone())));
-                }
-            }
-        }
-        result
-    }
-
-    fn edges_from(
-        &self,
-        state: Self::StateIndex,
-    ) -> Vec<super::Edge<ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>> {
-        let ProductIndex(l, r) = state;
-        let mut result = Vec::new();
-
-        for ledge in self.0.edges_from(l) {
-            for redge in self.1.edges_from(r) {
-                if ledge.trigger() == redge.trigger() {
-                    result.push(Edge::new(
-                        ProductIndex(l, r),
-                        ProductIndex(ledge.target(), redge.target()),
-                        (ledge.color().clone(), redge.color().clone()),
-                        ledge.trigger().clone(),
-                    ));
-                }
-            }
-        }
-
-        result
-    }
-
-    fn edge_color(
-        &self,
-        state: Self::StateIndex,
-        expression: &ExpressionOf<Self>,
-    ) -> Option<EdgeColor<Self>> {
-        let ProductIndex(l, r) = state;
-        let left = self.0.edge_color(l, expression)?;
-        let right = self.1.edge_color(r, expression)?;
-        Some((left, right))
+    fn next(&mut self) -> Option<Self::Item> {
+        let sym = self.it.next()?;
+        let left = self.left.transition(self.index.0, *sym)?;
+        let right = self.right.transition(self.index.1, *sym)?;
+        Some(ProductTransition(left, right))
     }
 }
 
@@ -228,6 +175,14 @@ pub struct MapEdgeColor<Ts, F> {
 impl<Ts, F> MapEdgeColor<Ts, F> {
     pub fn new(ts: Ts, f: F) -> Self {
         Self { ts, f }
+    }
+
+    pub fn f(&self) -> &F {
+        &self.f
+    }
+
+    pub fn ts(&self) -> &Ts {
+        &self.ts
     }
 }
 
@@ -266,10 +221,6 @@ impl<T, F, C> MappedTransition<T, F, C> {
 impl<Idx: IndexType, E, C: Color, D: Color, F: Fn(C) -> D, T: IsTransition<E, Idx, C>>
     IsTransition<E, Idx, D> for MappedTransition<T, F, C>
 {
-    fn source(&self) -> Idx {
-        self.transition.source()
-    }
-
     fn target(&self) -> Idx {
         self.transition.target()
     }
@@ -280,74 +231,6 @@ impl<Idx: IndexType, E, C: Color, D: Color, F: Fn(C) -> D, T: IsTransition<E, Id
 
     fn expression(&self) -> &E {
         self.transition.expression()
-    }
-}
-
-impl<D, Ts, F> TransitionSystem for MapEdgeColor<Ts, F>
-where
-    D: Color,
-    Ts: TransitionSystem,
-    F: Fn(Ts::EdgeColor) -> D,
-{
-    type StateIndex = Ts::StateIndex;
-    type EdgeColor = D;
-    type StateColor = Ts::StateColor;
-    type TransitionRef<'this> = MappedTransition<Ts::TransitionRef<'this>, &'this F, Ts::EdgeColor> where Self: 'this;
-
-    fn transition(
-        &self,
-        state: Self::StateIndex,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        Some(MappedTransition::new(
-            self.ts.transition(state, symbol)?,
-            &self.f,
-        ))
-    }
-
-    fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
-        self.ts.state_color(state)
-    }
-
-    fn predecessors(
-        &self,
-        state: Self::StateIndex,
-    ) -> Vec<(
-        Self::StateIndex,
-        crate::alphabet::ExpressionOf<Self>,
-        EdgeColor<Self>,
-    )> {
-        self.ts
-            .predecessors(state)
-            .into_iter()
-            .map(|(s, e, c)| (s, e, (self.f)(c)))
-            .collect()
-    }
-
-    fn edges_from(
-        &self,
-        state: Self::StateIndex,
-    ) -> Vec<super::Edge<ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>> {
-        self.ts
-            .edges_from(state)
-            .into_iter()
-            .map(|e| {
-                Edge::new(
-                    e.source(),
-                    e.target(),
-                    (self.f)(e.color().clone()),
-                    e.trigger().clone(),
-                )
-            })
-            .collect()
-    }
-
-    fn edge_color(
-        &self,
-        state: Self::StateIndex,
-        expression: &ExpressionOf<Self>,
-    ) -> Option<EdgeColor<Self>> {
-        self.ts.edge_color(state, expression).map(|c| (self.f)(c))
     }
 }
 
@@ -364,6 +247,34 @@ impl<D: Color, Ts: FiniteState, F: Fn(Ts::EdgeColor) -> D> FiniteState for MapEd
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MappedEdgesFromIter<'a, I, F, C> {
+    it: I,
+    f: &'a F,
+    _old_color: PhantomData<C>,
+}
+
+impl<'a, I, F, C> Iterator for MappedEdgesFromIter<'a, I, F, C>
+where
+    I: Iterator,
+{
+    type Item = MappedTransition<I::Item, &'a F, C>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.it.next().map(|t| MappedTransition::new(t, self.f))
+    }
+}
+
+impl<'a, I, F, C> MappedEdgesFromIter<'a, I, F, C> {
+    pub fn new(it: I, f: &'a F) -> Self {
+        Self {
+            it,
+            f,
+            _old_color: PhantomData,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapStateColor<Ts, F> {
     ts: Ts,
     f: F,
@@ -372,6 +283,14 @@ pub struct MapStateColor<Ts, F> {
 impl<Ts, F> MapStateColor<Ts, F> {
     pub fn new(ts: Ts, f: F) -> Self {
         Self { ts, f }
+    }
+
+    pub fn ts(&self) -> &Ts {
+        &self.ts
+    }
+
+    pub fn f(&self) -> &F {
+        &self.f
     }
 }
 
@@ -384,57 +303,6 @@ impl<'a, D: Color, Ts: FiniteState, F: Fn(Ts::StateColor) -> D> HasFiniteStates<
 impl<D: Color, Ts: FiniteState, F: Fn(Ts::StateColor) -> D> FiniteState for MapStateColor<Ts, F> {
     fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
         self.ts.state_indices()
-    }
-}
-
-impl<D, Ts, F> TransitionSystem for MapStateColor<Ts, F>
-where
-    D: Color,
-    Ts: TransitionSystem,
-    F: Fn(Ts::StateColor) -> D,
-{
-    type StateIndex = Ts::StateIndex;
-    type EdgeColor = Ts::EdgeColor;
-    type StateColor = D;
-    type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
-
-    fn transition(
-        &self,
-        state: Self::StateIndex,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        self.ts.transition(state, symbol)
-    }
-
-    fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
-        let color = self.ts.state_color(state);
-        (self.f)(color)
-    }
-
-    fn predecessors(
-        &self,
-        state: Self::StateIndex,
-    ) -> Vec<(
-        Self::StateIndex,
-        crate::alphabet::ExpressionOf<Self>,
-        EdgeColor<Self>,
-    )> {
-        self.ts.predecessors(state)
-    }
-
-    fn edges_from(
-        &self,
-        state: Self::StateIndex,
-    ) -> Vec<super::Edge<ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>> {
-        self.ts.edges_from(state)
-    }
-
-    fn edge_color(
-        &self,
-        state: Self::StateIndex,
-        expression: &ExpressionOf<Self>,
-    ) -> Option<EdgeColor<Self>> {
-        self.ts.edge_color(state, expression)
     }
 }
 

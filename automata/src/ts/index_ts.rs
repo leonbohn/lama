@@ -79,8 +79,8 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
         &self.alphabet
     }
 
-    pub fn states(&self) -> impl Iterator<Item = &BTState<A, Q, C, Idx>> {
-        self.states.values()
+    pub fn states(&self) -> &Map<Idx, BTState<A, Q, C, Idx>> {
+        &self.states
     }
 
     pub fn indices_with_color(&self) -> impl Iterator<Item = (Idx, &StateColor<Self>)> {
@@ -158,72 +158,6 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
             .get_mut(&from)
             .and_then(|o| o.remove_edge(on))
             .is_some()
-    }
-}
-
-impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A, Q, C, Idx> {
-    type StateColor = Q;
-    type EdgeColor = C;
-    type StateIndex = Idx;
-    type TransitionRef<'this> = (Idx, (&'this A::Expression, &'this (Idx, C))) where Self: 'this;
-
-    fn transition(&self, state: Idx, symbol: A::Symbol) -> Option<Self::TransitionRef<'_>> {
-        self.states
-            .get(&state)
-            .and_then(|o| A::search_edge(&o.edges, symbol))
-            .map(|o| (state, o))
-    }
-
-    fn state_color(&self, index: Idx) -> StateColor<Self> {
-        self.state(index)
-            .map(|s| s.color().clone())
-            .expect("cannot be called if state does not exist!")
-    }
-
-    fn predecessors(
-        &self,
-        state: Self::StateIndex,
-    ) -> Vec<(
-        Self::StateIndex,
-        crate::alphabet::ExpressionOf<Self>,
-        EdgeColor<Self>,
-    )> {
-        self.states
-            .iter()
-            .flat_map(|(id, q)| {
-                q.edges().filter_map(|(e, (p, c))| {
-                    if *p == state {
-                        Some((*id, e.clone(), c.clone()))
-                    } else {
-                        None
-                    }
-                })
-            })
-            .collect()
-    }
-
-    fn edges_from(
-        &self,
-        state: Self::StateIndex,
-    ) -> Vec<Edge<crate::alphabet::ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>> {
-        self.states
-            .get(&state)
-            .map(|o| {
-                o.edges()
-                    .map(|(e, (p, c))| Edge::new(state, *p, c.clone(), e.clone()))
-                    .collect_vec()
-            })
-            .unwrap_or_default()
-    }
-
-    fn edge_color(
-        &self,
-        state: Self::StateIndex,
-        expression: &crate::alphabet::ExpressionOf<Self>,
-    ) -> Option<EdgeColor<Self>> {
-        self.states
-            .get(&state)
-            .and_then(|o| o.edges.get(expression).map(|(_, c)| c.clone()))
     }
 }
 
@@ -315,7 +249,8 @@ mod tests {
     use crate::{
         alphabet,
         ts::{
-            index_ts::MealyTS, successor::IsTransition, Sproutable, Transition, TransitionSystem,
+            index_ts::MealyTS, transition_system::IsTransition, Sproutable, Transition,
+            TransitionSystem,
         },
     };
 

@@ -157,6 +157,10 @@ impl<A: Alphabet> RightCongruence<A> {
         Self { ts }
     }
 
+    pub fn ts(&self) -> &BTS<A, Class<A::Symbol>, ()> {
+        &self.ts
+    }
+
     pub fn alphabet(&self) -> &A {
         self.ts.alphabet()
     }
@@ -243,57 +247,6 @@ impl<A: Alphabet> HasAlphabet for RightCongruence<A> {
 
     fn alphabet(&self) -> &Self::Alphabet {
         self.ts.alphabet()
-    }
-}
-
-impl<A: Alphabet> TransitionSystem for RightCongruence<A> {
-    type StateIndex = usize;
-    type EdgeColor = ();
-    type StateColor = Class<A::Symbol>;
-    type TransitionRef<'this> = (usize, (&'this A::Expression, &'this (usize, ()))) where Self: 'this;
-
-    fn transition(
-        &self,
-        state: Self::StateIndex,
-        symbol: crate::alphabet::SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        self.ts.transition(state, symbol)
-    }
-
-    fn state_color(&self, state: Self::StateIndex) -> crate::ts::StateColor<Self> {
-        self.ts.state_color(state)
-    }
-
-    fn predecessors(
-        &self,
-        state: Self::StateIndex,
-    ) -> Vec<(
-        Self::StateIndex,
-        crate::alphabet::ExpressionOf<Self>,
-        crate::ts::EdgeColor<Self>,
-    )> {
-        self.ts.predecessors(state)
-    }
-
-    fn edges_from(
-        &self,
-        state: Self::StateIndex,
-    ) -> Vec<
-        crate::ts::Edge<
-            crate::alphabet::ExpressionOf<Self>,
-            crate::ts::EdgeColor<Self>,
-            Self::StateIndex,
-        >,
-    > {
-        self.ts.edges_from(state)
-    }
-
-    fn edge_color(
-        &self,
-        state: Self::StateIndex,
-        expression: &crate::alphabet::ExpressionOf<Self>,
-    ) -> Option<crate::ts::EdgeColor<Self>> {
-        self.ts.edge_color(state, expression)
     }
 }
 

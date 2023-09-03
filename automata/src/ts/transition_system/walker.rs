@@ -23,14 +23,7 @@ pub struct Walker<'a, 'b, Ts: TransitionSystem, R> {
 pub type RunResult<'a, 'b, Ts, R> = Result<Successful<'a, 'b, R, Ts>, Partial<'a, 'b, R, Ts>>;
 
 pub enum WalkerStep<Ts: TransitionSystem> {
-    Transition(
-        (
-            Ts::StateIndex,
-            ExpressionOf<Ts>,
-            Ts::StateIndex,
-            EdgeColor<Ts>,
-        ),
-    ),
+    Transition((ExpressionOf<Ts>, Ts::StateIndex, EdgeColor<Ts>)),
     Missing(Ts::StateIndex, SymbolOf<Ts>),
     Cycle,
     End,
@@ -113,14 +106,7 @@ impl<'a, 'b, Ts: TransitionSystem, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b
 
     /// Takes a single step in the automaton.
     #[allow(clippy::type_complexity)]
-    pub fn step(
-        &mut self,
-    ) -> Option<(
-        Ts::StateIndex,
-        ExpressionOf<Ts>,
-        Ts::StateIndex,
-        Ts::EdgeColor,
-    )> {
+    pub fn step(&mut self) -> Option<(ExpressionOf<Ts>, Ts::StateIndex, Ts::EdgeColor)> {
         match self.take_transition() {
             WalkerStep::Transition(t) => {
                 trace!("Took transition {:?} at position {}", t, self.position);

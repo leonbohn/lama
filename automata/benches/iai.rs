@@ -79,11 +79,11 @@ fn finite_run_words_new((automata, words): (&[MooreMachine<Simple, usize>], &[Ve
 }
 
 fn iai_runs() {
-    finite_run_words((&DATA.0, &DATA.1));
+    finite_run_words(iai::black_box((&DATA.0, &DATA.1)));
 }
 
 fn iai_runs_new() {
-    finite_run_words_new((&DATA.0, &DATA.1));
+    finite_run_words_new(iai::black_box((&DATA.0, &DATA.1)));
 }
 
 iai::main!(iai_runs, iai_runs_new);

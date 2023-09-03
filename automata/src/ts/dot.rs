@@ -6,7 +6,7 @@ use crate::{
     congurence::FORC, ts::FiniteState, Alphabet, Class, Pointed, RightCongruence, TransitionSystem,
 };
 
-use super::successor::IsTransition;
+use super::transition_system::IsTransition;
 
 /// Trait that encapsulates the functionality of converting an object
 /// into a [graphviz](https://graphviz.org/) representation.

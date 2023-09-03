@@ -313,7 +313,7 @@ mod tests {
     use crate::{
         simple,
         ts::{
-            successor::sccs::{Scc, SccDecomposition},
+            transition_system::sccs::{Scc, SccDecomposition},
             Sproutable,
         },
         Pointed, RightCongruence,

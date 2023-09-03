@@ -4,18 +4,22 @@ use crate::{
     alphabet::{Expression, ExpressionOf, HasAlphabet, Symbol, SymbolOf},
     automaton::WithInitial,
     word::OmegaWord,
-    Alphabet, Color, Map, Pointed, Set, Word,
+    Alphabet, Class, Color, Map, Pointed, RightCongruence, Set, Word,
 };
 
 use self::{
     reachable::{ReachableStateIndices, ReachableStates},
+    restricted::RestrictedEdgesFromIter,
     sccs::{tarjan_scc, Scc, SccDecomposition},
     walker::RunResult,
 };
 
 use super::{
     finite::{ReachedColor, ReachedState},
-    operations::{MapStateColor, MatchingProduct},
+    operations::{
+        MapEdgeColor, MapStateColor, MappedEdgesFromIter, MappedTransition, MatchingProduct,
+        ProductEdgesFrom, ProductIndex, ProductTransition,
+    },
     path::Lasso,
     CanInduce, Edge, EdgeColor, FiniteState, IndexType, Induced, Path, StateColor, StateIndex,
     Transition, BTS,
@@ -40,31 +44,21 @@ mod sccs;
 pub use sccs::Tarjan;
 
 pub trait IsTransition<E, Idx, C> {
-    fn source(&self) -> Idx;
     fn target(&self) -> Idx;
     fn color(&self) -> C;
     fn expression(&self) -> &E;
-    fn into_tuple(self) -> (Idx, E, Idx, C)
+    fn into_tuple(self) -> (E, Idx, C)
     where
         E: Clone,
         Self: Sized,
     {
-        (
-            self.source(),
-            self.expression().clone(),
-            self.target(),
-            self.color(),
-        )
+        (self.expression().clone(), self.target(), self.color())
     }
 }
 
 impl<'a, Idx: IndexType, E, C: Color, T: IsTransition<E, Idx, C>> IsTransition<E, Idx, C>
     for &'a T
 {
-    fn source(&self) -> Idx {
-        (*self).source()
-    }
-
     fn target(&self) -> Idx {
         (*self).target()
     }
@@ -78,21 +72,17 @@ impl<'a, Idx: IndexType, E, C: Color, T: IsTransition<E, Idx, C>> IsTransition<E
     }
 }
 
-impl<'a, Idx: IndexType, E, C: Color> IsTransition<E, Idx, C> for (Idx, (&'a E, &'a (Idx, C))) {
-    fn source(&self) -> Idx {
-        self.0
-    }
-
+impl<'a, Idx: IndexType, E, C: Color> IsTransition<E, Idx, C> for (&'a E, &'a (Idx, C)) {
     fn target(&self) -> Idx {
-        self.1 .1 .0
+        self.1 .0
     }
 
     fn color(&self) -> C {
-        self.1 .1 .1.clone()
+        self.1 .1.clone()
     }
 
     fn expression(&self) -> &E {
-        self.1 .0
+        self.0
     }
 }
 
@@ -116,6 +106,9 @@ pub trait TransitionSystem: HasAlphabet {
     type TransitionRef<'this>: IsTransition<ExpressionOf<Self>, Self::StateIndex, EdgeColor<Self>>
     where
         Self: 'this;
+    type EdgesFromIter<'this>: Iterator<Item = Self::TransitionRef<'this>>
+    where
+        Self: 'this;
 
     /// For a given `state` and `symbol`, returns the transition that is taken, if it exists.
     fn transition(
@@ -130,10 +123,7 @@ pub trait TransitionSystem: HasAlphabet {
         expression: &ExpressionOf<Self>,
     ) -> Option<EdgeColor<Self>>;
 
-    fn edges_from(
-        &self,
-        state: Self::StateIndex,
-    ) -> Vec<Edge<ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>>;
+    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>>;
 
     fn predecessors(
         &self,
@@ -501,6 +491,7 @@ impl<Ts: TransitionSystem> TransitionSystem for &Ts {
     type EdgeColor = Ts::EdgeColor;
     type StateColor = Ts::StateColor;
     type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
+    type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
 
     fn transition(
         &self,
@@ -520,10 +511,46 @@ impl<Ts: TransitionSystem> TransitionSystem for &Ts {
     ) -> Vec<(Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>)> {
         Ts::predecessors(self, state)
     }
-    fn edges_from(
+
+    fn edge_color(
         &self,
         state: Self::StateIndex,
-    ) -> Vec<Edge<ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>> {
+        expression: &ExpressionOf<Self>,
+    ) -> Option<EdgeColor<Self>> {
+        Ts::edge_color(self, state, expression)
+    }
+
+    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
+        Ts::edges_from(self, state)
+    }
+}
+impl<Ts: TransitionSystem> TransitionSystem for &mut Ts {
+    type StateIndex = Ts::StateIndex;
+    type EdgeColor = Ts::EdgeColor;
+    type StateColor = Ts::StateColor;
+    type TransitionRef<'this> = Ts::TransitionRef<'this> where Self : 'this;
+    type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
+
+    fn transition(
+        &self,
+        state: Self::StateIndex,
+        symbol: SymbolOf<Self>,
+    ) -> Option<Self::TransitionRef<'_>> {
+        Ts::transition(self, state, symbol)
+    }
+
+    fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
+        Ts::state_color(self, state)
+    }
+
+    fn predecessors(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<(Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>)> {
+        Ts::predecessors(self, state)
+    }
+
+    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
         Ts::edges_from(self, state)
     }
 
@@ -535,36 +562,165 @@ impl<Ts: TransitionSystem> TransitionSystem for &Ts {
         Ts::edge_color(self, state, expression)
     }
 }
-impl<Ts: TransitionSystem> TransitionSystem for &mut Ts {
-    type StateIndex = Ts::StateIndex;
-    type EdgeColor = Ts::EdgeColor;
-    type StateColor = Ts::StateColor;
-    type TransitionRef<'this> = Ts::TransitionRef<'this> where Self : 'this;
+
+impl<A: Alphabet> TransitionSystem for RightCongruence<A> {
+    type StateIndex = usize;
+    type EdgeColor = ();
+    type StateColor = Class<A::Symbol>;
+    type TransitionRef<'this> = (&'this A::Expression, &'this (usize, ())) where Self: 'this;
+    type EdgesFromIter<'this> = std::collections::hash_map::Iter<'this, A::Expression, (usize, ())>
+    where
+        Self: 'this;
+
+    fn transition(
+        &self,
+        state: Self::StateIndex,
+        symbol: crate::alphabet::SymbolOf<Self>,
+    ) -> Option<Self::TransitionRef<'_>> {
+        self.ts().transition(state, symbol)
+    }
+
+    fn state_color(&self, state: Self::StateIndex) -> crate::ts::StateColor<Self> {
+        self.ts().state_color(state)
+    }
+
+    fn predecessors(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<(
+        Self::StateIndex,
+        crate::alphabet::ExpressionOf<Self>,
+        crate::ts::EdgeColor<Self>,
+    )> {
+        self.ts().predecessors(state)
+    }
+
+    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
+        self.ts().edges_from(state)
+    }
+
+    fn edge_color(
+        &self,
+        state: Self::StateIndex,
+        expression: &crate::alphabet::ExpressionOf<Self>,
+    ) -> Option<crate::ts::EdgeColor<Self>> {
+        self.ts().edge_color(state, expression)
+    }
+}
+impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A, Q, C, Idx> {
+    type StateColor = Q;
+    type EdgeColor = C;
+    type StateIndex = Idx;
+    type TransitionRef<'this> = (&'this A::Expression, &'this (Idx, C)) where Self: 'this;
+    type EdgesFromIter<'this> = std::collections::hash_map::Iter<'this, A::Expression, (Idx, C)>
+    where
+        Self: 'this;
+
+    fn transition(&self, state: Idx, symbol: A::Symbol) -> Option<Self::TransitionRef<'_>> {
+        self.states()
+            .get(&state)
+            .and_then(|o| A::search_edge(&o.edges, symbol))
+    }
+
+    fn state_color(&self, index: Idx) -> StateColor<Self> {
+        self.states()
+            .get(&index)
+            .map(|s| s.color().clone())
+            .expect("cannot be called if state does not exist!")
+    }
+
+    fn predecessors(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<(
+        Self::StateIndex,
+        crate::alphabet::ExpressionOf<Self>,
+        EdgeColor<Self>,
+    )> {
+        self.states()
+            .iter()
+            .flat_map(|(id, q)| {
+                q.edges().filter_map(|(e, (p, c))| {
+                    if *p == state {
+                        Some((*id, e.clone(), c.clone()))
+                    } else {
+                        None
+                    }
+                })
+            })
+            .collect()
+    }
+
+    fn edge_color(
+        &self,
+        state: Self::StateIndex,
+        expression: &crate::alphabet::ExpressionOf<Self>,
+    ) -> Option<EdgeColor<Self>> {
+        self.states()
+            .get(&state)
+            .and_then(|o| o.edges.get(expression).map(|(_, c)| c.clone()))
+    }
+
+    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
+        self.states().get(&state).map(|o| o.edges.iter())
+    }
+}
+
+impl<L, R> TransitionSystem for MatchingProduct<L, R>
+where
+    L: TransitionSystem,
+    R: TransitionSystem,
+    R::Alphabet: Alphabet<Symbol = SymbolOf<L>, Expression = ExpressionOf<L>>,
+    L::StateColor: Clone,
+    R::StateColor: Clone,
+{
+    type StateIndex = ProductIndex<L::StateIndex, R::StateIndex>;
+    type EdgeColor = (L::EdgeColor, R::EdgeColor);
+    type StateColor = (L::StateColor, R::StateColor);
+    type TransitionRef<'this> = ProductTransition<L::TransitionRef<'this>, R::TransitionRef<'this>> where Self: 'this;
+    type EdgesFromIter<'this> = ProductEdgesFrom<'this, L, R, <L::Alphabet as Alphabet>::Universe<'this>> where Self: 'this;
 
     fn transition(
         &self,
         state: Self::StateIndex,
         symbol: SymbolOf<Self>,
     ) -> Option<Self::TransitionRef<'_>> {
-        Ts::transition(self, state, symbol)
+        let ProductIndex(l, r) = state;
+
+        let ll = self.0.transition(l, symbol)?;
+        let rr = self.1.transition(r, symbol)?;
+        Some(ProductTransition(ll, rr))
     }
 
     fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
-        Ts::state_color(self, state)
+        let ProductIndex(l, r) = state;
+        let left = self.0.state_color(l);
+        let right = self.1.state_color(r);
+        (left, right)
     }
 
     fn predecessors(
         &self,
         state: Self::StateIndex,
-    ) -> Vec<(Self::StateIndex, ExpressionOf<Self>, EdgeColor<Self>)> {
-        Ts::predecessors(self, state)
-    }
-
-    fn edges_from(
-        &self,
-        state: Self::StateIndex,
-    ) -> Vec<Edge<ExpressionOf<Self>, EdgeColor<Self>, Self::StateIndex>> {
-        Ts::edges_from(self, state)
+    ) -> Vec<(
+        Self::StateIndex,
+        crate::alphabet::ExpressionOf<Self>,
+        EdgeColor<Self>,
+    )> {
+        let ProductIndex(l, r) = state;
+        let mut result: Vec<(
+            Self::StateIndex,
+            crate::alphabet::ExpressionOf<Self>,
+            EdgeColor<Self>,
+        )> = Vec::new();
+        for (ll, ex1, c1) in self.0.predecessors(l) {
+            for (rr, ex2, c2) in self.1.predecessors(r) {
+                if ex1 == ex2 {
+                    result.push((ProductIndex(ll, rr), ex1.clone(), (c1.clone(), c2.clone())));
+                }
+            }
+        }
+        result
     }
 
     fn edge_color(
@@ -572,7 +728,188 @@ impl<Ts: TransitionSystem> TransitionSystem for &mut Ts {
         state: Self::StateIndex,
         expression: &ExpressionOf<Self>,
     ) -> Option<EdgeColor<Self>> {
-        Ts::edge_color(self, state, expression)
+        let ProductIndex(l, r) = state;
+        let left = self.0.edge_color(l, expression)?;
+        let right = self.1.edge_color(r, expression)?;
+        Some((left, right))
+    }
+
+    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
+        Some(ProductEdgesFrom::new(&self.0, &self.1, state))
+    }
+}
+
+impl<D, Ts, F> TransitionSystem for MapStateColor<Ts, F>
+where
+    D: Color,
+    Ts: TransitionSystem,
+    F: Fn(Ts::StateColor) -> D,
+{
+    type StateIndex = Ts::StateIndex;
+    type EdgeColor = Ts::EdgeColor;
+    type StateColor = D;
+    type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
+    type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
+
+    fn transition(
+        &self,
+        state: Self::StateIndex,
+        symbol: SymbolOf<Self>,
+    ) -> Option<Self::TransitionRef<'_>> {
+        self.ts().transition(state, symbol)
+    }
+
+    fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
+        let color = self.ts().state_color(state);
+        (self.f())(color)
+    }
+
+    fn predecessors(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<(
+        Self::StateIndex,
+        crate::alphabet::ExpressionOf<Self>,
+        EdgeColor<Self>,
+    )> {
+        self.ts().predecessors(state)
+    }
+
+    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
+        self.ts().edges_from(state)
+    }
+
+    fn edge_color(
+        &self,
+        state: Self::StateIndex,
+        expression: &ExpressionOf<Self>,
+    ) -> Option<EdgeColor<Self>> {
+        self.ts().edge_color(state, expression)
+    }
+}
+
+impl<D, Ts, F> TransitionSystem for MapEdgeColor<Ts, F>
+where
+    D: Color,
+    Ts: TransitionSystem,
+    F: Fn(Ts::EdgeColor) -> D,
+{
+    type StateIndex = Ts::StateIndex;
+    type EdgeColor = D;
+    type StateColor = Ts::StateColor;
+    type TransitionRef<'this> = MappedTransition<Ts::TransitionRef<'this>, &'this F, Ts::EdgeColor> where Self: 'this;
+    type EdgesFromIter<'this> =
+        MappedEdgesFromIter<'this, Ts::EdgesFromIter<'this>, F, Ts::EdgeColor> where Self: 'this;
+
+    fn transition(
+        &self,
+        state: Self::StateIndex,
+        symbol: SymbolOf<Self>,
+    ) -> Option<Self::TransitionRef<'_>> {
+        Some(MappedTransition::new(
+            self.ts().transition(state, symbol)?,
+            self.f(),
+        ))
+    }
+
+    fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
+        self.ts().state_color(state)
+    }
+
+    fn predecessors(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<(
+        Self::StateIndex,
+        crate::alphabet::ExpressionOf<Self>,
+        EdgeColor<Self>,
+    )> {
+        self.ts()
+            .predecessors(state)
+            .into_iter()
+            .map(|(s, e, c)| (s, e, (self.f())(c)))
+            .collect()
+    }
+
+    fn edge_color(
+        &self,
+        state: Self::StateIndex,
+        expression: &ExpressionOf<Self>,
+    ) -> Option<EdgeColor<Self>> {
+        self.ts()
+            .edge_color(state, expression)
+            .map(|c| (self.f())(c))
+    }
+
+    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
+        Some(MappedEdgesFromIter::new(
+            self.ts().edges_from(state)?,
+            self.f(),
+        ))
+    }
+}
+
+impl<Ts: TransitionSystem, F> TransitionSystem for RestrictByStateIndex<Ts, F>
+where
+    F: Fn(Ts::StateIndex) -> bool,
+{
+    type StateIndex = Ts::StateIndex;
+    type EdgeColor = Ts::EdgeColor;
+    type StateColor = Ts::StateColor;
+    type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
+    type EdgesFromIter<'this> = RestrictedEdgesFromIter<'this, Ts, F> where Self: 'this;
+
+    fn transition(
+        &self,
+        state: Self::StateIndex,
+        symbol: crate::alphabet::SymbolOf<Self>,
+    ) -> Option<Self::TransitionRef<'_>> {
+        self.ts()
+            .transition(state, symbol)
+            .filter(|successor| (self.filter())(state) && (self.filter())(successor.target()))
+    }
+
+    fn state_color(&self, state: Self::StateIndex) -> crate::ts::StateColor<Self> {
+        assert!((self.filter())(state));
+        self.ts().state_color(state)
+    }
+
+    fn predecessors(
+        &self,
+        state: Self::StateIndex,
+    ) -> Vec<(
+        Self::StateIndex,
+        crate::alphabet::ExpressionOf<Self>,
+        crate::ts::EdgeColor<Self>,
+    )> {
+        if (self.filter())(state) {
+            self.ts()
+                .predecessors(state)
+                .into_iter()
+                .filter(|(predecessor, _, _)| (self.filter())(*predecessor))
+                .collect()
+        } else {
+            vec![]
+        }
+    }
+
+    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
+        if !(self.filter())(state) {
+            return None;
+        }
+        self.ts()
+            .edges_from(state)
+            .map(|iter| RestrictedEdgesFromIter::new(iter, self.filter()))
+    }
+
+    fn edge_color(
+        &self,
+        state: Self::StateIndex,
+        expression: &crate::alphabet::ExpressionOf<Self>,
+    ) -> Option<crate::ts::EdgeColor<Self>> {
+        self.ts()
+            .edge_color(state, expression)
+            .filter(|_| (self.filter())(state))
     }
 }
 

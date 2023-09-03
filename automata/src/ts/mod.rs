@@ -1,9 +1,9 @@
-mod successor;
+mod transition_system;
 use std::{collections::BTreeMap, fmt::Display, hash::Hash, ops::Deref};
 
 use impl_tools::autoimpl;
 use itertools::{Itertools, Position};
-pub use successor::TransitionSystem;
+pub use transition_system::TransitionSystem;
 
 mod transition;
 use tabled::builder::Builder;
@@ -214,19 +214,24 @@ pub trait HasStates: TransitionSystem + Sized {
     }
 }
 
-pub trait HasFiniteStates<'a, Outlives = &'a Self>: TransitionSystem {
-    type StateIndicesIter: Iterator<Item = Self::StateIndex> + Clone;
-}
+mod sealed {
+    use crate::TransitionSystem;
 
-impl<'a, 'b, HFS: HasFiniteStates<'a>> HasFiniteStates<'a> for &'b HFS {
-    type StateIndicesIter = <HFS as HasFiniteStates<'a>>::StateIndicesIter;
-}
+    pub type FiniteStatesIterType<'a, This> = <This as HasFiniteStates<'a>>::StateIndicesIter;
 
-pub type FiniteStatesIterType<'a, This> = <This as HasFiniteStates<'a>>::StateIndicesIter;
+    pub trait HasFiniteStates<'a, Outlives = &'a Self>: TransitionSystem {
+        type StateIndicesIter: Iterator<Item = Self::StateIndex> + Clone;
+    }
+
+    impl<'a, 'b, HFS: HasFiniteStates<'a>> HasFiniteStates<'a> for &'b HFS {
+        type StateIndicesIter = <HFS as HasFiniteStates<'a>>::StateIndicesIter;
+    }
+}
+pub(crate) use sealed::*;
 
 // #[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
-pub trait FiniteState: Sized + for<'a> HasFiniteStates<'a> {
-    fn state_indices(&self) -> FiniteStatesIterType<'_, Self>;
+pub trait FiniteState: Sized + for<'a> sealed::HasFiniteStates<'a> {
+    fn state_indices(&self) -> sealed::FiniteStatesIterType<'_, Self>;
 
     fn size(&self) -> usize {
         self.state_indices().count()
@@ -247,7 +252,7 @@ pub trait FiniteState: Sized + for<'a> HasFiniteStates<'a> {
 }
 
 impl<'a, FS: FiniteState> FiniteState for &'a FS {
-    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
+    fn state_indices(&self) -> sealed::FiniteStatesIterType<'_, Self> {
         FS::state_indices(self)
     }
 }
@@ -321,6 +326,8 @@ pub trait Pointed: TransitionSystem {
 pub mod dot;
 pub use dot::ToDot;
 
+use self::transition_system::IsTransition;
+
 /// A congruence is a [`TransitionSystem`], which additionally has a distinguished initial state. On top
 /// of that, a congruence does not have any coloring on either states or symbols. This
 /// functionality is abstracted in [`Pointed`]. This trait is automatically implemented.
@@ -346,16 +353,18 @@ pub trait Congruence: TransitionSystem + Pointed {
         }
 
         for state in self.state_indices() {
-            for edge in self.edges_from(state) {
-                let target = edge.target();
-                let target_class = map.get(&target).unwrap();
-                let color = edge.color().clone();
-                let target_class = cong.add_edge(
-                    *map.get(&state).unwrap(),
-                    edge.trigger().clone(),
-                    *target_class,
-                    (),
-                );
+            if let Some(mut it) = self.edges_from(state) {
+                for edge in it {
+                    let target = edge.target();
+                    let target_class = map.get(&target).unwrap();
+                    let color = edge.color().clone();
+                    let target_class = cong.add_edge(
+                        *map.get(&state).unwrap(),
+                        edge.expression().clone(),
+                        *target_class,
+                        (),
+                    );
+                }
             }
         }
 

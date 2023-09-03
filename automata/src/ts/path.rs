@@ -9,8 +9,8 @@ use crate::{
 };
 
 use super::{
-    successor::IsTransition, BTState, EdgeColor, IndexType, StateColor, StateIndex, Transition,
-    TransitionSystem,
+    transition_system::IsTransition, BTState, EdgeColor, IndexType, StateColor, StateIndex,
+    Transition, TransitionSystem,
 };
 
 /// Represents a path through a transition system. Note, that the path itself is decoupled from the

@@ -17,7 +17,12 @@ alea = "0.2"
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 pprof = { version = "0.12", features = ["flamegraph", "criterion"] }
+iai = { git = "https://github.com/sigaloid/iai", rev = "6c83e942" }
 
 [[bench]]
 name = "forc_inference"
+harness = false
+
+[[bench]]
+name = "iai"
 harness = false
