@@ -33,7 +33,10 @@ impl<A: Alphabet> ConflictRelation<A> {
         let right_reachable = right.reachable_state_indices().collect_vec();
 
         for ProductIndex(lcong, ldfa) in left.reachable_state_indices() {
-            for ProductIndex(rcong, rdfa) in &right_reachable {
+            for ProductIndex(rcong, rdfa) in right_reachable
+                .iter()
+                .filter(|ProductIndex(rcong, _)| rcong == &lcong)
+            {
                 if lcong == *rcong && self.conflicts.contains(&(ldfa, *rdfa)) {
                     let lname = self.dfas[0].state_color(ldfa);
                     let rname = self.dfas[1].state_color(*rdfa);
