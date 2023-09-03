@@ -30,12 +30,13 @@ impl<A: Alphabet> ConflictRelation<A> {
     pub fn consistent(&self, cong: &RightCongruence<A>) -> bool {
         let left = cong.ts_product(&self.dfas[0]);
         let right = cong.ts_product(&self.dfas[1]);
+        let right_reachable = right.reachable_state_indices().collect_vec();
 
         for ProductIndex(lcong, ldfa) in left.reachable_state_indices() {
-            for ProductIndex(rcong, rdfa) in right.reachable_state_indices() {
-                if lcong == rcong && self.conflicts.contains(&(ldfa, rdfa)) {
+            for ProductIndex(rcong, rdfa) in &right_reachable {
+                if lcong == *rcong && self.conflicts.contains(&(ldfa, *rdfa)) {
                     let lname = self.dfas[0].state_color(ldfa);
-                    let rname = self.dfas[1].state_color(rdfa);
+                    let rname = self.dfas[1].state_color(*rdfa);
                     let congname = cong.state_color(lcong);
                     trace!("\t\tConflict found, ({congname}, {lname}) and ({congname}, {rname}) reachable with ({lname}, {rname}) in conflicts");
                     return false;
