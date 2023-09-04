@@ -432,6 +432,7 @@ pub trait TransitionSystem: HasAlphabet {
     where
         Self: FiniteState,
     {
+        let t = std::time::Instant::now();
         use crate::ts::Sproutable;
         let mut ts = BTS::new_for_alphabet(self.alphabet().clone());
         let mut map = std::collections::HashMap::new();
@@ -450,6 +451,7 @@ pub trait TransitionSystem: HasAlphabet {
                 }
             }
         }
+        println!("Collect_ts took {}microseconds", t.elapsed().as_micros());
         ts
     }
 

@@ -141,7 +141,7 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
     );
 
     let t = std::time::Instant::now();
-    let looping_words = sample.infer_right_congruence().looping_words(&class);
+    let looping_words = samples.cong().looping_words(&class);
     let d_looping = t.elapsed();
 
     let t = std::time::Instant::now();
@@ -173,10 +173,11 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
         if !conflicts.insert((left, right)) {
             continue;
         }
+        let right_pred = right_pta.predecessors(right);
         for (left_predecessor, left_expression, _) in left_pta.predecessors(left) {
-            for (right_predecessor, right_expression, _) in right_pta.predecessors(right) {
-                if left_expression == right_expression {
-                    queue.push_back((left_predecessor, right_predecessor));
+            for (right_predecessor, right_expression, _) in &right_pred {
+                if &left_expression == right_expression {
+                    queue.push_back((left_predecessor, *right_predecessor));
                 }
             }
         }
