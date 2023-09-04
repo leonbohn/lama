@@ -125,6 +125,7 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
         panic!("Sample for class {:?} does not exist!", class)
     };
     let periodic_sample = sample.to_periodic_sample();
+
     trace!(
         "Positive periodic words: {}\nNegative periodic words: {}",
         periodic_sample
@@ -137,7 +138,7 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
             .join(",")
     );
 
-    let looping_words = sample.infer_right_congruence().looping_words(&class);
+    let looping_words = samples.cong().looping_words(&class);
 
     let left_pta = prefix_tree(sample.alphabet.clone(), periodic_sample.positive())
         .map_colors(|mr| !mr.is_empty() && periodic_sample.classify(mr.omega_power()) == Some(true))
@@ -156,23 +157,35 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
             .into_iter()
             .cartesian_product(right_pta.accepting_states()),
     );
+
+    let mut left_cache: std::collections::HashMap<_, _> = std::collections::HashMap::default();
+    let mut right_cache: std::collections::HashMap<_, _> = std::collections::HashMap::default();
+
+    /// FIXME: This is a very inefficient implementation
     while let Some((left, right)) = queue.pop_front() {
         if !conflicts.insert((left, right)) {
             continue;
         }
-        for (left_predecessor, left_expression, _) in left_pta.predecessors(left) {
-            for (right_predecessor, right_expression, _) in right_pta.predecessors(right) {
-                if left_expression == right_expression {
-                    queue.push_back((left_predecessor, right_predecessor));
-                }
+        let left_pred = left_cache
+            .entry(left)
+            .or_insert_with(|| left_pta.predecessors(left));
+        let right_pred = right_cache
+            .entry(right)
+            .or_insert_with(|| right_pta.predecessors(right));
+
+        for (left_predecessor, left_expression, _) in left_pred {
+            for (right_predecessor, right_expression, _) in
+                right_pred.iter().filter(|(_, e, _)| e == left_expression)
+            {
+                queue.push_back((*left_predecessor, *right_predecessor));
             }
         }
     }
 
     let (left, left_map) = left_pta.build_right_congruence();
-
     debug_assert!(left.size() == left_pta.size());
     let (right, right_map) = right_pta.build_right_congruence();
+    debug_assert!(right.size() == right_pta.size());
 
     ConflictRelation {
         dfas: [left, right],

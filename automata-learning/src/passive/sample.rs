@@ -417,6 +417,11 @@ impl<'a, A: Alphabet, C: Color> SplitOmegaSample<'a, A, C> {
     pub fn classes(&self) -> impl Iterator<Item = &'_ Class<A::Symbol>> + '_ {
         self.split.values().map(|sample| &sample.class)
     }
+
+    /// Returns a reference to the underlying congruence.
+    pub fn cong(&self) -> &'a RightCongruence<A> {
+        self.congruence
+    }
 }
 
 impl<A: Alphabet, C: Color> OmegaSample<A, C> {
