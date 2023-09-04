@@ -181,6 +181,7 @@ impl<A: Alphabet> RightCongruence<A> {
             .find_map(|(id, c)| if c == class { Some(id) } else { None })
     }
 
+    /// FIXME: This is a very inefficient implementation
     pub fn looping_words(&self, class: &Class<A::Symbol>) -> DFA<A> {
         self.map_colors(|c| &c == class)
             .collect_ts()
