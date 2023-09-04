@@ -124,9 +124,7 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
     let Some(sample) = samples.get(&class) else {
         panic!("Sample for class {:?} does not exist!", class)
     };
-    let t = std::time::Instant::now();
     let periodic_sample = sample.to_periodic_sample();
-    let d_periodic = t.elapsed();
 
     trace!(
         "Positive periodic words: {}\nNegative periodic words: {}",
@@ -140,60 +138,54 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
             .join(",")
     );
 
-    let t = std::time::Instant::now();
     let looping_words = samples.cong().looping_words(&class);
-    let d_looping = t.elapsed();
 
-    let t = std::time::Instant::now();
     let left_pta = prefix_tree(sample.alphabet.clone(), periodic_sample.positive())
         .map_colors(|mr| !mr.is_empty() && periodic_sample.classify(mr.omega_power()) == Some(true))
         .intersection(&looping_words);
-    let d_left_pta = t.elapsed();
 
-    let t = std::time::Instant::now();
     let right_pta = prefix_tree(sample.alphabet.clone(), periodic_sample.negative())
         .map_colors(|mr| {
             !mr.is_empty() && periodic_sample.classify(mr.omega_power()) == Some(false)
         })
         .intersection(&looping_words);
-    let d_right_pta = t.elapsed();
 
     let mut conflicts = Set::default();
-    let t = std::time::Instant::now();
     let mut queue = VecDeque::from_iter(
         left_pta
             .accepting_states()
             .into_iter()
             .cartesian_product(right_pta.accepting_states()),
     );
-    let d_queue = t.elapsed();
-    let t = std::time::Instant::now();
+
+    let mut left_cache: std::collections::HashMap<_, _> = std::collections::HashMap::default();
+    let mut right_cache: std::collections::HashMap<_, _> = std::collections::HashMap::default();
+
     /// FIXME: This is a very inefficient implementation
     while let Some((left, right)) = queue.pop_front() {
         if !conflicts.insert((left, right)) {
             continue;
         }
-        let right_pred = right_pta.predecessors(right);
-        for (left_predecessor, left_expression, _) in left_pta.predecessors(left) {
-            for (right_predecessor, right_expression, _) in &right_pred {
-                if &left_expression == right_expression {
-                    queue.push_back((left_predecessor, *right_predecessor));
-                }
+        let left_pred = left_cache
+            .entry(left)
+            .or_insert_with(|| left_pta.predecessors(left));
+        let right_pred = right_cache
+            .entry(right)
+            .or_insert_with(|| right_pta.predecessors(right));
+
+        for (left_predecessor, left_expression, _) in left_pred {
+            for (right_predecessor, right_expression, _) in
+                right_pred.iter().filter(|(_, e, _)| e == left_expression)
+            {
+                queue.push_back((*left_predecessor, *right_predecessor));
             }
         }
     }
-    let d_conflicts = t.elapsed();
 
-    let t = std::time::Instant::now();
     let (left, left_map) = left_pta.build_right_congruence();
-    let d_left_cong = t.elapsed();
-
     debug_assert!(left.size() == left_pta.size());
-    let t = std::time::Instant::now();
     let (right, right_map) = right_pta.build_right_congruence();
-    let d_right_cong = t.elapsed();
-
-    println!("%%%%%%%%%%%%%%%%%%%%%DURATIONS%%%%%%%%%%%%%%%%%%%\n{} periodic\n{} looping\n{} left_pta\n{} right_pta\n{} queue\n{} conflicts\n{} left_cong\n{} right_cong", d_periodic.as_micros(), d_looping.as_micros(), d_left_pta.as_micros(), d_right_pta.as_micros(), d_queue.as_micros(), d_conflicts.as_micros(), d_left_cong.as_micros(), d_right_cong.as_micros());
+    debug_assert!(right.size() == right_pta.size());
 
     ConflictRelation {
         dfas: [left, right],
