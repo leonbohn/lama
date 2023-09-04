@@ -6,10 +6,12 @@ use std::{
 use itertools::Itertools;
 
 use crate::{
-    alphabet::SymbolOf,
-    ts::{finite::SeenColors, CanInduce, FiniteState, IndexType},
+    alphabet::{Empty, HasAlphabet, SymbolOf},
+    ts::{finite::SeenColors, CanInduce, FiniteState, IndexType, Sproutable, BTS},
     Alphabet, Map, Set, TransitionSystem,
 };
+
+use super::IsTransition;
 
 #[derive(Debug, Clone)]
 struct TarjanData {
@@ -112,7 +114,7 @@ impl<Idx: IndexType> Tarjan<Idx> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct Scc<'a, Ts: TransitionSystem>(&'a Ts, Vec<Ts::StateIndex>);
 
 impl<'a, Ts: TransitionSystem> IntoIterator for Scc<'a, Ts> {
@@ -308,9 +310,87 @@ where
     SccDecomposition::new(ts, sccs)
 }
 
+#[derive(Clone)]
+pub struct TarjanTree<'a, Ts: TransitionSystem + Clone> {
+    ts: &'a Ts,
+    sccs: Vec<Scc<'a, Ts>>,
+    edges: Vec<(usize, usize)>,
+}
+
+impl<'a, Ts: TransitionSystem + Clone + Debug> std::fmt::Debug for TarjanTree<'a, Ts> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(
+            f,
+            "TarjanTree: {:?} Edges {:}",
+            self.sccs
+                .iter()
+                .enumerate()
+                .map(|(i, scc)| format!(
+                    "[{}]",
+                    scc.1.iter().map(|q| format!("{:?}", q)).join(", ")
+                ))
+                .join(", "),
+            self.edges
+                .iter()
+                .map(|(k, v)| format!("{} -> {}", k, v))
+                .join(", ")
+        )
+    }
+}
+
+impl<'a, Ts: TransitionSystem + Clone> TarjanTree<'a, Ts> {
+    pub fn peel_off(&mut self) -> Vec<Scc<'a, Ts>> {
+        let (terminal, non_terminal): (Vec<_>, Vec<_>) =
+            self.sccs.iter().enumerate().partition(|(i, scc)| {
+                self.ts
+                    .reachable_state_indices_from(*scc.first().expect("Disallow non-empty SSCs"))
+                    .all(|o| scc.1.contains(&o))
+            });
+        let out = terminal.into_iter().map(|(_, scc)| scc.clone()).collect();
+        self.sccs = non_terminal
+            .into_iter()
+            .map(|(_, scc)| scc.clone())
+            .collect();
+        out
+    }
+}
+
+impl<'a, Ts: TransitionSystem + FiniteState + Clone> From<SccDecomposition<'a, Ts>>
+    for TarjanTree<'a, Ts>
+{
+    fn from(value: SccDecomposition<'a, Ts>) -> Self {
+        let mut out = Vec::new();
+        for (l, ls) in value.1.iter().enumerate() {
+            let l_reach = value
+                .0
+                .reachable_state_indices_from(*ls.first().unwrap())
+                .collect::<Set<_>>();
+            for (r, rs) in value.1.iter().enumerate().skip(l) {
+                if l != r {
+                    let r_reach = value
+                        .0
+                        .reachable_state_indices_from(*rs.first().unwrap())
+                        .collect::<Set<_>>();
+                    if l_reach.is_superset(&r_reach) {
+                        out.push((l, r));
+                    } else if l_reach.is_subset(&r_reach) {
+                        out.push((r, l));
+                    }
+                }
+            }
+        }
+        Self {
+            ts: value.0,
+            sccs: value.1,
+            edges: out,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
+        alphabet::Simple,
         simple,
         ts::{
             transition_system::sccs::{Scc, SccDecomposition},
@@ -319,8 +399,7 @@ mod tests {
         Pointed, RightCongruence,
     };
 
-    #[test]
-    fn tarjan_scc_decomposition() {
+    fn ts() -> RightCongruence<Simple> {
         let mut cong = RightCongruence::new(simple!('a', 'b'));
         let q0 = cong.initial();
         let q1 = cong.add_state(vec!['a'].into());
@@ -334,7 +413,21 @@ mod tests {
         cong.add_edge(q2, 'b', q2, ());
         cong.add_edge(q3, 'a', q3, ());
         cong.add_edge(q3, 'b', q2, ());
+        cong
+    }
 
+    #[test]
+    fn tarjan_tree() {
+        let cong = ts();
+        let sccs = super::tarjan_scc(&cong);
+        let mut tree = super::TarjanTree::from(sccs);
+
+        println!("{:?}", tree);
+    }
+
+    #[test]
+    fn tarjan_scc_decomposition() {
+        let cong = ts();
         let sccs = super::tarjan_scc(&cong);
 
         let scc1 = Scc::new(&cong, vec![0]);

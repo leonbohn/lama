@@ -112,6 +112,60 @@ pub struct Propositional {
 #[derive(Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
 pub struct Simple(Vec<char>);
 
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
+pub struct Empty;
+
+impl std::fmt::Display for Empty {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "->")
+    }
+}
+
+impl Alphabet for Empty {
+    type Symbol = Empty;
+
+    type Expression = Empty;
+
+    fn search_edge<X>(
+        map: &Map<Self::Expression, X>,
+        sym: Self::Symbol,
+    ) -> Option<(&Self::Expression, &X)> {
+        todo!()
+    }
+
+    type Universe<'this> = std::iter::Empty<&'this Empty>
+    where
+        Self: 'this;
+
+    fn universe(&self) -> Self::Universe<'_> {
+        std::iter::empty()
+    }
+
+    fn contains(&self, symbol: Self::Symbol) -> bool {
+        true
+    }
+
+    fn matches(&self, expression: &Self::Expression, symbol: Self::Symbol) -> bool {
+        true
+    }
+
+    fn expression(symbol: Self::Symbol) -> Self::Expression {
+        Empty
+    }
+}
+
+impl Expression<Empty> for Empty {
+    type SymbolsIter = std::iter::Empty<Empty>;
+
+    fn symbols(&self) -> Self::SymbolsIter {
+        std::iter::empty()
+    }
+
+    fn matches(&self, _: Empty) -> bool {
+        true
+    }
+}
+
 #[macro_export]
 macro_rules! simple {
     ($($c:literal),*) => {

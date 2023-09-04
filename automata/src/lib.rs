@@ -8,7 +8,7 @@ pub mod alphabet;
 pub use alphabet::Alphabet;
 
 pub mod length;
-use std::hash::Hash;
+use std::{fmt::Debug, hash::Hash};
 
 /// Module that contains definitions for dealing with lengths. This is particularly
 /// useful for dealing with infinite words.
@@ -36,7 +36,7 @@ pub use word::Word;
 pub mod mapping;
 
 /// A color is simply a type that can be used to color states or transitions.
-pub trait Color: std::fmt::Debug + Clone + Eq + Ord + Hash {
+pub trait Color: Clone + Eq + Ord + Hash {
     fn reduce<I: IntoIterator<Item = Self>>(iter: I) -> Self
     where
         Self: Sized,
@@ -45,7 +45,7 @@ pub trait Color: std::fmt::Debug + Clone + Eq + Ord + Hash {
     }
 }
 
-impl<T: Eq + Ord + std::fmt::Debug + Clone + Hash> Color for T {}
+impl<T: Eq + Ord + Clone + Hash> Color for T {}
 
 pub type Set<S> = fxhash::FxHashSet<S>;
 pub type Map<K, V> = fxhash::FxHashMap<K, V>;

@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use automata::alphabet::{Alphabet, Symbol};
 use automata::ts::{HasColorMut, HasMutableStates, Pointed, Sproutable, TransitionSystem};
 use automata::{Color, FiniteLength, MooreMachine, Transformer, Word};
@@ -43,7 +45,7 @@ pub struct LStar<A: Alphabet, C: Color, T: Oracle<Alphabet = A, Output = C>> {
 
 impl<
         A: Alphabet,
-        C: Color + Default,
+        C: Color + Default + Debug,
         T: Oracle<Length = FiniteLength, Alphabet = A, Output = C>,
     > LStar<A, C, T>
 {

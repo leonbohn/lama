@@ -495,7 +495,7 @@ impl<A, L, C> Debug for Sample<A, L, C>
 where
     A: Alphabet + Debug,
     L: Length + Debug,
-    C: Color,
+    C: Color + Debug,
     Normalized<A::Symbol, L>: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -27,7 +27,9 @@ pub struct WithInitial<Ts: TransitionSystem>(Ts, Ts::StateIndex);
 
 impl<Ts> std::fmt::Debug for WithInitial<Ts>
 where
-    Ts: TransitionSystem + FiniteState,
+    Ts: TransitionSystem + FiniteState + Debug,
+    Ts::StateColor: Debug,
+    Ts::EdgeColor: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(
@@ -251,7 +253,7 @@ impl ToPriority for bool {
 }
 
 pub trait Transformer<S, Len: Length> {
-    type Output: Debug;
+    type Output;
     fn transform<W: Word<Symbol = S, Length = Len>>(&self, input: W) -> Self::Output;
 }
 

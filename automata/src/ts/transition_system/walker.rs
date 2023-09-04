@@ -108,10 +108,7 @@ impl<'a, 'b, Ts: TransitionSystem, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b
     #[allow(clippy::type_complexity)]
     pub fn step(&mut self) -> Option<(ExpressionOf<Ts>, Ts::StateIndex, Ts::EdgeColor)> {
         match self.take_transition() {
-            WalkerStep::Transition(t) => {
-                trace!("Took transition {:?} at position {}", t, self.position);
-                Some(t)
-            }
+            WalkerStep::Transition(t) => Some(t),
             _ => None,
         }
     }

@@ -22,7 +22,13 @@ pub struct BTS<A: Alphabet, Q: Color, C: Color, Idx: IndexType = usize> {
     states: Map<Idx, BTState<A, Q, C, Idx>>,
 }
 
-impl<A: Alphabet, C: Color, Q: Color, Idx: IndexType> std::fmt::Debug for BTS<A, Q, C, Idx> {
+impl<A, C, Q, Idx> std::fmt::Debug for BTS<A, Q, C, Idx>
+where
+    A: Alphabet,
+    C: Color + std::fmt::Debug,
+    Q: Color + std::fmt::Debug,
+    Idx: IndexType,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(
             f,

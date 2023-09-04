@@ -404,6 +404,7 @@ pub trait TransitionSystem: HasAlphabet {
     where
         SD: Fn(Self::StateIndex, StateColor<Self>) -> String,
         Self: FiniteState,
+        Self::EdgeColor: std::fmt::Debug,
     {
         let mut builder = tabled::builder::Builder::default();
         builder.set_header(
