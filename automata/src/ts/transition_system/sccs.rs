@@ -484,12 +484,16 @@ impl<'a, Ts: TransitionSystem + FiniteState + Clone> From<SccDecomposition<'a, T
 //     where
 //         Self: 'this;
 
-//     fn sccs(&self) -> SccDecomposition<'_, Self>
+//     fn sccs(&self) -> SccDecomposition<'_, Self::State>
 //     where
 //         Self: Sized + FiniteState,
 //     {
-//         let mut sccs = Vec::new();
+//         let mut sccs = Vec::with_capacity(self.sccs.len());
 //         for i in self.sccs.values() {
+//             let mut scc = Scc::new(self, Vec::new());
+//             for x in self.sccs.iter().filter(|(_, j)| i == *j).map(|(q, _)| *q) {
+//                 scc.1.push(x);
+//             }
 //             sccs.push(Scc::new(
 //                 self,
 //                 self.sccs
@@ -535,6 +539,57 @@ impl<'a, Ts: TransitionSystem + FiniteState + Clone> From<SccDecomposition<'a, T
 
 //     fn state_color(&self, state: Self::StateIndex) -> Self::StateColor {
 //         self.ts.state_color(state)
+//     }
+
+//     fn with_initial(self, initial: Self::StateIndex) -> crate::automaton::WithInitial<Self>
+//     where
+//         Self: Sized,
+//     {
+//         (self, initial).into()
+//     }
+
+//     fn restrict_state_indices<F: Fn(Self::StateIndex) -> bool>(
+//         self,
+//         filter: F,
+//     ) -> super::RestrictByStateIndex<Self, F>
+//     where
+//         Self: Sized,
+//     {
+//         super::RestrictByStateIndex::new(self, filter)
+//     }
+
+//     fn map_colors<D: crate::Color, F: Fn(Self::StateColor) -> D>(
+//         self,
+//         f: F,
+//     ) -> crate::ts::operations::MapStateColor<Self, F>
+//     where
+//         Self: Sized,
+//     {
+//         crate::ts::operations::MapStateColor::new(self, f)
+//     }
+
+//     fn all_accepting_dfa(
+//         self,
+//     ) -> crate::ts::operations::MapStateColor<Self, fn(Self::StateColor) -> bool>
+//     where
+//         Self: Sized,
+//     {
+//         self.map_colors(|_| true)
+//     }
+
+//     fn tarjan_tree(&self) -> TarjanTree<'_, Self>
+//     where
+//         Self: Sized + FiniteState + Clone,
+//     {
+//         TarjanTree::from(tarjan_scc(self))
+//     }
+
+//     fn successor_index(
+//         &self,
+//         state: Self::StateIndex,
+//         symbol: SymbolOf<Self>,
+//     ) -> Option<Self::StateIndex> {
+//         self.transition(state, symbol).map(|t| t.target())
 //     }
 // }
 
