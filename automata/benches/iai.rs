@@ -78,6 +78,18 @@ fn finite_run_words_new((automata, words): (&[MooreMachine<Simple, usize>], &[Ve
     }
 }
 
+fn scc_tree_decomposition(automata: &[MooreMachine<Simple, usize>]) {
+    for automaton in automata {
+        automaton.tarjan_tree();
+    }
+}
+
+fn scc_decomposition(automata: &[MooreMachine<Simple, usize>]) {
+    for automaton in automata {
+        automaton.sccs();
+    }
+}
+
 fn iai_runs() {
     finite_run_words(iai::black_box((&DATA.0, &DATA.1)));
 }
@@ -86,4 +98,17 @@ fn iai_runs_new() {
     finite_run_words_new(iai::black_box((&DATA.0, &DATA.1)));
 }
 
-iai::main!(iai_runs, iai_runs_new);
+fn iai_scc_tree_decomposition() {
+    scc_tree_decomposition(iai::black_box(&DATA.0));
+}
+
+fn iai_scc_decomposition() {
+    scc_decomposition(iai::black_box(&DATA.0))
+}
+
+iai::main!(
+    iai_runs,
+    iai_runs_new,
+    iai_scc_decomposition,
+    iai_scc_tree_decomposition
+);
