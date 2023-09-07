@@ -1,4 +1,4 @@
-use automata::{Alphabet, MealyMachine, RightCongruence};
+use crate::{Alphabet, MealyMachine, RightCongruence};
 
 /// A family of weak priority mappings (FWPM) is a pair (C, M) where C is a
 /// right congruence relation and for each class c of C, M_c is a Mealy machine.
