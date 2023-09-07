@@ -28,6 +28,12 @@ pub struct Tarjan<Idx> {
     data: Map<Idx, TarjanData>,
 }
 
+impl<Idx: IndexType> Default for Tarjan<Idx> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<Idx: IndexType> Tarjan<Idx> {
     pub fn new() -> Self {
         Self {

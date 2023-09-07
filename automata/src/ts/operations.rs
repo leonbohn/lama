@@ -8,9 +8,9 @@ use crate::{
 };
 
 use super::{
-    transition_system::IsTransition, BTState, Edge, EdgeColor, FiniteState, FiniteStatesIterType,
-    HasFiniteStates, HasStates, IndexType, Pointed, StateColor, StateIndex, Transition,
-    TransitionSystem,
+    transition_system::{IsPreTransition, IsTransition},
+    BTState, Edge, EdgeColor, FiniteState, FiniteStatesIterType, HasFiniteStates, HasStates,
+    IndexType, Pointed, StateColor, StateIndex, Transition, TransitionSystem,
 };
 
 pub trait Product: TransitionSystem + Sized {
@@ -166,6 +166,109 @@ where
     }
 }
 
+pub struct ProductPreTransition<LI, RI, E, LC, RC> {
+    source: ProductIndex<LI, RI>,
+    expression: E,
+    color: (LC, RC),
+}
+
+impl<LI, RI, E, LC, RC> ProductPreTransition<LI, RI, E, LC, RC> {
+    pub fn new(source: ProductIndex<LI, RI>, expression: E, color: (LC, RC)) -> Self {
+        Self {
+            source,
+            expression,
+            color,
+        }
+    }
+}
+
+impl<Idx, Jdx, E, C, D> IsPreTransition<ProductIndex<Idx, Jdx>, E, (C, D)>
+    for ProductPreTransition<Idx, Jdx, E, C, D>
+where
+    Idx: IndexType,
+    Jdx: IndexType,
+    C: Color,
+    D: Color,
+{
+    fn source(&self) -> ProductIndex<Idx, Jdx> {
+        self.source
+    }
+
+    fn color(&self) -> (C, D) {
+        self.color.clone()
+    }
+
+    fn expression(&self) -> &E {
+        &self.expression
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProductEdgesTo<'a, L: TransitionSystem, R: TransitionSystem> {
+    left: &'a L,
+    right: &'a R,
+    cur: Option<L::PreTransitionRef<'a>>,
+    it: L::EdgesToIter<'a>,
+    right_edges: Vec<R::PreTransitionRef<'a>>,
+    position: usize,
+}
+
+impl<'a, L, R> Iterator for ProductEdgesTo<'a, L, R>
+where
+    L: TransitionSystem,
+    R: TransitionSystem,
+    R::Alphabet: Alphabet<Symbol = SymbolOf<L>, Expression = ExpressionOf<L>>,
+{
+    type Item = ProductPreTransition<
+        L::StateIndex,
+        R::StateIndex,
+        ExpressionOf<L>,
+        L::EdgeColor,
+        R::EdgeColor,
+    >;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.position >= self.right_edges.len() {
+            self.position = 0;
+            self.cur = self.it.next();
+        }
+        match &self.cur {
+            None => return None,
+            Some(left) => {
+                while let Some(right) = self.right_edges.get(self.position) {
+                    self.position += 1;
+                    if left.expression() == right.expression() {
+                        return Some(ProductPreTransition::new(
+                            ProductIndex(left.source(), right.source()),
+                            left.expression().clone(),
+                            (left.color(), right.color()),
+                        ));
+                    }
+                }
+            }
+        }
+        self.next()
+    }
+}
+
+impl<'a, L: TransitionSystem, R: TransitionSystem> ProductEdgesTo<'a, L, R> {
+    pub fn new(
+        left: &'a L,
+        right: &'a R,
+        index: ProductIndex<L::StateIndex, R::StateIndex>,
+    ) -> Option<Self> {
+        let mut it = left.predecessors(index.0)?;
+        Some(Self {
+            left,
+            right,
+            cur: it.next(),
+            it,
+            right_edges: right.predecessors(index.1)?.collect(),
+            position: 0,
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapEdgeColor<Ts, F> {
     ts: Ts,
@@ -202,6 +305,7 @@ impl<Ts: TransitionSystem, F> HasAlphabet for MapEdgeColor<Ts, F> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MappedTransition<T, F, C> {
     transition: T,
     f: F,
@@ -265,6 +369,68 @@ where
 }
 
 impl<'a, I, F, C> MappedEdgesFromIter<'a, I, F, C> {
+    pub fn new(it: I, f: &'a F) -> Self {
+        Self {
+            it,
+            f,
+            _old_color: PhantomData,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MappedPreTransition<T, F, C> {
+    pre_transition: T,
+    f: F,
+    _old_color: PhantomData<C>,
+}
+
+// impl<Idx: IndexType, E, C: Color, D: Color, F: Fn(C) -> D, T: IsTransition<E, Idx, C>>
+// IsTransition<E, Idx, D> for MappedTransition<T, F, C>
+impl<Idx: IndexType, E, C: Color, D: Color, F: Fn(C) -> D, T: IsPreTransition<Idx, E, C>>
+    IsPreTransition<Idx, E, D> for MappedPreTransition<T, F, C>
+{
+    fn source(&self) -> Idx {
+        self.pre_transition.source()
+    }
+
+    fn color(&self) -> D {
+        (self.f)(self.pre_transition.color())
+    }
+
+    fn expression(&self) -> &E {
+        self.pre_transition.expression()
+    }
+}
+
+impl<T, F, C> MappedPreTransition<T, F, C> {
+    pub fn new(pre_transition: T, f: F) -> Self {
+        Self {
+            pre_transition,
+            f,
+            _old_color: PhantomData,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MappedEdgesToIter<'a, I, F, C> {
+    it: I,
+    f: &'a F,
+    _old_color: PhantomData<C>,
+}
+
+impl<'a, I, F, C> Iterator for MappedEdgesToIter<'a, I, F, C>
+where
+    I: Iterator,
+{
+    type Item = MappedPreTransition<I::Item, &'a F, C>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.it.next().map(|t| MappedPreTransition::new(t, self.f))
+    }
+}
+
+impl<'a, I, F, C> MappedEdgesToIter<'a, I, F, C> {
     pub fn new(it: I, f: &'a F) -> Self {
         Self {
             it,

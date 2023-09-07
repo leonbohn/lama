@@ -140,6 +140,10 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
             "Source or target vertex does not exist in the graph."
         );
         self.states
+            .get_mut(&target)
+            .expect("We know this exists")
+            .add_pre_edge(source, on.clone(), color.clone());
+        self.states
             .get_mut(&source)
             .and_then(|o| o.add_edge(on, target, color))
     }
@@ -160,10 +164,21 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
         from: Self::StateIndex,
         on: <Self::Alphabet as Alphabet>::Expression,
     ) -> bool {
-        self.states
+        let target = self
+            .states
             .get_mut(&from)
-            .and_then(|o| o.remove_edge(on))
-            .is_some()
+            .and_then(|o| o.remove_edge(on.clone()));
+        if let Some((target, color)) = target {
+            let removed = self
+                .states
+                .get_mut(&target)
+                .expect("Something must have gone wrong...")
+                .remove_pre_edge(from, on, color);
+            debug_assert!(removed);
+            true
+        } else {
+            false
+        }
     }
 }
 

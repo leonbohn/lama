@@ -1,8 +1,10 @@
 use automata::alphabet::Simple;
+use automata::ts::FiniteState;
 use automata::word::Normalized;
 use automata::{simple, ts::Sproutable};
 use automata::{InfiniteLength, MooreMachine, TransitionSystem};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use itertools::Itertools;
 
 type Automata = Vec<MooreMachine<Simple, usize>>;
 type Words = Vec<Vec<char>>;
@@ -69,15 +71,26 @@ fn scc_decomposition(aut: &[MooreMachine<Simple, usize>]) {
     }
 }
 
-fn bench_tarjan(c: &mut Criterion) {
+fn predecessor_computation(aut: &[MooreMachine<Simple, usize>]) {
+    for automaton in aut {
+        for s in automaton.state_indices() {
+            automaton.predecessors(s).unwrap().collect_vec();
+        }
+    }
+}
+
+fn benchings(c: &mut Criterion) {
     c.bench_function("tarjan_tree", |b| {
         b.iter(|| scc_decomposition(black_box(&DATA.0)))
+    });
+    c.bench_function("Predecessors", |b| {
+        b.iter(|| predecessor_computation(black_box(&DATA.0)))
     });
 }
 
 criterion_group! {
     name = benches;
     config = Criterion::default();
-    targets = bench_tarjan
+    targets = benchings
 }
 criterion_main!(benches);

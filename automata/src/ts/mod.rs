@@ -1,4 +1,4 @@
-mod transition_system;
+pub mod transition_system;
 use std::{collections::BTreeMap, fmt::Display, hash::Hash, ops::Deref};
 
 use impl_tools::autoimpl;
@@ -14,7 +14,7 @@ pub use operations::Product;
 
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
-    Class, Color, Map, RightCongruence,
+    Class, Color, Map, RightCongruence, Set,
 };
 
 mod index_ts;
@@ -88,31 +88,41 @@ impl Display for StateIndex {
 /// A state in a transition system. This stores the color of the state and the index of the
 /// first edge leaving the state.
 #[derive(Clone, Eq, PartialEq, Debug)]
-pub struct BTState<A: Alphabet, Q, C, Idx> {
+pub struct BTState<A: Alphabet, Q, C: Color, Idx: IndexType> {
     color: Q,
     edges: Map<A::Expression, (Idx, C)>,
+    predecessors: Set<(Idx, A::Expression, C)>,
 }
 
-impl<A: Alphabet, Q: Color, C, Idx> HasColorMut for BTState<A, Q, C, Idx> {
+impl<A: Alphabet, Q: Color, C: Color, Idx: IndexType> HasColorMut for BTState<A, Q, C, Idx> {
     fn set_color(&mut self, color: Q) {
         self.color = color;
     }
 }
 
-impl<A: Alphabet, Q: Color, C, Idx> HasColor for BTState<A, Q, C, Idx> {
+impl<A: Alphabet, Q: Color, C: Color, Idx: IndexType> HasColor for BTState<A, Q, C, Idx> {
     type Color = Q;
     fn color(&self) -> &Q {
         &self.color
     }
 }
 
-impl<A: Alphabet, Q, C, Idx> BTState<A, Q, C, Idx> {
+impl<A: Alphabet, Q, C: Color, Idx: IndexType> BTState<A, Q, C, Idx> {
     /// Creates a new state with the given color.
     pub fn new(color: Q) -> Self {
         Self {
             color,
             edges: Map::default(),
+            predecessors: Set::default(),
         }
+    }
+
+    pub fn add_pre_edge(&mut self, from: Idx, on: A::Expression, color: C) -> bool {
+        self.predecessors.insert((from, on, color))
+    }
+
+    pub fn remove_pre_edge(&mut self, from: Idx, on: A::Expression, color: C) -> bool {
+        self.predecessors.remove(&(from, on, color))
     }
 
     pub fn edges(&self) -> impl Iterator<Item = (&A::Expression, &(Idx, C))> {
@@ -131,6 +141,7 @@ impl<A: Alphabet, Q, C, Idx> BTState<A, Q, C, Idx> {
         BTState {
             color,
             edges: self.edges,
+            predecessors: self.predecessors,
         }
     }
 
@@ -140,7 +151,7 @@ impl<A: Alphabet, Q, C, Idx> BTState<A, Q, C, Idx> {
     }
 }
 
-impl<A: Alphabet, Q: Display, C, Idx> Display for BTState<A, Q, C, Idx> {
+impl<A: Alphabet, Q: Display, C: Color, Idx: IndexType> Display for BTState<A, Q, C, Idx> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.color)
     }

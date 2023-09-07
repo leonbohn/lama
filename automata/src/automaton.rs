@@ -184,6 +184,8 @@ mod boilerplate_impls {
         type EdgeColor = Ts::EdgeColor;
         type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
         type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
+        type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
+        type EdgesToIter<'this> = Ts::EdgesToIter<'this> where Self: 'this;
 
         fn transition(
             &self,
@@ -197,14 +199,7 @@ mod boilerplate_impls {
             self.ts().state_color(state)
         }
 
-        fn predecessors(
-            &self,
-            state: Self::StateIndex,
-        ) -> Vec<(
-            Self::StateIndex,
-            crate::alphabet::ExpressionOf<Self>,
-            EdgeColor<Self>,
-        )> {
+        fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
             self.ts().predecessors(state)
         }
 

@@ -4,7 +4,7 @@ use crate::{
     Pointed, TransitionSystem,
 };
 
-use super::IsTransition;
+use super::{IsPreTransition, IsTransition};
 
 pub struct RestrictByStateIndex<Ts: TransitionSystem, F> {
     ts: Ts,
@@ -62,6 +62,28 @@ where
     type Item = Ts::TransitionRef<'a>;
     fn next(&mut self) -> Option<Self::Item> {
         self.it.by_ref().find(|edge| (self.filter)(edge.target()))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestrictedEdgesToIter<'a, Ts: TransitionSystem + 'a, F> {
+    filter: &'a F,
+    it: Ts::EdgesToIter<'a>,
+}
+
+impl<'a, Ts: TransitionSystem + 'a, F> Iterator for RestrictedEdgesToIter<'a, Ts, F>
+where
+    F: Fn(Ts::StateIndex) -> bool,
+{
+    type Item = Ts::PreTransitionRef<'a>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.it.by_ref().find(|edge| (self.filter)(edge.source()))
+    }
+}
+
+impl<'a, Ts: TransitionSystem + 'a, F> RestrictedEdgesToIter<'a, Ts, F> {
+    pub fn new(it: Ts::EdgesToIter<'a>, filter: &'a F) -> Self {
+        Self { filter, it }
     }
 }
 

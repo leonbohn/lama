@@ -6,7 +6,10 @@ use std::{
 use automata::{
     alphabet::Symbol,
     automaton::IsDfa,
-    ts::{operations::ProductIndex, Congruence, FiniteState, Product, Sproutable, ToDot},
+    ts::{
+        operations::ProductIndex, transition_system::IsPreTransition, Congruence, FiniteState,
+        Product, Sproutable, ToDot,
+    },
     Alphabet, Class, InfiniteLength, Map, Pointed, RightCongruence, Set, TransitionSystem, Word,
 };
 use itertools::Itertools;
@@ -168,16 +171,17 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
         }
         let left_pred = left_cache
             .entry(left)
-            .or_insert_with(|| left_pta.predecessors(left));
+            .or_insert_with(|| left_pta.predecessors(left).unwrap().collect_vec());
         let right_pred = right_cache
             .entry(right)
-            .or_insert_with(|| right_pta.predecessors(right));
+            .or_insert_with(|| right_pta.predecessors(right).unwrap().collect_vec());
 
-        for (left_predecessor, left_expression, _) in left_pred {
-            for (right_predecessor, right_expression, _) in
-                right_pred.iter().filter(|(_, e, _)| e == left_expression)
+        for l in left_pred {
+            for r in right_pred
+                .iter()
+                .filter(|o| o.expression() == l.expression())
             {
-                queue.push_back((*left_predecessor, *right_predecessor));
+                queue.push_back((l.source(), r.source()));
             }
         }
     }
