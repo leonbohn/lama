@@ -189,7 +189,7 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
 
     pub fn maximal_word(&self) -> Option<Vec<SymbolOf<Ts>>> {
         let ts = self.0;
-        debug_assert!(self.len() > 0);
+        debug_assert!(!self.is_empty());
 
         let mut should_continue = false;
         let mut queue = Map::default();
