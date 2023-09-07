@@ -7,8 +7,9 @@ use automata::{
     alphabet::Symbol,
     automaton::IsDfa,
     ts::{
-        operations::ProductIndex, transition_system::IsPreTransition, Congruence, FiniteState,
-        Product, Sproutable, ToDot,
+        operations::{Product, ProductIndex},
+        transition_system::IsPreTransition,
+        Congruence, FiniteState, Sproutable, ToDot,
     },
     Alphabet, Class, InfiniteLength, Map, Pointed, RightCongruence, Set, TransitionSystem, Word,
 };

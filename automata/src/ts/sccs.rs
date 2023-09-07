@@ -248,6 +248,13 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         self.1.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        if self.len() == 0 {
+            panic!("SCCs can never be empty!");
+        }
+        false
+    }
+
     pub fn is_singleton(&self) -> bool {
         self.1.len() == 1
     }
@@ -395,7 +402,7 @@ mod tests {
         alphabet::Simple,
         simple,
         ts::{
-            transition_system::sccs::{Scc, SccDecomposition},
+            sccs::{Scc, SccDecomposition},
             Sproutable,
         },
         Pointed, RightCongruence, TransitionSystem,

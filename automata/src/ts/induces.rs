@@ -2,7 +2,7 @@ use impl_tools::autoimpl;
 
 use crate::Color;
 
-use super::{BTState, StateIndex, Transition};
+use super::{StateIndex, Transition};
 
 /// Abstracts induced objects. Induced objects are objects that are induced by a run of a transition
 /// system. For example, a run of a transition system can induce a [`State`] or a [`StateColorSequence`].

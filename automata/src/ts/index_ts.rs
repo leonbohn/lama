@@ -5,14 +5,97 @@ use tabled::builder::Builder;
 
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
-    Color, Map,
+    Color, Map, Set,
 };
 
 use super::{
-    BTState, Edge, EdgeColor, EdgeIndex, EdgeIndicesFrom, EdgesFrom, FiniteState,
-    FiniteStatesIterType, HasColorMut, HasFiniteStates, HasMutableStates, HasStates, Index,
-    IndexType, Sproutable, StateColor, StateIndex, Transition, TransitionSystem,
+    Edge, EdgeColor, EdgeIndex, EdgeIndicesFrom, EdgesFrom, FiniteState, FiniteStatesIterType,
+    HasColor, HasColorMut, HasFiniteStates, HasMutableStates, HasStates, Index, IndexType,
+    Sproutable, StateColor, StateIndex, Transition, TransitionSystem,
 };
+
+/// A state in a transition system. This stores the color of the state and the index of the
+/// first edge leaving the state.
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct BTState<A: Alphabet, Q, C: Color, Idx: IndexType> {
+    color: Q,
+    edges: Map<A::Expression, (Idx, C)>,
+    predecessors: Set<(Idx, A::Expression, C)>,
+}
+
+impl<A: Alphabet, Q: Color, C: Color, Idx: IndexType> HasColorMut for BTState<A, Q, C, Idx> {
+    fn set_color(&mut self, color: Q) {
+        self.color = color;
+    }
+}
+
+impl<A: Alphabet, Q: Color, C: Color, Idx: IndexType> HasColor for BTState<A, Q, C, Idx> {
+    type Color = Q;
+    fn color(&self) -> &Q {
+        &self.color
+    }
+}
+
+impl<A: Alphabet, Q, C: Color, Idx: IndexType> BTState<A, Q, C, Idx> {
+    /// Creates a new state with the given color.
+    pub fn new(color: Q) -> Self {
+        Self {
+            color,
+            edges: Map::default(),
+            predecessors: Set::default(),
+        }
+    }
+
+    pub fn predecessors(&self) -> &Set<(Idx, A::Expression, C)> {
+        &self.predecessors
+    }
+
+    pub fn add_pre_edge(&mut self, from: Idx, on: A::Expression, color: C) -> bool {
+        self.predecessors.insert((from, on, color))
+    }
+
+    pub fn remove_pre_edge(&mut self, from: Idx, on: A::Expression, color: C) -> bool {
+        self.predecessors.remove(&(from, on, color))
+    }
+
+    pub fn edges(&self) -> impl Iterator<Item = (&A::Expression, &(Idx, C))> {
+        self.edges.iter()
+    }
+
+    pub fn edge_map(&self) -> &Map<A::Expression, (Idx, C)> {
+        &self.edges
+    }
+
+    pub fn add_edge(&mut self, on: A::Expression, to: Idx, color: C) -> Option<(Idx, C)> {
+        self.edges.insert(on, (to, color))
+    }
+
+    pub fn remove_edge(&mut self, on: A::Expression) -> Option<(Idx, C)> {
+        self.edges.remove(&on)
+    }
+
+    pub fn recolor<P: Color>(self, color: P) -> BTState<A, P, C, Idx> {
+        BTState {
+            color,
+            edges: self.edges,
+            predecessors: self.predecessors,
+        }
+    }
+
+    /// Obtains a reference to the color of the state.
+    pub fn color(&self) -> &Q {
+        &self.color
+    }
+}
+
+impl<A: Alphabet, Q: std::fmt::Display, C: Color, Idx: IndexType> std::fmt::Display
+    for BTState<A, Q, C, Idx>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.color)
+    }
+}
+
 /// An implementation of a transition system with states of type `Q` and colors of type `C`. It stores
 /// the states and edges in a vector, which allows for fast access and iteration. The states and edges
 /// are indexed by their position in the respective vector.

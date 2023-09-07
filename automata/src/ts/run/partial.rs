@@ -5,7 +5,7 @@ use crate::{
     Color, FiniteLength,
 };
 
-use super::TransitionSystem;
+use crate::ts::TransitionSystem;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Partial<'a, 'b, R, Ts: TransitionSystem> {

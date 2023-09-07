@@ -15,7 +15,7 @@ use crate::{
     Color, FiniteLength, Length,
 };
 
-use super::TransitionSystem;
+use crate::ts::TransitionSystem;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Successful<'a, 'b, R, Ts: TransitionSystem> {

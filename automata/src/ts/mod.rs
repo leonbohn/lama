@@ -10,7 +10,6 @@ use tabled::builder::Builder;
 pub use transition::{Edge, EdgeIndex, EdgeIndicesFrom, EdgesFrom, Transition};
 
 pub mod operations;
-pub use operations::Product;
 
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
@@ -23,8 +22,16 @@ pub use index_ts::BTS;
 pub mod path;
 pub use path::Path;
 
+mod sproutable;
+pub use sproutable::Sproutable;
+
 mod induces;
 pub use induces::{finite, infinite, CanInduce, Induced};
+
+pub mod reachable;
+pub mod sccs;
+
+pub mod run;
 
 pub trait IndexType: Copy + std::hash::Hash + std::fmt::Debug + Eq + Ord + Display {}
 impl<Idx: Copy + std::hash::Hash + std::fmt::Debug + Eq + Ord + Display> IndexType for Idx {}
@@ -82,78 +89,6 @@ impl Index for StateIndex {
 impl Display for StateIndex {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0.index())
-    }
-}
-
-/// A state in a transition system. This stores the color of the state and the index of the
-/// first edge leaving the state.
-#[derive(Clone, Eq, PartialEq, Debug)]
-pub struct BTState<A: Alphabet, Q, C: Color, Idx: IndexType> {
-    color: Q,
-    edges: Map<A::Expression, (Idx, C)>,
-    predecessors: Set<(Idx, A::Expression, C)>,
-}
-
-impl<A: Alphabet, Q: Color, C: Color, Idx: IndexType> HasColorMut for BTState<A, Q, C, Idx> {
-    fn set_color(&mut self, color: Q) {
-        self.color = color;
-    }
-}
-
-impl<A: Alphabet, Q: Color, C: Color, Idx: IndexType> HasColor for BTState<A, Q, C, Idx> {
-    type Color = Q;
-    fn color(&self) -> &Q {
-        &self.color
-    }
-}
-
-impl<A: Alphabet, Q, C: Color, Idx: IndexType> BTState<A, Q, C, Idx> {
-    /// Creates a new state with the given color.
-    pub fn new(color: Q) -> Self {
-        Self {
-            color,
-            edges: Map::default(),
-            predecessors: Set::default(),
-        }
-    }
-
-    pub fn add_pre_edge(&mut self, from: Idx, on: A::Expression, color: C) -> bool {
-        self.predecessors.insert((from, on, color))
-    }
-
-    pub fn remove_pre_edge(&mut self, from: Idx, on: A::Expression, color: C) -> bool {
-        self.predecessors.remove(&(from, on, color))
-    }
-
-    pub fn edges(&self) -> impl Iterator<Item = (&A::Expression, &(Idx, C))> {
-        self.edges.iter()
-    }
-
-    pub fn add_edge(&mut self, on: A::Expression, to: Idx, color: C) -> Option<(Idx, C)> {
-        self.edges.insert(on, (to, color))
-    }
-
-    pub fn remove_edge(&mut self, on: A::Expression) -> Option<(Idx, C)> {
-        self.edges.remove(&on)
-    }
-
-    pub fn recolor<P: Color>(self, color: P) -> BTState<A, P, C, Idx> {
-        BTState {
-            color,
-            edges: self.edges,
-            predecessors: self.predecessors,
-        }
-    }
-
-    /// Obtains a reference to the color of the state.
-    pub fn color(&self) -> &Q {
-        &self.color
-    }
-}
-
-impl<A: Alphabet, Q: Display, C: Color, Idx: IndexType> Display for BTState<A, Q, C, Idx> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.color)
     }
 }
 
@@ -280,51 +215,6 @@ pub trait HasMutableStates: HasStates {
 
     /// Returns an iterator over mutable references to the states of the implementor.
     fn state_mut(&mut self, index: Self::StateIndex) -> Option<Self::StateMut<'_>>;
-}
-
-pub trait Sproutable: TransitionSystem {
-    fn new_for_alphabet(alphabet: Self::Alphabet) -> Self;
-
-    fn add_state(&mut self, color: StateColor<Self>) -> Self::StateIndex;
-
-    fn set_state_color(&mut self, index: Self::StateIndex, color: StateColor<Self>);
-
-    fn set_initial_color(&mut self, color: StateColor<Self>)
-    where
-        Self: Pointed,
-    {
-        self.set_state_color(self.initial(), color);
-    }
-
-    fn add_edge<X, Y>(
-        &mut self,
-        from: X,
-        on: <Self::Alphabet as Alphabet>::Expression,
-        to: Y,
-        color: EdgeColor<Self>,
-    ) -> Option<(Self::StateIndex, Self::EdgeColor)>
-    where
-        X: Into<Self::StateIndex>,
-        Y: Into<Self::StateIndex>;
-
-    fn remove_edge(
-        &mut self,
-        from: Self::StateIndex,
-        on: <Self::Alphabet as Alphabet>::Expression,
-    ) -> bool;
-
-    /// Turns the automaton into a complete one, by adding a sink state and adding transitions
-    /// to it from all states that do not have a transition for a given symbol.
-    fn complete_with_sink(&mut self, sink_color: Self::StateColor) -> Self::StateIndex
-    where
-        Self: FiniteState,
-    {
-        let sink = self.add_state(sink_color.clone());
-
-        let universe = self.alphabet().universe().cloned().collect_vec();
-
-        todo!()
-    }
 }
 
 /// Implementors of this trait have a distinguished (initial) state.
