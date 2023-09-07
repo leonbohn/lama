@@ -189,7 +189,7 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
 
     pub fn maximal_word(&self) -> Option<Vec<SymbolOf<Ts>>> {
         let ts = self.0;
-        debug_assert!(self.len() > 0);
+        debug_assert!(!self.is_empty());
 
         let mut should_continue = false;
         let mut queue = Map::default();
@@ -246,6 +246,13 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
 
     pub fn len(&self) -> usize {
         self.1.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        if self.len() == 0 {
+            panic!("SCCs can never be empty!");
+        }
+        false
     }
 
     pub fn is_singleton(&self) -> bool {
@@ -395,7 +402,7 @@ mod tests {
         alphabet::Simple,
         simple,
         ts::{
-            transition_system::sccs::{Scc, SccDecomposition},
+            sccs::{Scc, SccDecomposition},
             Sproutable,
         },
         Pointed, RightCongruence, TransitionSystem,

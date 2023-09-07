@@ -8,7 +8,7 @@ use std::{
 use automata::{
     alphabet::{self, Simple, Symbol},
     congurence::{IndexesRightCongruence, FORC},
-    ts::{FiniteState, HasStates, Pointed, Product, Sproutable},
+    ts::{operations::Product, FiniteState, HasStates, Pointed, Sproutable},
     word::{Normalized, NormalizedParseError, NormalizedPeriodic, OmegaWord, RawSymbols},
     Acceptor, Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length, Map,
     MooreMachine, RightCongruence, Set, TransitionSystem, Word, DFA,

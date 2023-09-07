@@ -14,9 +14,9 @@ use crate::{
     ts::{
         finite::{InfinityColors, ReachedColor, ReachedState, SeenColors, TransitionColorSequence},
         infinite::InfinityStateColors,
-        operations::{MapStateColor, MatchingProduct},
-        BTState, Congruence, EdgeColor, FiniteState, HasMutableStates, HasStates, IndexType, Path,
-        Pointed, Product, Sproutable, StateColor, StateIndex, Transition, TransitionSystem, BTS,
+        operations::{MapStateColor, MatchingProduct, Product},
+        Congruence, EdgeColor, FiniteState, HasMutableStates, HasStates, IndexType, Path, Pointed,
+        Sproutable, StateColor, StateIndex, Transition, TransitionSystem, BTS,
     },
     word::{Normalized, OmegaWord},
     Color, FiniteLength, HasLength, InfiniteLength, Length, Set, Word,
@@ -487,9 +487,9 @@ impl<Ts> IsDpa for Ts where
 mod tests {
     use super::IsDfa;
     use crate::{
-        alphabet::{self, Simple},
-        automaton::{Acceptor, IsDba, Transformer},
-        ts::{HasColorMut, HasMutableStates, Pointed, Product, Sproutable, TransitionSystem, BTS},
+        alphabet::Simple,
+        automaton::{Acceptor, IsDba},
+        ts::{HasColorMut, HasMutableStates, Pointed, Sproutable},
         upw,
         word::OmegaWord,
         InfiniteLength,

@@ -1,10 +1,11 @@
 use crate::{
     alphabet::{HasAlphabet, SymbolOf},
-    ts::HasStates,
+    ts::{
+        transition_system::{IsPreTransition, IsTransition},
+        HasStates,
+    },
     Pointed, TransitionSystem,
 };
-
-use super::{IsPreTransition, IsTransition};
 
 pub struct RestrictByStateIndex<Ts: TransitionSystem, F> {
     ts: Ts,

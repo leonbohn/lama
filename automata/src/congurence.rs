@@ -6,7 +6,7 @@ use crate::{
     alphabet::{HasAlphabet, Symbol},
     automaton::WithInitial,
     ts::{
-        BTState, FiniteState, FiniteStatesIterType, HasFiniteStates, HasMutableStates, HasStates,
+        FiniteState, FiniteStatesIterType, HasFiniteStates, HasMutableStates, HasStates,
         Sproutable, BTS,
     },
     Alphabet, Color, FiniteLength, HasLength, Map, Pointed, TransitionSystem, Word, DFA,

@@ -9,7 +9,9 @@ use crate::{
     Length, Word,
 };
 
-use super::{IsTransition, Partial, Successful, TransitionSystem};
+use crate::ts::{IsTransition, TransitionSystem};
+
+use super::{partial::Partial, successful::Successful};
 
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Walker<'a, 'b, Ts: TransitionSystem, R> {

@@ -35,6 +35,9 @@ pub use word::Word;
 /// Module that contains definitions for dealing with mappings.
 pub mod mapping;
 
+mod priority_mapping;
+pub use priority_mapping::FWPM;
+
 /// A color is simply a type that can be used to color states or transitions.
 pub trait Color: Clone + Eq + Ord + Hash {
     fn reduce<I: IntoIterator<Item = Self>>(iter: I) -> Self

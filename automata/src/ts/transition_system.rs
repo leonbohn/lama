@@ -7,43 +7,29 @@ use crate::{
     Alphabet, Class, Color, Map, Pointed, RightCongruence, Set, Word,
 };
 
-use self::{
-    reachable::{ReachableStateIndices, ReachableStates},
-    restricted::{RestrictedEdgesFromIter, RestrictedEdgesToIter},
+use super::{
+    operations::{
+        MapEdgeColor, MapStateColor, MappedEdgesFromIter, MappedEdgesToIter, MappedPreTransition,
+        MappedTransition, MatchingProduct, ProductEdgesFrom, ProductEdgesTo, ProductIndex,
+        ProductPreTransition, ProductTransition, RestrictByStateIndex, RestrictedEdgesFromIter,
+        RestrictedEdgesToIter,
+    },
+    reachable::{MinimalRepresentatives, ReachableStateIndices, ReachableStates},
+    run::{
+        successful::Successful,
+        walker::{RunResult, Walker},
+    },
     sccs::{tarjan_scc, Scc, SccDecomposition, TarjanDAG},
-    walker::RunResult,
 };
 
 use super::{
     finite::{ReachedColor, ReachedState},
-    operations::{
-        MapEdgeColor, MapStateColor, MappedEdgesFromIter, MappedEdgesToIter, MappedPreTransition,
-        MappedTransition, MatchingProduct, ProductEdgesFrom, ProductEdgesTo, ProductIndex,
-        ProductPreTransition, ProductTransition,
-    },
     path::Lasso,
     CanInduce, Edge, EdgeColor, FiniteState, IndexType, Induced, Path, StateColor, StateIndex,
     Transition, BTS,
 };
 
-mod partial;
 use impl_tools::autoimpl;
-pub use partial::Partial;
-
-mod successful;
-pub use successful::Successful;
-
-mod walker;
-pub use walker::Walker;
-
-mod reachable;
-pub use reachable::MinimalRepresentatives;
-
-mod restricted;
-pub use restricted::RestrictByStateIndex;
-
-mod sccs;
-pub use sccs::Tarjan;
 
 #[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
 pub trait IsTransition<E, Idx, C> {
@@ -661,7 +647,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A
     fn transition(&self, state: Idx, symbol: A::Symbol) -> Option<Self::TransitionRef<'_>> {
         self.states()
             .get(&state)
-            .and_then(|o| A::search_edge(&o.edges, symbol))
+            .and_then(|o| A::search_edge(o.edge_map(), symbol))
     }
 
     fn state_color(&self, index: Idx) -> StateColor<Self> {
@@ -672,7 +658,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A
     }
 
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
-        Some(self.states().get(&state)?.predecessors.iter())
+        Some(self.states().get(&state)?.predecessors().iter())
     }
 
     fn edge_color(
@@ -682,11 +668,11 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A
     ) -> Option<EdgeColor<Self>> {
         self.states()
             .get(&state)
-            .and_then(|o| o.edges.get(expression).map(|(_, c)| c.clone()))
+            .and_then(|o| o.edge_map().get(expression).map(|(_, c)| c.clone()))
     }
 
     fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
-        self.states().get(&state).map(|o| o.edges.iter())
+        self.states().get(&state).map(|o| o.edge_map().iter())
     }
 }
 
