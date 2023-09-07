@@ -103,66 +103,107 @@ where
     }
 }
 
-pub struct ProductTransition<L, R>(pub L, pub R);
-
-impl<Idx, Jdx, E, C, D, L, R> IsTransition<E, ProductIndex<Idx, Jdx>, (C, D)>
-    for ProductTransition<L, R>
-where
-    L: IsTransition<E, Idx, C>,
-    R: IsTransition<E, Jdx, D>,
-{
-    fn target(&self) -> ProductIndex<Idx, Jdx> {
-        ProductIndex(self.0.target(), self.1.target())
-    }
-
-    fn color(&self) -> (C, D) {
-        (self.0.color(), self.1.color())
-    }
-
-    fn expression(&self) -> &E {
-        self.0.expression()
-    }
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ProductTransition<LI, RI, E, LC, RC> {
+    expression: E,
+    target: ProductIndex<LI, RI>,
+    color: (LC, RC),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ProductEdgesFrom<'a, L: TransitionSystem, R: TransitionSystem, I> {
-    left: &'a L,
-    right: &'a R,
-    it: I,
-    index: ProductIndex<L::StateIndex, R::StateIndex>,
-}
-
-impl<'a, L: TransitionSystem, R: TransitionSystem>
-    ProductEdgesFrom<'a, L, R, <L::Alphabet as Alphabet>::Universe<'a>>
-{
-    pub fn new(
-        left: &'a L,
-        right: &'a R,
-        index: ProductIndex<L::StateIndex, R::StateIndex>,
-    ) -> Self {
+impl<LI, RI, E, LC, RC> ProductTransition<LI, RI, E, LC, RC> {
+    pub fn new(expression: E, target: ProductIndex<LI, RI>, color: (LC, RC)) -> Self {
         Self {
-            it: left.alphabet().universe(),
-            left,
-            right,
-            index,
+            expression,
+            target,
+            color,
         }
     }
 }
 
-impl<'a, L, R, I> Iterator for ProductEdgesFrom<'a, L, R, I>
+impl<Idx, Jdx, E, C, D> IsTransition<E, ProductIndex<Idx, Jdx>, (C, D)>
+    for ProductTransition<Idx, Jdx, E, C, D>
+where
+    Idx: IndexType,
+    Jdx: IndexType,
+    C: Color,
+    D: Color,
+{
+    fn target(&self) -> ProductIndex<Idx, Jdx> {
+        self.target
+    }
+
+    fn color(&self) -> (C, D) {
+        self.color.clone()
+    }
+
+    fn expression(&self) -> &E {
+        &self.expression
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProductEdgesFrom<'a, L: TransitionSystem, R: TransitionSystem> {
+    left: &'a L,
+    right: &'a R,
+    cur: Option<L::TransitionRef<'a>>,
+    it: L::EdgesFromIter<'a>,
+    right_edges: Vec<R::TransitionRef<'a>>,
+    position: usize,
+}
+
+impl<'a, L: TransitionSystem, R: TransitionSystem> ProductEdgesFrom<'a, L, R> {
+    pub fn new(
+        left: &'a L,
+        right: &'a R,
+        index: ProductIndex<L::StateIndex, R::StateIndex>,
+    ) -> Option<Self> {
+        let mut it = left.edges_from(index.0)?;
+        Some(Self {
+            left,
+            right_edges: right.edges_from(index.1)?.collect(),
+            right,
+            position: 0,
+            cur: it.next(),
+            it,
+        })
+    }
+}
+
+impl<'a, L, R> Iterator for ProductEdgesFrom<'a, L, R>
 where
     L: TransitionSystem,
     R: TransitionSystem,
-    I: Iterator<Item = &'a SymbolOf<L>>,
     R::Alphabet: Alphabet<Symbol = SymbolOf<L>, Expression = ExpressionOf<L>>,
 {
-    type Item = ProductTransition<L::TransitionRef<'a>, R::TransitionRef<'a>>;
+    type Item = ProductTransition<
+        L::StateIndex,
+        R::StateIndex,
+        ExpressionOf<L>,
+        L::EdgeColor,
+        R::EdgeColor,
+    >;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let sym = self.it.next()?;
-        let left = self.left.transition(self.index.0, *sym)?;
-        let right = self.right.transition(self.index.1, *sym)?;
-        Some(ProductTransition(left, right))
+        if self.position >= self.right_edges.len() {
+            self.position = 0;
+            self.cur = self.it.next();
+        }
+        match &self.cur {
+            None => return None,
+            Some(l) => {
+                while let Some(r) = self.right_edges.get(self.position) {
+                    self.position += 1;
+                    if l.expression() == r.expression() {
+                        return Some(ProductTransition::new(
+                            l.expression().clone(),
+                            ProductIndex(l.target(), r.target()),
+                            (l.color(), r.color()),
+                        ));
+                    }
+                }
+            }
+        }
+        self.next()
     }
 }
 
@@ -490,6 +531,8 @@ impl<Ts: TransitionSystem, F> HasAlphabet for MapStateColor<Ts, F> {
 
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools;
+
     use crate::{
         alphabet::Simple,
         ts::{
@@ -525,9 +568,10 @@ mod tests {
         if let Some(ReachedState(q)) = xxx.induced(&"abb", ProductIndex(0, 0)) {}
         let c = xxx.transform("aa");
 
-        let yyy = xxx.map_colors(|(a, b)| a || b);
+        let yyy = xxx.clone().map_colors(|(a, b)| a || b);
         let d = yyy.transform("aa");
 
         assert_eq!(c.0 || c.1, d);
+        println!("{:?}", xxx.edges_from(xxx.initial()).unwrap().collect_vec());
     }
 }

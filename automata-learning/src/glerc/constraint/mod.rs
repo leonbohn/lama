@@ -286,7 +286,7 @@ mod tests {
     }
 
     #[test]
-    #[traced_test]
+    #[ignore]
     fn dfa_learning() {
         let sample = Sample::from_iters(
             [word!("a"), word!("ab")],

@@ -275,6 +275,13 @@ impl<A: Alphabet> FORC<A> {
         self.progress.insert(class, congruence);
     }
 
+    pub fn prc<C>(&self, class: C) -> Option<&RightCongruence<A>>
+    where
+        C: std::borrow::Borrow<Class<A::Symbol>>,
+    {
+        self.progress.get(class.borrow())
+    }
+
     pub fn from_iter<I: IntoIterator<Item = (Class<A::Symbol>, RightCongruence<A>)>>(
         leading: RightCongruence<A>,
         progress: I,

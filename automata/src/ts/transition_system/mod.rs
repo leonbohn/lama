@@ -701,8 +701,8 @@ where
     type StateIndex = ProductIndex<L::StateIndex, R::StateIndex>;
     type EdgeColor = (L::EdgeColor, R::EdgeColor);
     type StateColor = (L::StateColor, R::StateColor);
-    type TransitionRef<'this> = ProductTransition<L::TransitionRef<'this>, R::TransitionRef<'this>> where Self: 'this;
-    type EdgesFromIter<'this> = ProductEdgesFrom<'this, L, R, <L::Alphabet as Alphabet>::Universe<'this>> where Self: 'this;
+    type TransitionRef<'this> = ProductTransition<L::StateIndex, R::StateIndex, ExpressionOf<L>, L::EdgeColor, R::EdgeColor> where Self: 'this;
+    type EdgesFromIter<'this> = ProductEdgesFrom<'this, L, R> where Self: 'this;
     type PreTransitionRef<'this> = ProductPreTransition<L::StateIndex, R::StateIndex, ExpressionOf<L>, L::EdgeColor, R::EdgeColor> where Self: 'this;
     type EdgesToIter<'this> = ProductEdgesTo<'this, L, R> where Self: 'this;
 
@@ -715,7 +715,11 @@ where
 
         let ll = self.0.transition(l, symbol)?;
         let rr = self.1.transition(r, symbol)?;
-        Some(ProductTransition(ll, rr))
+        Some(ProductTransition::new(
+            ll.expression().clone(),
+            ProductIndex(ll.target(), rr.target()),
+            (ll.color(), rr.color()),
+        ))
     }
 
     fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
@@ -741,7 +745,7 @@ where
     }
 
     fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
-        Some(ProductEdgesFrom::new(&self.0, &self.1, state))
+        ProductEdgesFrom::new(&self.0, &self.1, state)
     }
 }
 

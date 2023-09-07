@@ -6,6 +6,7 @@ use automata::{
 use automata_learning::passive::{
     sprout::{
         iteration_consistency_conflicts, omega_sprout_conflicts, prefix_consistency_conflicts,
+        SeparatesIdempotents,
     },
     OmegaSample,
 };
@@ -104,7 +105,7 @@ fn main() {
                                 .expect("Unable to render conflict relation to file");
                         }
 
-                        let cong = omega_sprout_conflicts(conflicts, true);
+                        let cong = omega_sprout_conflicts(conflicts, (), true);
 
                         if passive_matches.get_flag("nooutput") {
                             "".to_string()
@@ -138,13 +139,22 @@ fn main() {
                                     .expect("Unable to render conflict relation to file");
                             }
                         }
-
-                        let forc = FORC::from_iter(
-                            cong,
-                            conflict_relations.into_iter().map(|(c, conflicts)| {
-                                (c, omega_sprout_conflicts(conflicts, false))
-                            }),
-                        );
+                        let progress: Vec<_> = conflict_relations
+                            .into_iter()
+                            .map(|(c, conflicts)| {
+                                (
+                                    c.clone(),
+                                    omega_sprout_conflicts(
+                                        conflicts,
+                                        SeparatesIdempotents::new(
+                                            split_sample.get(&c).expect("This must exist"),
+                                        ),
+                                        false,
+                                    ),
+                                )
+                            })
+                            .collect();
+                        let forc = FORC::from_iter(cong, progress);
 
                         if passive_matches.get_flag("nooutput") {
                             "".to_string()

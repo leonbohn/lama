@@ -146,13 +146,14 @@ where
         let to_consider = self.state_indices();
 
         for state in to_consider {
-            for &sym in self.alphabet().universe() {
-                if let Some(edge) = self.transition(state, sym) {
+            if let Some(mut it) = self.edges_from(state) {
+                for e in it {
                     lines.push(format!(
-                        "\"{prefix},{}\" -> \"{prefix},{}\" [label = \"{}\"]",
+                        "\"{prefix},{}\" -> \"{prefix},{}\" [label = \"{:?}\"]",
                         self.state_color(state),
-                        self.state_color(edge.target()),
-                        sym
+                        self.state_color(e.target()),
+                        e.expression(),
+                        prefix = prefix
                     ));
                 }
             }

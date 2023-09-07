@@ -18,7 +18,7 @@ use tracing::{debug, trace};
 
 use crate::passive::sprout::iteration_consistency_conflicts;
 
-use super::sprout::{omega_sprout_conflicts, prefix_consistency_conflicts};
+use super::sprout::{omega_sprout_conflicts, prefix_consistency_conflicts, SeparatesIdempotents};
 
 /// Represents a finite sample, which is a pair of positive and negative instances.
 #[derive(Clone, Eq, PartialEq)]
@@ -243,7 +243,7 @@ impl<A: Alphabet> OmegaSample<A, bool> {
 
     /// Computes the [`RightCongruence`] underlying the sample.
     pub fn infer_right_congruence(&self) -> RightCongruence<A> {
-        omega_sprout_conflicts(prefix_consistency_conflicts(self), true)
+        omega_sprout_conflicts(prefix_consistency_conflicts(self), (), true)
     }
 
     /// Computes the [`FORC`] underlying the sample.
@@ -261,12 +261,20 @@ impl<A: Alphabet> OmegaSample<A, bool> {
             })
             .collect();
 
-        FORC::from_iter(
-            cong,
-            conflict_relations
-                .into_iter()
-                .map(|(c, conflicts)| (c, omega_sprout_conflicts(conflicts, false))),
-        )
+        let progress = conflict_relations
+            .into_iter()
+            .map(|(c, conflicts)| {
+                (
+                    c.clone(),
+                    omega_sprout_conflicts(
+                        conflicts,
+                        SeparatesIdempotents::new(split_sample.get(&c).expect("This must exist")),
+                        false,
+                    ),
+                )
+            })
+            .collect_vec();
+        FORC::from_iter(cong, progress)
     }
 
     /// Returns the positive size, i.e. the number of positive words.
