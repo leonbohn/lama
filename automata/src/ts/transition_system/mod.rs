@@ -10,7 +10,7 @@ use crate::{
 use self::{
     reachable::{ReachableStateIndices, ReachableStates},
     restricted::RestrictedEdgesFromIter,
-    sccs::{tarjan_scc, Scc, SccDecomposition, TarjanTree},
+    sccs::{tarjan_scc, Scc, SccDecomposition, TarjanDAG},
     walker::RunResult,
 };
 
@@ -170,11 +170,11 @@ pub trait TransitionSystem: HasAlphabet {
         tarjan_scc(self)
     }
 
-    fn tarjan_tree(&self) -> TarjanTree<'_, Self>
+    fn tarjan_tree(&self) -> TarjanDAG<'_, Self>
     where
         Self: Sized + FiniteState + Clone,
     {
-        TarjanTree::from(tarjan_scc(self))
+        TarjanDAG::from(tarjan_scc(self))
     }
 
     /// Returns just the [Self::Index] of the successor that is reached on the given `symbol`

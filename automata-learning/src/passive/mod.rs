@@ -6,6 +6,9 @@ use tracing::trace;
 /// Module containing the implementations of the sprout/glerc algorithm.
 pub mod sprout;
 
+/// Module containing definitions and implementations for families of weak priority mappings.
+pub mod fwpm;
+
 /// Executes the RPNI algorithm on the given sample. This returns a DFA that is
 /// composed of a right congruence as well as an acceptance condition, which marks
 /// a classes as accepting if it is reached by a positive sample word.

@@ -277,6 +277,13 @@ impl<'a, Ts: TransitionSystem + FiniteState> SccDecomposition<'a, Ts> {
     pub fn new(ts: &'a Ts, sccs: Vec<Scc<'a, Ts>>) -> Self {
         Self(ts, sccs)
     }
+
+    pub fn scc_of(&self, state: Ts::StateIndex) -> Option<usize> {
+        self.1
+            .iter()
+            .enumerate()
+            .find_map(|(i, scc)| if scc.contains(&state) { Some(i) } else { None })
+    }
 }
 
 impl<'a, Ts: TransitionSystem + FiniteState + Debug> std::fmt::Debug for SccDecomposition<'a, Ts> {
@@ -311,13 +318,13 @@ where
 }
 
 #[derive(Clone)]
-pub struct TarjanTree<'a, Ts: TransitionSystem + Clone> {
+pub struct TarjanDAG<'a, Ts: TransitionSystem + Clone> {
     ts: &'a Ts,
     sccs: Vec<Scc<'a, Ts>>,
     edges: Vec<(usize, usize)>,
 }
 
-impl<'a, Ts: TransitionSystem + Clone + Debug> std::fmt::Debug for TarjanTree<'a, Ts> {
+impl<'a, Ts: TransitionSystem + Clone + Debug> std::fmt::Debug for TarjanDAG<'a, Ts> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(
             f,
@@ -338,7 +345,7 @@ impl<'a, Ts: TransitionSystem + Clone + Debug> std::fmt::Debug for TarjanTree<'a
     }
 }
 
-impl<'a, Ts: TransitionSystem + Clone> TarjanTree<'a, Ts> {
+impl<'a, Ts: TransitionSystem + Clone> TarjanDAG<'a, Ts> {
     pub fn peel_off(&mut self) -> Vec<Scc<'a, Ts>> {
         let (terminal, non_terminal): (Vec<_>, Vec<_>) =
             self.sccs.iter().enumerate().partition(|(i, scc)| {
@@ -356,31 +363,17 @@ impl<'a, Ts: TransitionSystem + Clone> TarjanTree<'a, Ts> {
 }
 
 impl<'a, Ts: TransitionSystem + FiniteState + Clone> From<SccDecomposition<'a, Ts>>
-    for TarjanTree<'a, Ts>
+    for TarjanDAG<'a, Ts>
 {
     fn from(value: SccDecomposition<'a, Ts>) -> Self {
         let mut out = Vec::new();
-        let mut cache = Map::default();
         for (l, ls) in value.1.iter().enumerate() {
-            let l_reach = value
-                .0
-                .reachable_state_indices_from(*ls.first().unwrap())
-                .collect::<Set<_>>();
-            for (r, rs) in value.1.iter().enumerate().skip(l) {
-                if l != r {
-                    let r_reach = cache.entry(r).or_insert_with(|| {
-                        value
-                            .0
-                            .reachable_state_indices_from(*rs.first().unwrap())
-                            .collect::<Set<_>>()
-                    });
-                    if l_reach.is_superset(r_reach) {
-                        out.push((l, r));
-                    } else if l_reach.is_subset(r_reach) {
-                        out.push((r, l));
-                    }
-                }
-            }
+            out.extend(
+                ls.iter()
+                    .flat_map(|q| value.0.edges_from(*q).expect("We know this state exists!"))
+                    .map(|o| (l, value.scc_of(o.target()).expect("Must be in some SCC")))
+                    .unique(),
+            );
         }
         Self {
             ts: value.0,
@@ -390,248 +383,13 @@ impl<'a, Ts: TransitionSystem + FiniteState + Clone> From<SccDecomposition<'a, T
     }
 }
 
-pub struct SCCBTS<Ts: TransitionSystem + Clone> {
-    ts: Ts,
-    sccs: Map<Ts::StateIndex, usize>,
-    edges: Vec<(usize, usize)>,
-}
-
-impl<Ts: TransitionSystem + Clone + Sproutable> Sproutable for SCCBTS<Ts> {
-    fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
-        Self {
-            ts: Ts::new_for_alphabet(alphabet),
-            sccs: Map::default(),
-            edges: Vec::new(),
-        }
-    }
-    fn add_state(&mut self, color: crate::ts::StateColor<Self>) -> Self::StateIndex {
-        let index = self.ts.add_state(color);
-        self.sccs.insert(index, self.sccs.len());
-        index
-    }
-
-    fn set_state_color(&mut self, index: Self::StateIndex, color: crate::ts::StateColor<Self>) {
-        self.ts.set_state_color(index, color)
-    }
-
-    fn add_edge<X, Y>(
-        &mut self,
-        from: X,
-        on: <Self::Alphabet as Alphabet>::Expression,
-        to: Y,
-        color: crate::ts::EdgeColor<Self>,
-    ) -> Option<(Self::StateIndex, Self::EdgeColor)>
-    where
-        X: Into<Self::StateIndex>,
-        Y: Into<Self::StateIndex>,
-    {
-        let source = from.into();
-        let target = to.into();
-        let out = self.ts.add_edge(source, on, target, color);
-        let source_scc = self.sccs.get(&source).copied().unwrap();
-        let target_scc = self.sccs.get(&target).copied().unwrap();
-        if target_scc < source_scc {
-            self.sccs.iter_mut().map(|o| {
-                if *o.1 == source_scc {
-                    *o.1 = target_scc;
-                }
-            });
-            self.edges
-                .retain(|o| o.0 != source_scc && o.1 != source_scc);
-        } else {
-            self.edges.push((source_scc, target_scc));
-        }
-        out
-    }
-
-    fn remove_edge(
-        &mut self,
-        from: Self::StateIndex,
-        on: <Self::Alphabet as Alphabet>::Expression,
-    ) -> bool {
-        todo!()
-    }
-}
-
-impl<'b, Ts: TransitionSystem + Clone + HasFiniteStates<'b>> HasFiniteStates<'b> for SCCBTS<Ts> {
-    type StateIndicesIter = Ts::StateIndicesIter;
-}
-
-impl<Ts: TransitionSystem + Clone + FiniteState> FiniteState for SCCBTS<Ts> {
-    fn state_indices(&self) -> crate::ts::sealed::FiniteStatesIterType<'_, Self> {
-        self.ts.state_indices()
-    }
-}
-
-impl<Ts: TransitionSystem + Clone + Pointed> Pointed for SCCBTS<Ts> {
-    fn initial(&self) -> Self::StateIndex {
-        self.ts.initial()
-    }
-}
-
-impl<Ts: TransitionSystem + Clone> TransitionSystem for SCCBTS<Ts> {
-    type StateIndex = Ts::StateIndex;
-
-    type StateColor = Ts::StateColor;
-
-    type EdgeColor = Ts::EdgeColor;
-
-    type TransitionRef<'this> = Ts::TransitionRef<'this>
-    where
-        Self: 'this;
-
-    type EdgesFromIter<'this> = Ts::EdgesFromIter<'this>
-    where
-        Self: 'this;
-
-    // FIXME: This uses unsafe code to do a transmutation because of a bug in the rust compiler!
-    fn sccs(&self) -> SccDecomposition<'_, Self>
-    where
-        Self: Sized + FiniteState,
-    {
-        unsafe fn runtime_transmute<T, U>(t: T) -> U {
-            assert_eq!(std::mem::size_of::<T>(), std::mem::size_of::<U>());
-            std::ptr::read(&t as *const T as *const U)
-        }
-        let mut sccs = Vec::with_capacity(self.sccs.len());
-        for i in self.sccs.values() {
-            sccs.push(Scc::new(
-                self,
-                self.sccs
-                    .iter()
-                    .filter(|(_, j)| i == *j)
-                    .map(|(q, _)| unsafe { runtime_transmute(*q) })
-                    .collect(),
-            ));
-        }
-        SccDecomposition::new(self, sccs)
-    }
-
-    fn transition(
-        &self,
-        state: Self::StateIndex,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        self.ts.transition(state, symbol)
-    }
-
-    fn edge_color(
-        &self,
-        state: Self::StateIndex,
-        expression: &crate::alphabet::ExpressionOf<Self>,
-    ) -> Option<crate::ts::EdgeColor<Self>> {
-        self.ts.edge_color(state, expression)
-    }
-
-    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
-        self.ts.edges_from(state)
-    }
-
-    fn predecessors(
-        &self,
-        state: Self::StateIndex,
-    ) -> Vec<(
-        Self::StateIndex,
-        crate::alphabet::ExpressionOf<Self>,
-        crate::ts::EdgeColor<Self>,
-    )> {
-        self.ts.predecessors(state)
-    }
-
-    fn state_color(&self, state: Self::StateIndex) -> Self::StateColor {
-        self.ts.state_color(state)
-    }
-
-    fn with_initial(self, initial: Self::StateIndex) -> crate::automaton::WithInitial<Self>
-    where
-        Self: Sized,
-    {
-        (self, initial).into()
-    }
-
-    fn restrict_state_indices<F: Fn(Self::StateIndex) -> bool>(
-        self,
-        filter: F,
-    ) -> super::RestrictByStateIndex<Self, F>
-    where
-        Self: Sized,
-    {
-        super::RestrictByStateIndex::new(self, filter)
-    }
-
-    fn map_colors<D: crate::Color, F: Fn(Self::StateColor) -> D>(
-        self,
-        f: F,
-    ) -> crate::ts::operations::MapStateColor<Self, F>
-    where
-        Self: Sized,
-    {
-        crate::ts::operations::MapStateColor::new(self, f)
-    }
-
-    fn all_accepting_dfa(
-        self,
-    ) -> crate::ts::operations::MapStateColor<Self, fn(Self::StateColor) -> bool>
-    where
-        Self: Sized,
-    {
-        self.map_colors(|_| true)
-    }
-
-    fn tarjan_tree(&self) -> TarjanTree<'_, Self>
-    where
-        Self: Sized + FiniteState + Clone,
-    {
-        TarjanTree::from(tarjan_scc(self))
-    }
-
-    fn successor_index(
-        &self,
-        state: Self::StateIndex,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::StateIndex> {
-        self.transition(state, symbol).map(|t| t.target())
-    }
-}
-
-impl<Ts: TransitionSystem + Clone> HasAlphabet for SCCBTS<Ts> {
-    type Alphabet = Ts::Alphabet;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.ts.alphabet()
-    }
-}
-
-impl<Ts: TransitionSystem + Clone> SCCBTS<Ts> {
-    pub fn new(ts: Ts, sccs: Map<Ts::StateIndex, usize>, edges: Vec<(usize, usize)>) -> Self {
-        Self { ts, sccs, edges }
-    }
-}
-
-impl<Ts: TransitionSystem + Debug + Clone> std::fmt::Debug for SCCBTS<Ts> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(
-            f,
-            "SCCBTS: {:?} Edges {:?}",
-            self.sccs
-                .iter()
-                .map(|(q, i)| format!("{}: {}", q, i))
-                .join(", "),
-            self.edges
-                .iter()
-                .map(|(k, v)| format!("{} -> {}", k, v))
-                .join(", ")
-        )
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{
         alphabet::Simple,
         simple,
         ts::{
-            transition_system::sccs::{Scc, SccDecomposition, SCCBTS},
+            transition_system::sccs::{Scc, SccDecomposition},
             Sproutable,
         },
         Pointed, RightCongruence, TransitionSystem,
@@ -658,12 +416,7 @@ mod tests {
     fn tarjan_tree() {
         let cong = ts();
         let sccs = super::tarjan_scc(&cong);
-        let mut tree = super::TarjanTree::from(sccs);
-
-        println!("{:?}", tree);
-
-        let tjt: SCCBTS<RightCongruence<Simple>> = cong.collect_into_ts();
-        println!("{:?}", tjt);
+        let mut tree = super::TarjanDAG::from(sccs);
     }
 
     #[test]
