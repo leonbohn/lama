@@ -1,31 +1,22 @@
-name: Rust
+name: Run checks
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
-env:
-  CARGO_TERM_COLOR: always
-
+    branches:
+      - '*'
+      - '!main'
+        
 jobs:
-  lints:
-    name: Lints
+  linttest:
+    name: Run checks and lints
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
-
-      - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
+      - uses: actions/checkout@main
+      - run: rustup toolchain install stable --profile minimal
       - uses: Swatinem/rust-cache@v2
-
-      - name: Run cargo fmt
+      - name: Verify correct formatting
         run: cargo fmt --all --check
-
-      - name: Run cargo clippy
+      - name: Ensure that clippy is happy
         run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Run all tests and see that there are no regressions
+        run: cargo test --all
