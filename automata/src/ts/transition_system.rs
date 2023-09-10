@@ -59,47 +59,6 @@ impl<'a, Idx: IndexType, E, C: Color> IsTransition<E, Idx, C> for (&'a E, &'a (I
     }
 }
 
-#[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
-pub trait IsPreTransition<Idx, E, C> {
-    fn source(&self) -> Idx;
-    fn color(&self) -> C;
-    fn expression(&self) -> &E;
-    fn into_tuple(self) -> (Idx, E, C)
-    where
-        E: Clone,
-        Self: Sized,
-    {
-        (self.source(), self.expression().clone(), self.color())
-    }
-}
-
-impl<'a, Idx: IndexType, E, C: Color> IsPreTransition<Idx, E, C> for (Idx, &'a E, C) {
-    fn source(&self) -> Idx {
-        self.0
-    }
-
-    fn color(&self) -> C {
-        self.2.clone()
-    }
-
-    fn expression(&self) -> &E {
-        self.1
-    }
-}
-impl<Idx: IndexType, E, C: Color> IsPreTransition<Idx, E, C> for (Idx, E, C) {
-    fn source(&self) -> Idx {
-        self.0
-    }
-
-    fn color(&self) -> C {
-        self.2.clone()
-    }
-
-    fn expression(&self) -> &E {
-        &self.1
-    }
-}
-
 /// Encapsulates the transition function δ of a (finite) transition system. This is the main trait that
 /// is used to query a transition system. Transitions are labeled with a [`Alphabet::Expression`], which
 /// determines on which [`Alphabet::Symbol`]s the transition can be taken. Additionally, every transition
@@ -120,16 +79,6 @@ pub trait TransitionSystem: HasAlphabet {
     type TransitionRef<'this>: IsTransition<ExpressionOf<Self>, Self::StateIndex, EdgeColor<Self>>
     where
         Self: 'this;
-    type PreTransitionRef<'this>: IsPreTransition<
-        Self::StateIndex,
-        ExpressionOf<Self>,
-        EdgeColor<Self>,
-    >
-    where
-        Self: 'this;
-    type EdgesToIter<'this>: Iterator<Item = Self::PreTransitionRef<'this>>
-    where
-        Self: 'this;
     type EdgesFromIter<'this>: Iterator<Item = Self::TransitionRef<'this>>
     where
         Self: 'this;
@@ -148,8 +97,6 @@ pub trait TransitionSystem: HasAlphabet {
     ) -> Option<EdgeColor<Self>>;
 
     fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>>;
-
-    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>>;
 
     fn state_color(&self, state: Self::StateIndex) -> Self::StateColor;
 
@@ -521,8 +468,6 @@ impl<Ts: TransitionSystem> TransitionSystem for &Ts {
     type StateColor = Ts::StateColor;
     type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
     type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
-    type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
-    type EdgesToIter<'this> = Ts::EdgesToIter<'this> where Self: 'this;
 
     fn transition(
         &self,
@@ -534,10 +479,6 @@ impl<Ts: TransitionSystem> TransitionSystem for &Ts {
 
     fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
         Ts::state_color(self, state)
-    }
-
-    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
-        Ts::predecessors(self, state)
     }
 
     fn edge_color(
@@ -558,8 +499,6 @@ impl<Ts: TransitionSystem> TransitionSystem for &mut Ts {
     type StateColor = Ts::StateColor;
     type TransitionRef<'this> = Ts::TransitionRef<'this> where Self : 'this;
     type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
-    type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
-    type EdgesToIter<'this> = Ts::EdgesToIter<'this> where Self: 'this;
 
     fn transition(
         &self,
@@ -571,10 +510,6 @@ impl<Ts: TransitionSystem> TransitionSystem for &mut Ts {
 
     fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
         Ts::state_color(self, state)
-    }
-
-    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
-        Ts::predecessors(self, state)
     }
 
     fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
@@ -598,10 +533,6 @@ impl<A: Alphabet> TransitionSystem for RightCongruence<A> {
     type EdgesFromIter<'this> = std::collections::hash_map::Iter<'this, A::Expression, (usize, ())>
     where
         Self: 'this;
-    type PreTransitionRef<'this> = &'this (usize, A::Expression, ()) where Self: 'this;
-    type EdgesToIter<'this> = std::collections::hash_set::Iter<'this, (usize, A::Expression, ())>
-    where
-        Self: 'this;
 
     fn transition(
         &self,
@@ -613,10 +544,6 @@ impl<A: Alphabet> TransitionSystem for RightCongruence<A> {
 
     fn state_color(&self, state: Self::StateIndex) -> crate::ts::StateColor<Self> {
         self.ts().state_color(state)
-    }
-
-    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
-        self.ts().predecessors(state)
     }
 
     fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
@@ -639,10 +566,6 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A
     type EdgesFromIter<'this> = std::collections::hash_map::Iter<'this, A::Expression, (Idx, C)>
     where
         Self: 'this;
-    type PreTransitionRef<'this> = &'this (Idx, A::Expression, C) where Self: 'this;
-    type EdgesToIter<'this> = std::collections::hash_set::Iter<'this, (Idx, A::Expression, C)>
-    where
-        Self: 'this;
 
     fn transition(&self, state: Idx, symbol: A::Symbol) -> Option<Self::TransitionRef<'_>> {
         self.states()
@@ -655,10 +578,6 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A
             .get(&index)
             .map(|s| s.color().clone())
             .expect("cannot be called if state does not exist!")
-    }
-
-    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
-        Some(self.states().get(&state)?.predecessors().iter())
     }
 
     fn edge_color(
@@ -689,8 +608,6 @@ where
     type StateColor = (L::StateColor, R::StateColor);
     type TransitionRef<'this> = ProductTransition<L::StateIndex, R::StateIndex, ExpressionOf<L>, L::EdgeColor, R::EdgeColor> where Self: 'this;
     type EdgesFromIter<'this> = ProductEdgesFrom<'this, L, R> where Self: 'this;
-    type PreTransitionRef<'this> = ProductPreTransition<L::StateIndex, R::StateIndex, ExpressionOf<L>, L::EdgeColor, R::EdgeColor> where Self: 'this;
-    type EdgesToIter<'this> = ProductEdgesTo<'this, L, R> where Self: 'this;
 
     fn transition(
         &self,
@@ -713,10 +630,6 @@ where
         let left = self.0.state_color(l);
         let right = self.1.state_color(r);
         (left, right)
-    }
-
-    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
-        ProductEdgesTo::new(&self.0, &self.1, state)
     }
 
     fn edge_color(
@@ -746,8 +659,6 @@ where
     type StateColor = D;
     type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
     type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
-    type EdgesToIter<'this> = Ts::EdgesToIter<'this> where Self: 'this;
-    type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
 
     fn transition(
         &self,
@@ -760,10 +671,6 @@ where
     fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
         let color = self.ts().state_color(state);
         (self.f())(color)
-    }
-
-    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
-        self.ts().predecessors(state)
     }
 
     fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
@@ -791,8 +698,6 @@ where
     type TransitionRef<'this> = MappedTransition<Ts::TransitionRef<'this>, &'this F, Ts::EdgeColor> where Self: 'this;
     type EdgesFromIter<'this> =
         MappedEdgesFromIter<'this, Ts::EdgesFromIter<'this>, F, Ts::EdgeColor> where Self: 'this;
-    type PreTransitionRef<'this> = MappedPreTransition<Ts::PreTransitionRef<'this>, &'this F, Ts::EdgeColor> where Self: 'this;
-    type EdgesToIter<'this> = MappedEdgesToIter<'this, Ts::EdgesToIter<'this>, F, Ts::EdgeColor> where Self: 'this;
 
     fn transition(
         &self,
@@ -807,13 +712,6 @@ where
 
     fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
         self.ts().state_color(state)
-    }
-
-    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
-        Some(MappedEdgesToIter::new(
-            self.ts().predecessors(state)?,
-            self.f(),
-        ))
     }
 
     fn edge_color(
@@ -843,8 +741,6 @@ where
     type StateColor = Ts::StateColor;
     type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
     type EdgesFromIter<'this> = RestrictedEdgesFromIter<'this, Ts, F> where Self: 'this;
-    type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
-    type EdgesToIter<'this> = RestrictedEdgesToIter<'this, Ts, F> where Self: 'this;
 
     fn transition(
         &self,
@@ -859,13 +755,6 @@ where
     fn state_color(&self, state: Self::StateIndex) -> crate::ts::StateColor<Self> {
         assert!((self.filter())(state));
         self.ts().state_color(state)
-    }
-
-    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
-        Some(RestrictedEdgesToIter::new(
-            self.ts().predecessors(state)?,
-            self.filter(),
-        ))
     }
 
     fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {

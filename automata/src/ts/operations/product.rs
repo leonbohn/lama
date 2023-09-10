@@ -3,7 +3,8 @@ use itertools::Itertools;
 use crate::{
     alphabet::{ExpressionOf, HasAlphabet, SymbolOf},
     ts::{
-        transition_system::{IsPreTransition, IsTransition},
+        predecessors::{IsPreTransition, PredecessorIterable},
+        transition_system::IsTransition,
         FiniteState, FiniteStatesIterType, HasFiniteStates, IndexType,
     },
     Alphabet, Color, Pointed, TransitionSystem,
@@ -241,7 +242,7 @@ where
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ProductEdgesTo<'a, L: TransitionSystem, R: TransitionSystem> {
+pub struct ProductEdgesTo<'a, L: PredecessorIterable, R: PredecessorIterable> {
     left: &'a L,
     right: &'a R,
     cur: Option<L::PreTransitionRef<'a>>,
@@ -252,8 +253,8 @@ pub struct ProductEdgesTo<'a, L: TransitionSystem, R: TransitionSystem> {
 
 impl<'a, L, R> Iterator for ProductEdgesTo<'a, L, R>
 where
-    L: TransitionSystem,
-    R: TransitionSystem,
+    L: PredecessorIterable,
+    R: PredecessorIterable,
     R::Alphabet: Alphabet<Symbol = SymbolOf<L>, Expression = ExpressionOf<L>>,
 {
     type Item = ProductPreTransition<
@@ -288,7 +289,7 @@ where
     }
 }
 
-impl<'a, L: TransitionSystem, R: TransitionSystem> ProductEdgesTo<'a, L, R> {
+impl<'a, L: PredecessorIterable, R: PredecessorIterable> ProductEdgesTo<'a, L, R> {
     pub fn new(
         left: &'a L,
         right: &'a R,

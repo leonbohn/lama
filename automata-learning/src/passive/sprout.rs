@@ -8,7 +8,7 @@ use automata::{
     automaton::IsDfa,
     ts::{
         operations::{Product, ProductIndex},
-        transition_system::IsPreTransition,
+        predecessors::{IsPreTransition, PredecessorIterable},
         Congruence, FiniteState, Sproutable, ToDot,
     },
     Alphabet, Class, InfiniteLength, Map, Pointed, RightCongruence, Set, TransitionSystem, Word,

@@ -1,0 +1,170 @@
+use impl_tools::autoimpl;
+
+use crate::{
+    alphabet::{ExpressionOf, SymbolOf},
+    automaton::WithInitial,
+    Alphabet, Color, RightCongruence, TransitionSystem,
+};
+
+use super::{
+    operations::{
+        MapEdgeColor, MapStateColor, MappedEdgesToIter, MappedPreTransition, MatchingProduct,
+        ProductEdgesTo, ProductPreTransition, RestrictByStateIndex, RestrictedEdgesToIter,
+    },
+    EdgeColor, IndexType, BTS,
+};
+
+#[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
+pub trait IsPreTransition<Idx, E, C> {
+    fn source(&self) -> Idx;
+    fn color(&self) -> C;
+    fn expression(&self) -> &E;
+    fn into_tuple(self) -> (Idx, E, C)
+    where
+        E: Clone,
+        Self: Sized,
+    {
+        (self.source(), self.expression().clone(), self.color())
+    }
+}
+
+impl<'a, Idx: IndexType, E, C: Color> IsPreTransition<Idx, E, C> for (Idx, &'a E, C) {
+    fn source(&self) -> Idx {
+        self.0
+    }
+
+    fn color(&self) -> C {
+        self.2.clone()
+    }
+
+    fn expression(&self) -> &E {
+        self.1
+    }
+}
+impl<Idx: IndexType, E, C: Color> IsPreTransition<Idx, E, C> for (Idx, E, C) {
+    fn source(&self) -> Idx {
+        self.0
+    }
+
+    fn color(&self) -> C {
+        self.2.clone()
+    }
+
+    fn expression(&self) -> &E {
+        &self.1
+    }
+}
+
+pub trait PredecessorIterable: TransitionSystem {
+    type PreTransitionRef<'this>: IsPreTransition<
+        Self::StateIndex,
+        ExpressionOf<Self>,
+        EdgeColor<Self>,
+    >
+    where
+        Self: 'this;
+    type EdgesToIter<'this>: Iterator<Item = Self::PreTransitionRef<'this>>
+    where
+        Self: 'this;
+    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>>;
+}
+
+impl<Ts: PredecessorIterable, F: Fn(Ts::StateIndex) -> bool> PredecessorIterable
+    for RestrictByStateIndex<Ts, F>
+{
+    type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
+    type EdgesToIter<'this> = RestrictedEdgesToIter<'this, Ts, F> where Self: 'this;
+    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
+        Some(RestrictedEdgesToIter::new(
+            self.ts().predecessors(state)?,
+            self.filter(),
+        ))
+    }
+}
+
+impl<Ts: PredecessorIterable> PredecessorIterable for &Ts {
+    type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
+    type EdgesToIter<'this> = Ts::EdgesToIter<'this> where Self: 'this;
+    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
+        Ts::predecessors(self, state)
+    }
+}
+impl<Ts: PredecessorIterable> PredecessorIterable for &mut Ts {
+    type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
+    type EdgesToIter<'this> = Ts::EdgesToIter<'this> where Self: 'this;
+    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
+        Ts::predecessors(self, state)
+    }
+}
+
+impl<D, Ts, F> PredecessorIterable for MapEdgeColor<Ts, F>
+where
+    D: Color,
+    Ts: PredecessorIterable,
+    F: Fn(Ts::EdgeColor) -> D,
+{
+    type PreTransitionRef<'this> = MappedPreTransition<Ts::PreTransitionRef<'this>, &'this F, Ts::EdgeColor> where Self: 'this;
+    type EdgesToIter<'this> = MappedEdgesToIter<'this, Ts::EdgesToIter<'this>, F, Ts::EdgeColor> where Self: 'this;
+    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
+        Some(MappedEdgesToIter::new(
+            self.ts().predecessors(state)?,
+            self.f(),
+        ))
+    }
+}
+
+impl<D, Ts, F> PredecessorIterable for MapStateColor<Ts, F>
+where
+    D: Color,
+    Ts: PredecessorIterable,
+    F: Fn(Ts::StateColor) -> D,
+{
+    type EdgesToIter<'this> = Ts::EdgesToIter<'this> where Self: 'this;
+    type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
+    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
+        self.ts().predecessors(state)
+    }
+}
+
+impl<L, R> PredecessorIterable for MatchingProduct<L, R>
+where
+    L: PredecessorIterable,
+    R: PredecessorIterable,
+    R::Alphabet: Alphabet<Symbol = SymbolOf<L>, Expression = ExpressionOf<L>>,
+    L::StateColor: Clone,
+    R::StateColor: Clone,
+{
+    type PreTransitionRef<'this> = ProductPreTransition<L::StateIndex, R::StateIndex, ExpressionOf<L>, L::EdgeColor, R::EdgeColor> where Self: 'this;
+    type EdgesToIter<'this> = ProductEdgesTo<'this, L, R> where Self: 'this;
+    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
+        ProductEdgesTo::new(&self.0, &self.1, state)
+    }
+}
+
+impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> PredecessorIterable for BTS<A, Q, C, Idx> {
+    type PreTransitionRef<'this> = &'this (Idx, A::Expression, C) where Self: 'this;
+    type EdgesToIter<'this> = std::collections::hash_set::Iter<'this, (Idx, A::Expression, C)>
+    where
+        Self: 'this;
+    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
+        Some(self.states().get(&state)?.predecessors().iter())
+    }
+}
+
+impl<A: Alphabet> PredecessorIterable for RightCongruence<A> {
+    type PreTransitionRef<'this> = &'this (usize, A::Expression, ()) where Self: 'this;
+    type EdgesToIter<'this> = std::collections::hash_set::Iter<'this, (usize, A::Expression, ())>
+    where
+        Self: 'this;
+    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
+        self.ts().predecessors(state)
+    }
+}
+
+impl<Ts: PredecessorIterable> PredecessorIterable for WithInitial<Ts> {
+    type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
+    type EdgesToIter<'this> = Ts::EdgesToIter<'this> where Self: 'this;
+    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
+        self.ts().predecessors(state)
+    }
+}

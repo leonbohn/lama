@@ -1,7 +1,8 @@
 use crate::{
     alphabet::{HasAlphabet, SymbolOf},
     ts::{
-        transition_system::{IsPreTransition, IsTransition},
+        predecessors::{IsPreTransition, PredecessorIterable},
+        transition_system::IsTransition,
         HasStates,
     },
     Pointed, TransitionSystem,
@@ -67,12 +68,12 @@ where
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RestrictedEdgesToIter<'a, Ts: TransitionSystem + 'a, F> {
+pub struct RestrictedEdgesToIter<'a, Ts: PredecessorIterable + 'a, F> {
     filter: &'a F,
     it: Ts::EdgesToIter<'a>,
 }
 
-impl<'a, Ts: TransitionSystem + 'a, F> Iterator for RestrictedEdgesToIter<'a, Ts, F>
+impl<'a, Ts: PredecessorIterable + 'a, F> Iterator for RestrictedEdgesToIter<'a, Ts, F>
 where
     F: Fn(Ts::StateIndex) -> bool,
 {
@@ -82,7 +83,7 @@ where
     }
 }
 
-impl<'a, Ts: TransitionSystem + 'a, F> RestrictedEdgesToIter<'a, Ts, F> {
+impl<'a, Ts: PredecessorIterable + 'a, F> RestrictedEdgesToIter<'a, Ts, F> {
     pub fn new(it: Ts::EdgesToIter<'a>, filter: &'a F) -> Self {
         Self { filter, it }
     }

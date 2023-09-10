@@ -8,9 +8,9 @@ use crate::{
 };
 
 use super::{
-    transition_system::{IsPreTransition, IsTransition},
-    Edge, EdgeColor, FiniteState, FiniteStatesIterType, HasFiniteStates, HasStates, IndexType,
-    Pointed, StateColor, StateIndex, Transition, TransitionSystem,
+    transition_system::IsTransition, Edge, EdgeColor, FiniteState, FiniteStatesIterType,
+    HasFiniteStates, HasStates, IndexType, Pointed, StateColor, StateIndex, Transition,
+    TransitionSystem,
 };
 
 mod map;

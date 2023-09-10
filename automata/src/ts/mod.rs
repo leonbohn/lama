@@ -33,6 +33,8 @@ pub mod sccs;
 
 pub mod run;
 
+pub mod predecessors;
+
 pub trait IndexType: Copy + std::hash::Hash + std::fmt::Debug + Eq + Ord + Display {}
 impl<Idx: Copy + std::hash::Hash + std::fmt::Debug + Eq + Ord + Display> IndexType for Idx {}
 

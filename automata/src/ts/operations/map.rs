@@ -3,8 +3,8 @@ use std::marker::PhantomData;
 use crate::{
     alphabet::HasAlphabet,
     ts::{
-        transition_system::{IsPreTransition, IsTransition},
-        FiniteState, FiniteStatesIterType, HasFiniteStates, IndexType,
+        predecessors::IsPreTransition, transition_system::IsTransition, FiniteState,
+        FiniteStatesIterType, HasFiniteStates, IndexType,
     },
     Color, Pointed, TransitionSystem,
 };
