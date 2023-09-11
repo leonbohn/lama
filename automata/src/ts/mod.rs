@@ -191,7 +191,7 @@ pub trait FiniteState: Sized + for<'a> sealed::HasFiniteStates<'a> {
 
     fn find_by_color(&self, color: &StateColor<Self>) -> Option<Self::StateIndex> {
         self.state_indices()
-            .find(|index| &self.state_color(*index) == color)
+            .find(|index| self.state_color(*index).as_ref() == Some(color))
     }
 
     fn contains_state_color(&self, color: &StateColor<Self>) -> bool {

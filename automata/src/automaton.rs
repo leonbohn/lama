@@ -178,37 +178,6 @@ mod boilerplate_impls {
             self.1
         }
     }
-    impl<Ts: TransitionSystem> TransitionSystem for WithInitial<Ts> {
-        type StateIndex = Ts::StateIndex;
-        type StateColor = Ts::StateColor;
-        type EdgeColor = Ts::EdgeColor;
-        type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
-        type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
-
-        fn transition(
-            &self,
-            state: Self::StateIndex,
-            symbol: SymbolOf<Self>,
-        ) -> Option<Self::TransitionRef<'_>> {
-            self.ts().transition(state, symbol)
-        }
-
-        fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
-            self.ts().state_color(state)
-        }
-
-        fn edge_color(
-            &self,
-            state: Self::StateIndex,
-            expression: &crate::alphabet::ExpressionOf<Self>,
-        ) -> Option<EdgeColor<Self>> {
-            self.ts().edge_color(state, expression)
-        }
-
-        fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
-            self.ts().edges_from(state)
-        }
-    }
 }
 
 pub type MooreMachine<A, Q, Idx = usize> = WithInitial<BTS<A, Q, (), Idx>>;
@@ -372,13 +341,19 @@ pub trait IsDfa:
         Self: FiniteState,
     {
         self.state_indices()
-            .filter(|&index| self.state_color(index))
+            .filter(|&index| {
+                self.state_color(index)
+                    .expect("Every state must have a color!")
+            })
             .collect_vec()
     }
 
     fn dfa_give_word(&self) -> Option<Vec<SymbolOf<Self>>> {
         self.minimal_representatives().find_map(|(mr, index)| {
-            if self.state_color(index) {
+            if self
+                .state_color(index)
+                .expect("Every state must be colored")
+            {
                 Some(mr)
             } else {
                 None

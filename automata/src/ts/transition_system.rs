@@ -98,7 +98,7 @@ pub trait TransitionSystem: HasAlphabet {
 
     fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>>;
 
-    fn state_color(&self, state: Self::StateIndex) -> Self::StateColor;
+    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor>;
 
     fn with_initial(self, initial: Self::StateIndex) -> WithInitial<Self>
     where
@@ -387,7 +387,14 @@ pub trait TransitionSystem: HasAlphabet {
                 .chain(self.alphabet().universe().map(|s| format!("{:?}", s))),
         );
         for id in self.state_indices() {
-            let mut row = vec![format!("{}", state_decorator(id, self.state_color(id)))];
+            let mut row = vec![format!(
+                "{}",
+                state_decorator(
+                    id,
+                    self.state_color(id)
+                        .expect("Every state should be colored!")
+                )
+            )];
             for &sym in self.alphabet().universe() {
                 if let Some(edge) = self.transition(id, sym) {
                     row.push(format!("{} : {:?}", edge.target(), edge.color()));
@@ -412,7 +419,13 @@ pub trait TransitionSystem: HasAlphabet {
         let mut ts = BTS::new_for_alphabet(self.alphabet().clone());
         let mut map = std::collections::HashMap::new();
         for index in self.state_indices() {
-            map.insert(index, ts.add_state(self.state_color(index)));
+            map.insert(
+                index,
+                ts.add_state(
+                    self.state_color(index)
+                        .expect("We assume each state to be colored!"),
+                ),
+            );
         }
         for index in self.state_indices() {
             for sym in self.alphabet().universe() {
@@ -444,7 +457,13 @@ pub trait TransitionSystem: HasAlphabet {
         let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
         let mut map = std::collections::HashMap::new();
         for index in self.state_indices() {
-            map.insert(index, ts.add_state(self.state_color(index)));
+            map.insert(
+                index,
+                ts.add_state(
+                    self.state_color(index)
+                        .expect("Every state should be colored!"),
+                ),
+            );
         }
         for index in self.state_indices() {
             for sym in self.alphabet().universe() {
@@ -477,7 +496,7 @@ impl<Ts: TransitionSystem> TransitionSystem for &Ts {
         Ts::transition(self, state, symbol)
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
+    fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
         Ts::state_color(self, state)
     }
 
@@ -508,7 +527,7 @@ impl<Ts: TransitionSystem> TransitionSystem for &mut Ts {
         Ts::transition(self, state, symbol)
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
+    fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
         Ts::state_color(self, state)
     }
 
@@ -542,7 +561,7 @@ impl<A: Alphabet> TransitionSystem for RightCongruence<A> {
         self.ts().transition(state, symbol)
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> crate::ts::StateColor<Self> {
+    fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
         self.ts().state_color(state)
     }
 
@@ -573,11 +592,8 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A
             .and_then(|o| A::search_edge(o.edge_map(), symbol))
     }
 
-    fn state_color(&self, index: Idx) -> StateColor<Self> {
-        self.states()
-            .get(&index)
-            .map(|s| s.color().clone())
-            .expect("cannot be called if state does not exist!")
+    fn state_color(&self, index: Idx) -> Option<StateColor<Self>> {
+        self.states().get(&index).map(|s| s.color().clone())
     }
 
     fn edge_color(
@@ -625,11 +641,11 @@ where
         ))
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
+    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
         let ProductIndex(l, r) = state;
-        let left = self.0.state_color(l);
-        let right = self.1.state_color(r);
-        (left, right)
+        let left = self.0.state_color(l)?;
+        let right = self.1.state_color(r)?;
+        Some((left, right))
     }
 
     fn edge_color(
@@ -668,9 +684,9 @@ where
         self.ts().transition(state, symbol)
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
-        let color = self.ts().state_color(state);
-        (self.f())(color)
+    fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
+        let color = self.ts().state_color(state)?;
+        Some((self.f())(color))
     }
 
     fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
@@ -710,7 +726,7 @@ where
         ))
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> StateColor<Self> {
+    fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
         self.ts().state_color(state)
     }
 
@@ -752,7 +768,7 @@ where
             .filter(|successor| (self.filter())(state) && (self.filter())(successor.target()))
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> crate::ts::StateColor<Self> {
+    fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
         assert!((self.filter())(state));
         self.ts().state_color(state)
     }
@@ -774,6 +790,38 @@ where
         self.ts()
             .edge_color(state, expression)
             .filter(|_| (self.filter())(state))
+    }
+}
+
+impl<Ts: TransitionSystem> TransitionSystem for WithInitial<Ts> {
+    type StateIndex = Ts::StateIndex;
+    type StateColor = Ts::StateColor;
+    type EdgeColor = Ts::EdgeColor;
+    type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
+    type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
+
+    fn transition(
+        &self,
+        state: Self::StateIndex,
+        symbol: SymbolOf<Self>,
+    ) -> Option<Self::TransitionRef<'_>> {
+        self.ts().transition(state, symbol)
+    }
+
+    fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
+        self.ts().state_color(state)
+    }
+
+    fn edge_color(
+        &self,
+        state: Self::StateIndex,
+        expression: &crate::alphabet::ExpressionOf<Self>,
+    ) -> Option<EdgeColor<Self>> {
+        self.ts().edge_color(state, expression)
+    }
+
+    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
+        self.ts().edges_from(state)
     }
 }
 

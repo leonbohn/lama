@@ -1,6 +1,6 @@
 //! Library for working with finite automata in Rust.
 //!
-// #![warn(missing_docs)]
+#![warn(missing_docs)]
 #![allow(unused)]
 
 /// Module that contains definitions for dealing with alphabets.

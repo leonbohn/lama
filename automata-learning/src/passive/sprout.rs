@@ -42,9 +42,15 @@ impl<A: Alphabet> ConflictRelation<A> {
                 .filter(|ProductIndex(rcong, _)| rcong == &lcong)
             {
                 if lcong == *rcong && self.conflicts.contains(&(ldfa, *rdfa)) {
-                    let lname = self.dfas[0].state_color(ldfa);
-                    let rname = self.dfas[1].state_color(*rdfa);
-                    let congname = cong.state_color(lcong);
+                    let lname = self.dfas[0]
+                        .state_color(ldfa)
+                        .expect("Every state must have a color!");
+                    let rname = self.dfas[1]
+                        .state_color(*rdfa)
+                        .expect("Every state must have a color!");
+                    let congname = cong
+                        .state_color(lcong)
+                        .expect("Every state must have a color!");
                     trace!("\t\tConflict found, ({congname}, {lname}) and ({congname}, {rname}) reachable with ({lname}, {rname}) in conflicts");
                     return false;
                 }
@@ -107,9 +113,13 @@ where
                 .into_iter()
                 .map(|(l, rs)| format!(
                     "{}:{{{}}}",
-                    self.dfas[0].state_color(l),
+                    self.dfas[0]
+                        .state_color(l)
+                        .expect("Every state must be colored"),
                     rs.into_iter()
-                        .map(|i| self.dfas[1].state_color(i))
+                        .map(|i| self.dfas[1]
+                            .state_color(i)
+                            .expect("Every state must be colored"))
                         .join(",")
                 ))
                 .join("\\l"),
@@ -302,7 +312,9 @@ where
     'outer: while let Some((source, &sym)) = queue.pop_front() {
         trace!(
             "Trying to add transition from {} on {}",
-            cong.state_color(source).blue(),
+            cong.state_color(source)
+                .expect("Every state must be colored!")
+                .blue(),
             sym.show().blue()
         );
 
@@ -317,17 +329,25 @@ where
             if conflicts.consistent(&cong) && additional_constraint.satisfied(&cong) {
                 trace!(
                     "\tTransition {}--{}-->{} is consistent",
-                    cong.state_color(source).green(),
+                    cong.state_color(source)
+                        .expect("We expect every state to be colored")
+                        .green(),
                     sym.show(),
-                    cong.state_color(target).green()
+                    cong.state_color(target)
+                        .expect("We expect every state to be colored")
+                        .green()
                 );
                 continue 'outer;
             } else {
                 trace!(
                     "\tTransition {}--{}-->{} is not consistent",
-                    cong.state_color(source).red(),
+                    cong.state_color(source)
+                        .expect("We expect every state to be colored")
+                        .red(),
                     sym.show(),
-                    cong.state_color(target).red()
+                    cong.state_color(target)
+                        .expect("We expect every state to be colored")
+                        .red()
                 );
                 if let Some((old_target, _)) = old_edge {
                     cong.remove_edge(source, A::expression(sym));
@@ -335,7 +355,10 @@ where
             }
         }
 
-        let mut new_state_label = cong.state_color(source).clone();
+        let mut new_state_label = cong
+            .state_color(source)
+            .expect("We expect every state to be colored")
+            .clone();
         new_state_label.push(sym);
         trace!(
             "No consistent transition found, adding new state [{}]",

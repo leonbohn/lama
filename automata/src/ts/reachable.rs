@@ -68,7 +68,14 @@ where
     type Item = (Ts::StateIndex, StateColor<Ts>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|(_, q)| (q, self.0.ts.state_color(q)))
+        self.0.next().map(|(_, q)| {
+            (
+                q,
+                self.0.ts.state_color(q).expect(
+                    "Something went wrong, every state should have a color but this one does not",
+                ),
+            )
+        })
     }
 }
 

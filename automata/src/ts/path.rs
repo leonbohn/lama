@@ -80,6 +80,7 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
         TS::StateColor: Clone,
     {
         ts.state_color(self.reached())
+            .expect("We assume every state to be colored")
     }
 
     pub fn state_colors<'a, TS>(&'a self, ts: &'a TS) -> impl Iterator<Item = TS::StateColor> + 'a
@@ -88,8 +89,10 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
         Idx: IndexType,
         TS::StateColor: Clone,
     {
-        self.state_sequence()
-            .map(move |state| ts.state_color(state))
+        self.state_sequence().map(move |state| {
+            ts.state_color(state)
+                .expect("Something must have gone wrong, every state should have a color!")
+        })
     }
 
     /// Returns true if the path is empty/trivial, meaning it consists of only one state.

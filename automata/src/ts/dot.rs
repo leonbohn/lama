@@ -140,7 +140,8 @@ where
 
         lines.push(format!(
             "\"{prefix},init\" -> \"{prefix},{}\" [style=\"solid\"]",
-            self.state_color(self.initial()),
+            self.state_color(self.initial())
+                .expect("The initial state must be colored!"),
         ));
 
         let to_consider = self.state_indices();
@@ -150,8 +151,10 @@ where
                 for e in it {
                     lines.push(format!(
                         "\"{prefix},{}\" -> \"{prefix},{}\" [label = \"{:?}\"]",
-                        self.state_color(state),
-                        self.state_color(e.target()),
+                        self.state_color(state)
+                            .expect("Actually every state should be colored!"),
+                        self.state_color(e.target())
+                            .expect("Actually every state should be colored!"),
                         e.expression(),
                         prefix = prefix
                     ));
@@ -234,7 +237,9 @@ where
             .expect("Must have at least the epsilon prc");
         lines.push(format!(
             "init -> \"{},init\" [style=\"solid\"]",
-            eps_prc.state_color(eps_prc.initial())
+            eps_prc
+                .state_color(eps_prc.initial())
+                .expect("State should have a color")
         ));
 
         for state in self.leading.state_indices() {
@@ -242,19 +247,29 @@ where
                 if let Some(edge) = self.leading.transition(state, sym) {
                     let source_prc = self
                         .progress
-                        .get(&self.leading.state_color(state))
+                        .get(
+                            &self
+                                .leading
+                                .state_color(state)
+                                .expect("State should be colored"),
+                        )
                         .expect("Must have a prc for every state");
                     let target_prc = self
                         .progress
-                        .get(&self.leading.state_color(edge.target()))
+                        .get(
+                            &self
+                                .leading
+                                .state_color(edge.target())
+                                .expect("State should be colored"),
+                        )
                         .expect("Must have a prc for every state");
                     lines.push(format!(
                         "\"{},init\" -> \"{},init\" [label = \"{}\", style=\"dashed\", ltail=\"cluster_{}\", lhead=\"cluster_{}\"]",
-                        self.leading.state_color(state),
-                        self.leading.state_color(edge.target()),
+                        self.leading.state_color(state).expect("State should be colored"),
+                        self.leading.state_color(edge.target()).expect("State should be colored"),
                         sym,
-                        self.leading.state_color(state).mr_to_string(),
-                        self.leading.state_color(edge.target()).mr_to_string()
+                        self.leading.state_color(state).expect("State should be colored").mr_to_string(),
+                        self.leading.state_color(edge.target()).expect("State should be colored").mr_to_string()
                     ));
                 }
             }
