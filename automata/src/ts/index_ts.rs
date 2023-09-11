@@ -1,17 +1,11 @@
-use std::collections::BTreeMap;
-
-use itertools::Itertools;
-use tabled::builder::Builder;
-
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
     Color, Map, Set,
 };
 
 use super::{
-    Edge, EdgeColor, EdgeIndex, EdgeIndicesFrom, EdgesFrom, FiniteState, FiniteStatesIterType,
-    HasColor, HasColorMut, HasFiniteStates, HasMutableStates, HasStates, Index, IndexType,
-    Sproutable, StateColor, StateIndex, Transition, TransitionSystem,
+    EdgeColor, FiniteState, FiniteStatesIterType, HasColor, HasColorMut, HasFiniteStates,
+    HasMutableStates, HasStates, IndexType, Sproutable, StateColor, TransitionSystem,
 };
 
 /// A state in a transition system. This stores the color of the state and the index of the
@@ -168,10 +162,12 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
         &self.alphabet
     }
 
+    /// Returns a reference to the underlying statemap.
     pub fn states(&self) -> &Map<Idx, BTState<A, Q, C, Idx>> {
         &self.states
     }
 
+    /// Returns an iterator emitting pairs of state indices and their colors.
     pub fn indices_with_color(&self) -> impl Iterator<Item = (Idx, &StateColor<Self>)> {
         self.states.iter().map(|(idx, state)| (*idx, state.color()))
     }
@@ -352,13 +348,8 @@ where
 mod tests {
     use crate::{
         alphabet,
-        ts::{
-            index_ts::MealyTS, transition_system::IsTransition, Sproutable, Transition,
-            TransitionSystem,
-        },
+        ts::{index_ts::MealyTS, transition_system::IsTransition, Sproutable, TransitionSystem},
     };
-
-    use super::BTS;
 
     #[test]
     fn build_ts() {

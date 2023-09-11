@@ -1,13 +1,6 @@
-use std::{
-    borrow::Cow,
-    fmt::{Debug, Display},
-};
+use std::fmt::{Debug, Display};
 
-use crate::{
-    alphabet::{Alphabet, Symbol},
-    length::{HasLength, RawPosition},
-    FiniteLength, InfiniteLength, Length,
-};
+use crate::{alphabet::Symbol, length::HasLength, FiniteLength, InfiniteLength, Length};
 use impl_tools::autoimpl;
 use itertools::Itertools;
 
@@ -20,8 +13,10 @@ pub use concat::Concat;
 mod normalized;
 pub use normalized::{Normalized, NormalizedParseError, NormalizedPeriodic};
 
+/// Allows conversion into a vector of symbols.
 #[autoimpl(for<T: trait> &T, &mut T)]
 pub trait RawSymbols<S> {
+    /// Converts self into a vector of symbols.
     fn to_vec(&self) -> Vec<S>;
 }
 
@@ -71,6 +66,7 @@ pub trait Word: HasLength {
         Prefix::new(self, length)
     }
 
+    /// Returns the first symbol of `self`, if it exists.
     fn first(&self) -> Option<Self::Symbol>
     where
         Self: Sized,
@@ -78,10 +74,13 @@ pub trait Word: HasLength {
         self.nth(0)
     }
 
+    /// Constructs a [`NormalizedPeriodic`] object, which is the normalized periodic word that is
+    /// represented by iterating `self` over and over again.
     fn omega_power(&self) -> NormalizedPeriodic<Self::Symbol> {
         NormalizedPeriodic::new(self.raw_to_vec())
     }
 
+    /// Constructs a [`Concat`] object, which is the concatenation of `self` and `other`.
     fn append<W: Word<Symbol = Self::Symbol>>(self, other: W) -> Concat<Self, W>
     where
         Self: Sized + HasLength<Length = FiniteLength>,
@@ -89,10 +88,12 @@ pub trait Word: HasLength {
         Concat::new(self, other)
     }
 
+    /// Normalizes `self` and returns the result.
     fn normalized(&self) -> Normalized<Self::Symbol, Self::Length> {
         Normalized::new(self.raw_to_vec(), self.length())
     }
 
+    /// Removes the first symbol of `self` and returns it together with the remaining suffix.
     fn pop_first(&self) -> (Self::Symbol, subword::Offset<'_, Self>)
     where
         Self: Sized + HasLength<Length = InfiniteLength>,
@@ -109,6 +110,7 @@ pub trait Word: HasLength {
         subword::Offset::new(self, offset)
     }
 
+    /// Returns the raw representation of `self` as a vector of symbols.
     fn finite_to_vec(&self) -> Vec<Self::Symbol>
     where
         Self: HasLength<Length = FiniteLength>,
@@ -134,6 +136,7 @@ pub struct OmegaWord<S, L> {
 }
 
 impl<S: Symbol> OmegaWord<S, InfiniteLength> {
+    /// Creates a new ultimately periodic word from the given base and repeating segment.
     pub fn from_parts(base: Vec<S>, recur: Vec<S>) -> Self {
         let length = InfiniteLength::new(base.len() + recur.len(), base.len());
         OmegaWord::new(base.into_iter().chain(recur).collect_vec(), length)
@@ -141,12 +144,15 @@ impl<S: Symbol> OmegaWord<S, InfiniteLength> {
 }
 
 impl<S> OmegaWord<S, InfiniteLength> {
+    /// Returns the initial segment of the word, i.e. the part that is not repeating.
     pub fn initial_segment(&self) -> Vec<S>
     where
         S: Clone,
     {
         self.raw[..self.length().loop_index()].to_vec()
     }
+
+    /// Returns the repeating segment of the word, i.e. the part that is repeating.
     pub fn repeating_segment(&self) -> Vec<S>
     where
         S: Clone,
@@ -175,6 +181,7 @@ impl<S, L> OmegaWord<S, L> {
         Self::new(raw, length)
     }
 
+    /// Turns `self` into a vector of symbols.
     pub fn to_vec(self) -> Vec<S>
     where
         L: Length,
@@ -290,25 +297,6 @@ impl<S: Symbol> Word for &[S] {
     type Symbol = S;
 }
 
-#[derive(Debug, Clone, Eq, Copy, PartialEq, Hash)]
-pub struct Letter<S: Symbol>(pub S);
-impl<S: Symbol> Word for Letter<S> {
-    type Symbol = S;
-    fn nth(&self, position: usize) -> Option<Self::Symbol> {
-        if position == 0 {
-            Some(self.0)
-        } else {
-            None
-        }
-    }
-}
-impl<S: Symbol> HasLength for Letter<S> {
-    type Length = FiniteLength;
-    fn length(&self) -> Self::Length {
-        FiniteLength::new(1)
-    }
-}
-
 /// An iterator over the raw representation of a word. It stores a reference to the [`Rawpresentation`],
 /// the [`Length`] of the word and the current position.
 #[derive(Debug, Clone, PartialEq)]
@@ -378,13 +366,8 @@ macro_rules! upw {
 
 #[cfg(test)]
 mod tests {
-    use itertools::Itertools;
 
-    use crate::{
-        length::RawPosition,
-        word::{OmegaWord, Word},
-        FiniteLength,
-    };
+    use crate::word::Word;
 
     #[test]
     fn macro_upw() {

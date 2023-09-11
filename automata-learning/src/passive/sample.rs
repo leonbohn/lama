@@ -480,7 +480,8 @@ impl<A: Alphabet, C: Color> OmegaSample<A, C> {
                     .or_insert_with(|| {
                         ClassOmegaSample::empty(
                             cong,
-                            cong.state_color(reached),
+                            cong.state_color(reached)
+                                .expect("We assume every state to have a color"),
                             self.alphabet.clone(),
                         )
                     })

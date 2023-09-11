@@ -1,6 +1,4 @@
 use std::{
-    borrow::Borrow,
-    collections::BTreeMap,
     fmt::{Debug, Display},
     hash::Hash,
 };
@@ -12,6 +10,8 @@ use crate::Map;
 /// - [`Simple`] alphabets, which are just a set of symbols.
 /// - [`Propositional`] alphabets, where a symbol is a valuation of all propositional variables.
 pub trait Symbol: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash {
+    /// We do not want to force symbols to implement `Display` so we use this method for turning a single
+    /// symbol into a `String`.
     fn show(&self) -> String;
 }
 impl<S: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash + Display> Symbol for S {
@@ -43,6 +43,10 @@ pub trait Alphabet: Clone {
     /// The type of expressions in this alphabet.
     type Expression: Expression<Self::Symbol>;
 
+    /// This method is used for an optimization: If we have a [`Simple`] alphabet, then an edge list essentially
+    /// boils down to a map from `Self::Symbol` to an edge. For more complicated alphabets, this may not always
+    /// be so easy. To allow for an optimization (i.e. just lookup the corresponding edge in a [`crate::Map`]),
+    /// we force alphabets to implement this method.
     fn search_edge<X>(
         map: &Map<Self::Expression, X>,
         sym: Self::Symbol,
@@ -66,6 +70,7 @@ pub trait Alphabet: Clone {
     /// the expression is satisfied by the given symbol, an example of this is illustrated in [`Propositional`].
     fn matches(&self, expression: &Self::Expression, symbol: Self::Symbol) -> bool;
 
+    /// Creates an expression from a single symbol.
     fn expression(symbol: Self::Symbol) -> Self::Expression;
 }
 
@@ -112,6 +117,7 @@ pub struct Propositional {
 #[derive(Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
 pub struct Simple(Vec<char>);
 
+/// A special type of [`Alphabet`], which has no symbols.
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
 pub struct Empty;
 
@@ -127,8 +133,8 @@ impl Alphabet for Empty {
     type Expression = Empty;
 
     fn search_edge<X>(
-        map: &Map<Self::Expression, X>,
-        sym: Self::Symbol,
+        _map: &Map<Self::Expression, X>,
+        _sym: Self::Symbol,
     ) -> Option<(&Self::Expression, &X)> {
         todo!()
     }
@@ -141,15 +147,15 @@ impl Alphabet for Empty {
         std::iter::empty()
     }
 
-    fn contains(&self, symbol: Self::Symbol) -> bool {
+    fn contains(&self, _symbol: Self::Symbol) -> bool {
         true
     }
 
-    fn matches(&self, expression: &Self::Expression, symbol: Self::Symbol) -> bool {
+    fn matches(&self, _expression: &Self::Expression, _symbol: Self::Symbol) -> bool {
         true
     }
 
-    fn expression(symbol: Self::Symbol) -> Self::Expression {
+    fn expression(_symbol: Self::Symbol) -> Self::Expression {
         Empty
     }
 }
@@ -166,6 +172,8 @@ impl Expression<Empty> for Empty {
     }
 }
 
+/// Helper macro for creating a [`Simple`] alphabet. Is called simply with a list of symbols
+/// that are separated by commata.
 #[macro_export]
 macro_rules! simple {
     ($($c:literal),*) => {

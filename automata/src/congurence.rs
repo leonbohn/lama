@@ -4,14 +4,12 @@ use itertools::Itertools;
 
 use crate::{
     alphabet::{HasAlphabet, Symbol},
-    automaton::WithInitial,
-    ts::{
-        FiniteState, FiniteStatesIterType, HasFiniteStates, HasMutableStates, HasStates,
-        Sproutable, BTS,
-    },
-    Alphabet, Color, FiniteLength, HasLength, Map, Pointed, TransitionSystem, Word, DFA,
+    ts::{FiniteState, FiniteStatesIterType, HasFiniteStates, Sproutable, BTS},
+    Alphabet, FiniteLength, HasLength, Map, Pointed, TransitionSystem, Word, DFA,
 };
 
+/// Represents a congruence class, which is in essence simply a non-empty sequence of symbols
+/// for the underlying alphabet.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Class<S>(pub Vec<S>);
 
@@ -21,18 +19,20 @@ impl<S> Class<S> {
         Self(vec![])
     }
 
+    /// Takes in a single symbol and returns a class containing only that symbol.
     pub fn singleton(sym: S) -> Self {
         Self(vec![sym])
     }
 
+    /// Turns this class into a string, using the given alphabet to convert symbols to strings.
     pub fn mr_to_string(&self) -> String
     where
-        S: Display,
+        S: Symbol,
     {
         if self.is_empty() {
             "ε".to_string()
         } else {
-            self.0.iter().map(|sym| sym.to_string()).join("")
+            self.0.iter().map(|sym| sym.show()).join("")
         }
     }
 }
@@ -123,6 +123,9 @@ impl<S: Ord> PartialOrd for Class<S> {
     }
 }
 
+/// A right congruence is an equivalence relation that is compatible with the right concatenation. We
+/// represent these as a transition system, where the states are the equivalence classes and the colors
+/// on edges are `()`.
 #[derive(Clone, Eq, PartialEq)]
 pub struct RightCongruence<A: Alphabet> {
     ts: BTS<A, Class<A::Symbol>, ()>,
@@ -141,7 +144,7 @@ pub trait IndexesRightCongruence<A: Alphabet> {
 }
 
 impl<A: Alphabet> IndexesRightCongruence<A> for usize {
-    fn to_index(&self, congruence: &RightCongruence<A>) -> Option<usize> {
+    fn to_index(&self, _congruence: &RightCongruence<A>) -> Option<usize> {
         Some(*self)
     }
 }
@@ -153,18 +156,27 @@ impl<A: Alphabet> IndexesRightCongruence<A> for &Class<A::Symbol> {
 }
 
 impl<A: Alphabet> RightCongruence<A> {
+    /// Turns the given transition system into a right congruence.
     pub fn from_ts(ts: BTS<A, Class<A::Symbol>, ()>) -> Self {
         Self { ts }
     }
 
+    /// Returns a reference to the underlying [`TransitionSystem`].
     pub fn ts(&self) -> &BTS<A, Class<A::Symbol>, ()> {
         &self.ts
     }
 
+    /// Returns a mutable reference to the underlying [`TransitionSystem`].
+    pub fn ts_mut(&mut self) -> &mut BTS<A, Class<A::Symbol>, ()> {
+        &mut self.ts
+    }
+
+    /// Gives a reference to the underlying alphabet.
     pub fn alphabet(&self) -> &A {
         self.ts.alphabet()
     }
 
+    /// Recomputes the labels or [`Class`]es of the states in the right congruence.
     pub(crate) fn recompute_labels(&mut self) {
         for (mr, id) in self
             .ts
@@ -175,13 +187,16 @@ impl<A: Alphabet> RightCongruence<A> {
         }
     }
 
+    /// Returns the index of the class containing the given word.
     pub fn class_to_index(&self, class: &Class<A::Symbol>) -> Option<usize> {
         self.ts
             .indices_with_color()
             .find_map(|(id, c)| if c == class { Some(id) } else { None })
     }
 
-    /// FIXME: This is a very inefficient implementation
+    /// Computes a DFA that accepts precisely those finite words which loop on the given `class`. Formally,
+    /// if `u` represents the given class, then the DFA accepts precisely those words `w` such that `uw`
+    /// is congruent to `u`.
     pub fn looping_words(&self, class: &Class<A::Symbol>) -> DFA<A> {
         self.map_colors(|c| &c == class)
             .collect_ts()
@@ -216,7 +231,7 @@ impl<A: Alphabet> Sproutable for RightCongruence<A> {
 
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
         let mut ts = BTS::new_for_alphabet(alphabet);
-        let initial = ts.add_state(Class::epsilon());
+        let _initial = ts.add_state(Class::epsilon());
         Self { ts }
     }
 
@@ -252,11 +267,14 @@ impl<A: Alphabet> HasAlphabet for RightCongruence<A> {
 }
 
 impl<A: Alphabet> RightCongruence<A> {
+    /// Creates a new [`RightCongruence`] for the given alphabet.
     pub fn new(alphabet: A) -> Self {
         Self::new_for_alphabet(alphabet)
     }
 }
 
+/// A family of right congruences (FORC) consists of a *leading* right congruence and for each
+/// class of this congruence a *progress* right congruence.
 #[derive(Clone, PartialEq, Eq)]
 pub struct FORC<A: Alphabet> {
     pub(crate) leading: RightCongruence<A>,
@@ -264,6 +282,7 @@ pub struct FORC<A: Alphabet> {
 }
 
 impl<A: Alphabet> FORC<A> {
+    /// Creates a new FORC with the given leading congruence and progress congruences.
     pub fn new(
         leading: RightCongruence<A>,
         progress: Map<Class<A::Symbol>, RightCongruence<A>>,
@@ -271,10 +290,12 @@ impl<A: Alphabet> FORC<A> {
         Self { leading, progress }
     }
 
+    /// Insert a new progress congruence for the given class.
     pub fn insert(&mut self, class: Class<A::Symbol>, congruence: RightCongruence<A>) {
         self.progress.insert(class, congruence);
     }
 
+    /// Tries to obtain a reference to the progress right congruence for the given `class`.
     pub fn prc<C>(&self, class: C) -> Option<&RightCongruence<A>>
     where
         C: std::borrow::Borrow<Class<A::Symbol>>,
@@ -282,6 +303,7 @@ impl<A: Alphabet> FORC<A> {
         self.progress.get(class.borrow())
     }
 
+    /// Creates a new FORC from the given leading congruence and progress congruences.
     pub fn from_iter<I: IntoIterator<Item = (Class<A::Symbol>, RightCongruence<A>)>>(
         leading: RightCongruence<A>,
         progress: I,

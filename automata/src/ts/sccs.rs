@@ -1,14 +1,11 @@
-use std::{
-    collections::{BTreeSet, VecDeque},
-    fmt::Debug,
-};
+use std::{collections::BTreeSet, fmt::Debug};
 
 use itertools::Itertools;
 
 use crate::{
-    alphabet::{Empty, HasAlphabet, SymbolOf},
-    ts::{finite::SeenColors, CanInduce, FiniteState, HasFiniteStates, IndexType, Sproutable, BTS},
-    Alphabet, Map, Pointed, Set, TransitionSystem,
+    alphabet::{HasAlphabet, SymbolOf},
+    ts::{finite::SeenColors, CanInduce, FiniteState, IndexType},
+    Alphabet, Map, TransitionSystem,
 };
 
 use super::IsTransition;
@@ -35,6 +32,7 @@ impl<Idx: IndexType> Default for Tarjan<Idx> {
 }
 
 impl<Idx: IndexType> Tarjan<Idx> {
+    /// Creates a new Tarjan SCC decomposition instance.
     pub fn new() -> Self {
         Self {
             index: 0,
@@ -44,7 +42,7 @@ impl<Idx: IndexType> Tarjan<Idx> {
         }
     }
 
-    pub fn visit<Ts, F>(&mut self, ts: &Ts, v: Idx, f: &mut F)
+    pub(crate) fn visit<Ts, F>(&mut self, ts: &Ts, v: Idx, f: &mut F)
     where
         Ts: TransitionSystem<StateIndex = Idx>,
         F: FnMut(&[Idx]),
@@ -65,7 +63,7 @@ impl<Idx: IndexType> Tarjan<Idx> {
                     self.visit(ts, w, f);
                 }
                 let w_index = self.data.get(&w).unwrap().rootindex;
-                let mut v_mut = self.data.get_mut(&v).unwrap();
+                let v_mut = self.data.get_mut(&v).unwrap();
                 if w_index < v_mut.rootindex {
                     v_mut.rootindex = w_index;
                     node_v_is_root = false;
@@ -104,7 +102,7 @@ impl<Idx: IndexType> Tarjan<Idx> {
         }
     }
 
-    pub fn execute<Ts, F>(&mut self, ts: &Ts, mut f: F)
+    pub(crate) fn execute<Ts, F>(&mut self, ts: &Ts, mut f: F)
     where
         Ts: TransitionSystem<StateIndex = Idx> + FiniteState,
         F: FnMut(&[Idx]),
@@ -112,7 +110,7 @@ impl<Idx: IndexType> Tarjan<Idx> {
         self.data.clear();
 
         for q in ts.state_indices() {
-            if let (Some(TarjanData { rootindex: None }) | None) = self.data.get(&q) {
+            if let Some(TarjanData { rootindex: None }) | None = self.data.get(&q) {
                 self.visit(ts, q, &mut f);
             }
         }
@@ -120,6 +118,7 @@ impl<Idx: IndexType> Tarjan<Idx> {
     }
 }
 
+/// Represents a strongly connected component of a transition system.
 #[derive(Debug, Clone)]
 pub struct Scc<'a, Ts: TransitionSystem>(&'a Ts, Vec<Ts::StateIndex>);
 
@@ -162,6 +161,7 @@ impl<'a, Ts: TransitionSystem> std::hash::Hash for Scc<'a, Ts> {
 }
 
 impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
+    /// Creates a new strongly connected component from a transition system and a vector of state indices.
     pub fn new(ts: &'a Ts, indices: Vec<Ts::StateIndex>) -> Self {
         assert!(!indices.is_empty(), "Cannot have empty SCC!");
         let mut indices = indices;
@@ -176,10 +176,12 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         Self(ts, indices)
     }
 
+    /// Returns a reference to the underlying transition system.
     pub fn ts(&self) -> &'a Ts {
         self.0
     }
 
+    /// Returns a vector of the colors of the states in the SCC.
     pub fn colors(&self) -> Option<Vec<Ts::StateColor>> {
         debug_assert!(!self.is_empty());
         let maximal_word = self.maximal_word()?;
@@ -187,6 +189,8 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         Some(colors)
     }
 
+    /// Attempts to compute a maximal word (i.e. a word visiting all states in the scc). If such a
+    /// word exists, it is returned, otherwise the function returns `None`.
     pub fn maximal_word(&self) -> Option<Vec<SymbolOf<Ts>>> {
         let ts = self.0;
         debug_assert!(!self.is_empty());
@@ -244,10 +248,12 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         Some(word)
     }
 
+    /// Returns the number of states in the SCC.
     pub fn len(&self) -> usize {
         self.1.len()
     }
 
+    /// Returns `true` if and only if the SCC is empty.
     pub fn is_empty(&self) -> bool {
         if self.len() == 0 {
             panic!("SCCs can never be empty!");
@@ -255,15 +261,19 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         false
     }
 
+    /// Returns `true` iff the SCC consists of a single state.
     pub fn is_singleton(&self) -> bool {
         self.1.len() == 1
     }
 
-    pub fn is_trivial(&self) -> bool {
-        !self.is_nontrivial()
+    /// Returns `true` iff the SCC is left on every symbol of the alphabet.
+    pub fn is_transient(&self) -> bool {
+        !self.is_nontransient()
     }
 
-    pub fn is_nontrivial(&self) -> bool {
+    /// Returns `true` iff there is a transition from a state in the SCC to another state in the SCC,
+    /// i.e. if there is a way of reading a non-empty word and staying in the SCC.
+    pub fn is_nontransient(&self) -> bool {
         self.1.iter().any(|&q| {
             self.0.alphabet().universe().any(|&sym| {
                 self.0
@@ -275,6 +285,7 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
     }
 }
 
+/// Represents a decomposition of a transition system into strongly connected components.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SccDecomposition<'a, Ts: TransitionSystem + FiniteState>(&'a Ts, Vec<Scc<'a, Ts>>);
 
@@ -287,10 +298,13 @@ impl<'a, Ts: TransitionSystem + FiniteState> std::ops::Deref for SccDecompositio
 }
 
 impl<'a, Ts: TransitionSystem + FiniteState> SccDecomposition<'a, Ts> {
+    /// Creates a new SCC decomposition from a transition system and a vector of SCCs.
     pub fn new(ts: &'a Ts, sccs: Vec<Scc<'a, Ts>>) -> Self {
         Self(ts, sccs)
     }
 
+    /// Attepmts to find the index of a the SCC containing the given `state`. Returns this index if
+    /// it exists, otherwise returns `None`.
     pub fn scc_of(&self, state: Ts::StateIndex) -> Option<usize> {
         self.1
             .iter()
@@ -313,7 +327,7 @@ impl<'a, Ts: TransitionSystem + FiniteState + Debug> std::fmt::Debug for SccDeco
     }
 }
 
-pub fn tarjan_scc<Ts>(ts: &Ts) -> SccDecomposition<'_, Ts>
+pub(crate) fn tarjan_scc<Ts>(ts: &Ts) -> SccDecomposition<'_, Ts>
 where
     Ts: TransitionSystem + FiniteState,
 {
@@ -330,6 +344,7 @@ where
     SccDecomposition::new(ts, sccs)
 }
 
+/// Represents a hierarchical view on the SCCs of a transition system.
 #[derive(Clone)]
 pub struct TarjanDAG<'a, Ts: TransitionSystem + Clone> {
     ts: &'a Ts,
@@ -345,7 +360,7 @@ impl<'a, Ts: TransitionSystem + Clone + Debug> std::fmt::Debug for TarjanDAG<'a,
             self.sccs
                 .iter()
                 .enumerate()
-                .map(|(i, scc)| format!(
+                .map(|(_i, scc)| format!(
                     "[{}]",
                     scc.1.iter().map(|q| format!("{:?}", q)).join(", ")
                 ))
@@ -359,9 +374,9 @@ impl<'a, Ts: TransitionSystem + Clone + Debug> std::fmt::Debug for TarjanDAG<'a,
 }
 
 impl<'a, Ts: TransitionSystem + Clone> TarjanDAG<'a, Ts> {
-    pub fn peel_off(&mut self) -> Vec<Scc<'a, Ts>> {
+    fn peel_off(&mut self) -> Vec<Scc<'a, Ts>> {
         let (terminal, non_terminal): (Vec<_>, Vec<_>) =
-            self.sccs.iter().enumerate().partition(|(i, scc)| {
+            self.sccs.iter().enumerate().partition(|(_i, scc)| {
                 self.ts
                     .reachable_state_indices_from(*scc.first().expect("Disallow non-empty SSCs"))
                     .all(|o| scc.1.contains(&o))
@@ -405,7 +420,7 @@ mod tests {
             sccs::{Scc, SccDecomposition},
             Sproutable,
         },
-        Pointed, RightCongruence, TransitionSystem,
+        Pointed, RightCongruence,
     };
 
     fn ts() -> RightCongruence<Simple> {
@@ -429,7 +444,7 @@ mod tests {
     fn tarjan_tree() {
         let cong = ts();
         let sccs = super::tarjan_scc(&cong);
-        let mut tree = super::TarjanDAG::from(sccs);
+        let _tree = super::TarjanDAG::from(sccs);
     }
 
     #[test]

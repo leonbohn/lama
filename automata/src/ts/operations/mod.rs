@@ -1,18 +1,3 @@
-use std::{fmt::Display, marker::PhantomData};
-
-use itertools::Itertools;
-
-use crate::{
-    alphabet::{Alphabet, Expression, ExpressionOf, HasAlphabet, Symbol, SymbolOf},
-    Acceptor, Color, FiniteLength, Length, Transformer,
-};
-
-use super::{
-    transition_system::{IsPreTransition, IsTransition},
-    Edge, EdgeColor, FiniteState, FiniteStatesIterType, HasFiniteStates, HasStates, IndexType,
-    Pointed, StateColor, StateIndex, Transition, TransitionSystem,
-};
-
 mod map;
 mod product;
 mod restricted;
@@ -56,7 +41,7 @@ mod tests {
         let _e3 = dfb.add_edge(s1, 'b', s0, ());
 
         let xxx = dfa.ts_product(dfb);
-        if let Some(ReachedState(q)) = xxx.induced(&"abb", ProductIndex(0, 0)) {}
+        if let Some(ReachedState(_q)) = xxx.induced(&"abb", ProductIndex(0, 0)) {}
         let c = xxx.transform("aa");
 
         let yyy = xxx.clone().map_colors(|(a, b)| a || b);

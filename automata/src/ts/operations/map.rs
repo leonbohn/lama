@@ -3,18 +3,20 @@ use std::marker::PhantomData;
 use crate::{
     alphabet::HasAlphabet,
     ts::{
-        transition_system::{IsPreTransition, IsTransition},
-        FiniteState, FiniteStatesIterType, HasFiniteStates, IndexType,
+        predecessors::IsPreTransition, transition_system::IsTransition, FiniteState,
+        FiniteStatesIterType, HasFiniteStates, IndexType,
     },
     Color, Pointed, TransitionSystem,
 };
 
+/// A transition system that maps the edge colors of a given transition system to a new type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapEdgeColor<Ts, F> {
     ts: Ts,
     f: F,
 }
 
+#[allow(missing_docs)]
 impl<Ts, F> MapEdgeColor<Ts, F> {
     pub fn new(ts: Ts, f: F) -> Self {
         Self { ts, f }
@@ -45,6 +47,7 @@ impl<Ts: TransitionSystem, F> HasAlphabet for MapEdgeColor<Ts, F> {
     }
 }
 
+/// Represents a transition whose color is mapped by some function.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MappedTransition<T, F, C> {
     transition: T,
@@ -52,6 +55,7 @@ pub struct MappedTransition<T, F, C> {
     _old_color: PhantomData<C>,
 }
 
+#[allow(missing_docs)]
 impl<T, F, C> MappedTransition<T, F, C> {
     pub fn new(transition: T, f: F) -> Self {
         Self {
@@ -90,6 +94,7 @@ impl<D: Color, Ts: FiniteState, F: Fn(Ts::EdgeColor) -> D> FiniteState for MapEd
     }
 }
 
+/// Iterator over the edges of a transition system whose colors are mapped by some function.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MappedEdgesFromIter<'a, I, F, C> {
     it: I,
@@ -108,6 +113,7 @@ where
     }
 }
 
+#[allow(missing_docs)]
 impl<'a, I, F, C> MappedEdgesFromIter<'a, I, F, C> {
     pub fn new(it: I, f: &'a F) -> Self {
         Self {
@@ -118,6 +124,7 @@ impl<'a, I, F, C> MappedEdgesFromIter<'a, I, F, C> {
     }
 }
 
+/// Counterpart to [`MappedTransition`] but for predecessors, i.e. for pre-transitions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MappedPreTransition<T, F, C> {
     pre_transition: T,
@@ -143,6 +150,7 @@ impl<Idx: IndexType, E, C: Color, D: Color, F: Fn(C) -> D, T: IsPreTransition<Id
     }
 }
 
+#[allow(missing_docs)]
 impl<T, F, C> MappedPreTransition<T, F, C> {
     pub fn new(pre_transition: T, f: F) -> Self {
         Self {
@@ -153,6 +161,7 @@ impl<T, F, C> MappedPreTransition<T, F, C> {
     }
 }
 
+/// Iterator over the pre-transitions of a transition system whose colors are mapped by some function.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MappedEdgesToIter<'a, I, F, C> {
     it: I,
@@ -170,6 +179,7 @@ where
     }
 }
 
+#[allow(missing_docs)]
 impl<'a, I, F, C> MappedEdgesToIter<'a, I, F, C> {
     pub fn new(it: I, f: &'a F) -> Self {
         Self {
@@ -180,12 +190,14 @@ impl<'a, I, F, C> MappedEdgesToIter<'a, I, F, C> {
     }
 }
 
+/// A transition system that maps the state colors of a given transition system to a new type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapStateColor<Ts, F> {
     ts: Ts,
     f: F,
 }
 
+#[allow(missing_docs)]
 impl<Ts, F> MapStateColor<Ts, F> {
     pub fn new(ts: Ts, f: F) -> Self {
         Self { ts, f }

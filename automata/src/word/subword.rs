@@ -68,7 +68,6 @@ impl<'a, S: Word> Prefix<'a, S> {
 
 #[cfg(test)]
 mod tests {
-    use itertools::Itertools;
 
     use crate::{
         upw,

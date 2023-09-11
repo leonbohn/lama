@@ -1,4 +1,5 @@
 use automata::alphabet::Simple;
+use automata::ts::predecessors::PredecessorIterable;
 use automata::ts::FiniteState;
 use automata::word::Normalized;
 use automata::{simple, ts::Sproutable};

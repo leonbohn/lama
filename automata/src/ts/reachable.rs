@@ -2,6 +2,9 @@ use std::collections::VecDeque;
 
 use crate::{alphabet::SymbolOf, ts::StateColor, Alphabet, Set, TransitionSystem};
 
+/// Struct that can return the minimal representatives of a transition system. A minimal representative
+/// for a state `q` of some transition system is the length-lexicographically minimal string with which
+/// `q` can be reached from a given state.
 #[derive(Debug, Clone)]
 pub struct MinimalRepresentatives<Ts: TransitionSystem> {
     ts: Ts,
@@ -10,12 +13,13 @@ pub struct MinimalRepresentatives<Ts: TransitionSystem> {
     queue: VecDeque<(Vec<SymbolOf<Ts>>, Ts::StateIndex)>,
 }
 
+#[allow(missing_docs)]
 impl<Ts> MinimalRepresentatives<Ts>
 where
     Ts: TransitionSystem,
 {
     pub fn new(ts: Ts, origin: Ts::StateIndex) -> Self {
-        let mut seen = Set::from_iter([origin]);
+        let seen = Set::from_iter([origin]);
         let queue = [(vec![], origin)].into_iter().collect();
         Self {
             ts,
@@ -49,9 +53,11 @@ where
     }
 }
 
+/// Allows iterating over the reachable states of a transition system.
 #[derive(Debug, Clone)]
 pub struct ReachableStates<Ts: TransitionSystem>(MinimalRepresentatives<Ts>);
 
+#[allow(missing_docs)]
 impl<Ts> ReachableStates<Ts>
 where
     Ts: TransitionSystem,
@@ -68,10 +74,18 @@ where
     type Item = (Ts::StateIndex, StateColor<Ts>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|(_, q)| (q, self.0.ts.state_color(q)))
+        self.0.next().map(|(_, q)| {
+            (
+                q,
+                self.0.ts.state_color(q).expect(
+                    "Something went wrong, every state should have a color but this one does not",
+                ),
+            )
+        })
     }
 }
 
+/// Allows iterating over the indices of all reachable states in a [`TransitionSystem`].
 #[derive(Debug, Clone)]
 pub struct ReachableStateIndices<Ts: TransitionSystem>(MinimalRepresentatives<Ts>);
 
@@ -86,6 +100,7 @@ where
     }
 }
 
+#[allow(missing_docs)]
 impl<Ts> ReachableStateIndices<Ts>
 where
     Ts: TransitionSystem,
