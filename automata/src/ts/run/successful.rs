@@ -1,22 +1,15 @@
 use std::collections::BTreeSet;
 
-use crate::{
-    alphabet::{Alphabet, Symbol},
-    length::{HasLength, RawPosition},
-    ts::{
-        finite::{
-            InfinityColors, ReachedColor, ReachedState, SeenColors, StateColorSequence,
-            TransitionColorSequence,
-        },
-        infinite::InfinityStateColors,
-        CanInduce, EdgeColor, Path, StateColor, StateIndex,
-    },
-    word::OmegaWord,
-    Color, FiniteLength, Length,
+use crate::ts::{
+    finite::{InfinityColors, ReachedColor, ReachedState, SeenColors, TransitionColorSequence},
+    infinite::InfinityStateColors,
+    CanInduce, Path,
 };
 
 use crate::ts::TransitionSystem;
 
+/// Represents a successful run through a transition system. It consists of a word, a transition system, a position
+/// in the word and a path through the transition system.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Successful<'a, 'b, R, Ts: TransitionSystem> {
     word: &'b R,
@@ -88,6 +81,7 @@ impl<'a, 'b, R, Ts: TransitionSystem> CanInduce<TransitionColorSequence<Ts::Edge
 }
 
 impl<'a, 'b, R, Ts: TransitionSystem> Successful<'a, 'b, R, Ts> {
+    /// Creates a new successful run from its constituent parts.
     pub fn new(
         word: &'b R,
         ts: &'a Ts,

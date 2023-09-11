@@ -3,8 +3,7 @@ use crate::{
 };
 use itertools::Itertools;
 
-use super::OmegaWord;
-
+/// Macro for creating a normalized ultimately periodic word.
 #[macro_export]
 macro_rules! nupw {
     ($recur:expr) => {
@@ -17,6 +16,8 @@ macro_rules! nupw {
         )
     };
 }
+
+/// Macro for creating a normalized periodic word.
 #[macro_export]
 macro_rules! npw {
     ($recur:expr) => {
@@ -24,16 +25,23 @@ macro_rules! npw {
     };
 }
 
+/// Represents a normalized word. For ultimately periodic words, this means we
+/// try to roll the prefix part into the looping part and deduplicate the looping
+/// part. For periodic words, we just deduplicate the looping part.
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct Normalized<S: Symbol, L: Length> {
-    pub word: Vec<S>,
-    pub length: L,
+    pub(crate) word: Vec<S>,
+    pub(crate) length: L,
 }
 
+/// Represents the types of errors that can occur when parsing a normalized word from a string.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum NormalizedParseError {
+    /// The word is empty.
     Empty,
+    /// The looping part of the word is empty.
     EmptyLoop,
+    /// The word contains too many commas, when it should contain at most one.
     TooManyCommas,
 }
 
@@ -81,16 +89,24 @@ impl TryFrom<&str> for Normalized<char, InfiniteLength> {
 }
 
 impl<S: Symbol, L: Length> Normalized<S, L> {
+    /// Creates a new normalized word from the given word and length.
     pub fn new(word: Vec<S>, length: L) -> Self {
         Self { word, length }
     }
 
+    /// Returns a reference to the underlying raw representation.
+    pub fn raw_word(&self) -> &[S] {
+        &self.word
+    }
+
+    /// Gives the first symbol of the word.
     pub fn first(&self) -> Option<S> {
         self.word.first()
     }
 }
 
 impl<S: Symbol> Normalized<S, InfiniteLength> {
+    /// Returns `true` iff the word is periodic.
     pub fn is_periodic(&self) -> bool {
         self.length.loop_index() == 0
     }
@@ -126,6 +142,7 @@ impl From<(&str, usize)> for Normalized<char, InfiniteLength> {
 }
 
 impl<S: Symbol> Normalized<S, FiniteLength> {
+    /// Creates a new normalized *finite* word (if that even makes sense...).
     pub fn new_finite<I: IntoIterator<Item = S>>(word: I) -> Self {
         let word = word.into_iter().collect_vec();
         let length = FiniteLength(word.len());
@@ -153,12 +170,14 @@ impl<S: Symbol> From<&Normalized<S, InfiniteLength>> for Normalized<S, InfiniteL
     }
 }
 
+/// Represents a normalized periodic word.
 #[derive(Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct NormalizedPeriodic<S: Symbol> {
-    pub word: Vec<S>,
+    pub(crate) word: Vec<S>,
 }
 
 impl<S: Symbol> NormalizedPeriodic<S> {
+    /// Creates a new normalized periodic word.
     pub fn new(word: Vec<S>) -> Self {
         Self {
             word: deduplicate(word),
@@ -200,7 +219,7 @@ impl<S: Symbol> HasLength for NormalizedPeriodic<S> {
 
 fn deduplicate<S: Symbol>(input: Vec<S>) -> Vec<S> {
     assert!(!input.is_empty());
-    for i in (1..=(input.len() / 2)) {
+    for i in 1..=(input.len() / 2) {
         // for a word w of length n, if th first n-i symbols of w are equal to the
         // last n-i symbols of w, then w is periodic with period i
         if input.len() % i == 0 && input[..input.len() - i] == input[i..] {
@@ -211,6 +230,7 @@ fn deduplicate<S: Symbol>(input: Vec<S>) -> Vec<S> {
 }
 
 impl<S: Symbol> Normalized<S, InfiniteLength> {
+    /// Creates a new normalized periodic word.
     pub fn new_periodic<R: RawSymbols<S>>(raw: R) -> Self {
         let word = deduplicate(raw.to_vec());
         debug_assert!(!word.is_empty());
@@ -220,6 +240,7 @@ impl<S: Symbol> Normalized<S, InfiniteLength> {
         }
     }
 
+    /// Creates a new normalized omega word.
     pub fn new_omega<R: RawSymbols<S>>(raw: R, length: InfiniteLength) -> Self {
         // first we "roll in the periodic part" by moving the loop index to
         // the front and popping symbols from the back.
@@ -244,14 +265,17 @@ impl<S: Symbol> Normalized<S, InfiniteLength> {
         }
     }
 
+    /// Returns a reference to the initial segment of the word.
     pub fn initial_segment(&self) -> &[S] {
         &self.word[..self.length.loop_index()]
     }
 
+    /// Returns a reference to the repeating segment of the word.
     pub fn repeating_segment(&self) -> &[S] {
         &self.word[self.length.loop_index()..]
     }
 
+    /// Removes the first symbol of the word and returns it.
     pub fn pop_front(&mut self) -> S {
         debug_assert!(!self.word.is_empty());
         if self.length.loop_index() > 0 {
@@ -303,7 +327,6 @@ impl<S: Symbol> std::fmt::Debug for NormalizedPeriodic<S> {
 #[cfg(test)]
 mod tests {
     use crate::InfiniteLength;
-    use tracing::trace;
 
     use super::deduplicate;
 

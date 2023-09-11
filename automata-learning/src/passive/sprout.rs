@@ -228,7 +228,7 @@ pub fn prefix_consistency_conflicts<
     let states_with_infinite_run: Vec<(usize, usize)> = sccs
         .iter()
         .filter_map(|scc| {
-            if !scc.is_trivial() {
+            if !scc.is_transient() {
                 Some(scc.clone().into_iter().map(Into::into))
             } else {
                 None

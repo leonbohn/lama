@@ -1,10 +1,11 @@
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
-use std::ops::Deref;
 
 /// Abstracts the concept of length, allowing us to work with finite and infinite words in a
 /// somewhat similar fashion.
 pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
+    /// Whether the length is finite or not.
+    // FIXME: remove or improve
     const FINITE: bool;
     /// The type of iterator over the set of raw positions.
     type RawPositions: Iterator<Item = RawPosition>;
@@ -29,8 +30,10 @@ pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
         self.calculate_raw_position(position.into()).is_none()
     }
 
+    /// Remove `offset` from the front.
     fn subtract_front(&self, offset: usize) -> Self;
 
+    /// Add `additional` to the front.
     fn add_front(&self, additional: usize) -> Self;
 
     /// Returns an iterator over the raw positions.
@@ -77,6 +80,7 @@ impl FiniteLength {
         Self(length)
     }
 
+    /// Obtain the underlying `usize` value.
     pub fn as_usize(&self) -> usize {
         self.0
     }
@@ -171,6 +175,7 @@ impl InfiniteLength {
         self.1
     }
 
+    /// Set the loop index to a new value.
     pub fn set_loop_index(&mut self, loop_index: usize) {
         self.1 = loop_index;
     }
@@ -264,6 +269,7 @@ pub trait HasLength {
     /// Returns the [`Length`] of `self`.
     fn length(&self) -> Self::Length;
 
+    /// Tries to convert a position into a raw position. Returns `None` if the position is out of bounds.
     fn to_raw_position<P: Into<usize>>(&self, position: P) -> Option<RawPosition> {
         self.length().calculate_raw_position(position)
     }

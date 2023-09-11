@@ -1,11 +1,9 @@
 use std::collections::BTreeSet;
 
-use tracing::trace;
-
 use crate::{
-    alphabet::{ExpressionOf, HasAlphabet, SymbolOf},
+    alphabet::{ExpressionOf, SymbolOf},
     length::RawPosition,
-    ts::{EdgeColor, Path, StateColor, StateIndex, Transition},
+    ts::{EdgeColor, Path},
     Length, Word,
 };
 
@@ -13,6 +11,7 @@ use crate::ts::{IsTransition, TransitionSystem};
 
 use super::{partial::Partial, successful::Successful};
 
+/// A walker that can traverse a transition system for some given input word.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Walker<'a, 'b, Ts: TransitionSystem, R> {
     ts: &'a Ts,
@@ -22,12 +21,18 @@ pub struct Walker<'a, 'b, Ts: TransitionSystem, R> {
     seq: Path<Ts::Alphabet, Ts::StateIndex>,
 }
 
+/// Type alias for the result of a run.
 pub type RunResult<'a, 'b, Ts, R> = Result<Successful<'a, 'b, R, Ts>, Partial<'a, 'b, R, Ts>>;
 
+/// Disambiguates between the different possible outcomes of a single step in the automaton.
 pub enum WalkerStep<Ts: TransitionSystem> {
+    /// A transition was taken.
     Transition((ExpressionOf<Ts>, Ts::StateIndex, EdgeColor<Ts>)),
+    /// A missing transition was encountered.
     Missing(Ts::StateIndex, SymbolOf<Ts>),
+    /// A cycle was entered.
     Cycle,
+    /// The end of the word was reached.
     End,
 }
 
@@ -38,6 +43,7 @@ impl<Ts: TransitionSystem> WalkerStep<Ts> {
 }
 
 impl<'a, 'b, Ts: TransitionSystem, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b, Ts, R> {
+    /// Creates a new walker for the given word, transition system and starting point/origin.
     pub fn new(word: &'b R, ts: &'a Ts, origin: Ts::StateIndex) -> Self {
         Self {
             ts,
@@ -48,6 +54,8 @@ impl<'a, 'b, Ts: TransitionSystem, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b
         }
     }
 
+    /// Takes transitions until the end of the word is reached or a cycle is entered and returns the
+    /// [`RunResult`] of the run.
     pub fn result(mut self) -> RunResult<'a, 'b, Ts, R> {
         loop {
             match self.take_transition() {

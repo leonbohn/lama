@@ -10,11 +10,14 @@ use crate::{
     Alphabet, Color, Pointed, TransitionSystem,
 };
 
+/// Trait that abstracts the product operation for transition systems.
 pub trait Product: TransitionSystem + Sized {
+    /// The type of output that is produced by the product operation.
     type Output<Ts: TransitionSystem<Alphabet = Self::Alphabet>>: TransitionSystem<
         Alphabet = Self::Alphabet,
         StateColor = (Self::StateColor, Ts::StateColor),
     >;
+    /// Perform a product operation on two transition systems.
     fn ts_product<Ts: TransitionSystem<Alphabet = Self::Alphabet>>(
         self,
         other: Ts,
@@ -32,6 +35,7 @@ impl<Lts: TransitionSystem + Sized> Product for Lts {
     }
 }
 
+/// Index type for product transition systems.
 #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ProductIndex<L, R>(pub L, pub R);
 
@@ -47,6 +51,8 @@ impl<L: std::fmt::Display, R: std::fmt::Display> std::fmt::Display for ProductIn
     }
 }
 
+/// A product of two transition systems, which only permits transitions on matching symbols, while
+/// ignoring all others.
 #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct MatchingProduct<L, R>(pub L, pub R);
 
@@ -100,6 +106,7 @@ where
     }
 }
 
+/// Type that encapsulates a transition in a product transition system.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ProductTransition<LI, RI, E, LC, RC> {
     expression: E,
@@ -107,6 +114,7 @@ pub struct ProductTransition<LI, RI, E, LC, RC> {
     color: (LC, RC),
 }
 
+#[allow(missing_docs)]
 impl<LI, RI, E, LC, RC> ProductTransition<LI, RI, E, LC, RC> {
     pub fn new(expression: E, target: ProductIndex<LI, RI>, color: (LC, RC)) -> Self {
         Self {
@@ -138,6 +146,7 @@ where
     }
 }
 
+/// Iterator over the edges of a product transition system.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProductEdgesFrom<'a, L: TransitionSystem, R: TransitionSystem> {
     left: &'a L,
@@ -148,6 +157,7 @@ pub struct ProductEdgesFrom<'a, L: TransitionSystem, R: TransitionSystem> {
     position: usize,
 }
 
+#[allow(missing_docs)]
 impl<'a, L: TransitionSystem, R: TransitionSystem> ProductEdgesFrom<'a, L, R> {
     pub fn new(
         left: &'a L,
@@ -204,12 +214,15 @@ where
     }
 }
 
+/// Analogous to [`ProductTransition`]; encapsulates a pre-transition in a product transition system.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProductPreTransition<LI, RI, E, LC, RC> {
     source: ProductIndex<LI, RI>,
     expression: E,
     color: (LC, RC),
 }
 
+#[allow(missing_docs)]
 impl<LI, RI, E, LC, RC> ProductPreTransition<LI, RI, E, LC, RC> {
     pub fn new(source: ProductIndex<LI, RI>, expression: E, color: (LC, RC)) -> Self {
         Self {
@@ -241,6 +254,7 @@ where
     }
 }
 
+/// Iterator over the predecessors of a product transition system.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProductEdgesTo<'a, L: PredecessorIterable, R: PredecessorIterable> {
     left: &'a L,
@@ -289,6 +303,7 @@ where
     }
 }
 
+#[allow(missing_docs)]
 impl<'a, L: PredecessorIterable, R: PredecessorIterable> ProductEdgesTo<'a, L, R> {
     pub fn new(
         left: &'a L,

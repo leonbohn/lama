@@ -1,8 +1,6 @@
-use crate::{
-    length::{HasLength, RawPosition},
-    FiniteLength, Length, Word,
-};
+use crate::{length::HasLength, FiniteLength, Length, Word};
 
+/// Represents the concatenation of `W` and `V`.
 #[derive(Debug, Clone)]
 pub struct Concat<W, V>(W, V);
 
@@ -35,6 +33,7 @@ where
 }
 
 impl<W: Word<Length = FiniteLength>, V: Word<Symbol = W::Symbol>> Concat<W, V> {
+    /// Creates a new concatenation of `prefix` and `suffix`.
     pub fn new(prefix: W, suffix: V) -> Self {
         Self(prefix, suffix)
     }
@@ -42,9 +41,8 @@ impl<W: Word<Length = FiniteLength>, V: Word<Symbol = W::Symbol>> Concat<W, V> {
 
 #[cfg(test)]
 mod tests {
-    use itertools::Itertools;
 
-    use crate::{length::HasLength, Word};
+    use crate::Word;
 
     #[test]
     fn concatenations() {

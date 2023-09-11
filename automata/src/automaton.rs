@@ -1,27 +1,21 @@
-use std::{
-    collections::BTreeSet,
-    fmt::{Debug, Display},
-    marker::PhantomData,
-};
+use std::{collections::BTreeSet, fmt::Debug};
 
-use impl_tools::autoimpl;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
-use tracing::trace;
 
 use crate::{
     alphabet::{Alphabet, HasAlphabet, Symbol, SymbolOf},
     ts::{
-        finite::{InfinityColors, ReachedColor, ReachedState, SeenColors, TransitionColorSequence},
-        infinite::InfinityStateColors,
+        finite::{InfinityColors, ReachedColor},
         operations::{MapStateColor, MatchingProduct, Product},
-        Congruence, EdgeColor, FiniteState, HasMutableStates, HasStates, IndexType, Path, Pointed,
-        Sproutable, StateColor, StateIndex, Transition, TransitionSystem, BTS,
+        EdgeColor, FiniteState, FiniteStatesIterType, HasFiniteStates, HasMutableStates, HasStates,
+        IndexType, Pointed, Sproutable, StateColor, TransitionSystem, BTS,
     },
     word::{Normalized, OmegaWord},
-    Color, FiniteLength, HasLength, InfiniteLength, Length, Set, Word,
+    Color, FiniteLength, InfiniteLength, Length, Word,
 };
 
+/// Wrapper around a [`TransitionSystem`] with a designated initial state.
 #[derive(Clone, PartialEq)]
 pub struct WithInitial<Ts: TransitionSystem>(Ts, Ts::StateIndex);
 
@@ -47,171 +41,159 @@ where
     }
 }
 
-mod boilerplate_impls {
-    use crate::ts::{FiniteState, FiniteStatesIterType, HasFiniteStates};
-
-    use super::*;
-
-    impl<Ts: TransitionSystem> From<(Ts, Ts::StateIndex)> for WithInitial<Ts> {
-        fn from(value: (Ts, Ts::StateIndex)) -> Self {
-            Self(value.0, value.1)
-        }
-    }
-
-    impl<'a, Ts: TransitionSystem + HasFiniteStates<'a>> HasFiniteStates<'a> for WithInitial<Ts> {
-        type StateIndicesIter = Ts::StateIndicesIter;
-    }
-
-    impl<Ts: FiniteState> FiniteState for WithInitial<Ts> {
-        fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
-            self.ts().state_indices()
-        }
-    }
-
-    impl<A, C, Q> WithInitial<BTS<A, Q, C, usize>>
-    where
-        A: Alphabet,
-        C: Color,
-        Q: Color,
-    {
-        pub fn new(alphabet: A) -> Self
-        where
-            StateColor<Self>: Default,
-        {
-            let mut ts = BTS::new(alphabet);
-            let initial = ts.add_state(<StateColor<Self> as Default>::default());
-            Self(ts, initial)
-        }
-
-        pub fn with_capacity(alphabet: A, size: usize) -> Self
-        where
-            StateColor<Self>: Default,
-        {
-            let mut ts = BTS::with_capacity(alphabet, size);
-            let initial = ts.add_state(<StateColor<Self> as Default>::default());
-            Self(ts, initial)
-        }
-    }
-
-    impl<Ts: TransitionSystem> WithInitial<Ts> {
-        pub fn ts(&self) -> &Ts {
-            &self.0
-        }
-        pub fn ts_mut(&mut self) -> &mut Ts {
-            &mut self.0
-        }
-    }
-    impl<Ts: TransitionSystem + Sproutable> Sproutable for WithInitial<Ts>
-    where
-        StateColor<Ts>: Default,
-    {
-        fn add_state(&mut self, color: StateColor<Self>) -> Self::StateIndex {
-            self.ts_mut().add_state(color)
-        }
-
-        fn set_state_color(&mut self, index: Self::StateIndex, color: StateColor<Self>) {
-            self.ts_mut().set_state_color(index, color)
-        }
-
-        fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
-            let mut ts = Ts::new_for_alphabet(alphabet);
-            let initial = ts.add_state(<StateColor<Ts> as Default>::default());
-            Self(ts, initial)
-        }
-
-        fn add_edge<X, Y>(
-            &mut self,
-            from: X,
-            on: <Self::Alphabet as Alphabet>::Expression,
-            to: Y,
-            color: EdgeColor<Self>,
-        ) -> Option<(Self::StateIndex, Self::EdgeColor)>
-        where
-            X: Into<Self::StateIndex>,
-            Y: Into<Self::StateIndex>,
-        {
-            self.ts_mut().add_edge(from, on, to, color)
-        }
-
-        fn remove_edge(
-            &mut self,
-            from: Self::StateIndex,
-            on: <Self::Alphabet as Alphabet>::Expression,
-        ) -> bool {
-            self.ts_mut().remove_edge(from, on)
-        }
-    }
-    impl<Ts: TransitionSystem + HasStates> HasStates for WithInitial<Ts> {
-        type State<'this> = Ts::State<'this>
-        where
-            Self: 'this;
-
-        type StatesIter<'this> = Ts::StatesIter<'this>
-        where
-            Self: 'this;
-
-        fn state(&self, index: Self::StateIndex) -> Option<Self::State<'_>> {
-            self.ts().state(index)
-        }
-
-        fn states_iter(&self) -> Self::StatesIter<'_> {
-            self.ts().states_iter()
-        }
-    }
-    impl<Ts: TransitionSystem + HasMutableStates> HasMutableStates for WithInitial<Ts> {
-        type StateMut<'this>  = Ts::StateMut<'this> where Self:'this;
-
-        fn state_mut(&mut self, index: Self::StateIndex) -> Option<Self::StateMut<'_>> {
-            self.ts_mut().state_mut(index)
-        }
-    }
-    impl<Ts: TransitionSystem + HasAlphabet> HasAlphabet for WithInitial<Ts> {
-        type Alphabet = Ts::Alphabet;
-
-        fn alphabet(&self) -> &Self::Alphabet {
-            self.0.alphabet()
-        }
-    }
-
-    impl<Ts: TransitionSystem> Pointed for WithInitial<Ts> {
-        fn initial(&self) -> Self::StateIndex {
-            self.1
-        }
+impl<Ts: TransitionSystem> From<(Ts, Ts::StateIndex)> for WithInitial<Ts> {
+    fn from(value: (Ts, Ts::StateIndex)) -> Self {
+        Self(value.0, value.1)
     }
 }
 
+impl<'a, Ts: TransitionSystem + HasFiniteStates<'a>> HasFiniteStates<'a> for WithInitial<Ts> {
+    type StateIndicesIter = Ts::StateIndicesIter;
+}
+
+impl<Ts: FiniteState> FiniteState for WithInitial<Ts> {
+    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
+        self.ts().state_indices()
+    }
+}
+
+impl<A, C, Q> WithInitial<BTS<A, Q, C, usize>>
+where
+    A: Alphabet,
+    C: Color,
+    Q: Color,
+{
+    /// Creates a new instance for the given `alphabet`.
+    pub fn new(alphabet: A) -> Self
+    where
+        StateColor<Self>: Default,
+    {
+        let mut ts = BTS::new(alphabet);
+        let initial = ts.add_state(<StateColor<Self> as Default>::default());
+        Self(ts, initial)
+    }
+
+    /// Creats a new instance for the given `alphabet` and ensures capacity for at least `size` states.
+    pub fn with_capacity(alphabet: A, size: usize) -> Self
+    where
+        StateColor<Self>: Default,
+    {
+        let mut ts = BTS::with_capacity(alphabet, size);
+        let initial = ts.add_state(<StateColor<Self> as Default>::default());
+        Self(ts, initial)
+    }
+}
+
+impl<Ts: TransitionSystem> WithInitial<Ts> {
+    /// Returns a reference to the underlying [`TransitionSystem`].
+    pub fn ts(&self) -> &Ts {
+        &self.0
+    }
+
+    /// Returns a mutable reference to the underlying [`TransitionSystem`].
+    pub fn ts_mut(&mut self) -> &mut Ts {
+        &mut self.0
+    }
+}
+impl<Ts: TransitionSystem + Sproutable> Sproutable for WithInitial<Ts>
+where
+    StateColor<Ts>: Default,
+{
+    fn add_state(&mut self, color: StateColor<Self>) -> Self::StateIndex {
+        self.ts_mut().add_state(color)
+    }
+
+    fn set_state_color(&mut self, index: Self::StateIndex, color: StateColor<Self>) {
+        self.ts_mut().set_state_color(index, color)
+    }
+
+    fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
+        let mut ts = Ts::new_for_alphabet(alphabet);
+        let initial = ts.add_state(<StateColor<Ts> as Default>::default());
+        Self(ts, initial)
+    }
+
+    fn add_edge<X, Y>(
+        &mut self,
+        from: X,
+        on: <Self::Alphabet as Alphabet>::Expression,
+        to: Y,
+        color: EdgeColor<Self>,
+    ) -> Option<(Self::StateIndex, Self::EdgeColor)>
+    where
+        X: Into<Self::StateIndex>,
+        Y: Into<Self::StateIndex>,
+    {
+        self.ts_mut().add_edge(from, on, to, color)
+    }
+
+    fn remove_edge(
+        &mut self,
+        from: Self::StateIndex,
+        on: <Self::Alphabet as Alphabet>::Expression,
+    ) -> bool {
+        self.ts_mut().remove_edge(from, on)
+    }
+}
+impl<Ts: TransitionSystem + HasStates> HasStates for WithInitial<Ts> {
+    type State<'this> = Ts::State<'this>
+        where
+            Self: 'this;
+
+    type StatesIter<'this> = Ts::StatesIter<'this>
+        where
+            Self: 'this;
+
+    fn state(&self, index: Self::StateIndex) -> Option<Self::State<'_>> {
+        self.ts().state(index)
+    }
+
+    fn states_iter(&self) -> Self::StatesIter<'_> {
+        self.ts().states_iter()
+    }
+}
+impl<Ts: TransitionSystem + HasMutableStates> HasMutableStates for WithInitial<Ts> {
+    type StateMut<'this>  = Ts::StateMut<'this> where Self:'this;
+
+    fn state_mut(&mut self, index: Self::StateIndex) -> Option<Self::StateMut<'_>> {
+        self.ts_mut().state_mut(index)
+    }
+}
+impl<Ts: TransitionSystem + HasAlphabet> HasAlphabet for WithInitial<Ts> {
+    type Alphabet = Ts::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.0.alphabet()
+    }
+}
+
+impl<Ts: TransitionSystem> Pointed for WithInitial<Ts> {
+    fn initial(&self) -> Self::StateIndex {
+        self.1
+    }
+}
+
+/// A Moore machine is simply a [`TransitionSystem`] with a designated initial state, which has colors on states.
 pub type MooreMachine<A, Q, Idx = usize> = WithInitial<BTS<A, Q, (), Idx>>;
+/// A Mealy machine is a [`TransitionSystem`] with a designated initial state and colors on edges.
 pub type MealyMachine<A, C, Idx = usize> = WithInitial<BTS<A, (), C, Idx>>;
 
+/// A [`MooreMachine`] which outputs booleans.
 pub type DFA<A, Idx = usize> = MooreMachine<A, bool, Idx>;
+/// A [`MealyMachine`] that ouputs booleans.
 pub type DBA<A, Idx = usize> = MealyMachine<A, bool, Idx>;
+/// A [`MealyMachine`] that ouputs non-negative integers.
 pub type DPA<A, Idx = usize> = MealyMachine<A, usize, Idx>;
+/// A variant of [`DBA`] which has colors on its states.
 pub type SBDBA<A, Idx = usize> = MooreMachine<A, bool, Idx>;
+/// A variant of [`DPA`] which has colors on states.
 pub type SBDPA<A, Idx = usize> = MooreMachine<A, usize, Idx>;
 
-#[autoimpl(for<T: trait> &T, &mut T)]
-pub trait ToPriority {
-    fn priority(&self) -> usize;
-}
-
-impl ToPriority for usize {
-    fn priority(&self) -> usize {
-        *self
-    }
-}
-
-impl ToPriority for bool {
-    fn priority(&self) -> usize {
-        if *self {
-            0
-        } else {
-            1
-        }
-    }
-}
-
+/// Implementors of this trait can take in a word and transform it into some kind of output.
 pub trait Transformer<S, Len: Length> {
+    /// The object that results from the transformation.
     type Output;
+    /// Transform the given word into an object of type [`Self::Output`].
     fn transform<W: Word<Symbol = S, Length = Len>>(&self, input: W) -> Self::Output;
 }
 
@@ -253,7 +235,10 @@ where
     }
 }
 
+/// Implementors of this trait are able to classify objects of type `X`.
 pub trait Classifies<X> {
+    /// Given an object of type `X`, classify it, i.e. return a boolean. This is e.g. implemented by automata,
+    /// which classify words and return `true` iff the given word is accepted.
     fn classify(&self, x: X) -> bool;
 }
 
@@ -269,7 +254,9 @@ where
     }
 }
 
+/// Implementors of this trait are acceptors of sequences of symbols `S` with length `K`
 pub trait Acceptor<S, K> {
+    /// Returns true if and only if `self` accepts the given `word`.
     fn accepts<W>(&self, word: W) -> bool
     where
         W: Word<Length = K, Symbol = S>;
@@ -284,7 +271,12 @@ impl<S: Symbol, T: Transformer<S, FiniteLength, Output = bool>> Acceptor<S, Fini
     }
 }
 
+/// Helper trait to convert from boolean to usize. Normally, a `true` value corresponds to `1`, while
+/// a `false` value corresponds to `0`. This does not really work well with min-even parity conditions
+/// so this helper trait is introduced.
+// TODO: remove this if possible.
 pub trait ReducesTo<T = bool> {
+    /// Reduce `self` to a value of type `T`.
     fn reduce(self) -> T;
 }
 
@@ -329,6 +321,7 @@ where
 
 type DfaProductReduced<L, R> = MapStateColor<MatchingProduct<L, R>, fn((bool, bool)) -> bool>;
 
+/// This trait is (automatically) implemented by everything which can be viewed as a [`DFA`].
 pub trait IsDfa:
     TransitionSystem<StateColor = bool>
     + Pointed
@@ -336,6 +329,8 @@ pub trait IsDfa:
     + Acceptor<SymbolOf<Self>, FiniteLength>
     + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>
 {
+    /// Returns a vector containing the indices of all states that are accepting.
+    // TODO: return iterator instead.
     fn accepting_states(&self) -> Vec<Self::StateIndex>
     where
         Self: FiniteState,
@@ -348,6 +343,8 @@ pub trait IsDfa:
             .collect_vec()
     }
 
+    /// Tries to construct a (finite) word witnessing that the accepted language is empty. If such a word exists,
+    /// the function returns it, otherwise `None`.
     fn dfa_give_word(&self) -> Option<Vec<SymbolOf<Self>>> {
         self.minimal_representatives().find_map(|(mr, index)| {
             if self
@@ -361,14 +358,19 @@ pub trait IsDfa:
         })
     }
 
+    /// Returns true if and only if the accepted language is empty.
     fn dfa_is_empty(&self) -> bool {
         self.dfa_give_word().is_none()
     }
 
+    /// Computes the union of `self` with the given `other` object (that can be viewed as a DFA) through
+    /// a simple product construction.
     fn union<Ts: IsDfa<Alphabet = Self::Alphabet>>(self, other: Ts) -> DfaProductReduced<Self, Ts> {
         self.ts_product(other).map_colors(|(a, b)| a || b)
     }
 
+    /// Computes the intersection of `self` with the given `other` object (that can be viewed as a DFA) through
+    /// a simple product construction.
     fn intersection<Ts: IsDfa<Alphabet = Self::Alphabet>>(
         self,
         other: Ts,
@@ -376,6 +378,7 @@ pub trait IsDfa:
         self.ts_product(other).map_colors(|(a, b)| a && b)
     }
 
+    /// Computes the negation of `self` by swapping accepting and non-accepting states.
     fn negation(self) -> MapStateColor<Self, fn(bool) -> bool> {
         self.map_colors(|x| !x)
     }
@@ -390,6 +393,8 @@ impl<Ts> IsDfa for Ts where
 {
 }
 
+/// Similar to [`IsDfa`], this trait is supposed to be (automatically) implemented by everything that can be viewed
+/// as a [`Dba`].
 pub trait IsDba:
     TransitionSystem<EdgeColor = bool>
     + Pointed
@@ -397,6 +402,8 @@ pub trait IsDba:
     + Acceptor<SymbolOf<Self>, InfiniteLength>
     + Transformer<SymbolOf<Self>, InfiniteLength, Output = BTreeSet<bool>>
 {
+    /// Tries to identify a word which is accepted by `self`. If such a word exists, it returns it and otherwise
+    /// the function gives back `None`.
     fn dba_give_word(&self) -> Option<OmegaWord<SymbolOf<Self>, InfiniteLength>>
     where
         Self: FiniteState,
@@ -417,6 +424,7 @@ pub trait IsDba:
         None
     }
 
+    /// Returns `true` if and only if `self` accepts a non-empty language.
     fn dba_is_empty(&self) -> bool
     where
         Self: FiniteState,
@@ -434,6 +442,7 @@ impl<Ts> IsDba for Ts where
 {
 }
 
+/// Trait that should be implemented by every object that can be viewed as a [`Dpa`].
 pub trait IsDpa:
     TransitionSystem<EdgeColor = usize>
     + Pointed
@@ -499,7 +508,7 @@ mod tests {
         assert!(!dfa.dfa_is_empty());
         assert_eq!(dfa.dfa_give_word(), Some(vec![]));
 
-        let dfb = dfa.clone();
+        let _dfb = dfa.clone();
 
         assert!(dfa.accepts("ababab"));
         assert!(!dfa.accepts("a"));

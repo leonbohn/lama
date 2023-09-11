@@ -17,7 +17,7 @@ pub fn prefix_tree<
     words: I,
 ) -> RightCongruence<A> {
     let words: Vec<Normalized<_, _>> = words.into_iter().map(|word| word.into()).collect_vec();
-    debug_assert!(words.iter().all(|word| !word.word.is_empty()));
+    debug_assert!(words.iter().all(|word| !word.raw_word().is_empty()));
     fn build_accepting_loop<A: Alphabet>(
         tree: &mut RightCongruence<A>,
         state: usize,
@@ -47,7 +47,7 @@ pub fn prefix_tree<
 
     while let Some((state, access, words)) = queue.pop_front() {
         debug_assert!(!words.is_empty());
-        debug_assert!(words.iter().all(|word| !word.word.is_empty()));
+        debug_assert!(words.iter().all(|word| !word.raw_word().is_empty()));
         if words.len() == 1 && words[0].length().loop_index() == 0 {
             build_accepting_loop(&mut tree, state, access, words[0].repeating_segment());
         } else {
@@ -55,7 +55,7 @@ pub fn prefix_tree<
             for mut word in words {
                 let sym = word.pop_front();
                 debug_assert!(
-                    !word.word.is_empty(),
+                    !word.raw_word().is_empty(),
                     "popping front lead to empty representation"
                 );
 

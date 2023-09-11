@@ -14,11 +14,16 @@ use super::{
     EdgeColor, IndexType, BTS,
 };
 
+/// The counterpart to the [`IsTransition`] trait for predecessors.
 #[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
 pub trait IsPreTransition<Idx, E, C> {
+    /// Return the source state of the pre-transition.
     fn source(&self) -> Idx;
+    /// Return the color of the pre-transition.
     fn color(&self) -> C;
+    /// Return the expression of the pre-transition.
     fn expression(&self) -> &E;
+    /// Decompose `self` into a tuple of its components.
     fn into_tuple(self) -> (Idx, E, C)
     where
         E: Clone,
@@ -55,7 +60,9 @@ impl<Idx: IndexType, E, C: Color> IsPreTransition<Idx, E, C> for (Idx, E, C) {
     }
 }
 
+/// Implementors of this trait are [`TransitionSystem`]s which allow iterating over the predecessors of a state.
 pub trait PredecessorIterable: TransitionSystem {
+    /// The type of pre-transition that the iterator yields.
     type PreTransitionRef<'this>: IsPreTransition<
         Self::StateIndex,
         ExpressionOf<Self>,
@@ -63,9 +70,13 @@ pub trait PredecessorIterable: TransitionSystem {
     >
     where
         Self: 'this;
+
+    /// The type of iterator over the predecessors of a state.
     type EdgesToIter<'this>: Iterator<Item = Self::PreTransitionRef<'this>>
     where
         Self: 'this;
+
+    /// Returns an iterator over the predecessors of the given `state`. Returns `None` if the state does not exist.
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>>;
 }
 

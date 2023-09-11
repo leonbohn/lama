@@ -1,24 +1,20 @@
+/// Contains the most central trait for this module, the trait [`TransitionSystem`].
 pub mod transition_system;
-use std::{collections::BTreeMap, fmt::Display, hash::Hash, ops::Deref};
+use std::{fmt::Display, hash::Hash, ops::Deref};
 
 use impl_tools::autoimpl;
-use itertools::{Itertools, Position};
+use itertools::Itertools;
 pub use transition_system::TransitionSystem;
 
-mod transition;
-use tabled::builder::Builder;
-pub use transition::{Edge, EdgeIndex, EdgeIndicesFrom, EdgesFrom, Transition};
-
+/// Defines implementations for common operations on automata/transition systems.
 pub mod operations;
 
-use crate::{
-    alphabet::{Alphabet, HasAlphabet},
-    Class, Color, Map, RightCongruence, Set,
-};
+use crate::{Class, Color, Map, RightCongruence};
 
 mod index_ts;
 pub use index_ts::BTS;
 
+/// Contains implementations and definitions for dealing with paths through a transition system.
 pub mod path;
 pub use path::Path;
 
@@ -28,13 +24,19 @@ pub use sproutable::Sproutable;
 mod induces;
 pub use induces::{finite, infinite, CanInduce, Induced};
 
+/// Deals with analysing reachability in transition systems.
 pub mod reachable;
+
+/// Contains implementations for SCC decompositions and the corresponding/associated types.
 pub mod sccs;
 
+/// In this module, everything concering the run of a transition system on a word is defined.
 pub mod run;
 
+/// This module defines traits for dealing with predecessors in a transition system.
 pub mod predecessors;
 
+/// Encapsulates what is necessary for a type to be usable as a state index in a [`TransitionSystem`].
 pub trait IndexType: Copy + std::hash::Hash + std::fmt::Debug + Eq + Ord + Display {}
 impl<Idx: Copy + std::hash::Hash + std::fmt::Debug + Eq + Ord + Display> IndexType for Idx {}
 
@@ -49,11 +51,6 @@ pub trait Index {
     /// Turns self into a state index.
     fn as_state_index(&self) -> StateIndex {
         StateIndex::new(self.index())
-    }
-
-    /// Turns self into an edge index.
-    fn as_edge_index(&self) -> EdgeIndex {
-        EdgeIndex::new(self.index())
     }
 }
 
@@ -134,7 +131,9 @@ impl<'a, Q> StateReference<'a, Q> {
     }
 }
 
+/// Type alias for extracting the state color in a [`TransitionSystem`].
 pub type StateColor<X> = <X as TransitionSystem>::StateColor;
+/// Type alias for extracting the edge color in a [`TransitionSystem`].
 pub type EdgeColor<X> = <X as TransitionSystem>::EdgeColor;
 
 /// Abstracts possessing a set of states. Note, that implementors of this trait must
@@ -157,6 +156,7 @@ pub trait HasStates: TransitionSystem + Sized {
     /// Returns an iterator over the states of the implementor.
     fn states_iter(&self) -> Self::StatesIter<'_>;
 
+    /// Returns the number of states.
     fn hs_size(&self) -> usize {
         self.states_iter().count()
     }
@@ -177,23 +177,32 @@ mod sealed {
 }
 pub(crate) use sealed::*;
 
-// #[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
+/// Implementors of this trait have a finite number of states and allow iteration over the
+/// set of all state indices.
 pub trait FiniteState: Sized + for<'a> sealed::HasFiniteStates<'a> {
+    /// Returns an iterator over the state indices in `self`.
     fn state_indices(&self) -> sealed::FiniteStatesIterType<'_, Self>;
 
+    /// Gives the size of `self`.
     fn size(&self) -> usize {
         self.state_indices().count()
     }
 
+    /// Returns true if and only if the given state `index` exists.
     fn contains_state_index(&self, index: Self::StateIndex) -> bool {
         self.state_indices().contains(&index)
     }
 
+    /// Tries to find the index of a state with the given `color`. Note that this uses `find` and thus
+    /// returns the first such state that is found. There is no guarantee on the order in which the states
+    /// are visited such that if more than one state with the given `color` exists, subsequent calls to
+    /// this method may return different indices.
     fn find_by_color(&self, color: &StateColor<Self>) -> Option<Self::StateIndex> {
         self.state_indices()
             .find(|index| self.state_color(*index).as_ref() == Some(color))
     }
 
+    /// Returns true if and only if a state with the given `color` exists.
     fn contains_state_color(&self, color: &StateColor<Self>) -> bool {
         self.find_by_color(color).is_some()
     }
@@ -226,6 +235,7 @@ pub trait Pointed: TransitionSystem {
     fn initial(&self) -> Self::StateIndex;
 }
 
+/// This module deals with transforming a transition system (or similar) into a representation in the dot (graphviz) format.
 pub mod dot;
 pub use dot::ToDot;
 
@@ -235,6 +245,9 @@ use self::transition_system::IsTransition;
 /// of that, a congruence does not have any coloring on either states or symbols. This
 /// functionality is abstracted in [`Pointed`]. This trait is automatically implemented.
 pub trait Congruence: TransitionSystem + Pointed {
+    /// Creates a new instance of a [`RightCongruence`] from the transition structure of `self`. Returns
+    /// the created congruence together with a [`Map`] from old/original state indices to indices of the
+    /// created congruence.
     fn build_right_congruence(
         &self,
     ) -> (
@@ -256,12 +269,12 @@ pub trait Congruence: TransitionSystem + Pointed {
         }
 
         for state in self.state_indices() {
-            if let Some(mut it) = self.edges_from(state) {
+            if let Some(it) = self.edges_from(state) {
                 for edge in it {
                     let target = edge.target();
                     let target_class = map.get(&target).unwrap();
-                    let color = edge.color().clone();
-                    let target_class = cong.add_edge(
+                    let _color = edge.color().clone();
+                    let _target_class = cong.add_edge(
                         *map.get(&state).unwrap(),
                         edge.expression().clone(),
                         *target_class,

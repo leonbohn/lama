@@ -1,13 +1,16 @@
 use crate::{
-    alphabet::{HasAlphabet, SymbolOf},
+    alphabet::HasAlphabet,
     ts::{
         predecessors::{IsPreTransition, PredecessorIterable},
         transition_system::IsTransition,
-        HasStates,
     },
     Pointed, TransitionSystem,
 };
 
+/// Restricts a transition system to a subset of its state indices, which is defined by a filter
+/// function.
+
+#[derive(Debug, Clone)]
 pub struct RestrictByStateIndex<Ts: TransitionSystem, F> {
     ts: Ts,
     filter: F,
@@ -31,6 +34,7 @@ impl<Ts: TransitionSystem, F> HasAlphabet for RestrictByStateIndex<Ts, F> {
     }
 }
 
+#[allow(missing_docs)]
 impl<Ts: TransitionSystem, F> RestrictByStateIndex<Ts, F> {
     pub fn new(ts: Ts, filter: F) -> Self {
         Self { ts, filter }
@@ -45,12 +49,14 @@ impl<Ts: TransitionSystem, F> RestrictByStateIndex<Ts, F> {
     }
 }
 
+/// Iterator over the edges of a transition system that are restricted by a filter function.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RestrictedEdgesFromIter<'a, Ts: TransitionSystem + 'a, F> {
     filter: &'a F,
     it: Ts::EdgesFromIter<'a>,
 }
 
+#[allow(missing_docs)]
 impl<'a, Ts: TransitionSystem + 'a, F> RestrictedEdgesFromIter<'a, Ts, F> {
     pub fn new(it: Ts::EdgesFromIter<'a>, filter: &'a F) -> Self {
         Self { filter, it }
@@ -67,6 +73,7 @@ where
     }
 }
 
+/// Iterator over the predecessors in a transition system that are restricted by a filter function.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RestrictedEdgesToIter<'a, Ts: PredecessorIterable + 'a, F> {
     filter: &'a F,
@@ -83,6 +90,7 @@ where
     }
 }
 
+#[allow(missing_docs)]
 impl<'a, Ts: PredecessorIterable + 'a, F> RestrictedEdgesToIter<'a, Ts, F> {
     pub fn new(it: Ts::EdgesToIter<'a>, filter: &'a F) -> Self {
         Self { filter, it }

@@ -1,17 +1,6 @@
-use std::collections::BTreeMap;
+use crate::{alphabet::Alphabet, Set};
 
-use itertools::Itertools;
-
-use crate::{
-    alphabet::{Alphabet, Symbol, SymbolOf},
-    length::HasLength,
-    Color, FiniteLength, Set,
-};
-
-use super::{
-    transition_system::IsTransition, EdgeColor, IndexType, StateColor, StateIndex, Transition,
-    TransitionSystem,
-};
+use super::{transition_system::IsTransition, IndexType, TransitionSystem};
 
 /// Represents a path through a transition system. Note, that the path itself is decoupled from the
 /// transition system, which allows to use it for multiple transition systems. In particular, it is possible
@@ -62,6 +51,7 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
         )
     }
 
+    /// Returns an iterator over all colors which appear on an edge taken by the path.
     pub fn edge_colors<'a, TS>(&'a self, ts: &'a TS) -> impl Iterator<Item = TS::EdgeColor> + 'a
     where
         TS: TransitionSystem<Alphabet = A, StateIndex = Idx>,
@@ -73,6 +63,7 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
             .map(move |(source, sym)| ts.edge_color(*source, sym).expect("These transitions must exist, otherwise the path cannot have been built with a ts that is consistent with the given one."))
     }
 
+    /// Returns the color of the state that is reached by the path.
     pub fn reached_state_color<'a, TS>(&'a self, ts: &'a TS) -> TS::StateColor
     where
         TS: TransitionSystem<Alphabet = A, StateIndex = Idx>,
@@ -83,6 +74,7 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
             .expect("We assume every state to be colored")
     }
 
+    /// Gives an iterator over all colors of the states visited by the path.
     pub fn state_colors<'a, TS>(&'a self, ts: &'a TS) -> impl Iterator<Item = TS::StateColor> + 'a
     where
         TS: TransitionSystem<Alphabet = A, StateIndex = Idx>,
@@ -103,6 +95,7 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
         }
     }
 
+    /// Creates a new path with the given `state` as origin and the given `transitions`.
     pub fn new(state: Idx, transitions: Vec<(Idx, A::Expression)>) -> Self {
         Self {
             end: state,
@@ -128,6 +121,7 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
         Some(transition)
     }
 
+    /// Extends self with the given `other` path.
     pub fn extend_with(&mut self, other: Path<A, Idx>) {
         self.transitions.extend(other.transitions);
     }
@@ -144,6 +138,7 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
     }
 }
 
+/// A lasso represents an infinite path, which after it ends loops back to some previous position.
 #[derive(Debug, Clone)]
 pub struct Lasso<A: Alphabet, Idx> {
     base: Path<A, Idx>,
@@ -151,10 +146,13 @@ pub struct Lasso<A: Alphabet, Idx> {
 }
 
 impl<A: Alphabet, Idx> Lasso<A, Idx> {
+    /// Creates a new [`Lasso`] from the given base/spoke and cycle/recurring [`Path`].
     pub fn new(base: Path<A, Idx>, cycle: Path<A, Idx>) -> Self {
         Self { base, cycle }
     }
 
+    /// Returns the infinity set of `self` in the given [`TransitionSystem`], i.e. the set of (edge) colors
+    /// that is visited infinitely often.
     pub fn infinity_set<Ts>(self, ts: Ts) -> Set<Ts::EdgeColor>
     where
         Ts: TransitionSystem<Alphabet = A, StateIndex = Idx>,

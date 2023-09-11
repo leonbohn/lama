@@ -15,7 +15,11 @@ pub trait ToDot {
     /// see the [graphviz documentation](https://graphviz.org/doc/info/lang.html).
     fn dot_representation(&self) -> String;
 
+    /// Returns the header of the graphviz representation. This is the part that goes
+    /// right after the `digraph A {` part.
     fn header(&self) -> String;
+    /// Returns the body of the graphviz representation. This is the part that goes
+    /// right after the header and before the closing `}`.
     fn body(&self, prefix: &str) -> String;
 
     /// Renders the object visually (as PNG) and returns a vec of bytes/u8s encoding
@@ -23,10 +27,7 @@ pub trait ToDot {
     /// and makes use of temporary files.
     #[cfg(feature = "graphviz")]
     fn render(&self) -> Result<Vec<u8>, std::io::Error> {
-        use std::{
-            io::{Read, Write},
-            path::Path,
-        };
+        use std::io::{Read, Write};
         let dot = self.dot_representation();
 
         let mut child = std::process::Command::new("dot")
@@ -55,12 +56,11 @@ pub trait ToDot {
         Ok(output)
     }
 
+    /// Attempts to render the object to a file with the given filename. This method
+    /// is only available on the `graphviz` crate feature and makes use of temporary files.
     #[cfg(feature = "graphviz")]
     fn render_to_file_name(&self, filename: &str) -> Result<(), std::io::Error> {
-        use std::{
-            io::{Read, Write},
-            path::Path,
-        };
+        use std::io::{Read, Write};
         use tracing::trace;
 
         trace!("Outputting dot and rendering to png");
@@ -96,10 +96,6 @@ pub trait ToDot {
     /// of a buffer of bytes.
     #[cfg(feature = "graphviz")]
     fn render_tempfile(&self) -> Result<tempfile::TempPath, std::io::Error> {
-        use std::{
-            io::{Read, Write},
-            path::Path,
-        };
         use tracing::trace;
 
         trace!("Outputting dot and rendering to png");
@@ -112,8 +108,6 @@ pub trait ToDot {
     /// i.e. quicklook on macos and nothing yet on windows).
     #[cfg(feature = "graphviz")]
     fn display_rendered(&self) -> Result<(), std::io::Error> {
-        use std::io::Write;
-
         let rendered_path = self.render_tempfile()?;
         display_png(rendered_path)
     }
@@ -147,7 +141,7 @@ where
         let to_consider = self.state_indices();
 
         for state in to_consider {
-            if let Some(mut it) = self.edges_from(state) {
+            if let Some(it) = self.edges_from(state) {
                 for e in it {
                     lines.push(format!(
                         "\"{prefix},{}\" -> \"{prefix},{}\" [label = \"{:?}\"]",
@@ -245,7 +239,7 @@ where
         for state in self.leading.state_indices() {
             for &sym in self.leading.alphabet().universe() {
                 if let Some(edge) = self.leading.transition(state, sym) {
-                    let source_prc = self
+                    let _source_prc = self
                         .progress
                         .get(
                             &self
@@ -254,7 +248,7 @@ where
                                 .expect("State should be colored"),
                         )
                         .expect("Must have a prc for every state");
-                    let target_prc = self
+                    let _target_prc = self
                         .progress
                         .get(
                             &self
@@ -279,6 +273,8 @@ where
     }
 }
 
+/// Renders the given dot string to a png file and displays it using the default
+/// image viewer on the system.
 #[cfg(feature = "graphviz")]
 pub fn display_dot(dot: &str) -> Result<(), std::io::Error> {
     display_png(render_dot_to_tempfile(dot)?)
@@ -286,11 +282,8 @@ pub fn display_dot(dot: &str) -> Result<(), std::io::Error> {
 
 #[cfg(feature = "graphviz")]
 fn render_dot_to_tempfile(dot: &str) -> Result<tempfile::TempPath, std::io::Error> {
-    use std::{
-        io::{Read, Write},
-        path::Path,
-    };
-    use tracing::trace;
+    use std::io::{Read, Write};
+
     let mut tempfile = tempfile::NamedTempFile::new()?;
     tempfile.write_all(dot.as_bytes())?;
     let tempfile_name = tempfile.path();
@@ -347,10 +340,7 @@ fn display_png(rendered_path: tempfile::TempPath) -> Result<(), std::io::Error> 
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        alphabet::Simple, congurence::FORC, simple, ts::Sproutable, Alphabet, Class, Pointed,
-        RightCongruence,
-    };
+    use crate::{congurence::FORC, simple, ts::Sproutable, Class, Pointed, RightCongruence};
 
     use super::ToDot;
 
