@@ -134,6 +134,14 @@ where
     fn set_state_color<X: Into<StateColor<Self>>>(&mut self, index: Self::StateIndex, color: X) {
         self.ts_mut().set_state_color(index, color)
     }
+
+    type ExtendStateIndexIter = Ts::ExtendStateIndexIter;
+    fn extend_states<I: IntoIterator<Item = StateColor<Self>>>(
+        &mut self,
+        iter: I,
+    ) -> Self::ExtendStateIndexIter {
+        self.ts_mut().extend_states(iter)
+    }
 }
 impl<Ts: TransitionSystem + HasStates> HasStates for WithInitial<Ts> {
     type State<'this> = Ts::State<'this>

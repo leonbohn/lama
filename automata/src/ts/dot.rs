@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display};
 use itertools::Itertools;
 
 use crate::{
-    congurence::FORC, ts::FiniteState, Alphabet, Class, Color, Pointed, RightCongruence,
+    congruence::FORC, ts::FiniteState, Alphabet, Class, Color, Pointed, RightCongruence,
     TransitionSystem,
 };
 
@@ -343,7 +343,7 @@ fn display_png(rendered_path: tempfile::TempPath) -> Result<(), std::io::Error> 
 
 #[cfg(test)]
 mod tests {
-    use crate::{congurence::FORC, simple, ts::Sproutable, Class, Pointed, RightCongruence};
+    use crate::{congruence::FORC, simple, ts::Sproutable, Class, Pointed, RightCongruence};
 
     use super::ToDot;
 

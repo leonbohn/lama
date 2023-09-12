@@ -1,1 +1,1 @@
-use automata::congurence::FORC;
+use automata::congruence::FORC;

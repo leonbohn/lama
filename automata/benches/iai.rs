@@ -70,6 +70,11 @@ fn finite_run_words((automata, words): (&[MooreMachine<Simple, usize>], &[Vec<ch
         }
     }
 }
+
+fn iai_runs() {
+    finite_run_words(iai::black_box((&DATA.0, &DATA.1)));
+}
+
 fn finite_run_words_new((automata, words): (&[MooreMachine<Simple, usize>], &[Vec<char>])) {
     for automaton in automata {
         for word in words {
@@ -78,10 +83,18 @@ fn finite_run_words_new((automata, words): (&[MooreMachine<Simple, usize>], &[Ve
     }
 }
 
+fn iai_runs_new() {
+    finite_run_words_new(iai::black_box((&DATA.0, &DATA.1)));
+}
+
 fn scc_tree_decomposition(automata: &[MooreMachine<Simple, usize>]) {
     for automaton in automata {
         automaton.tarjan_tree();
     }
+}
+
+fn iai_scc_tree_decomposition() {
+    scc_tree_decomposition(iai::black_box(&DATA.0));
 }
 
 fn scc_decomposition(automata: &[MooreMachine<Simple, usize>]) {
@@ -90,25 +103,41 @@ fn scc_decomposition(automata: &[MooreMachine<Simple, usize>]) {
     }
 }
 
-fn iai_runs() {
-    finite_run_words(iai::black_box((&DATA.0, &DATA.1)));
-}
-
-fn iai_runs_new() {
-    finite_run_words_new(iai::black_box((&DATA.0, &DATA.1)));
-}
-
-fn iai_scc_tree_decomposition() {
-    scc_tree_decomposition(iai::black_box(&DATA.0));
-}
-
 fn iai_scc_decomposition() {
     scc_decomposition(iai::black_box(&DATA.0))
+}
+
+fn automata_transformations_old(automata: &[MooreMachine<Simple, usize>]) {
+    for automaton in automata {
+        let _ts: automata::ts::BTS<_, _, _> = automaton
+            .map_edge_colors(|_| 7)
+            .map_state_colors(|_| 'c')
+            .collect_old();
+    }
+}
+
+fn iai_automata_transformations_old() {
+    automata_transformations_old(iai::black_box(&DATA.0))
+}
+
+fn automata_transformations(automata: &[MooreMachine<Simple, usize>]) {
+    for automaton in automata {
+        let _ts: automata::ts::BTS<_, _, _> = automaton
+            .map_edge_colors(|_| 7)
+            .map_state_colors(|_| 'c')
+            .collect();
+    }
+}
+
+fn iai_automata_transformations() {
+    automata_transformations(iai::black_box(&DATA.0))
 }
 
 iai::main!(
     iai_runs,
     iai_runs_new,
     iai_scc_decomposition,
-    iai_scc_tree_decomposition
+    iai_scc_tree_decomposition,
+    iai_automata_transformations_old,
+    iai_automata_transformations
 );

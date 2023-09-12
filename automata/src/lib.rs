@@ -27,8 +27,8 @@ pub use automaton::{
 };
 
 /// Defines congruence relations and congruence classes.
-pub mod congurence;
-pub use congurence::{Class, RightCongruence};
+pub mod congruence;
+pub use congruence::{Class, RightCongruence};
 
 /// Module that contains definitions for dealing with words.
 #[macro_use]
@@ -37,9 +37,6 @@ pub use word::Word;
 
 /// Module that contains definitions for dealing with mappings.
 pub mod mapping;
-
-mod priority_mapping;
-pub use priority_mapping::FWPM;
 
 /// A color is simply a type that can be used to color states or transitions.
 pub trait Color: Clone + Eq + Ord + Hash {

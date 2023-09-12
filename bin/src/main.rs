@@ -1,5 +1,5 @@
 use automata::{
-    congurence::FORC,
+    congruence::FORC,
     ts::{dot::display_dot, ToDot},
     Map,
 };

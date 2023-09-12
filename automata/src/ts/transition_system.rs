@@ -1,7 +1,7 @@
 use crate::{
     alphabet::{ExpressionOf, HasAlphabet, SymbolOf},
     automaton::WithInitial,
-    congurence::ColoredClass,
+    congruence::ColoredClass,
     Alphabet, Class, Color, Map, Pointed, RightCongruence, Word,
 };
 
@@ -11,6 +11,7 @@ use super::{
         ProductEdgesFrom, ProductIndex, ProductTransition, RestrictByStateIndex,
         RestrictedEdgesFromIter,
     },
+    predecessors::PredecessorIterable,
     reachable::{MinimalRepresentatives, ReachableStateIndices, ReachableStates},
     run::{
         successful::Successful,
@@ -26,6 +27,7 @@ use super::{
 };
 
 use impl_tools::autoimpl;
+use itertools::Itertools;
 
 /// This trait is implemented for references to transitions, so that they can be used in
 /// generic contexts. It is automatically implemented for (mutable) references.
@@ -44,6 +46,14 @@ pub trait IsTransition<E, Idx, C> {
         Self: Sized,
     {
         (self.expression().clone(), self.target(), self.color())
+    }
+    /// Destructures `self` but into a slightly different form.
+    fn into_nested_tuple(self) -> (E, (Idx, C))
+    where
+        E: Clone,
+        Self: Sized,
+    {
+        (self.expression().clone(), (self.target(), self.color()))
     }
 }
 
@@ -511,7 +521,41 @@ pub trait TransitionSystem: HasAlphabet {
 
     /// Collects `self` into a new transition system of type `Ts` with the same alphabet, state indices
     /// and edge colors.
-    fn collect_into_ts<
+    fn collect<
+        Ts: TransitionSystem<
+                StateColor = Self::StateColor,
+                EdgeColor = Self::EdgeColor,
+                Alphabet = Self::Alphabet,
+            > + super::Sproutable,
+    >(
+        &self,
+    ) -> Ts
+    where
+        Self: FiniteState,
+    {
+        let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
+
+        let (l, r) = self.state_indices().tee();
+        let map: Map<_, _> = l
+            .zip(ts.extend_states(r.map(|q| self.state_color(q).unwrap())))
+            .collect();
+        for index in self.state_indices() {
+            let q = *map.get(&index).unwrap();
+            self.edges_from(index).unwrap().for_each(|tt| {
+                ts.add_edge(
+                    q,
+                    tt.expression().clone(),
+                    *map.get(&tt.target()).unwrap(),
+                    tt.color(),
+                );
+            });
+        }
+        ts
+    }
+
+    /// Collects `self` into a new transition system of type `Ts` with the same alphabet, state indices
+    /// and edge colors.
+    fn collect_old<
         Ts: TransitionSystem<
                 StateColor = Self::StateColor,
                 EdgeColor = Self::EdgeColor,

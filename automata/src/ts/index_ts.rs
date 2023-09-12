@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
     Color, Map, Set,
@@ -189,6 +191,17 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> BTS<A, Q, C, Idx> {
 }
 
 impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
+    type ExtendStateIndexIter = std::ops::Range<Self::StateIndex>;
+    fn extend_states<I: IntoIterator<Item = StateColor<Self>>>(
+        &mut self,
+        iter: I,
+    ) -> Self::ExtendStateIndexIter {
+        let n = self.states.len();
+        let it = (n..).zip(iter.into_iter().map(|c| BTState::new(c)));
+        self.states.extend(it);
+        n..self.states.len()
+    }
+
     /// Adds a state with given `color` to the transition system, returning the index of
     /// the new state.
     fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {

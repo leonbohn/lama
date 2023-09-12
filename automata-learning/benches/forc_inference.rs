@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use automata::{alphabet::Simple, congurence::FORC};
+use automata::{alphabet::Simple, congruence::FORC};
 use automata_learning::passive::OmegaSample;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use pprof::criterion::{Output, PProfProfiler};
