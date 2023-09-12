@@ -14,7 +14,7 @@ use super::{
     EdgeColor, IndexType, BTS,
 };
 
-/// The counterpart to the [`IsTransition`] trait for predecessors.
+/// The counterpart to the [`super::transition_system::IsTransition`] trait for predecessors.
 #[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
 pub trait IsPreTransition<Idx, E, C> {
     /// Return the source state of the pre-transition.

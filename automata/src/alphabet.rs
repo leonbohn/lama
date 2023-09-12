@@ -20,7 +20,7 @@ impl<S: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash + Display> Symbo
     }
 }
 
-/// An expression is used to label [`crate::ts::Edge`]s of a [`crate::ts::TransitionSystem`]. For [`Simple`]
+/// An expression is used to label edges of a [`crate::ts::TransitionSystem`]. For [`Simple`]
 /// alphabets, an expression is simply a single symbol, whereas for a [`Propositional`] alphabet, an expression
 /// is a propositional formula over the atomic propositions. See [`Propositional`] for more details.
 pub trait Expression<S: Symbol>: Hash + Clone + Debug + Eq + Ord {
@@ -95,10 +95,10 @@ pub type ExpressionOf<A> = <<A as HasAlphabet>::Alphabet as Alphabet>::Expressio
 /// Assume we have a propositional alphabet over the atomic propositions `a`, `b` and `c`.
 ///
 /// Then a **symbol** in this alphabet is a valuation of these variables, e.g. `a & !b & c`. This is used to label
-/// [`crate::ts::Transition`]s in a [`crate::ts::TransitionSystem`].
+/// transitions in a [`crate::ts::TransitionSystem`].
 ///
-/// An **expression** on the other hand is used to label [`crate::ts::Edge`]s and it is a boolean expression over
-/// the atomic propositions, e.g. `(a | b) & c`. Such an expression is [`super::Alphabet::matches`](matched) by
+/// An **expression** on the other hand is used to label edges and it is a boolean expression over
+/// the atomic propositions, e.g. `(a | b) & c`. Such an expression is matched by
 /// a symbol if the symbol satisfies the expression, i.e. if the expression evaluates to `true` under the given
 /// valuation. The expression from above, for example, would be matched by the symbol given above (`a & !b & c`),
 /// but not by the symbols `a & b & !c` or `!a & !b & c`.
@@ -111,9 +111,9 @@ pub struct Propositional {
 ///
 /// # Example
 /// Assume we have a simple alphabet over the symbols 'a' and 'b'. Then a **symbol** would be just one of these
-/// characters, e.g. 'a'. This is used to label [`crate::ts::Transition`]s in a [`crate::ts::TransitionSystem`].
+/// characters, e.g. 'a'. This is used to label transitions in a [`crate::ts::TransitionSystem`].
 /// Now an **expression** would also be just a single character, e.g. 'a'. Then such an expression is
-/// [`super::Alphabet::matches`](matched) by a symbol if the expression equals the symbol.
+/// matched by a symbol if the expression equals the symbol.
 #[derive(Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
 pub struct Simple(Vec<char>);
 

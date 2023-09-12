@@ -155,12 +155,16 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
     let looping_words = samples.cong().looping_words(&class);
 
     let left_pta = prefix_tree(sample.alphabet.clone(), periodic_sample.positive())
-        .map_colors(|mr| !mr.is_empty() && periodic_sample.classify(mr.omega_power()) == Some(true))
+        .map_state_colors(|mr| {
+            !mr.class().is_empty()
+                && periodic_sample.classify(mr.class().omega_power()) == Some(true)
+        })
         .intersection(&looping_words);
 
     let right_pta = prefix_tree(sample.alphabet.clone(), periodic_sample.negative())
-        .map_colors(|mr| {
-            !mr.is_empty() && periodic_sample.classify(mr.omega_power()) == Some(false)
+        .map_state_colors(|mr| {
+            !mr.class().is_empty()
+                && periodic_sample.classify(mr.class().omega_power()) == Some(false)
         })
         .intersection(&looping_words);
 
@@ -358,6 +362,7 @@ where
         let mut new_state_label = cong
             .state_color(source)
             .expect("We expect every state to be colored")
+            .class()
             .clone();
         new_state_label.push(sym);
         trace!(
@@ -536,7 +541,7 @@ mod tests {
         );
         let mut expected_cong = RightCongruence::new(simple!('a', 'b'));
         let q0 = expected_cong.initial();
-        let q1 = expected_cong.add_state(vec!['a'].into());
+        let q1 = expected_cong.add_state(vec!['a']);
         expected_cong.add_edge(q0, 'a', q1, ());
         expected_cong.add_edge(q1, 'a', q0, ());
         expected_cong.add_edge(q0, 'b', q0, ());

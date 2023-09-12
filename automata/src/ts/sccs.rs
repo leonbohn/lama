@@ -426,9 +426,9 @@ mod tests {
     fn ts() -> RightCongruence<Simple> {
         let mut cong = RightCongruence::new(simple!('a', 'b'));
         let q0 = cong.initial();
-        let q1 = cong.add_state(vec!['a'].into());
-        let q2 = cong.add_state(vec!['b'].into());
-        let q3 = cong.add_state(vec!['b', 'b'].into());
+        let q1 = cong.add_state(vec!['a']);
+        let q2 = cong.add_state(vec!['b']);
+        let q3 = cong.add_state(vec!['b', 'b']);
         cong.add_edge(q0, 'a', q1, ());
         cong.add_edge(q0, 'b', q2, ());
         cong.add_edge(q1, 'a', q1, ());

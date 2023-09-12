@@ -481,7 +481,9 @@ impl<A: Alphabet, C: Color> OmegaSample<A, C> {
                         ClassOmegaSample::empty(
                             cong,
                             cong.state_color(reached)
-                                .expect("We assume every state to have a color"),
+                                .expect("We assume every state to have a color")
+                                .class()
+                                .clone(),
                             self.alphabet.clone(),
                         )
                     })
@@ -630,7 +632,7 @@ mod tests {
             );
         }
 
-        let dfa = cong.map_colors(|_| true);
+        let dfa = cong.map_state_colors(|_| true);
         for prf in ["aba", "ababbbbbb", "", "aa", "b", "bbabbab"] {
             assert!(dfa.accepts(&prf));
         }

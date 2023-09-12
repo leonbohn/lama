@@ -9,13 +9,13 @@ use automata::{
 /// or even a collection of words.
 ///
 /// This trait is designed in a generic way, allowing us to use it for learning a priority mapping, which assigns
-/// non-empty finite words a value of type `Output`. This means we can learn a Mealy machine by using [`Priority`] as
+/// non-empty finite words a value of type `Output`. This means we can learn a Mealy machine by using priorities as
 /// the `Output` type, but it also enables us to learn a regular language/deterministic finite automaton by using
 /// `bool` as the `Output` type.
 pub trait Oracle: HasAlphabet {
     /// The length type of the words that this oracle can handle.
     type Length: Length;
-    /// The output type, for a DFA that would be a boolean, but a Mealy Machine might output a [`Priority`] instead.
+    /// The output type, for a DFA that would be a boolean, but a Mealy Machine might output a priority instead.
     type Output: Color;
 
     /// Query the desired output for the given word.

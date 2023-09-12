@@ -10,15 +10,15 @@ pub trait Sproutable: TransitionSystem {
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self;
 
     /// Adds a new state with the given color, returning the index of the newly created state.
-    fn add_state(&mut self, color: StateColor<Self>) -> Self::StateIndex;
+    fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex;
 
     /// Removes the state with the given index. Note, that this should also remove all transitions
     /// that start or end in the given state. If the no state with the given `index` exists, the
     /// method is a no-op.
-    fn set_state_color(&mut self, index: Self::StateIndex, color: StateColor<Self>);
+    fn set_state_color<X: Into<StateColor<Self>>>(&mut self, index: Self::StateIndex, color: X);
 
     /// Sets the state color of the initial state.
-    fn set_initial_color(&mut self, color: StateColor<Self>)
+    fn set_initial_color<X: Into<StateColor<Self>>>(&mut self, color: X)
     where
         Self: Pointed,
     {

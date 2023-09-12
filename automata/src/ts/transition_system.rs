@@ -1,6 +1,7 @@
 use crate::{
     alphabet::{ExpressionOf, HasAlphabet, SymbolOf},
     automaton::WithInitial,
+    congurence::ColoredClass,
     Alphabet, Class, Color, Map, Pointed, RightCongruence, Word,
 };
 
@@ -66,11 +67,11 @@ impl<'a, Idx: IndexType, E, C: Color> IsTransition<E, Idx, C> for (&'a E, &'a (I
 /// is labeled with a [`Color`], which can be used to store additional information about it, like an
 /// associated priority.
 ///
-/// # The difference between [`Transition`]s and [`crate::ts::Edge`]s
+/// # The difference between transitions and edges
 /// Internally, a transition system is represented as a graph, where the states are the nodes and the
-/// transitions are the edges. However, the [`Transition`]s are not the same as the [`crate::ts::Edge`]s.
-/// Both store the source and target vertex as well as the color, however an [`crate::ts::Edge`] is labelled
-/// with an expression, while a [`Transition`] is labelled with an actual symbol (that [`Alphabet::matches`]
+/// transitions are the edges. However, the transitions are not the same as the edges.
+/// Both store the source and target vertex as well as the color, however an edge is labelled
+/// with an expression, while a transition is labelled with an actual symbol (that [`Alphabet::matches`]
 /// the expression). So a transition is a concrete edge that is taken (usually by the run on a word), while
 /// an edge may represent any different number of transitions.
 pub trait TransitionSystem: HasAlphabet {
@@ -133,8 +134,27 @@ pub trait TransitionSystem: HasAlphabet {
         RestrictByStateIndex::new(self, filter)
     }
 
+    /// Completely removes the edge coloring.
+    fn erase_edge_colors(self) -> MapEdgeColor<Self, fn(Self::EdgeColor) -> ()>
+    where
+        Self: Sized,
+    {
+        self.map_edge_colors(|_| ())
+    }
+
+    /// Map the edge colors of `self` with the given function `f`.
+    fn map_edge_colors<D: Color, F: Fn(Self::EdgeColor) -> D>(self, f: F) -> MapEdgeColor<Self, F>
+    where
+        Self: Sized,
+    {
+        MapEdgeColor::new(self, f)
+    }
+
     /// Map the state colors of `self` with the given function.
-    fn map_colors<D: Color, F: Fn(Self::StateColor) -> D>(self, f: F) -> MapStateColor<Self, F>
+    fn map_state_colors<D: Color, F: Fn(Self::StateColor) -> D>(
+        self,
+        f: F,
+    ) -> MapStateColor<Self, F>
     where
         Self: Sized,
     {
@@ -146,7 +166,7 @@ pub trait TransitionSystem: HasAlphabet {
     where
         Self: Sized,
     {
-        self.map_colors(|_| true)
+        self.map_state_colors(|_| true)
     }
 
     /// Obtains the [`SccDecomposition`] of self, which is a partition of the states into strongly
@@ -167,7 +187,7 @@ pub trait TransitionSystem: HasAlphabet {
         TarjanDAG::from(tarjan_scc(self))
     }
 
-    /// Returns just the [Self::Index] of the successor that is reached on the given `symbol`
+    /// Returns just the [`Self::StateIndex`] of the successor that is reached on the given `symbol`
     /// from `state`. If no suitable transition exists, `None` is returned.
     fn successor_index(
         &self,
@@ -288,7 +308,7 @@ pub trait TransitionSystem: HasAlphabet {
     /// run is successful (i.e. for all symbols of `word` a suitable transition can be taken), this
     /// returns a [`Successful`] run, which can then be used to obtain the colors of the transitions
     /// or the sequence of states that are visited. If the run is unsuccessful, meaning a symbol is
-    /// encountered for which no transition exists, this returns a [`Partial`] run, which can be used
+    /// encountered for which no transition exists, this returns a [`super::run::partial::Partial`] run, which can be used
     /// to obtain the colors of the transitions that were taken before, as well as the state that
     /// the transition system was left from and the remaining suffix.
     fn run<'a, 'b, R: Word<Symbol = SymbolOf<Self>>>(
@@ -593,12 +613,12 @@ impl<Ts: TransitionSystem> TransitionSystem for &mut Ts {
     }
 }
 
-impl<A: Alphabet> TransitionSystem for RightCongruence<A> {
+impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for RightCongruence<A, Q, C> {
     type StateIndex = usize;
-    type EdgeColor = ();
-    type StateColor = Class<A::Symbol>;
-    type TransitionRef<'this> = (&'this A::Expression, &'this (usize, ())) where Self: 'this;
-    type EdgesFromIter<'this> = std::collections::hash_map::Iter<'this, A::Expression, (usize, ())>
+    type EdgeColor = C;
+    type StateColor = ColoredClass<A::Symbol, Q>;
+    type TransitionRef<'this> = (&'this A::Expression, &'this (usize, C)) where Self: 'this;
+    type EdgesFromIter<'this> = std::collections::hash_map::Iter<'this, A::Expression, (usize, C)>
     where
         Self: 'this;
 

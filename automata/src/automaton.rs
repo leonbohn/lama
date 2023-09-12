@@ -99,14 +99,6 @@ impl<Ts: TransitionSystem + Sproutable> Sproutable for WithInitial<Ts>
 where
     StateColor<Ts>: Default,
 {
-    fn add_state(&mut self, color: StateColor<Self>) -> Self::StateIndex {
-        self.ts_mut().add_state(color)
-    }
-
-    fn set_state_color(&mut self, index: Self::StateIndex, color: StateColor<Self>) {
-        self.ts_mut().set_state_color(index, color)
-    }
-
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
         let mut ts = Ts::new_for_alphabet(alphabet);
         let initial = ts.add_state(<StateColor<Ts> as Default>::default());
@@ -133,6 +125,14 @@ where
         on: <Self::Alphabet as Alphabet>::Expression,
     ) -> bool {
         self.ts_mut().remove_edge(from, on)
+    }
+
+    fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
+        self.ts_mut().add_state(color)
+    }
+
+    fn set_state_color<X: Into<StateColor<Self>>>(&mut self, index: Self::StateIndex, color: X) {
+        self.ts_mut().set_state_color(index, color)
     }
 }
 impl<Ts: TransitionSystem + HasStates> HasStates for WithInitial<Ts> {
@@ -366,7 +366,7 @@ pub trait IsDfa:
     /// Computes the union of `self` with the given `other` object (that can be viewed as a DFA) through
     /// a simple product construction.
     fn union<Ts: IsDfa<Alphabet = Self::Alphabet>>(self, other: Ts) -> DfaProductReduced<Self, Ts> {
-        self.ts_product(other).map_colors(|(a, b)| a || b)
+        self.ts_product(other).map_state_colors(|(a, b)| a || b)
     }
 
     /// Computes the intersection of `self` with the given `other` object (that can be viewed as a DFA) through
@@ -375,12 +375,12 @@ pub trait IsDfa:
         self,
         other: Ts,
     ) -> DfaProductReduced<Self, Ts> {
-        self.ts_product(other).map_colors(|(a, b)| a && b)
+        self.ts_product(other).map_state_colors(|(a, b)| a && b)
     }
 
     /// Computes the negation of `self` by swapping accepting and non-accepting states.
     fn negation(self) -> MapStateColor<Self, fn(bool) -> bool> {
-        self.map_colors(|x| !x)
+        self.map_state_colors(|x| !x)
     }
 }
 
@@ -394,7 +394,7 @@ impl<Ts> IsDfa for Ts where
 }
 
 /// Similar to [`IsDfa`], this trait is supposed to be (automatically) implemented by everything that can be viewed
-/// as a [`Dba`].
+/// as a [`crate::DBA`].
 pub trait IsDba:
     TransitionSystem<EdgeColor = bool>
     + Pointed
@@ -442,7 +442,7 @@ impl<Ts> IsDba for Ts where
 {
 }
 
-/// Trait that should be implemented by every object that can be viewed as a [`Dpa`].
+/// Trait that should be implemented by every object that can be viewed as a [`crate::DPA`].
 pub trait IsDpa:
     TransitionSystem<EdgeColor = usize>
     + Pointed

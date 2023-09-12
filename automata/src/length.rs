@@ -10,7 +10,7 @@ pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
     /// The type of iterator over the set of raw positions.
     type RawPositions: Iterator<Item = RawPosition>;
 
-    /// Heavily used in the computation of a run (which is done by [`crate::run::Cane`]). For
+    /// Heavily used in the computation of a run (see [`crate::ts::run::walker::Walker`]). For
     /// finite words, this method always either returns `None` (if the given `position` is out
     /// of bounds) or `Some(position)`. More interestingly, if the length is infinite, this
     /// method takes the reset point/loop index of the input into account.
@@ -202,7 +202,7 @@ impl InfiniteLength {
         &raw[..self.1]
     }
 
-    /// Operates similarly to [`prefix_of`], but returns the looping part instead.
+    /// Operates similarly to [`Self::prefix_of`], but returns the looping part instead.
     pub fn suffix_of<'a, S>(&self, raw: &'a [S]) -> &'a [S] {
         &raw[self.1..self.0]
     }

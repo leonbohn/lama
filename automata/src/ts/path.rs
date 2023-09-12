@@ -7,7 +7,7 @@ use super::{transition_system::IsTransition, IndexType, TransitionSystem};
 /// to create a path through some transition system, modify the transition system and then extend the previously
 /// created path in the modified transiton system.
 ///
-/// A path consists of an `origin`, which is simply the [`StateIndex`] of the state where the path starts. It stores
+/// A path consists of an `origin`, which is simply the index of the state where the path starts. It stores
 /// a sequence of transitions and the colors of the states it visits.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Path<A: Alphabet, Idx> {
@@ -126,7 +126,7 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
         self.transitions.extend(other.transitions);
     }
 
-    /// Returns an iterator over the [`StateIndex`]es of the states visited by the path.
+    /// Returns an iterator over the indices of the states visited by the path.
     pub fn state_sequence(&self) -> impl Iterator<Item = Idx> + '_
     where
         Idx: IndexType,

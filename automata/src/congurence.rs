@@ -5,7 +5,7 @@ use itertools::Itertools;
 use crate::{
     alphabet::{HasAlphabet, Symbol},
     ts::{FiniteState, FiniteStatesIterType, HasFiniteStates, Sproutable, BTS},
-    Alphabet, FiniteLength, HasLength, Map, Pointed, TransitionSystem, Word, DFA,
+    Alphabet, Color, FiniteLength, HasLength, Map, Pointed, TransitionSystem, Word, DFA,
 };
 
 /// Represents a congruence class, which is in essence simply a non-empty sequence of symbols
@@ -123,15 +123,82 @@ impl<S: Ord> PartialOrd for Class<S> {
     }
 }
 
+/// A colored class is a [`Class`] which additionally has an associated color.
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct ColoredClass<S: Symbol, Q = ()> {
+    class: Class<S>,
+    color: Q,
+}
+
+impl<S: Symbol, Q: Debug> Display for ColoredClass<S, Q> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{} | {:?}]", self.class, self.color)
+    }
+}
+
+impl<S: Symbol, J: Into<Class<S>>> From<J> for ColoredClass<S, ()> {
+    fn from(value: J) -> Self {
+        Self {
+            class: value.into(),
+            color: (),
+        }
+    }
+}
+
+impl<S: Symbol, Q: Color> From<(Class<S>, Q)> for ColoredClass<S, Q> {
+    fn from(value: (Class<S>, Q)) -> Self {
+        Self {
+            class: value.0,
+            color: value.1,
+        }
+    }
+}
+
+impl<S: Symbol, Q: Color> ColoredClass<S, Q> {
+    /// Creates a new colored class from the given class and color.
+    pub fn new<X: Into<Class<S>>>(class: X, color: Q) -> Self {
+        Self {
+            class: class.into(),
+            color,
+        }
+    }
+
+    /// Returns a reference to the underlying class.
+    pub fn class(&self) -> &Class<S> {
+        &self.class
+    }
+
+    /// Consumes `self` and returns a [`ColoredClass`] with the same color but the given `class`.
+    pub fn reclass<X: Into<Class<S>>>(self, class: X) -> ColoredClass<S, Q> {
+        ColoredClass {
+            class: class.into(),
+            color: self.color,
+        }
+    }
+
+    /// Consumes `self` and returns a [`ColoredClass`] with the same class but the given `color`.
+    pub fn recolor<D: Color>(self, color: D) -> ColoredClass<S, D> {
+        ColoredClass {
+            class: self.class,
+            color,
+        }
+    }
+
+    /// Returns a reference to the stored color.
+    pub fn color(&self) -> &Q {
+        &self.color
+    }
+}
+
 /// A right congruence is an equivalence relation that is compatible with the right concatenation. We
 /// represent these as a transition system, where the states are the equivalence classes and the colors
 /// on edges are `()`.
 #[derive(Clone, Eq, PartialEq)]
-pub struct RightCongruence<A: Alphabet> {
-    ts: BTS<A, Class<A::Symbol>, ()>,
+pub struct RightCongruence<A: Alphabet, Q = (), C: Color = ()> {
+    ts: BTS<A, ColoredClass<A::Symbol, Q>, C>,
 }
 
-impl<A: Alphabet> Debug for RightCongruence<A> {
+impl<A: Alphabet, Q: Color + Debug, C: Color + Debug> Debug for RightCongruence<A, Q, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "RightCongruence\n{:?}", self.ts)
     }
@@ -155,19 +222,21 @@ impl<A: Alphabet> IndexesRightCongruence<A> for &Class<A::Symbol> {
     }
 }
 
-impl<A: Alphabet> RightCongruence<A> {
+impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
     /// Turns the given transition system into a right congruence.
-    pub fn from_ts(ts: BTS<A, Class<A::Symbol>, ()>) -> Self {
-        Self { ts }
+    pub fn from_ts<X: Into<ColoredClass<A::Symbol, Q>> + Color>(ts: BTS<A, X, C>) -> Self {
+        Self {
+            ts: ts.map_state_colors(|c| c.into()).collect_ts(),
+        }
     }
 
     /// Returns a reference to the underlying [`TransitionSystem`].
-    pub fn ts(&self) -> &BTS<A, Class<A::Symbol>, ()> {
+    pub fn ts(&self) -> &BTS<A, ColoredClass<A::Symbol, Q>, C> {
         &self.ts
     }
 
     /// Returns a mutable reference to the underlying [`TransitionSystem`].
-    pub fn ts_mut(&mut self) -> &mut BTS<A, Class<A::Symbol>, ()> {
+    pub fn ts_mut(&mut self) -> &mut BTS<A, ColoredClass<A::Symbol, Q>, C> {
         &mut self.ts
     }
 
@@ -183,7 +252,8 @@ impl<A: Alphabet> RightCongruence<A> {
             .minimal_representatives_from(self.initial())
             .collect_vec()
         {
-            self.ts.set_state_color(id, mr.into());
+            self.ts
+                .set_state_color(id, self.ts().state_color(id).unwrap().reclass(mr));
         }
     }
 
@@ -191,47 +261,52 @@ impl<A: Alphabet> RightCongruence<A> {
     pub fn class_to_index(&self, class: &Class<A::Symbol>) -> Option<usize> {
         self.ts
             .indices_with_color()
-            .find_map(|(id, c)| if c == class { Some(id) } else { None })
+            .find_map(|(id, c)| if c.class() == class { Some(id) } else { None })
     }
 
     /// Computes a DFA that accepts precisely those finite words which loop on the given `class`. Formally,
     /// if `u` represents the given class, then the DFA accepts precisely those words `w` such that `uw`
     /// is congruent to `u`.
     pub fn looping_words(&self, class: &Class<A::Symbol>) -> DFA<A> {
-        self.map_colors(|c| &c == class)
+        self.map_state_colors(|c| c.class() == class)
+            .erase_edge_colors()
             .collect_ts()
             .with_initial(self.class_to_index(class).unwrap())
     }
 }
 
-impl<'a, A: Alphabet> HasFiniteStates<'a> for RightCongruence<A> {
-    type StateIndicesIter = FiniteStatesIterType<'a, BTS<A, Class<A::Symbol>, (), usize>>;
+impl<'a, A: Alphabet, Q: Color, C: Color> HasFiniteStates<'a> for RightCongruence<A, Q, C> {
+    type StateIndicesIter = FiniteStatesIterType<'a, BTS<A, ColoredClass<A::Symbol, Q>, C, usize>>;
 }
 
-impl<A: Alphabet> FiniteState for RightCongruence<A> {
+impl<A: Alphabet, Q: Color, C: Color> FiniteState for RightCongruence<A, Q, C> {
     fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
         self.ts.state_indices()
     }
 }
 
-impl<A: Alphabet> Pointed for RightCongruence<A> {
+impl<A: Alphabet, Q: Color, C: Color> Pointed for RightCongruence<A, Q, C> {
     fn initial(&self) -> Self::StateIndex {
         0
     }
 }
 
-impl<A: Alphabet> Sproutable for RightCongruence<A> {
-    fn add_state(&mut self, color: crate::ts::StateColor<Self>) -> Self::StateIndex {
-        self.ts.add_state(color)
+impl<A: Alphabet, Q: Color + Default, C: Color> Sproutable for RightCongruence<A, Q, C> {
+    fn add_state<X: Into<crate::ts::StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
+        self.ts.add_state(color.into())
     }
 
-    fn set_state_color(&mut self, index: Self::StateIndex, color: crate::ts::StateColor<Self>) {
-        self.ts.set_state_color(index, color)
+    fn set_state_color<X: Into<crate::ts::StateColor<Self>>>(
+        &mut self,
+        index: Self::StateIndex,
+        color: X,
+    ) {
+        self.ts.set_state_color(index, color.into())
     }
 
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
         let mut ts = BTS::new_for_alphabet(alphabet);
-        let _initial = ts.add_state(Class::epsilon());
+        let _initial = ts.add_state(ColoredClass::new(Class::epsilon(), Q::default()));
         Self { ts }
     }
 
@@ -258,7 +333,7 @@ impl<A: Alphabet> Sproutable for RightCongruence<A> {
     }
 }
 
-impl<A: Alphabet> HasAlphabet for RightCongruence<A> {
+impl<A: Alphabet, Q: Color, C: Color> HasAlphabet for RightCongruence<A, Q, C> {
     type Alphabet = A;
 
     fn alphabet(&self) -> &Self::Alphabet {
@@ -266,7 +341,7 @@ impl<A: Alphabet> HasAlphabet for RightCongruence<A> {
     }
 }
 
-impl<A: Alphabet> RightCongruence<A> {
+impl<A: Alphabet, Q: Color + Default, C: Color> RightCongruence<A, Q, C> {
     /// Creates a new [`RightCongruence`] for the given alphabet.
     pub fn new(alphabet: A) -> Self {
         Self::new_for_alphabet(alphabet)
@@ -276,35 +351,35 @@ impl<A: Alphabet> RightCongruence<A> {
 /// A family of right congruences (FORC) consists of a *leading* right congruence and for each
 /// class of this congruence a *progress* right congruence.
 #[derive(Clone, PartialEq, Eq)]
-pub struct FORC<A: Alphabet> {
+pub struct FORC<A: Alphabet, Q: Color = (), C: Color = ()> {
     pub(crate) leading: RightCongruence<A>,
-    pub(crate) progress: Map<Class<A::Symbol>, RightCongruence<A>>,
+    pub(crate) progress: Map<Class<A::Symbol>, RightCongruence<A, Q, C>>,
 }
 
-impl<A: Alphabet> FORC<A> {
+impl<A: Alphabet, Q: Color, C: Color> FORC<A, Q, C> {
     /// Creates a new FORC with the given leading congruence and progress congruences.
     pub fn new(
         leading: RightCongruence<A>,
-        progress: Map<Class<A::Symbol>, RightCongruence<A>>,
+        progress: Map<Class<A::Symbol>, RightCongruence<A, Q, C>>,
     ) -> Self {
         Self { leading, progress }
     }
 
     /// Insert a new progress congruence for the given class.
-    pub fn insert(&mut self, class: Class<A::Symbol>, congruence: RightCongruence<A>) {
+    pub fn insert(&mut self, class: Class<A::Symbol>, congruence: RightCongruence<A, Q, C>) {
         self.progress.insert(class, congruence);
     }
 
     /// Tries to obtain a reference to the progress right congruence for the given `class`.
-    pub fn prc<C>(&self, class: C) -> Option<&RightCongruence<A>>
+    pub fn prc<D>(&self, class: D) -> Option<&RightCongruence<A, Q, C>>
     where
-        C: std::borrow::Borrow<Class<A::Symbol>>,
+        D: std::borrow::Borrow<Class<A::Symbol>>,
     {
         self.progress.get(class.borrow())
     }
 
     /// Creates a new FORC from the given leading congruence and progress congruences.
-    pub fn from_iter<I: IntoIterator<Item = (Class<A::Symbol>, RightCongruence<A>)>>(
+    pub fn from_iter<I: IntoIterator<Item = (Class<A::Symbol>, RightCongruence<A, Q, C>)>>(
         leading: RightCongruence<A>,
         progress: I,
     ) -> Self {

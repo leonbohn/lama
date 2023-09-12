@@ -2,7 +2,7 @@ use crate::{length::HasLength, FiniteLength, Length};
 
 use super::Word;
 
-/// A suffix of a [`Sequence`] which skips the first `offset` symbols.
+/// A suffix of a [`Word`] which skips the first `offset` symbols.
 #[derive(Clone, PartialEq, Debug)]
 pub struct Offset<'a, W: Word> {
     sequence: &'a W,
@@ -32,7 +32,7 @@ impl<'a, S: Word> Offset<'a, S> {
     }
 }
 
-/// A prefix of a [`Sequence`] which only contains the first `length` symbols.
+/// A prefix of a [`Word`] which only contains the first `length` symbols.
 #[derive(Clone, PartialEq, Debug)]
 pub struct Prefix<'a, S: Word> {
     sequence: &'a S,
