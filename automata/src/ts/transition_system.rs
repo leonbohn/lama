@@ -2,7 +2,7 @@ use crate::{
     alphabet::{ExpressionOf, HasAlphabet, SymbolOf},
     automaton::WithInitial,
     congruence::ColoredClass,
-    Alphabet, Class, Color, Map, Pointed, RightCongruence, Word,
+    Alphabet, Class, Color, FiniteLength, Map, Pointed, RightCongruence, Word,
 };
 
 use super::{
@@ -28,6 +28,26 @@ use super::{
 
 use impl_tools::autoimpl;
 use itertools::Itertools;
+
+/// Trait that helps with accessing states in more elaborate [`TransitionSystem`]s. For
+/// example in a [`crate::RightCongruence`], we have more information than the [`Color`]
+/// on a state, we have its [`Class`] as well. Since we would like to be able to
+/// access a state of a congruence not only by its index, but also by its classname
+/// or any other [`Word`] of finite length, this trait is necessary.
+///
+/// Implementors should be able to _uniquely_ identify a single state in a transition
+/// system of type `Ts`.
+pub trait Indexes<Ts: TransitionSystem> {
+    /// _Uniquely_ identifies a state in `ts` and return its index. If the state does
+    /// not exist, `None` is returned.
+    fn to_index(&self, ts: &Ts) -> Option<Ts::StateIndex>;
+}
+
+impl<Ts: TransitionSystem> Indexes<Ts> for Ts::StateIndex {
+    fn to_index(&self, ts: &Ts) -> Option<<Ts as TransitionSystem>::StateIndex> {
+        Some(*self)
+    }
+}
 
 /// This trait is implemented for references to transitions, so that they can be used in
 /// generic contexts. It is automatically implemented for (mutable) references.
@@ -99,6 +119,15 @@ pub trait TransitionSystem: HasAlphabet {
     type EdgesFromIter<'this>: Iterator<Item = Self::TransitionRef<'this>>
     where
         Self: 'this;
+
+    /// Obtains the [`Self::StateIndex`] of a state if it can be found. See [`Indexes`]
+    /// for more.
+    fn get<I: Indexes<Self>>(&self, elem: I) -> Option<Self::StateIndex>
+    where
+        Self: Sized,
+    {
+        elem.to_index(self)
+    }
 
     /// For a given `state` and `symbol`, returns the transition that is taken, if it exists.
     fn transition(
@@ -392,6 +421,26 @@ pub trait TransitionSystem: HasAlphabet {
         R: Word<Symbol = SymbolOf<Self>>,
     {
         self.induced(word, self.initial())
+    }
+
+    /// Tries to run the given `word` starting in the state indexed by `origin`. If
+    /// no state is indexed, then `None` is immediately returned. Otherwise, the
+    /// word is run and the index of the reached state is returned. If the run is
+    /// unsuccessful, the function returns `None`.
+    fn reached_state_index_from<
+        I: Indexes<Self>,
+        W: Word<Symbol = SymbolOf<Self>, Length = FiniteLength>,
+    >(
+        &self,
+        origin: I,
+        word: W,
+    ) -> Option<Self::StateIndex>
+    where
+        Self: Sized,
+    {
+        self.finite_run(self.get(origin)?, &word.finite_to_vec())
+            .ok()
+            .map(|p| p.reached())
     }
 
     /// Returns an iterator over the minimal representative (i.e. length-lexicographically minimal

@@ -6,7 +6,7 @@ pub type PriorityMapping<A = Simple> = RightCongruence<A, (), usize>;
 
 #[derive(Debug, Clone, Copy)]
 struct Annotation {
-    pub(super) idempotent: Option<bool>,
+    pub(super) idempotent: bool,
     pub(super) good: Option<bool>,
 }
 

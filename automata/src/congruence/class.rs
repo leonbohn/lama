@@ -1,11 +1,36 @@
 use itertools::Itertools;
 
-use crate::{alphabet::Symbol, Color, FiniteLength, HasLength, Word};
+use crate::{
+    alphabet::{Symbol, SymbolOf},
+    ts::transition_system::Indexes,
+    Alphabet, Color, FiniteLength, HasLength, RightCongruence, TransitionSystem, Word,
+};
 
 /// Represents a congruence class, which is in essence simply a non-empty sequence of symbols
 /// for the underlying alphabet.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Class<S>(pub Vec<S>);
+
+impl<A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>> for Class<A::Symbol> {
+    fn to_index(
+        &self,
+        ts: &RightCongruence<A, Q, C>,
+    ) -> Option<<RightCongruence<A, Q, C> as TransitionSystem>::StateIndex> {
+        ts.class_to_index(self)
+            .or(ts.reached_state_index(self).map(|x| *x))
+    }
+}
+impl<'a, A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>>
+    for &'a Class<A::Symbol>
+{
+    fn to_index(
+        &self,
+        ts: &RightCongruence<A, Q, C>,
+    ) -> Option<<RightCongruence<A, Q, C> as TransitionSystem>::StateIndex> {
+        ts.class_to_index(self)
+            .or(ts.reached_state_index(self).map(|x| *x))
+    }
+}
 
 impl<S> Class<S> {
     /// Creates an instance of the empty class
@@ -122,6 +147,27 @@ impl<S: Ord> PartialOrd for Class<S> {
 pub struct ColoredClass<S: Symbol, Q = ()> {
     class: Class<S>,
     color: Q,
+}
+
+impl<A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>>
+    for ColoredClass<A::Symbol, Q>
+{
+    fn to_index(
+        &self,
+        ts: &RightCongruence<A, Q, C>,
+    ) -> Option<<RightCongruence<A, Q, C> as TransitionSystem>::StateIndex> {
+        self.class.to_index(ts)
+    }
+}
+impl<'a, A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>>
+    for &'a ColoredClass<A::Symbol, Q>
+{
+    fn to_index(
+        &self,
+        ts: &RightCongruence<A, Q, C>,
+    ) -> Option<<RightCongruence<A, Q, C> as TransitionSystem>::StateIndex> {
+        self.class.to_index(ts)
+    }
 }
 
 impl<S: Symbol, Q: std::fmt::Debug> std::fmt::Display for ColoredClass<S, Q> {

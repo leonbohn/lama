@@ -8,7 +8,10 @@ use std::{
 use automata::{
     alphabet::{self, Simple, Symbol},
     congruence::{IndexesRightCongruence, FORC},
-    ts::{operations::Product, FiniteState, HasStates, Pointed, Sproutable},
+    ts::{
+        operations::Product, transition_system::Indexes, FiniteState, HasStates, Pointed,
+        Sproutable,
+    },
     word::{Normalized, NormalizedParseError, NormalizedPeriodic, OmegaWord, RawSymbols},
     Acceptor, Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length, Map,
     MooreMachine, RightCongruence, Set, TransitionSystem, Word, DFA,
@@ -412,7 +415,7 @@ impl<'a, A: Alphabet, C: Color> SplitOmegaSample<'a, A, C> {
     }
 
     /// Obtain a reference to the split sample for the given class/index.
-    pub fn get<I: IndexesRightCongruence<A>>(
+    pub fn get<I: Indexes<RightCongruence<A>>>(
         &self,
         index: I,
     ) -> Option<&ClassOmegaSample<'a, A, C>> {

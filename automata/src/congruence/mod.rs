@@ -4,7 +4,10 @@ use itertools::Itertools;
 
 use crate::{
     alphabet::{HasAlphabet, Simple, Symbol},
-    ts::{FiniteState, FiniteStatesIterType, HasFiniteStates, Sproutable, BTS},
+    ts::{
+        transition_system::Indexes, FiniteState, FiniteStatesIterType, HasFiniteStates, Sproutable,
+        BTS,
+    },
     Alphabet, Color, FiniteLength, HasLength, Map, Pointed, TransitionSystem, Word, DFA,
 };
 
@@ -32,20 +35,28 @@ impl<A: Alphabet, Q: Color + Debug, C: Color + Debug> Debug for RightCongruence<
 }
 
 /// Implementors of this trait can be used as indices for the right congruence.
-pub trait IndexesRightCongruence<A: Alphabet> {
+pub trait IndexesRightCongruence<A: Alphabet, Q: Color, C: Color> {
     /// Turns `self` into an index for the given right congruence.
-    fn to_index(&self, congruence: &RightCongruence<A>) -> Option<usize>;
+    fn to_index(&self, congruence: &RightCongruence<A, Q, C>) -> Option<usize>;
 }
 
-impl<A: Alphabet> IndexesRightCongruence<A> for usize {
-    fn to_index(&self, _congruence: &RightCongruence<A>) -> Option<usize> {
+impl<A: Alphabet, Q: Color, C: Color> IndexesRightCongruence<A, Q, C> for usize {
+    fn to_index(&self, _congruence: &RightCongruence<A, Q, C>) -> Option<usize> {
         Some(*self)
     }
 }
 
-impl<A: Alphabet> IndexesRightCongruence<A> for &Class<A::Symbol> {
-    fn to_index(&self, congruence: &RightCongruence<A>) -> Option<usize> {
+impl<A: Alphabet, Q: Color, C: Color> IndexesRightCongruence<A, Q, C> for &Class<A::Symbol> {
+    fn to_index(&self, congruence: &RightCongruence<A, Q, C>) -> Option<usize> {
         congruence.class_to_index(self)
+    }
+}
+
+impl<A: Alphabet, Q: Color, C: Color> IndexesRightCongruence<A, Q, C>
+    for ColoredClass<A::Symbol, Q>
+{
+    fn to_index(&self, congruence: &RightCongruence<A, Q, C>) -> Option<usize> {
+        todo!()
     }
 }
 
@@ -54,6 +65,16 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
     pub fn from_ts<X: Into<ColoredClass<A::Symbol, Q>> + Color>(ts: BTS<A, X, C>) -> Self {
         Self {
             ts: ts.map_state_colors(|c| c.into()).collect_ts(),
+        }
+    }
+
+    /// Verifies whether an element of `self` is  idempotent, i.e. if the mr of the indexed
+    /// class is u, then it should be that uu ~ u.
+    pub fn is_idempotent<I: Indexes<Self>>(&self, elem: I) -> bool {
+        if let Some(q) = self.get(elem) {
+            self.reached_state_index_from(q, self.state_color(q).unwrap().class()) == Some(q)
+        } else {
+            false
         }
     }
 
