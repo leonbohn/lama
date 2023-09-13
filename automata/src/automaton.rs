@@ -416,14 +416,18 @@ pub trait IsDba:
     where
         Self: FiniteState,
     {
-        for good_scc in self.sccs().iter().filter(|scc| self.is_reachable(scc[0])) {
+        for good_scc in self
+            .sccs()
+            .iter()
+            .filter(|scc| self.is_reachable(*scc.first().unwrap()))
+        {
             if let Some(full_word) = good_scc.maximal_word() {
                 let InfinityColors(colors) = self
                     .induced(&full_word, self.initial())
                     .expect("word is valid");
                 if colors.contains(&true) {
                     let base = self
-                        .word_from_to(self.initial(), good_scc[0])
+                        .word_from_to(self.initial(), *good_scc.first().unwrap())
                         .expect("we know this is reachable");
                     return Some(OmegaWord::from_parts(base, full_word));
                 }

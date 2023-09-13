@@ -17,9 +17,6 @@ pub use class::{Class, ColoredClass};
 mod forc;
 pub use forc::FORC;
 
-mod priority_mapping;
-pub use priority_mapping::{PriorityMapping, FWPM};
-
 /// A right congruence is an equivalence relation that is compatible with the right concatenation. We
 /// represent these as a transition system, where the states are the equivalence classes and the colors
 /// on edges are `()`.
@@ -31,32 +28,6 @@ pub struct RightCongruence<A: Alphabet, Q = (), C: Color = ()> {
 impl<A: Alphabet, Q: Color + Debug, C: Color + Debug> Debug for RightCongruence<A, Q, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "RightCongruence\n{:?}", self.ts)
-    }
-}
-
-/// Implementors of this trait can be used as indices for the right congruence.
-pub trait IndexesRightCongruence<A: Alphabet, Q: Color, C: Color> {
-    /// Turns `self` into an index for the given right congruence.
-    fn to_index(&self, congruence: &RightCongruence<A, Q, C>) -> Option<usize>;
-}
-
-impl<A: Alphabet, Q: Color, C: Color> IndexesRightCongruence<A, Q, C> for usize {
-    fn to_index(&self, _congruence: &RightCongruence<A, Q, C>) -> Option<usize> {
-        Some(*self)
-    }
-}
-
-impl<A: Alphabet, Q: Color, C: Color> IndexesRightCongruence<A, Q, C> for &Class<A::Symbol> {
-    fn to_index(&self, congruence: &RightCongruence<A, Q, C>) -> Option<usize> {
-        congruence.class_to_index(self)
-    }
-}
-
-impl<A: Alphabet, Q: Color, C: Color> IndexesRightCongruence<A, Q, C>
-    for ColoredClass<A::Symbol, Q>
-{
-    fn to_index(&self, congruence: &RightCongruence<A, Q, C>) -> Option<usize> {
-        todo!()
     }
 }
 

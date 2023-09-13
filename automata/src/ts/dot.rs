@@ -121,7 +121,7 @@ where
     C: Debug + Color,
 {
     fn dot_representation(&self) -> String {
-        format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""),)
+        format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""))
     }
 
     fn header(&self) -> String {
@@ -220,7 +220,11 @@ where
             .map(|(class, prc)| {
                 format!(
                     "subgraph cluster_{} {{\n{}\n{}\n}}\n",
-                    class.mr_to_string(),
+                    self.leading()
+                        .state_color(*class)
+                        .unwrap()
+                        .class()
+                        .mr_to_string(),
                     prc.header(),
                     prc.body(&class.to_string())
                 )
@@ -229,8 +233,7 @@ where
 
         lines.push("init [label=\"\", shape=none]".to_string());
         let eps_prc = self
-            .progress
-            .get(&Class::epsilon())
+            .prc(&Class::epsilon())
             .expect("Must have at least the epsilon prc");
         lines.push(format!(
             "init -> \"{},init\" [style=\"solid\"]",
@@ -243,8 +246,7 @@ where
             for &sym in self.leading.alphabet().universe() {
                 if let Some(edge) = self.leading.transition(state, sym) {
                     let _source_prc = self
-                        .progress
-                        .get(
+                        .prc(
                             self.leading
                                 .state_color(state)
                                 .expect("State should be colored")
@@ -252,8 +254,7 @@ where
                         )
                         .expect("Must have a prc for every state");
                     let _target_prc = self
-                        .progress
-                        .get(
+                        .prc(
                             self.leading
                                 .state_color(edge.target())
                                 .expect("State should be colored")
@@ -384,12 +385,7 @@ mod tests {
         prc_a.add_edge(a3, 'a', a3, ());
         prc_a.add_edge(a3, 'b', a3, ());
 
-        let forc = FORC::from_iter(
-            cong,
-            [(Class::epsilon(), prc_e), (Class::singleton('a'), prc_a)]
-                .iter()
-                .cloned(),
-        );
+        let forc = FORC::from_iter(cong, [(0, prc_e), (1, prc_a)].iter().cloned());
         forc.render_to_file_name("/home/leon/test.png");
     }
 

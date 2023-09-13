@@ -68,7 +68,7 @@ fn random_automata(rand: &[usize]) -> Vec<MooreMachine<Simple, usize>> {
 
 fn scc_decomposition(aut: &[MooreMachine<Simple, usize>]) {
     for automaton in aut {
-        automaton.tarjan_tree();
+        automaton.tarjan_dag();
     }
 }
 

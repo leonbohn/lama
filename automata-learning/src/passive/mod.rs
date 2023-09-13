@@ -1,7 +1,10 @@
-mod sample;
 use automata::{alphabet::Alphabet, FiniteLength, InfiniteLength, Word, DBA, DFA, DPA};
-pub use sample::*;
 use tracing::trace;
+
+/// Contains definitions for samples, which are collections of positive and
+/// negative example words.
+pub mod sample;
+pub use sample::{ClassOmegaSample, OmegaSample, PeriodicOmegaSample, Sample, SplitOmegaSample};
 
 /// Module containing the implementations of the sprout/glerc algorithm.
 pub mod sprout;

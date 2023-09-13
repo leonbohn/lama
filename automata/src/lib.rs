@@ -3,6 +3,14 @@
 #![warn(missing_docs)]
 #![allow(unused)]
 
+pub mod prelude {
+    pub use super::{
+        Acceptor, Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length,
+        MealyMachine, MooreMachine, Pointed, RightCongruence, TransitionSystem, DBA, DFA, DPA,
+        SBDBA, SBDPA,
+    };
+}
+
 /// Module that contains definitions for dealing with alphabets.
 pub mod alphabet;
 pub use alphabet::Alphabet;

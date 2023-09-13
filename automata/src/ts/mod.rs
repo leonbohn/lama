@@ -28,13 +28,15 @@ pub use induces::{finite, infinite, CanInduce, Induced};
 pub mod reachable;
 
 /// Contains implementations for SCC decompositions and the corresponding/associated types.
-pub mod sccs;
+pub mod connected_components;
 
 /// In this module, everything concering the run of a transition system on a word is defined.
 pub mod run;
 
 /// This module defines traits for dealing with predecessors in a transition system.
 pub mod predecessors;
+
+pub mod dag;
 
 /// Encapsulates what is necessary for a type to be usable as a state index in a [`TransitionSystem`].
 pub trait IndexType: Copy + std::hash::Hash + std::fmt::Debug + Eq + Ord + Display {}

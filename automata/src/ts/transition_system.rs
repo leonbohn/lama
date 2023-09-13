@@ -6,6 +6,7 @@ use crate::{
 };
 
 use super::{
+    connected_components::{tarjan_scc, SccDecomposition, TarjanDAG},
     operations::{
         MapEdgeColor, MapStateColor, MappedEdgesFromIter, MappedTransition, MatchingProduct,
         ProductEdgesFrom, ProductIndex, ProductTransition, RestrictByStateIndex,
@@ -17,7 +18,6 @@ use super::{
         successful::Successful,
         walker::{RunResult, Walker},
     },
-    sccs::{tarjan_scc, SccDecomposition, TarjanDAG},
 };
 
 use super::{
@@ -181,6 +181,13 @@ pub trait TransitionSystem: HasAlphabet {
         self.map_edge_colors(|_| ())
     }
 
+    fn erase_state_colors(self) -> MapStateColor<Self, fn(Self::StateColor) -> ()>
+    where
+        Self: Sized,
+    {
+        self.map_state_colors(|_| ())
+    }
+
     /// Map the edge colors of `self` with the given function `f`.
     fn map_edge_colors<D: Color, F: Fn(Self::EdgeColor) -> D>(self, f: F) -> MapEdgeColor<Self, F>
     where
@@ -219,7 +226,7 @@ pub trait TransitionSystem: HasAlphabet {
 
     /// Obtains the [`TarjanDAG`] of self, which is a directed acyclic graph that represents the
     /// strongly connected components of the transition system and the edges between them.
-    fn tarjan_tree(&self) -> TarjanDAG<'_, Self>
+    fn tarjan_dag(&self) -> TarjanDAG<'_, Self>
     where
         Self: Sized + FiniteState + Clone,
     {

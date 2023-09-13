@@ -89,7 +89,7 @@ fn iai_runs_new() {
 
 fn scc_tree_decomposition(automata: &[MooreMachine<Simple, usize>]) {
     for automaton in automata {
-        automaton.tarjan_tree();
+        automaton.tarjan_dag();
     }
 }
 

@@ -16,11 +16,12 @@ use automata::{
 use itertools::Itertools;
 use tracing::trace;
 
-use crate::{prefixtree::prefix_tree, Sample};
+use crate::{
+    passive::{ClassOmegaSample, OmegaSample, Sample, SplitOmegaSample},
+    prefixtree::prefix_tree,
+};
 
 use owo_colors::OwoColorize;
-
-use super::{ClassOmegaSample, OmegaSample, SplitOmegaSample};
 
 /// Stores two DFAs and a set of conflicts between them.
 #[derive(Clone)]
@@ -386,9 +387,10 @@ where
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use automata::{
         alphabet::{self, Simple},
+        congruence::FORC,
         nupw, simple,
         ts::{
             finite::{ReachedColor, ReachedState},
@@ -399,9 +401,9 @@ mod tests {
     use itertools::Itertools;
     use tracing_test::traced_test;
 
-    use crate::{passive::OmegaSample, Sample};
+    use crate::passive::{OmegaSample, Sample};
 
-    fn testing_larger_forc_sample() -> (Simple, OmegaSample<Simple, bool>) {
+    pub fn testing_larger_forc_sample() -> (Simple, OmegaSample<Simple, bool>) {
         let Ok(sample) = OmegaSample::try_from(
             r#"omega
         alphabet: a,b
