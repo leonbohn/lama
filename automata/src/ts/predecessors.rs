@@ -8,7 +8,7 @@ use crate::{
 
 use super::{
     operations::{
-        MapEdgeColor, MapStateColor, MappedEdgesToIter, MappedPreTransition, MatchingProduct,
+        MapEdgeColor, MapStateColor, MappedPreTransition, MappedTransitionsToIter, MatchingProduct,
         ProductEdgesTo, ProductPreTransition, RestrictByStateIndex, RestrictedEdgesToIter,
     },
     EdgeColor, IndexType, BTS,
@@ -115,9 +115,9 @@ where
     F: Fn(Ts::EdgeColor) -> D,
 {
     type PreTransitionRef<'this> = MappedPreTransition<Ts::PreTransitionRef<'this>, &'this F, Ts::EdgeColor> where Self: 'this;
-    type EdgesToIter<'this> = MappedEdgesToIter<'this, Ts::EdgesToIter<'this>, F, Ts::EdgeColor> where Self: 'this;
+    type EdgesToIter<'this> = MappedTransitionsToIter<'this, Ts::EdgesToIter<'this>, F, Ts::EdgeColor> where Self: 'this;
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
-        Some(MappedEdgesToIter::new(
+        Some(MappedTransitionsToIter::new(
             self.ts().predecessors(state)?,
             self.f(),
         ))

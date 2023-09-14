@@ -174,6 +174,15 @@ pub trait TransitionSystem: HasAlphabet {
         RestrictByStateIndex::new(self, filter)
     }
 
+    fn map_edges<D, F>(self, f: F) -> super::operations::MapEdges<Self, F>
+    where
+        F: Fn(Self::StateIndex, &ExpressionOf<Self>, Self::EdgeColor, Self::StateIndex) -> D,
+        D: Color,
+        Self: Sized,
+    {
+        super::operations::MapEdges::new(self, f)
+    }
+
     /// Completely removes the edge coloring.
     fn erase_edge_colors(self) -> MapEdgeColor<Self, fn(Self::EdgeColor) -> ()>
     where

@@ -3,7 +3,7 @@ use owo_colors::OwoColorize;
 
 use automata::{
     alphabet::Simple,
-    ts::{dag::Dag, Sproutable, ToDot},
+    ts::{dag::Dag, FiniteState, Sproutable, ToDot},
     Alphabet, Class, Color, MealyMachine, RightCongruence, Set, TransitionSystem,
 };
 
@@ -58,7 +58,16 @@ where
 }
 
 impl<A: Alphabet> AnnotatedCongruence<A> {
-    pub fn canonic_coloring(&self) -> RightCongruence<A, usize, ()> {
+    pub fn canonic_coloring(
+        &self,
+    ) -> impl FiniteState
+           + TransitionSystem<
+        StateIndex = usize,
+        StateColor = automata::congruence::ColoredClass<A::Symbol, Annotation>,
+        Alphabet = A,
+        EdgeColor = usize,
+    > + Clone
+           + '_ {
         // we first need to decompose into sccs and mark them with the color of the
         // idempotent that it contains.
         let tjdag = self.0.tarjan_dag();
@@ -99,15 +108,12 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
             *dag.color_mut(t).expect("This node exists") = Ok(i + offset);
         }
 
-        (&self.0)
-            .map_state_colors(|c| {
-                let scc = tjdag.get(c.class()).expect("Must be in an SCC");
-                let info = dag.color(scc).expect("Must have worked on that SCC");
-                let priority = info.expect("Every SCC must have a color");
-                c.recolor(priority)
-            })
-            .erase_edge_colors()
-            .collect()
+        (&self.0).map_edges(move |p, e, c, q| {
+            let scc = tjdag.get(p).expect("Must be in an SCC");
+            let info = dag.color(scc).expect("Must have worked on that SCC");
+
+            info.expect("Every SCC must have a color")
+        })
     }
 
     pub fn build<Q, C, F>(rc: &RightCongruence<A, Q, C>, f: F) -> Self
