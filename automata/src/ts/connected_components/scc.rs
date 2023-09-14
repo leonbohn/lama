@@ -61,6 +61,7 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         self.0
     }
 
+    /// Returns an iterator over the state colors of the states in the SCC.
     pub fn state_colors(&self) -> impl Iterator<Item = Ts::StateColor> + '_ {
         self.iter().map(|q| {
             self.0
@@ -69,6 +70,7 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         })
     }
 
+    /// Produces an iterator over all transitions whose source and target states are in the SCC.
     pub fn interior_edges(&self) -> impl Iterator<Item = Ts::TransitionRef<'_>> + '_ {
         self.iter().flat_map(|q| {
             self.0
@@ -77,6 +79,8 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         })
     }
 
+    /// Returns an iterator yielding the colors of edges whose source and target states are
+    /// in the SCC.
     pub fn edge_colors(&self) -> impl Iterator<Item = Ts::EdgeColor> + '_ {
         self.interior_edges().map(|e| e.color())
     }

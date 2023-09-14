@@ -19,6 +19,7 @@ pub struct TarjanDAG<'a, Ts: TransitionSystem> {
 }
 
 impl<'a, Ts: TransitionSystem> TarjanDAG<'a, Ts> {
+    /// Folds the state colors of the SCCs of the transition system into a single value.
     pub fn fold_state_colors<F, D>(&self, init: D, f: F) -> Dag<D>
     where
         D: Clone,
@@ -27,6 +28,8 @@ impl<'a, Ts: TransitionSystem> TarjanDAG<'a, Ts> {
         self.dag.reduce(|x| x.state_colors().fold(init.clone(), f))
     }
 
+    /// Folds the colors of all edges whose source and target are in the same SCC into
+    /// a single value.
     pub fn fold_edge_colors<F, D>(&self, init: D, f: F) -> Dag<D>
     where
         D: Clone,
@@ -35,10 +38,13 @@ impl<'a, Ts: TransitionSystem> TarjanDAG<'a, Ts> {
         self.dag.reduce(|x| x.edge_colors().fold(init.clone(), f))
     }
 
+    /// Returns an iterator over sccs which are reachable from the given source scc.
     pub fn reachable_from(&self, source: usize) -> ReachableIter<'_, Scc<'a, Ts>> {
         self.dag.reachable_from(source)
     }
 
+    /// Attempts to identify the index of the SCC containing the given state. If the state
+    /// is not in any SCC, `None` is returned.
     pub fn get<X: Indexes<Ts>>(&self, state: X) -> Option<usize> {
         let q = state.to_index(self.ts)?;
         self.dag.find(|c| c.contains(&q))

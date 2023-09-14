@@ -174,7 +174,11 @@ pub trait TransitionSystem: HasAlphabet {
         RestrictByStateIndex::new(self, filter)
     }
 
-    fn map_edges<D, F>(self, f: F) -> super::operations::MapEdges<Self, F>
+    /// Recolors the edges of `self` with the given function `f`. This works akin to
+    /// [`Self::map_edge_colors()`] but allows for a more fine-grained control over the
+    /// recoloring process, by giving access not only to the color itself, but also to
+    /// the origin, target and expression of the respective edge.
+    fn map_edge_colors_full<D, F>(self, f: F) -> super::operations::MapEdges<Self, F>
     where
         F: Fn(Self::StateIndex, &ExpressionOf<Self>, Self::EdgeColor, Self::StateIndex) -> D,
         D: Color,
@@ -191,6 +195,7 @@ pub trait TransitionSystem: HasAlphabet {
         self.map_edge_colors(|_| ())
     }
 
+    /// Completely removes the state coloring.
     fn erase_state_colors(self) -> MapStateColor<Self, fn(Self::StateColor) -> ()>
     where
         Self: Sized,

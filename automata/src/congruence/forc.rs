@@ -17,6 +17,7 @@ impl<A: Alphabet, Q: Color, C: Color> FORC<A, Q, C> {
         Self { leading, progress }
     }
 
+    /// Returns a reference to the leading right congruence.
     pub fn leading(&self) -> &RightCongruence<A> {
         &self.leading
     }

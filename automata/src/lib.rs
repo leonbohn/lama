@@ -3,6 +3,8 @@
 #![warn(missing_docs)]
 #![allow(unused)]
 
+/// The prelude is supposed to make using this package easier. Including everything, i.e.
+/// `use automata::prelude::*;` should be enough to use the package.
 pub mod prelude {
     pub use super::{
         Acceptor, Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length,

@@ -36,6 +36,7 @@ pub mod run;
 /// This module defines traits for dealing with predecessors in a transition system.
 pub mod predecessors;
 
+/// Defines directed acyclic graphs (DAG)s and operations on them.
 pub mod dag;
 
 /// Encapsulates what is necessary for a type to be usable as a state index in a [`TransitionSystem`].

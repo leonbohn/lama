@@ -10,6 +10,7 @@ use crate::{
     Color, Pointed, TransitionSystem,
 };
 
+/// A transition system that maps the edge colors of a given transition system to a new type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapEdges<Ts, F> {
     ts: Ts,
@@ -51,6 +52,7 @@ where
     }
 }
 
+/// Iterator over the pre-edges of a transition system whose colors are mapped by some function.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MappedEdgesToIter<'a, Idx, I, F, C> {
     it: I,
@@ -115,6 +117,7 @@ where
     }
 }
 
+/// Iterator over the successors of a transition system whose colors are mapped by some function.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapEdgesSuccessorsIter<'a, Idx, I, F, C> {
     it: I,
@@ -136,6 +139,8 @@ impl<'a, Idx: IndexType, I: Iterator, F, C> Iterator for MapEdgesSuccessorsIter<
     }
 }
 
+/// Represents a transition whose color is mapped by some function.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MappedEdge<Idx, T, F, C> {
     transition: T,
     from: Idx,
@@ -225,13 +230,17 @@ where
 }
 
 impl<Ts, F> MapEdges<Ts, F> {
+    /// Create a new instance of `Self`.
     pub fn new(ts: Ts, f: F) -> Self {
         Self { ts, f }
     }
+
+    /// Returns a reference to the function with which the edge colors are mapped.
     pub fn f(&self) -> &F {
         &self.f
     }
 
+    /// Returns a reference to the underlying transition system.
     pub fn ts(&self) -> &Ts {
         &self.ts
     }

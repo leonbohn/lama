@@ -11,6 +11,10 @@ use automata::{
 /// finite words and ouptuts a priority (which in this case is a `usize`).
 pub type PriorityMapping<A = Simple> = RightCongruence<A, (), usize>;
 
+/// Stores information on classes/states of a [`RightCongruence`]. This may be
+/// extended in the futuer, but for now it simply stores whether a class c is
+/// idempoten (meaning cc ~ c) and whether it is good (in the sense that the
+/// omega iteration of c is in the language L_c).
 #[derive(Clone, Copy, Ord, PartialEq, PartialOrd, Eq, Hash, Default)]
 pub struct Annotation {
     pub(super) idempotent: bool,
@@ -27,11 +31,14 @@ impl std::fmt::Debug for Annotation {
 }
 
 impl Annotation {
+    /// Creates a new annotation.
     pub fn new(idempotent: bool, good: Option<bool>) -> Self {
         Self { idempotent, good }
     }
 }
 
+/// This a simple newtype wrapper around a congruence, which has no edge colors and uses
+/// [`Annotation`]s as state colors.
 pub struct AnnotatedCongruence<A: Alphabet = Simple>(RightCongruence<A, Annotation, ()>);
 
 #[autoimpl(for<T: trait + ?Sized> &T)]
@@ -58,6 +65,9 @@ where
 }
 
 impl<A: Alphabet> AnnotatedCongruence<A> {
+    /// Computes the canonic coloring on a given annotated congruence. This makes use
+    /// of the dag of strongly connected components of the congruence. For more information
+    /// on how the computation is done exactly, see [Section 5, Step 2](https://arxiv.org/pdf/2302.11043.pdf).
     pub fn canonic_coloring(
         &self,
     ) -> impl FiniteState
@@ -108,7 +118,7 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
             *dag.color_mut(t).expect("This node exists") = Ok(i + offset);
         }
 
-        (&self.0).map_edges(move |p, e, c, q| {
+        (&self.0).map_edge_colors_full(move |p, e, c, q| {
             let scc = tjdag.get(p).expect("Must be in an SCC");
             let info = dag.color(scc).expect("Must have worked on that SCC");
 
@@ -116,6 +126,8 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
         })
     }
 
+    /// Takes a reference to a right congruence and a function that classifies idempotents
+    /// of the congruence to construct an annotated congruence.
     pub fn build<Q, C, F>(rc: &RightCongruence<A, Q, C>, f: F) -> Self
     where
         Q: Color,
@@ -144,9 +156,9 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
 /// it computes (on non-empty words) is weak in the sense that M_c(xy) <= M_c(x)
 /// for all x and y.
 #[derive(Debug, Clone)]
-pub struct FWPM<A: Alphabet = Simple> {
+pub struct Fwpm<A: Alphabet = Simple> {
     cong: RightCongruence<A>,
     pms: Vec<PriorityMapping<A>>,
 }
 
-impl<A: Alphabet> FWPM<A> {}
+impl<A: Alphabet> Fwpm<A> {}

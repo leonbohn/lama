@@ -169,6 +169,11 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
         &self.states
     }
 
+    /// Attempts to find the index of a state with the given `color`. If no such state is
+    /// found, `None` is returned. Note, that the function simply returns the first state
+    /// with the given color. As the order in which the states are stored is not guaranteed,
+    /// subsequent calls may lead to different results, if two states with the same color
+    /// exist.
     #[inline(always)]
     pub fn find_by_color(&self, color: &Q) -> Option<Idx> {
         self.states.iter().find_map(|(idx, state)| {
