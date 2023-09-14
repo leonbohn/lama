@@ -169,6 +169,17 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
         &self.states
     }
 
+    #[inline(always)]
+    pub fn find_by_color(&self, color: &Q) -> Option<Idx> {
+        self.states.iter().find_map(|(idx, state)| {
+            if state.color() == color {
+                Some(*idx)
+            } else {
+                None
+            }
+        })
+    }
+
     /// Returns an iterator emitting pairs of state indices and their colors.
     pub fn indices_with_color(&self) -> impl Iterator<Item = (Idx, &StateColor<Self>)> {
         self.states.iter().map(|(idx, state)| (*idx, state.color()))

@@ -76,6 +76,7 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
         }
     }
 
+    #[inline(always)]
     /// Returns the index of the class containing the given word.
     pub fn class_to_index(&self, class: &Class<A::Symbol>) -> Option<usize> {
         self.ts

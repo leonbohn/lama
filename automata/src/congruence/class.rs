@@ -2,7 +2,7 @@ use itertools::Itertools;
 
 use crate::{
     alphabet::{Symbol, SymbolOf},
-    ts::transition_system::Indexes,
+    ts::{transition_system::Indexes, FiniteState},
     Alphabet, Color, FiniteLength, HasLength, RightCongruence, TransitionSystem, Word,
 };
 
@@ -12,6 +12,7 @@ use crate::{
 pub struct Class<S>(pub Vec<S>);
 
 impl<A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>> for Class<A::Symbol> {
+    #[inline(always)]
     fn to_index(
         &self,
         ts: &RightCongruence<A, Q, C>,
@@ -23,12 +24,12 @@ impl<A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>> for Clas
 impl<'a, A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>>
     for &'a Class<A::Symbol>
 {
+    #[inline(always)]
     fn to_index(
         &self,
         ts: &RightCongruence<A, Q, C>,
     ) -> Option<<RightCongruence<A, Q, C> as TransitionSystem>::StateIndex> {
-        ts.class_to_index(self)
-            .or(ts.reached_state_index(self).map(|x| *x))
+        Class::to_index(self, ts)
     }
 }
 
@@ -152,6 +153,7 @@ pub struct ColoredClass<S: Symbol, Q = ()> {
 impl<A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>>
     for ColoredClass<A::Symbol, Q>
 {
+    #[inline(always)]
     fn to_index(
         &self,
         ts: &RightCongruence<A, Q, C>,
@@ -162,6 +164,7 @@ impl<A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>>
 impl<'a, A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>>
     for &'a ColoredClass<A::Symbol, Q>
 {
+    #[inline(always)]
     fn to_index(
         &self,
         ts: &RightCongruence<A, Q, C>,

@@ -44,6 +44,7 @@ pub trait Indexes<Ts: TransitionSystem> {
 }
 
 impl<Ts: TransitionSystem> Indexes<Ts> for Ts::StateIndex {
+    #[inline(always)]
     fn to_index(&self, ts: &Ts) -> Option<<Ts as TransitionSystem>::StateIndex> {
         Some(*self)
     }
