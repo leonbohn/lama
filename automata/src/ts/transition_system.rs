@@ -10,7 +10,7 @@ use super::{
     operations::{
         MapEdgeColor, MapStateColor, MappedEdgesFromIter, MappedTransition, MatchingProduct,
         ProductEdgesFrom, ProductIndex, ProductTransition, RestrictByStateIndex,
-        RestrictedEdgesFromIter,
+        RestrictedEdgesFromIter, StateIndexFilter,
     },
     predecessors::PredecessorIterable,
     reachable::{MinimalRepresentatives, ReachableStateIndices, ReachableStates},
@@ -164,12 +164,10 @@ pub trait TransitionSystem: HasAlphabet {
 
     /// Restricts the state indices with the given function. This means that only the states for
     /// which the function returns `true` are kept, while all others are removed.
-    fn restrict_state_indices<F: Fn(Self::StateIndex) -> bool>(
-        self,
-        filter: F,
-    ) -> RestrictByStateIndex<Self, F>
+    fn restrict_state_indices<F>(self, filter: F) -> RestrictByStateIndex<Self, F>
     where
         Self: Sized,
+        F: StateIndexFilter<Self::StateIndex>,
     {
         RestrictByStateIndex::new(self, filter)
     }
@@ -934,7 +932,7 @@ where
 
 impl<Ts: TransitionSystem, F> TransitionSystem for RestrictByStateIndex<Ts, F>
 where
-    F: Fn(Ts::StateIndex) -> bool,
+    F: StateIndexFilter<Ts::StateIndex>,
 {
     type StateIndex = Ts::StateIndex;
     type EdgeColor = Ts::EdgeColor;
@@ -947,18 +945,18 @@ where
         state: Self::StateIndex,
         symbol: crate::alphabet::SymbolOf<Self>,
     ) -> Option<Self::TransitionRef<'_>> {
-        self.ts()
-            .transition(state, symbol)
-            .filter(|successor| (self.filter())(state) && (self.filter())(successor.target()))
+        self.ts().transition(state, symbol).filter(|successor| {
+            (self.filter()).is_unmasked(state) && (self.filter()).is_unmasked(successor.target())
+        })
     }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
-        assert!((self.filter())(state));
+        assert!((self.filter()).is_unmasked(state));
         self.ts().state_color(state)
     }
 
     fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
-        if !(self.filter())(state) {
+        if !(self.filter()).is_unmasked(state) {
             return None;
         }
         self.ts()
@@ -973,7 +971,7 @@ where
     ) -> Option<crate::ts::EdgeColor<Self>> {
         self.ts()
             .edge_color(state, expression)
-            .filter(|_| (self.filter())(state))
+            .filter(|_| (self.filter()).is_unmasked(state))
     }
 }
 

@@ -3,14 +3,59 @@ use crate::{
     ts::{
         predecessors::{IsPreTransition, PredecessorIterable},
         transition_system::IsTransition,
-        FiniteState, FiniteStatesIterType, HasFiniteStates,
+        FiniteState, FiniteStatesIterType, HasFiniteStates, IndexType,
     },
-    Pointed, TransitionSystem,
+    Pointed, Set, TransitionSystem,
 };
+
+/// Abstracts the filtering of a transition system's state indices. This trait is implemented by
+/// functions which take a state index and return a boolean value indicating whether the state index
+/// should be filtered out or not. It is also implemented by [`Vec`] and [`Set`] which are used to
+/// filter out state indices that are not contained in the vector or set.
+pub trait StateIndexFilter<Idx: IndexType> {
+    /// This method is called to check whether an index should be present in a filtered transition
+    /// system or not. Any index for which the function returns `true`, will be present, while all those
+    /// for which the function returns `false` are masked out.
+    fn is_unmasked(&self, idx: Idx) -> bool;
+
+    /// The counterpart to [`Self::is_unmasked`]. This method is called to check whether an index
+    /// should be masked out or not. Any index for which the function returns `true`, will be masked
+    /// out, while all those for which the function returns `false` are present.
+    fn is_masked(&self, idx: Idx) -> bool {
+        !self.is_unmasked(idx)
+    }
+}
+
+impl<Idx, F> StateIndexFilter<Idx> for F
+where
+    Idx: IndexType,
+    F: Fn(Idx) -> bool,
+{
+    fn is_unmasked(&self, idx: Idx) -> bool {
+        (self)(idx)
+    }
+}
+
+impl<Idx> StateIndexFilter<Idx> for Vec<Idx>
+where
+    Idx: IndexType,
+{
+    fn is_unmasked(&self, idx: Idx) -> bool {
+        self.contains(&idx)
+    }
+}
+
+impl<Idx> StateIndexFilter<Idx> for Set<Idx>
+where
+    Idx: IndexType,
+{
+    fn is_unmasked(&self, idx: Idx) -> bool {
+        self.contains(&idx)
+    }
+}
 
 /// Restricts a transition system to a subset of its state indices, which is defined by a filter
 /// function.
-
 #[derive(Debug, Clone)]
 pub struct RestrictByStateIndex<Ts: TransitionSystem, F> {
     ts: Ts,
@@ -23,12 +68,14 @@ pub struct RestrictByStateIndexIter<'a, Ts: TransitionSystem + HasFiniteStates<'
     it: FiniteStatesIterType<'a, Ts>,
 }
 
-impl<'a, Ts: TransitionSystem + HasFiniteStates<'a>, F: Fn(Ts::StateIndex) -> bool> Iterator
-    for RestrictByStateIndexIter<'a, Ts, F>
+impl<'a, Ts, F> Iterator for RestrictByStateIndexIter<'a, Ts, F>
+where
+    Ts: TransitionSystem + HasFiniteStates<'a>,
+    F: StateIndexFilter<Ts::StateIndex>,
 {
     type Item = Ts::StateIndex;
     fn next(&mut self) -> Option<Self::Item> {
-        self.it.find(|idx| (self.filter)(*idx))
+        self.it.find(|idx| self.filter.is_unmasked(*idx))
     }
 }
 
@@ -43,7 +90,7 @@ impl<'a, Ts: TransitionSystem + HasFiniteStates<'a>, F> RestrictByStateIndexIter
 impl<'a, Ts, F> HasFiniteStates<'a> for RestrictByStateIndex<Ts, F>
 where
     Ts: HasFiniteStates<'a>,
-    F: Fn(Ts::StateIndex) -> bool,
+    F: StateIndexFilter<Ts::StateIndex>,
 {
     type StateIndicesIter = RestrictByStateIndexIter<'a, Ts, F>;
 }
@@ -51,7 +98,7 @@ where
 impl<Ts, F> FiniteState for RestrictByStateIndex<Ts, F>
 where
     Ts: FiniteState,
-    F: Fn(Ts::StateIndex) -> bool,
+    F: StateIndexFilter<Ts::StateIndex>,
 {
     fn state_indices(&self) -> crate::ts::sealed::FiniteStatesIterType<'_, Self> {
         RestrictByStateIndexIter::new(&self.filter, self.ts.state_indices())
@@ -60,11 +107,14 @@ where
 
 impl<Ts: TransitionSystem + Pointed, F> Pointed for RestrictByStateIndex<Ts, F>
 where
-    F: Fn(Ts::StateIndex) -> bool,
+    F: StateIndexFilter<Ts::StateIndex>,
 {
     fn initial(&self) -> Self::StateIndex {
         let initial = self.ts.initial();
-        assert!((self.filter)(initial), "initial state is filtered out");
+        assert!(
+            (self.filter).is_unmasked(initial),
+            "initial state is filtered out"
+        );
         initial
     }
 }
@@ -110,11 +160,13 @@ impl<'a, Ts: TransitionSystem + 'a, F> RestrictedEdgesFromIter<'a, Ts, F> {
 
 impl<'a, Ts: TransitionSystem + 'a, F> Iterator for RestrictedEdgesFromIter<'a, Ts, F>
 where
-    F: Fn(Ts::StateIndex) -> bool,
+    F: StateIndexFilter<Ts::StateIndex>,
 {
     type Item = Ts::TransitionRef<'a>;
     fn next(&mut self) -> Option<Self::Item> {
-        self.it.by_ref().find(|edge| (self.filter)(edge.target()))
+        self.it
+            .by_ref()
+            .find(|edge| (self.filter).is_unmasked(edge.target()))
     }
 }
 
@@ -127,11 +179,13 @@ pub struct RestrictedEdgesToIter<'a, Ts: PredecessorIterable + 'a, F> {
 
 impl<'a, Ts: PredecessorIterable + 'a, F> Iterator for RestrictedEdgesToIter<'a, Ts, F>
 where
-    F: Fn(Ts::StateIndex) -> bool,
+    F: StateIndexFilter<Ts::StateIndex>,
 {
     type Item = Ts::PreTransitionRef<'a>;
     fn next(&mut self) -> Option<Self::Item> {
-        self.it.by_ref().find(|edge| (self.filter)(edge.source()))
+        self.it
+            .by_ref()
+            .find(|edge| (self.filter).is_unmasked(edge.source()))
     }
 }
 

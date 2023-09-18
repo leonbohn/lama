@@ -84,9 +84,13 @@ impl<C> Dag<C> {
     /// Creates a new [`Dag`] from the given set of colors and edges.
     pub fn from_parts<I: IntoIterator<Item = C>>(colors: I, edges: Vec<(usize, usize)>) -> Self {
         let colors: Vec<_> = colors.into_iter().collect();
-        debug_assert_eq!(
-            Some(colors.len()),
-            edges.iter().map(|(x, y)| std::cmp::max(*x, *y)).max()
+        debug_assert!(
+            colors.len()
+                >= edges
+                    .iter()
+                    .map(|(x, y)| std::cmp::max(*x, *y))
+                    .max()
+                    .unwrap_or(0)
         );
         Self { colors, edges }
     }

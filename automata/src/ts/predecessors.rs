@@ -10,6 +10,7 @@ use super::{
     operations::{
         MapEdgeColor, MapStateColor, MappedPreTransition, MappedTransitionsToIter, MatchingProduct,
         ProductEdgesTo, ProductPreTransition, RestrictByStateIndex, RestrictedEdgesToIter,
+        StateIndexFilter,
     },
     EdgeColor, IndexType, BTS,
 };
@@ -80,8 +81,10 @@ pub trait PredecessorIterable: TransitionSystem {
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>>;
 }
 
-impl<Ts: PredecessorIterable, F: Fn(Ts::StateIndex) -> bool> PredecessorIterable
-    for RestrictByStateIndex<Ts, F>
+impl<Ts, F> PredecessorIterable for RestrictByStateIndex<Ts, F>
+where
+    Ts: PredecessorIterable,
+    F: StateIndexFilter<Ts::StateIndex>,
 {
     type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
     type EdgesToIter<'this> = RestrictedEdgesToIter<'this, Ts, F> where Self: 'this;
