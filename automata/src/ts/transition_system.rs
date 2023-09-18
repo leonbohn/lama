@@ -1,6 +1,6 @@
 use crate::{
     alphabet::{ExpressionOf, HasAlphabet, SymbolOf},
-    automaton::WithInitial,
+    automata::WithInitial,
     congruence::ColoredClass,
     Alphabet, Class, Color, FiniteLength, Map, Pointed, RightCongruence, Word,
 };

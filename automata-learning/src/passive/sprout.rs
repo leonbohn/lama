@@ -3,16 +3,7 @@ use std::{
     fmt::Display,
 };
 
-use automata::{
-    alphabet::Symbol,
-    automaton::IsDfa,
-    ts::{
-        operations::{Product, ProductIndex},
-        predecessors::{IsPreTransition, PredecessorIterable},
-        Congruence, FiniteState, Sproutable, ToDot,
-    },
-    Alphabet, Class, InfiniteLength, Map, Pointed, RightCongruence, Set, TransitionSystem, Word,
-};
+use automata::{prelude::*, ts::operations::ProductIndex, Map, Set};
 use itertools::Itertools;
 use tracing::trace;
 

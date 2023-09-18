@@ -2,7 +2,7 @@ use impl_tools::autoimpl;
 
 use crate::{
     alphabet::{ExpressionOf, SymbolOf},
-    automaton::WithInitial,
+    automata::WithInitial,
     Alphabet, Color, RightCongruence, TransitionSystem,
 };
 

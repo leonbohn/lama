@@ -476,14 +476,7 @@ impl<Ts> IsDpa for Ts where
 #[cfg(test)]
 mod tests {
     use super::IsDfa;
-    use crate::{
-        alphabet::Simple,
-        automaton::{Acceptor, IsDba},
-        ts::{HasColorMut, HasMutableStates, Pointed, Sproutable},
-        upw,
-        word::OmegaWord,
-        InfiniteLength,
-    };
+    use crate::prelude::*;
 
     #[test]
     fn dbas() {

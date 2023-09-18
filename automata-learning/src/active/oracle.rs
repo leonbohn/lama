@@ -1,8 +1,4 @@
-use automata::{
-    alphabet::{Alphabet, HasAlphabet, Symbol, SymbolOf},
-    ts::{Pointed, TransitionSystem},
-    Acceptor, Color, FiniteLength, Length, Map, MooreMachine, Transformer, Word,
-};
+use automata::prelude::*;
 
 /// A trait that encapsulates a minimally adequate teacher (MAT) for active learning. This is mainly used by
 /// L*-esque algorithms and can be implemented by wildly different types, for example an automaton, a function

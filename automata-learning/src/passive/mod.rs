@@ -1,4 +1,4 @@
-use automata::{alphabet::Alphabet, FiniteLength, InfiniteLength, Word, DBA, DFA, DPA};
+use automata::prelude::*;
 use tracing::trace;
 
 /// Contains definitions for samples, which are collections of positive and

@@ -5,17 +5,7 @@ use std::{
     hash::Hash,
 };
 
-use automata::{
-    alphabet::{self, Simple, Symbol},
-    congruence::FORC,
-    ts::{
-        operations::Product, transition_system::Indexes, FiniteState, HasStates, Pointed,
-        Sproutable,
-    },
-    word::{Normalized, NormalizedParseError, NormalizedPeriodic, OmegaWord, RawSymbols},
-    Acceptor, Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length, Map,
-    MooreMachine, RightCongruence, Set, TransitionSystem, Word, DFA,
-};
+use automata::{prelude::*, Map};
 use itertools::Itertools;
 use tracing::{debug, trace};
 
@@ -112,12 +102,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use automata::{
-        alphabet::Simple,
-        npw, nupw, simple,
-        ts::{finite::ReachedColor, Congruence, HasStates, Sproutable},
-        upw, Acceptor, HasLength, Pointed, RightCongruence, TransitionSystem,
-    };
+    use automata::{npw, nupw, prelude::*, ts::finite::ReachedColor};
     use itertools::Itertools;
     use tracing::info;
     use tracing_test::traced_test;

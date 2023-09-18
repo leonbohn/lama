@@ -7,9 +7,24 @@
 /// `use automata::prelude::*;` should be enough to use the package.
 pub mod prelude {
     pub use super::{
-        Acceptor, Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length,
-        MealyMachine, MooreMachine, Pointed, RightCongruence, TransitionSystem, DBA, DFA, DPA,
-        SBDBA, SBDPA,
+        alphabet::{Expression, ExpressionOf, HasAlphabet, Simple, Symbol, SymbolOf},
+        automata::{
+            Acceptor, IsDba, IsDfa, IsDpa, MealyMachine, MooreMachine, Transformer, DBA, DFA, DPA,
+            SBDBA, SBDPA,
+        },
+        simple,
+        ts::{
+            dag::Dag,
+            operations::Product,
+            predecessors::{IsPreTransition, PredecessorIterable},
+            transition_system::{Indexes, IsTransition},
+            Congruence, FiniteState, HasColor, HasColorMut, HasMutableStates, HasStates,
+            Sproutable, ToDot, TransitionSystem,
+        },
+        upw,
+        word::{Normalized, NormalizedParseError, NormalizedPeriodic, OmegaWord, Word},
+        Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length, Pointed,
+        RightCongruence,
     };
 }
 
@@ -31,10 +46,8 @@ pub use ts::{Pointed, TransitionSystem};
 
 /// Defines automata and common types of combinations of transition system with acceptance condition.
 #[allow(clippy::upper_case_acronyms)]
-pub mod automaton;
-pub use automaton::{
-    Acceptor, MealyMachine, MooreMachine, Transformer, DBA, DFA, DPA, SBDBA, SBDPA,
-};
+pub mod automata;
+use automata::{Acceptor, MealyMachine, MooreMachine, Transformer, DBA, DFA, DPA, SBDBA, SBDPA};
 
 /// Defines congruence relations and congruence classes.
 pub mod congruence;

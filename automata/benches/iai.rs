@@ -1,7 +1,4 @@
-use automata::{
-    alphabet::Simple, simple, ts::Sproutable, word::Normalized, InfiniteLength, MooreMachine,
-    Pointed, TransitionSystem,
-};
+use automata::prelude::*;
 
 type Automata = Vec<MooreMachine<Simple, usize>>;
 type Words = Vec<Vec<char>>;
@@ -19,7 +16,7 @@ const RANDOM: [usize; 3] = [3, 2, 7];
 fn pseudorandom_sprout(states: usize, n: usize) -> MooreMachine<Simple, usize> {
     let alphabet = simple!('a', 'b', 'c', 'd');
 
-    let mut ts = automata::MooreMachine::new(alphabet);
+    let mut ts = MooreMachine::new(alphabet);
 
     for i in 0..states {
         ts.add_state(i);

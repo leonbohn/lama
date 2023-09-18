@@ -1,11 +1,7 @@
 use impl_tools::autoimpl;
 use owo_colors::OwoColorize;
 
-use automata::{
-    alphabet::Simple,
-    ts::{dag::Dag, FiniteState, Sproutable, ToDot},
-    Alphabet, Class, Color, MealyMachine, RightCongruence, Set, TransitionSystem,
-};
+use automata::{prelude::*, Set};
 
 /// A priority mapping is essentially a [`crate::MealyMachine`], i.e. it reads
 /// finite words and ouptuts a priority (which in this case is a `usize`).

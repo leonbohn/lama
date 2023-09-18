@@ -1,8 +1,6 @@
 use std::fmt::Debug;
 
-use automata::alphabet::{Alphabet, Symbol};
-use automata::ts::{HasColorMut, HasMutableStates, Pointed, Sproutable, TransitionSystem};
-use automata::{Color, FiniteLength, MooreMachine, Transformer, Word};
+use automata::prelude::*;
 use itertools::Itertools;
 use tracing::trace;
 
@@ -247,12 +245,7 @@ impl<
 
 #[cfg(test)]
 mod tests {
-    use automata::{
-        alphabet::{Alphabet, HasAlphabet, Simple},
-        ts::HasStates,
-        word::OmegaWord,
-        FiniteLength, Transformer, Word,
-    };
+    use automata::prelude::*;
     use tracing_test::traced_test;
 
     use crate::active::Oracle;
@@ -296,11 +289,7 @@ mod tests {
         where
             H: automata::ts::Pointed
                 + automata::ts::TransitionSystem<Alphabet = Self::Alphabet, StateColor = Self::Output>
-                + automata::Transformer<
-                    automata::alphabet::SymbolOf<Self>,
-                    FiniteLength,
-                    Output = Self::Output,
-                >,
+                + Transformer<automata::alphabet::SymbolOf<Self>, FiniteLength, Output = Self::Output>,
         {
             for word in ["aa", "bb", "bab", "aba", "abba", "bbab", "", "b", "a"] {
                 let output = self.output(&word);
