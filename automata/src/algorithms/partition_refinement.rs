@@ -3,11 +3,8 @@ use std::hash::Hash;
 use crate::{
     prelude::{IsDfa, DFA},
     ts::transition_system::IsTransition,
-    Alphabet, Map, Set,
+    Alphabet, Map, Partition, Set,
 };
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Partition<I: Hash + Eq>(Vec<Set<I>>);
 
 pub fn partition_refinement<D: IsDfa>(dfa: D) -> Partition<D::StateIndex> {
     let accepting = dfa.accepting_states().into_iter().collect::<Set<_>>();
@@ -64,35 +61,9 @@ pub fn partition_refinement<D: IsDfa>(dfa: D) -> Partition<D::StateIndex> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{alphabet::Fixed, prelude::*};
+    use crate::{alphabet::Fixed, prelude::*, tests::wiki_dfa};
 
     use super::partition_refinement;
-
-    pub fn wiki_dfa() -> DFA {
-        let mut dfa = DFA::new(alphabet!(simple 'a', 'b'));
-        let a = dfa.initial();
-        dfa.set_initial_color(false);
-        let b = dfa.add_state(false);
-        let c = dfa.add_state(true);
-        let d = dfa.add_state(true);
-        let e = dfa.add_state(true);
-        let f = dfa.add_state(false);
-
-        dfa.add_edge(a, 'a', b, ());
-        dfa.add_edge(a, 'b', c, ());
-        dfa.add_edge(b, 'a', a, ());
-        dfa.add_edge(b, 'b', d, ());
-        dfa.add_edge(c, 'a', e, ());
-        dfa.add_edge(c, 'b', f, ());
-        dfa.add_edge(d, 'a', e, ());
-        dfa.add_edge(d, 'b', f, ());
-        dfa.add_edge(e, 'a', e, ());
-        dfa.add_edge(e, 'b', f, ());
-        dfa.add_edge(f, 'a', f, ());
-        dfa.add_edge(f, 'b', f, ());
-
-        dfa
-    }
 
     #[test]
     fn partition_refinement_wiki() {

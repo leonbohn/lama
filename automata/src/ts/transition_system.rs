@@ -2,7 +2,7 @@ use crate::{
     alphabet::{ExpressionOf, HasAlphabet, SymbolOf},
     automata::WithInitial,
     congruence::ColoredClass,
-    Alphabet, Class, Color, FiniteLength, Map, Pointed, RightCongruence, Word,
+    Alphabet, Class, Color, FiniteLength, Map, Partition, Pointed, RightCongruence, Word,
 };
 
 use super::{
@@ -18,6 +18,7 @@ use super::{
         successful::Successful,
         walker::{RunResult, Walker},
     },
+    Quotient,
 };
 
 use super::{
@@ -160,6 +161,13 @@ pub trait TransitionSystem: HasAlphabet {
         Self: Sized,
     {
         (self, initial).into()
+    }
+
+    fn quotient(self, partition: Partition<Self::StateIndex>) -> Quotient<Self>
+    where
+        Self: Sized + FiniteState,
+    {
+        Quotient::new(self, partition)
     }
 
     /// Restricts the state indices with the given function. This means that only the states for

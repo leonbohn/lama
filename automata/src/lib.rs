@@ -31,6 +31,7 @@ pub mod prelude {
 /// Module that contains definitions for dealing with alphabets.
 pub mod alphabet;
 pub use alphabet::Alphabet;
+use impl_tools::autoimpl;
 
 /// Defines lengths of finite and infinite words.
 pub mod length;
@@ -80,3 +81,48 @@ impl<T: Eq + Ord + Clone + Hash> Color for T {}
 pub type Set<S> = fxhash::FxHashSet<S>;
 /// Type alias for maps, we use this to hide which type of `HashMap` we are actually using.
 pub type Map<K, V> = fxhash::FxHashMap<K, V>;
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[autoimpl(Deref using self.0)]
+pub struct Partition<I: Hash + Eq>(Vec<Set<I>>);
+
+impl<I: Hash + Eq> Partition<I> {
+    pub fn new<X: IntoIterator<Item = I>, Y: IntoIterator<Item = X>>(iter: Y) -> Self {
+        Self(
+            iter.into_iter()
+                .map(|it| it.into_iter().collect::<Set<_>>())
+                .collect(),
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{alphabet, prelude::*};
+
+    pub fn wiki_dfa() -> DFA {
+        let mut dfa = DFA::new(alphabet!(simple 'a', 'b'));
+        let a = dfa.initial();
+        dfa.set_initial_color(false);
+        let b = dfa.add_state(false);
+        let c = dfa.add_state(true);
+        let d = dfa.add_state(true);
+        let e = dfa.add_state(true);
+        let f = dfa.add_state(false);
+
+        dfa.add_edge(a, 'a', b, ());
+        dfa.add_edge(a, 'b', c, ());
+        dfa.add_edge(b, 'a', a, ());
+        dfa.add_edge(b, 'b', d, ());
+        dfa.add_edge(c, 'a', e, ());
+        dfa.add_edge(c, 'b', f, ());
+        dfa.add_edge(d, 'a', e, ());
+        dfa.add_edge(d, 'b', f, ());
+        dfa.add_edge(e, 'a', e, ());
+        dfa.add_edge(e, 'b', f, ());
+        dfa.add_edge(f, 'a', f, ());
+        dfa.add_edge(f, 'b', f, ());
+
+        dfa
+    }
+}

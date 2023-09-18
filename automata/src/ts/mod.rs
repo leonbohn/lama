@@ -242,6 +242,9 @@ pub trait Pointed: TransitionSystem {
 pub mod dot;
 pub use dot::ToDot;
 
+mod quotient;
+pub use quotient::Quotient;
+
 use self::transition_system::IsTransition;
 
 /// A congruence is a [`TransitionSystem`], which additionally has a distinguished initial state. On top
