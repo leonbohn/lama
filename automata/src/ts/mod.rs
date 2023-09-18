@@ -171,7 +171,7 @@ mod sealed {
     pub type FiniteStatesIterType<'a, This> = <This as HasFiniteStates<'a>>::StateIndicesIter;
 
     pub trait HasFiniteStates<'a, Outlives = &'a Self>: TransitionSystem {
-        type StateIndicesIter: Iterator<Item = Self::StateIndex> + Clone;
+        type StateIndicesIter: Iterator<Item = Self::StateIndex>;
     }
 
     impl<'a, 'b, HFS: HasFiniteStates<'a>> HasFiniteStates<'a> for &'b HFS {

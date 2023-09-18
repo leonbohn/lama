@@ -97,6 +97,7 @@ where
     R::Alphabet: Alphabet<Symbol = SymbolOf<L>, Expression = ExpressionOf<L>>,
     L::StateColor: Clone,
     R::StateColor: Clone,
+    for<'a> FiniteStatesIterType<'a, R>: Clone,
 {
     fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
         self.0

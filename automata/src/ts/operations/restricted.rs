@@ -3,6 +3,7 @@ use crate::{
     ts::{
         predecessors::{IsPreTransition, PredecessorIterable},
         transition_system::IsTransition,
+        FiniteState, FiniteStatesIterType, HasFiniteStates,
     },
     Pointed, TransitionSystem,
 };
@@ -16,6 +17,47 @@ pub struct RestrictByStateIndex<Ts: TransitionSystem, F> {
     filter: F,
 }
 
+/// Iterator over the state indices of a transition system that are restricted by a filter function.
+pub struct RestrictByStateIndexIter<'a, Ts: TransitionSystem + HasFiniteStates<'a>, F> {
+    filter: &'a F,
+    it: FiniteStatesIterType<'a, Ts>,
+}
+
+impl<'a, Ts: TransitionSystem + HasFiniteStates<'a>, F: Fn(Ts::StateIndex) -> bool> Iterator
+    for RestrictByStateIndexIter<'a, Ts, F>
+{
+    type Item = Ts::StateIndex;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.it.find(|idx| (self.filter)(*idx))
+    }
+}
+
+impl<'a, Ts: TransitionSystem + HasFiniteStates<'a>, F> RestrictByStateIndexIter<'a, Ts, F> {
+    /// Creates a new iterator over the state indices of a transition system that are restricted by a
+    /// filter function.
+    pub fn new(filter: &'a F, it: FiniteStatesIterType<'a, Ts>) -> Self {
+        Self { filter, it }
+    }
+}
+
+impl<'a, Ts, F> HasFiniteStates<'a> for RestrictByStateIndex<Ts, F>
+where
+    Ts: HasFiniteStates<'a>,
+    F: Fn(Ts::StateIndex) -> bool,
+{
+    type StateIndicesIter = RestrictByStateIndexIter<'a, Ts, F>;
+}
+
+impl<Ts, F> FiniteState for RestrictByStateIndex<Ts, F>
+where
+    Ts: FiniteState,
+    F: Fn(Ts::StateIndex) -> bool,
+{
+    fn state_indices(&self) -> crate::ts::sealed::FiniteStatesIterType<'_, Self> {
+        RestrictByStateIndexIter::new(&self.filter, self.ts.state_indices())
+    }
+}
+
 impl<Ts: TransitionSystem + Pointed, F> Pointed for RestrictByStateIndex<Ts, F>
 where
     F: Fn(Ts::StateIndex) -> bool,
@@ -27,7 +69,10 @@ where
     }
 }
 
-impl<Ts: TransitionSystem, F> HasAlphabet for RestrictByStateIndex<Ts, F> {
+impl<Ts, F> HasAlphabet for RestrictByStateIndex<Ts, F>
+where
+    Ts: TransitionSystem,
+{
     type Alphabet = Ts::Alphabet;
     fn alphabet(&self) -> &Self::Alphabet {
         self.ts.alphabet()
