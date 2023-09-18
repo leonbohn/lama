@@ -175,8 +175,8 @@ impl Expression<Empty> for Empty {
 /// Helper macro for creating a [`Simple`] alphabet. Is called simply with a list of symbols
 /// that are separated by commata.
 #[macro_export]
-macro_rules! simple {
-    ($($c:literal),*) => {
+macro_rules! alphabet {
+    (simple $($c:literal),*) => {
         $crate::alphabet::Simple::new(vec![$($c),*])
     };
 }
@@ -245,5 +245,59 @@ impl Alphabet for Simple {
         sym: Self::Symbol,
     ) -> Option<(&Self::Expression, &X)> {
         map.get_key_value(&sym)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Fixed<S: Symbol, const N: usize>([S; N]);
+
+impl Expression<usize> for usize {
+    type SymbolsIter = std::iter::Once<usize>;
+
+    fn symbols(&self) -> Self::SymbolsIter {
+        std::iter::once(*self)
+    }
+
+    fn matches(&self, symbol: usize) -> bool {
+        *self == symbol
+    }
+}
+
+impl<S: Symbol, const N: usize> Fixed<S, N> {
+    pub fn from(symbols: [S; N]) -> Self {
+        Self(symbols)
+    }
+}
+
+impl<S: Symbol + Expression<S>, const N: usize> Alphabet for Fixed<S, N> {
+    type Symbol = S;
+
+    type Expression = S;
+
+    fn search_edge<X>(
+        map: &Map<Self::Expression, X>,
+        sym: Self::Symbol,
+    ) -> Option<(&Self::Expression, &X)> {
+        todo!()
+    }
+
+    type Universe<'this> = std::slice::Iter<'this, S>
+    where
+        Self: 'this;
+
+    fn universe(&self) -> Self::Universe<'_> {
+        self.0.iter()
+    }
+
+    fn contains(&self, symbol: Self::Symbol) -> bool {
+        self.0.contains(&symbol)
+    }
+
+    fn matches(&self, expression: &Self::Expression, symbol: Self::Symbol) -> bool {
+        expression == &symbol
+    }
+
+    fn expression(symbol: Self::Symbol) -> Self::Expression {
+        symbol
     }
 }

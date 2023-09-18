@@ -69,8 +69,8 @@ mod tests {
     use itertools::Itertools;
 
     use crate::{
+        alphabet,
         alphabet::Simple,
-        simple,
         ts::{
             connected_components::{Scc, SccDecomposition},
             Sproutable,
@@ -79,7 +79,7 @@ mod tests {
     };
 
     pub(super) fn ts() -> RightCongruence<Simple> {
-        let mut cong = RightCongruence::new(simple!('a', 'b'));
+        let mut cong = RightCongruence::new(alphabet!(simple 'a', 'b'));
         let q0 = cong.initial();
         let q1 = cong.add_state(vec!['a']);
         let q2 = cong.add_state(vec!['b']);

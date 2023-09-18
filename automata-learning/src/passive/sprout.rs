@@ -380,9 +380,10 @@ where
 #[cfg(test)]
 pub(crate) mod tests {
     use automata::{
-        alphabet::{self, Simple},
+        alphabet,
+        alphabet::Simple,
         congruence::FORC,
-        nupw, simple,
+        nupw,
         ts::{
             finite::{ReachedColor, ReachedState},
             FiniteState, Sproutable, ToDot,
@@ -452,7 +453,7 @@ pub(crate) mod tests {
     }
 
     fn testing_smaller_forc_smaple() -> (Simple, OmegaSample<Simple, bool>) {
-        let alphabet = simple!('a', 'b', 'c');
+        let alphabet = alphabet!(simple 'a', 'b', 'c');
         (
             alphabet.clone(),
             Sample::new_omega_from_pos_neg(
@@ -521,7 +522,7 @@ pub(crate) mod tests {
 
     #[test]
     fn prefix_consistency_sprout_two() {
-        let alphabet = simple!('a', 'b');
+        let alphabet = alphabet!(simple 'a', 'b');
         let sample = Sample::new_omega(
             alphabet.clone(),
             vec![
@@ -532,7 +533,7 @@ pub(crate) mod tests {
                 (("a", 0), false),
             ],
         );
-        let mut expected_cong = RightCongruence::new(simple!('a', 'b'));
+        let mut expected_cong = RightCongruence::new(alphabet!(simple 'a', 'b'));
         let q0 = expected_cong.initial();
         let q1 = expected_cong.add_state(vec!['a']);
         expected_cong.add_edge(q0, 'a', q1, ());
@@ -555,7 +556,7 @@ pub(crate) mod tests {
 
     #[test]
     fn prefix_consistency_sprout_one() {
-        let alphabet = simple!('a', 'b');
+        let alphabet = alphabet!(simple 'a', 'b');
         let sample = Sample::new_omega(alphabet.clone(), vec![(("a", 0), false), (("b", 0), true)]);
         let conflicts = super::prefix_consistency_conflicts(sample);
         let cong = super::omega_sprout_conflicts(conflicts, (), true);
@@ -566,7 +567,7 @@ pub(crate) mod tests {
 
     #[test]
     fn prefix_consistency_sprout_four() {
-        let alphabet = simple!('a', 'b', 'c');
+        let alphabet = alphabet!(simple 'a', 'b', 'c');
         let sample = Sample::new_omega(
             alphabet.clone(),
             vec![

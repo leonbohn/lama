@@ -5,6 +5,7 @@ use owo_colors::OwoColorize;
 
 use crate::{
     alphabet::{Alphabet, HasAlphabet, Symbol, SymbolOf},
+    prelude::Simple,
     ts::{
         finite::{InfinityColors, ReachedColor},
         operations::{MapStateColor, MatchingProduct, Product},
@@ -187,15 +188,15 @@ pub type MooreMachine<A, Q, Idx = usize> = WithInitial<BTS<A, Q, (), Idx>>;
 pub type MealyMachine<A, C, Idx = usize> = WithInitial<BTS<A, (), C, Idx>>;
 
 /// A [`MooreMachine`] which outputs booleans.
-pub type DFA<A, Idx = usize> = MooreMachine<A, bool, Idx>;
+pub type DFA<A = Simple, Idx = usize> = MooreMachine<A, bool, Idx>;
 /// A [`MealyMachine`] that ouputs booleans.
-pub type DBA<A, Idx = usize> = MealyMachine<A, bool, Idx>;
+pub type DBA<A = Simple, Idx = usize> = MealyMachine<A, bool, Idx>;
 /// A [`MealyMachine`] that ouputs non-negative integers.
-pub type DPA<A, Idx = usize> = MealyMachine<A, usize, Idx>;
+pub type DPA<A = Simple, Idx = usize> = MealyMachine<A, usize, Idx>;
 /// A variant of [`DBA`] which has colors on its states.
-pub type SBDBA<A, Idx = usize> = MooreMachine<A, bool, Idx>;
+pub type SBDBA<A = Simple, Idx = usize> = MooreMachine<A, bool, Idx>;
 /// A variant of [`DPA`] which has colors on states.
-pub type SBDPA<A, Idx = usize> = MooreMachine<A, usize, Idx>;
+pub type SBDPA<A = Simple, Idx = usize> = MooreMachine<A, usize, Idx>;
 
 /// Implementors of this trait can take in a word and transform it into some kind of output.
 pub trait Transformer<S, Len: Length> {
@@ -333,6 +334,7 @@ type DfaProductReduced<L, R> = MapStateColor<MatchingProduct<L, R>, fn((bool, bo
 pub trait IsDfa:
     TransitionSystem<StateColor = bool>
     + Pointed
+    + FiniteState
     + Sized
     + Acceptor<SymbolOf<Self>, FiniteLength>
     + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>
@@ -349,6 +351,13 @@ pub trait IsDfa:
                     .expect("Every state must have a color!")
             })
             .collect_vec()
+    }
+
+    /// Returns a vector containing the indices of all states that are rejecting.
+    fn rejecting_states(&self) -> Vec<Self::StateIndex> {
+        self.state_indices()
+            .filter(|&i| !self.state_color(i).unwrap())
+            .collect()
     }
 
     /// Tries to construct a (finite) word witnessing that the accepted language is empty. If such a word exists,
@@ -395,6 +404,7 @@ pub trait IsDfa:
 impl<Ts> IsDfa for Ts where
     Ts: TransitionSystem<StateColor = bool>
         + Pointed
+        + FiniteState
         + Sized
         + Acceptor<SymbolOf<Self>, FiniteLength>
         + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>

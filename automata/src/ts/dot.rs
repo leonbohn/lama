@@ -3,8 +3,8 @@ use std::fmt::{Debug, Display};
 use itertools::Itertools;
 
 use crate::{
-    congruence::FORC, ts::FiniteState, Alphabet, Class, Color, Pointed, RightCongruence,
-    TransitionSystem,
+    automata::WithInitial, congruence::FORC, ts::FiniteState, Alphabet, Class, Color, Pointed,
+    RightCongruence, TransitionSystem,
 };
 
 use super::transition_system::IsTransition;
@@ -111,6 +111,20 @@ pub trait ToDot {
     fn display_rendered(&self) -> Result<(), std::io::Error> {
         let rendered_path = self.render_tempfile()?;
         display_png(rendered_path)
+    }
+}
+
+impl<Ts: ToDot + TransitionSystem> ToDot for WithInitial<Ts> {
+    fn dot_representation(&self) -> String {
+        Ts::dot_representation(self.ts())
+    }
+
+    fn header(&self) -> String {
+        Ts::header(self.ts())
+    }
+
+    fn body(&self, prefix: &str) -> String {
+        Ts::body(self.ts(), prefix)
     }
 }
 
@@ -344,14 +358,14 @@ fn display_png(rendered_path: tempfile::TempPath) -> Result<(), std::io::Error> 
 
 #[cfg(test)]
 mod tests {
-    use crate::{congruence::FORC, simple, ts::Sproutable, Class, Pointed, RightCongruence};
+    use crate::{alphabet, congruence::FORC, ts::Sproutable, Class, Pointed, RightCongruence};
 
     use super::ToDot;
 
     #[test]
     #[ignore]
     fn display_forc() {
-        let alphabet = simple!('a', 'b');
+        let alphabet = alphabet!(simple 'a', 'b');
         let mut cong = RightCongruence::new(alphabet.clone());
         let q0 = cong.initial();
         let q1 = cong.add_state(vec!['a']);
@@ -392,7 +406,7 @@ mod tests {
     #[test]
     #[ignore]
     fn dot_render_and_display() {
-        let alphabet = simple!('a', 'b');
+        let alphabet = alphabet!(simple 'a', 'b');
         let mut cong = RightCongruence::new(alphabet);
         let q0 = cong.initial();
         let q1 = cong.add_state(vec!['a']);

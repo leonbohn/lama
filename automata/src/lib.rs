@@ -7,12 +7,12 @@
 /// `use automata::prelude::*;` should be enough to use the package.
 pub mod prelude {
     pub use super::{
+        alphabet,
         alphabet::{Expression, ExpressionOf, HasAlphabet, Simple, Symbol, SymbolOf},
         automata::{
             Acceptor, IsDba, IsDfa, IsDpa, MealyMachine, MooreMachine, Transformer, DBA, DFA, DPA,
             SBDBA, SBDPA,
         },
-        simple,
         ts::{
             dag::Dag,
             operations::Product,
@@ -60,6 +60,8 @@ pub use word::Word;
 
 /// Module that contains definitions for dealing with mappings.
 pub mod mapping;
+
+mod algorithms;
 
 /// A color is simply a type that can be used to color states or transitions.
 pub trait Color: Clone + Eq + Ord + Hash {

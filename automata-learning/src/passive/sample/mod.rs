@@ -130,7 +130,7 @@ mod tests {
             Err(e) => panic!("Error parsing sample: {:?}", e),
         };
 
-        assert_eq!(sample.alphabet, simple!('a', 'b'));
+        assert_eq!(sample.alphabet, alphabet!(simple 'a', 'b'));
         assert_eq!(sample.positive_size(), 4);
         assert_eq!(sample.negative_size(), 3);
         assert_eq!(sample.classify(nupw!("ab")), Some(false));
@@ -138,7 +138,7 @@ mod tests {
 
     #[test]
     fn to_periodic_sample() {
-        let alphabet = simple!('a', 'b');
+        let alphabet = alphabet!(simple 'a', 'b');
         // represents congruence e ~ b ~ aa ~\~ a ~ ab
         let sample = Sample::new_omega_from_pos_neg(
             alphabet,
@@ -156,7 +156,7 @@ mod tests {
     #[test]
     #[traced_test]
     fn split_up_sample() {
-        let alphabet = simple!('a', 'b');
+        let alphabet = alphabet!(simple 'a', 'b');
         // represents congruence e ~ b ~ aa ~\~ a ~ ab
         let sample = Sample::new_omega(
             alphabet.clone(),

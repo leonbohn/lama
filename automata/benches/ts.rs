@@ -35,7 +35,7 @@ fn data() -> (
     (random_automata, words, random_loops)
 }
 fn pseudorandom_sprout(states: usize, n: usize) -> MooreMachine<Simple, usize> {
-    let alphabet = simple!('a', 'b', 'c', 'd');
+    let alphabet = alphabet!(simple 'a', 'b', 'c', 'd');
 
     let mut ts = MooreMachine::new(alphabet);
 
