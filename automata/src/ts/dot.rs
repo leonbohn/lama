@@ -7,7 +7,7 @@ use crate::{
     RightCongruence, TransitionSystem,
 };
 
-use super::transition_system::IsTransition;
+use super::{transition_system::IsTransition, IndexType, BTS};
 
 /// Trait that encapsulates the functionality of converting an object
 /// into a [graphviz](https://graphviz.org/) representation.
@@ -125,6 +125,49 @@ impl<Ts: ToDot + TransitionSystem> ToDot for WithInitial<Ts> {
 
     fn body(&self, prefix: &str) -> String {
         Ts::body(self.ts(), prefix)
+    }
+}
+
+impl<A: Alphabet, Q, C, Idx> ToDot for BTS<A, Q, C, Idx>
+where
+    A::Symbol: Display,
+    Q: Debug + Color,
+    C: Debug + Color,
+    Idx: IndexType + Debug,
+{
+    fn dot_representation(&self) -> String {
+        format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""))
+    }
+
+    fn header(&self) -> String {
+        [
+            "fontname=\"Helvetica,Arial,sans-serif\"\nrankdir=LR".to_string(),
+            "node [shape=none]".into(),
+        ]
+        .join("\n")
+    }
+
+    fn body(&self, prefix: &str) -> String {
+        let mut lines = vec![];
+        let to_consider = self.state_indices();
+
+        for state in to_consider {
+            if let Some(it) = self.edges_from(state) {
+                for e in it {
+                    lines.push(format!(
+                        "\"{prefix}{state},{:?}\" -> \"{prefix}{},{:?}\" [label = \"{:?}\"]",
+                        self.state_color(state)
+                            .expect("Actually every state should be colored!"),
+                        e.target(),
+                        self.state_color(e.target())
+                            .expect("Actually every state should be colored!"),
+                        e.expression(),
+                        prefix = prefix
+                    ));
+                }
+            }
+        }
+        lines.join("\n")
     }
 }
 

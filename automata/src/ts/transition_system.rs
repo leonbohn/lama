@@ -597,6 +597,42 @@ pub trait TransitionSystem: HasAlphabet {
         ts
     }
 
+    /// Variant of [`Self::collect()`] which also considers the initial state.
+    fn collect_with_initial<
+        Ts: TransitionSystem<
+                StateColor = Self::StateColor,
+                EdgeColor = Self::EdgeColor,
+                Alphabet = Self::Alphabet,
+            > + super::Sproutable
+            + Pointed,
+    >(
+        &self,
+    ) -> Ts
+    where
+        Self: FiniteState + Pointed,
+    {
+        let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
+        ts.set_initial_color(self.initial_color());
+
+        let (l, r) = self.state_indices().filter(|o| o != &self.initial()).tee();
+        let map: Map<Self::StateIndex, Ts::StateIndex> = l
+            .zip(ts.extend_states(r.map(|q| self.state_color(q).unwrap())))
+            .chain(std::iter::once((self.initial(), ts.initial())))
+            .collect();
+        for index in self.state_indices() {
+            let q = *map.get(&index).unwrap();
+            self.edges_from(index).unwrap().for_each(|tt| {
+                ts.add_edge(
+                    q,
+                    tt.expression().clone(),
+                    *map.get(&tt.target()).unwrap(),
+                    tt.color(),
+                );
+            });
+        }
+        ts
+    }
+
     /// Collects `self` into a new transition system of type `Ts` with the same alphabet, state indices
     /// and edge colors.
     fn collect<
