@@ -54,7 +54,7 @@ pub trait Alphabet: Clone {
 
     /// Type for an iterator over all possible symbols in the alphabet. For [`Propositional`] alphabets,
     /// this may return quite a few symbols (exponential in the number of atomic propositions).
-    type Universe<'this>: Iterator<Item = &'this Self::Symbol>
+    type Universe<'this>: Iterator<Item = &'this Self::Symbol> + Clone
     where
         Self: 'this;
 

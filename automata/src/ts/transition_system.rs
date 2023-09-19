@@ -335,6 +335,17 @@ pub trait TransitionSystem: HasAlphabet {
         Ok(path)
     }
 
+    /// Checks whether `self` is complete, meaning every state has a transition for every symbol
+    /// of the alphabet.
+    fn is_complete(&self) -> bool
+    where
+        Self: FiniteState,
+    {
+        self.state_indices()
+            .cartesian_product(self.alphabet().universe())
+            .all(|(q, a)| self.transition(q, *a).is_some())
+    }
+
     /// Runs the given `word` on the transition system, starting from `state`.
     #[allow(clippy::type_complexity)]
     fn omega_run(
