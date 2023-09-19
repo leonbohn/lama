@@ -248,6 +248,9 @@ impl Alphabet for Simple {
     }
 }
 
+/// An alphabet of fixed arity, uses const generics. This is more seen as a test
+/// since the performance gains (at least for simple operations like runs) is
+/// negligible.
 #[derive(Clone, Debug)]
 pub struct Fixed<S: Symbol, const N: usize>([S; N]);
 
@@ -264,6 +267,7 @@ impl Expression<usize> for usize {
 }
 
 impl<S: Symbol, const N: usize> Fixed<S, N> {
+    /// Create a new [`Fixed`] alphabet from a slice of length `N`.
     pub fn from(symbols: [S; N]) -> Self {
         Self(symbols)
     }
@@ -278,7 +282,7 @@ impl<S: Symbol + Expression<S>, const N: usize> Alphabet for Fixed<S, N> {
         map: &Map<Self::Expression, X>,
         sym: Self::Symbol,
     ) -> Option<(&Self::Expression, &X)> {
-        todo!()
+        map.get_key_value(&sym)
     }
 
     type Universe<'this> = std::slice::Iter<'this, S>

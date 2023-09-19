@@ -82,11 +82,22 @@ pub type Set<S> = fxhash::FxHashSet<S>;
 /// Type alias for maps, we use this to hide which type of `HashMap` we are actually using.
 pub type Map<K, V> = fxhash::FxHashMap<K, V>;
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+/// A partition is a different view on a congruence relation, by grouping elements of
+/// type `I` into their respective classes under the relation.
+#[derive(Debug, Clone)]
 #[autoimpl(Deref using self.0)]
 pub struct Partition<I: Hash + Eq>(Vec<Set<I>>);
 
+impl<I: Hash + Eq> PartialEq for Partition<I> {
+    fn eq(&self, other: &Self) -> bool {
+        self.len() == other.len() && self.iter().all(|o| other.contains(o))
+    }
+}
+impl<I: Hash + Eq> Eq for Partition<I> {}
+
 impl<I: Hash + Eq> Partition<I> {
+    /// Builds a new congruence relation from an iterator that yields iterators
+    /// which yield elements of type `I`.
     pub fn new<X: IntoIterator<Item = I>, Y: IntoIterator<Item = X>>(iter: Y) -> Self {
         Self(
             iter.into_iter()

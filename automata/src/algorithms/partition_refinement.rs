@@ -13,7 +13,6 @@ pub fn partition_refinement<D: IsDfa>(dfa: D) -> Partition<D::StateIndex> {
     let mut w = p.clone();
 
     while let Some(a) = w.pop() {
-        println!("P = {:?} \t a = {:?}", p, a);
         for sym in dfa.alphabet().universe() {
             let x = dfa
                 .state_indices()
@@ -23,7 +22,6 @@ pub fn partition_refinement<D: IsDfa>(dfa: D) -> Partition<D::StateIndex> {
                         .unwrap_or(false)
                 })
                 .collect::<Set<_>>();
-            println!("sym = {:?} \t x = {:?}", sym, x);
 
             let mut new_p = vec![];
             for y in &p {
@@ -33,24 +31,18 @@ pub fn partition_refinement<D: IsDfa>(dfa: D) -> Partition<D::StateIndex> {
                 }
                 let int = x.intersection(y).cloned().collect::<Set<_>>();
                 let diff = y.difference(&x).cloned().collect::<Set<_>>();
-                println!("intersection {:?} \t difference {:?}", int, diff);
 
                 if let Some(pos) = w.iter().position(|o| o == y) {
-                    println!("remove {:?} from w", y);
                     w.remove(pos);
-                    println!("add {:?} and {:?} to w", int, diff);
                     w.extend([int.clone(), diff.clone()]);
                 } else {
                     w.push(if int.len() <= diff.len() {
-                        println!("add {:?} to w", int);
                         int.clone()
                     } else {
-                        println!("add {:?} to w", diff);
                         diff.clone()
                     });
                 }
 
-                println!("add {:?} and {:?} to p", int, diff);
                 new_p.extend([int, diff]);
             }
             p = new_p;
@@ -61,7 +53,7 @@ pub fn partition_refinement<D: IsDfa>(dfa: D) -> Partition<D::StateIndex> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{alphabet::Fixed, prelude::*, tests::wiki_dfa};
+    use crate::{alphabet::Fixed, prelude::*, tests::wiki_dfa, Partition};
 
     use super::partition_refinement;
 
@@ -70,6 +62,6 @@ mod tests {
         let dfa = wiki_dfa();
 
         let p = partition_refinement(&dfa);
-        println!("{:?}", p);
+        assert_eq!(p, Partition::new([vec![0, 1], vec![5], vec![2, 3, 4]]))
     }
 }

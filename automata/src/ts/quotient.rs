@@ -3,19 +3,44 @@ use crate::{
     Alphabet, Partition, Set, TransitionSystem,
 };
 
-use super::{transition_system::IsTransition, FiniteState};
+use super::{transition_system::IsTransition, FiniteState, HasFiniteStates};
 
+/// A quotient takes a transition system and merges states which are in the same
+/// congruence class of some [`Partition`]. We assume that the [`Partition`] is
+/// a congruence, meaning if we have two classes `X, Y`, then for all `p`, `q` in X
+/// and all symbols `a` in the alphabet, there is an edge from `p` on `a` to some
+/// state in `Y` if and only if the same is true for `q`. Thus, there is an edge
+/// between states (which are congruence classes) of the [`Quotient`] for some symbol
+/// `a`, if there is an edge between the states contained in the class.
+///
+/// In the implementation of [`TransitionSystem`] for [`Quotient`], the edge and
+/// state colors are [`Vec`]s of the respective colors of the underlying transition
+/// system, where we simply collect all colors.
 #[derive(Debug, Clone)]
 pub struct Quotient<Ts: FiniteState + TransitionSystem> {
     ts: Ts,
     partition: Partition<Ts::StateIndex>,
 }
 
+impl<Ts: FiniteState + TransitionSystem> FiniteState for Quotient<Ts> {
+    fn state_indices(&self) -> super::FiniteStatesIterType<'_, Self> {
+        0..self.partition.len()
+    }
+}
+
+impl<'a, Ts: FiniteState + TransitionSystem> HasFiniteStates<'a> for Quotient<Ts> {
+    type StateIndicesIter = std::ops::Range<usize>;
+}
+
 impl<Ts: FiniteState + TransitionSystem> Quotient<Ts> {
-    pub fn class_by_id_iter(&self, id: usize) -> Option<impl Iterator<Item = Ts::StateIndex> + '_> {
+    /// Returns an iterator over the indices in the quotient class with the given `id`.
+    /// If no such class exists, `None` is returned.
+    pub fn class_iter_by_id(&self, id: usize) -> Option<impl Iterator<Item = Ts::StateIndex> + '_> {
         self.partition.get(id).map(|s| s.iter().cloned())
     }
 
+    /// Tries to find the id of the quotient class containing the given state `q`. If
+    /// the state is not in the partition, `None` is returned.
     pub fn find_id_by_state(&self, q: Ts::StateIndex) -> Option<usize> {
         self.partition.iter().position(|o| o.contains(&q))
     }
@@ -44,6 +69,7 @@ impl<Ts: FiniteState + TransitionSystem> Quotient<Ts> {
         true
     }
 
+    /// Creates a new quotient of the given transition system by the give [`Partition`].
     pub fn new(ts: Ts, partition: Partition<Ts::StateIndex>) -> Self {
         // assert!(Self::sanity_check(&ts, &partition));
         Self { ts, partition }
@@ -131,7 +157,7 @@ impl<Ts: FiniteState + TransitionSystem> TransitionSystem for Quotient<Ts> {
         symbol: crate::prelude::SymbolOf<Self>,
     ) -> Option<Self::TransitionRef<'_>> {
         let (states, colors): (Set<_>, Vec<_>) = self
-            .class_by_id_iter(state)?
+            .class_iter_by_id(state)?
             .filter_map(|q| {
                 self.ts.transition(q, symbol).map(|tt| {
                     (

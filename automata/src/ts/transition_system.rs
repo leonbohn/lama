@@ -163,6 +163,7 @@ pub trait TransitionSystem: HasAlphabet {
         (self, initial).into()
     }
 
+    /// Builds the [`Quotient`] of `self` with regard to some given [`Partition`].
     fn quotient(self, partition: Partition<Self::StateIndex>) -> Quotient<Self>
     where
         Self: Sized + FiniteState,

@@ -100,7 +100,7 @@ where
     Ts: FiniteState,
     F: StateIndexFilter<Ts::StateIndex>,
 {
-    fn state_indices(&self) -> crate::ts::sealed::FiniteStatesIterType<'_, Self> {
+    fn state_indices(&self) -> crate::ts::FiniteStatesIterType<'_, Self> {
         RestrictByStateIndexIter::new(&self.filter, self.ts.state_indices())
     }
 }

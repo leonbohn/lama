@@ -1,4 +1,4 @@
-use automata::prelude::*;
+use automata::{alphabet::Fixed, prelude::*, ts::finite::ReachedState};
 
 type Automata = Vec<MooreMachine<Simple, usize>>;
 type Words = Vec<Vec<char>>;
@@ -130,11 +130,47 @@ fn iai_automata_transformations() {
     automata_transformations(iai::black_box(&DATA.0))
 }
 
+fn simple_dfa_ops<A: Alphabet<Symbol = char, Expression = char>>(mut dfa: DFA<A>) {
+    let q0 = dfa.initial();
+    let q1 = dfa.add_state(false);
+    let q2 = dfa.add_state(true);
+    dfa.add_edge(q0, 'a', q0, ());
+    dfa.add_edge(q0, 'b', q1, ());
+    dfa.add_edge(q0, 'c', q2, ());
+    dfa.add_edge(q1, 'a', q0, ());
+    dfa.add_edge(q1, 'b', q1, ());
+    dfa.add_edge(q1, 'c', q2, ());
+    dfa.add_edge(q2, 'a', q0, ());
+    dfa.add_edge(q2, 'b', q1, ());
+    dfa.add_edge(q2, 'c', q2, ());
+    for x in [
+        "abbac",
+        "abcbc",
+        "abbcabbcbabcbbcbbabcbac",
+        "bbcbabcbacbabcbabcbabcbabacbcbcbababbc",
+    ] {
+        let ReachedState(q) = dfa.induced(&x, dfa.initial()).unwrap();
+        assert_eq!(q, 2);
+    }
+}
+
+fn iai_simple_alphabet_ops() {
+    let dfa = DFA::new(alphabet!(simple 'a', 'b', 'c'));
+    simple_dfa_ops(iai::black_box(dfa));
+}
+
+fn iai_fixed_alphabet_ops() {
+    let dfa = DFA::new(Fixed::from(['a', 'b', 'c']));
+    simple_dfa_ops(iai::black_box(dfa));
+}
+
 iai::main!(
     iai_runs,
     iai_runs_new,
     iai_scc_decomposition,
     iai_scc_tree_decomposition,
     iai_automata_transformations_old,
-    iai_automata_transformations
+    iai_automata_transformations,
+    iai_simple_alphabet_ops,
+    iai_fixed_alphabet_ops
 );

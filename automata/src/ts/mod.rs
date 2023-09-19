@@ -165,26 +165,28 @@ pub trait HasStates: TransitionSystem + Sized {
     }
 }
 
-mod sealed {
-    use crate::TransitionSystem;
+/// Auxiliary type alias that allows easier access to the type of state index iterator
+/// returned for transition systems that have a finite state space.
+pub type FiniteStatesIterType<'a, This> = <This as HasFiniteStates<'a>>::StateIndicesIter;
 
-    pub type FiniteStatesIterType<'a, This> = <This as HasFiniteStates<'a>>::StateIndicesIter;
-
-    pub trait HasFiniteStates<'a, Outlives = &'a Self>: TransitionSystem {
-        type StateIndicesIter: Iterator<Item = Self::StateIndex>;
-    }
-
-    impl<'a, 'b, HFS: HasFiniteStates<'a>> HasFiniteStates<'a> for &'b HFS {
-        type StateIndicesIter = <HFS as HasFiniteStates<'a>>::StateIndicesIter;
-    }
+/// Helper trait that must be implemented for every possible lifetime `'a`, in order
+/// for a type to implement [`FiniteState`]. This is a (arguably hacky) solution to
+/// deal with lifetime issues when iterating over the state indices of a transition
+/// system. Especially interesting in the case of a [`DirectProduct`] for example.
+pub trait HasFiniteStates<'a, Outlives = &'a Self>: TransitionSystem {
+    /// Type of the iterator over the state indices of `Self`.
+    type StateIndicesIter: Iterator<Item = Self::StateIndex>;
 }
-pub(crate) use sealed::*;
+
+impl<'a, 'b, HFS: HasFiniteStates<'a>> HasFiniteStates<'a> for &'b HFS {
+    type StateIndicesIter = <HFS as HasFiniteStates<'a>>::StateIndicesIter;
+}
 
 /// Implementors of this trait have a finite number of states and allow iteration over the
 /// set of all state indices.
-pub trait FiniteState: Sized + for<'a> sealed::HasFiniteStates<'a> {
+pub trait FiniteState: Sized + for<'a> HasFiniteStates<'a> {
     /// Returns an iterator over the state indices in `self`.
-    fn state_indices(&self) -> sealed::FiniteStatesIterType<'_, Self>;
+    fn state_indices(&self) -> FiniteStatesIterType<'_, Self>;
 
     /// Gives the size of `self`.
     fn size(&self) -> usize {
@@ -212,7 +214,7 @@ pub trait FiniteState: Sized + for<'a> sealed::HasFiniteStates<'a> {
 }
 
 impl<'a, FS: FiniteState> FiniteState for &'a FS {
-    fn state_indices(&self) -> sealed::FiniteStatesIterType<'_, Self> {
+    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
         FS::state_indices(self)
     }
 }

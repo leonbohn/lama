@@ -4,13 +4,14 @@ use itertools::Itertools;
 use owo_colors::OwoColorize;
 
 use crate::{
+    algorithms::minimize_dfa,
     alphabet::{Alphabet, HasAlphabet, Symbol, SymbolOf},
     prelude::Simple,
     ts::{
         finite::{InfinityColors, ReachedColor},
         operations::{MapStateColor, MatchingProduct, Product},
         EdgeColor, FiniteState, FiniteStatesIterType, HasFiniteStates, HasMutableStates, HasStates,
-        IndexType, Pointed, Sproutable, StateColor, TransitionSystem, BTS,
+        IndexType, Pointed, Quotient, Sproutable, StateColor, TransitionSystem, BTS,
     },
     word::{Normalized, OmegaWord},
     Color, FiniteLength, InfiniteLength, Length, Word,
@@ -351,6 +352,14 @@ pub trait IsDfa:
                     .expect("Every state must have a color!")
             })
             .collect_vec()
+    }
+
+    /// Minimizes `self` using Hopcroft's partition refinement algorithm.
+    fn minimize(self) -> Quotient<Self>
+    where
+        Self: FiniteState,
+    {
+        minimize_dfa(self)
     }
 
     /// Returns a vector containing the indices of all states that are rejecting.
