@@ -1,4 +1,7 @@
-use std::{collections::BTreeSet, fmt::Debug};
+use std::{
+    collections::BTreeSet,
+    fmt::{Debug, Display},
+};
 
 use itertools::Itertools;
 use owo_colors::OwoColorize;
@@ -184,9 +187,9 @@ impl<Ts: TransitionSystem> Pointed for WithInitial<Ts> {
 }
 
 /// A Moore machine is simply a [`TransitionSystem`] with a designated initial state, which has colors on states.
-pub type MooreMachine<A, Q, Idx = usize> = WithInitial<BTS<A, Q, (), Idx>>;
+pub type MooreMachine<A, Q = usize, Idx = usize> = WithInitial<BTS<A, Q, (), Idx>>;
 /// A Mealy machine is a [`TransitionSystem`] with a designated initial state and colors on edges.
-pub type MealyMachine<A, C, Idx = usize> = WithInitial<BTS<A, (), C, Idx>>;
+pub type MealyMachine<A, C = usize, Idx = usize> = WithInitial<BTS<A, (), C, Idx>>;
 
 /// A [`MooreMachine`] which outputs booleans.
 pub type DFA<A = Simple, Idx = usize> = MooreMachine<A, bool, Idx>;
@@ -492,10 +495,83 @@ impl<Ts> IsDpa for Ts where
 {
 }
 
+/// Implemented by objects which can be viewed as a MealyMachine, i.e. a finite transition system
+/// which has outputs of type usize on its edges.
+pub trait IsMealy: TransitionSystem<EdgeColor = usize> + Pointed + Sized {}
+impl<Ts: TransitionSystem<EdgeColor = usize> + Pointed + Sized> IsMealy for Ts {}
+
+/// Implemented by objects that can be viewed as MooreMachines, i.e. finite transition systems
+/// that have usize annotated/outputting states.
+pub trait IsMoore: TransitionSystem<StateColor = usize> + Pointed + Sized {
+    /// Obtains a vec containing the possible colors emitted by `self` (without duplicates).
+    fn color_range(&self) -> Vec<Self::StateColor> {
+        self.reachable_state_indices()
+            .map(|o| {
+                self.state_color(o)
+                    .expect("We know it is reachable and it must be colored")
+            })
+            .unique()
+            .collect()
+    }
+
+    /// Decomposes `self` into a sequence of DFAs, where the i-th DFA accepts all words which
+    /// produce a color less than or equal to i.
+    fn decompose_dfa(&self) -> Vec<DFA<Self::Alphabet>>
+    where
+        Self: FiniteState,
+    {
+        self.color_range()
+            .into_iter()
+            .map(|i| (&self).color_or_below_dfa(i))
+            .collect()
+    }
+
+    /// Builds a DFA that accepts all words which emit a color less than or equal to `color`.
+    fn color_or_below_dfa(&self, color: usize) -> DFA<Self::Alphabet>
+    where
+        Self: FiniteState,
+    {
+        self.map_state_colors(|o| o <= color)
+            .erase_edge_colors()
+            .minimize()
+            .erase_edge_colors()
+            .map_state_colors(|o| o.contains(&true))
+            .collect_with_initial()
+    }
+}
+impl<Ts: TransitionSystem<StateColor = usize> + Pointed + Sized> IsMoore for Ts {}
+
 #[cfg(test)]
 mod tests {
-    use super::IsDfa;
-    use crate::prelude::*;
+    use super::{IsDfa, IsMoore, WithInitial};
+    use crate::{prelude::*, ts::BTS};
+
+    #[test]
+    fn mealy_color_or_below() {
+        let mut mm: WithInitial<BTS<_, usize, _>> = MooreMachine::new(alphabet!(simple 'a', 'b'));
+        let a = mm.initial();
+        mm.set_initial_color(2usize);
+        let b = mm.add_state(1usize);
+        let c = mm.add_state(1usize);
+        let d = mm.add_state(0usize);
+        mm.add_edge(a, 'a', b, ());
+        mm.add_edge(a, 'b', c, ());
+        mm.add_edge(b, 'a', c, ());
+        mm.add_edge(b, 'b', c, ());
+        mm.add_edge(c, 'a', d, ());
+        mm.add_edge(c, 'b', c, ());
+        mm.add_edge(d, 'a', d, ());
+        mm.add_edge(d, 'b', d, ());
+
+        let dfas = mm.decompose_dfa();
+        let dfa2 = &dfas[2];
+        let dfa0 = &dfas[0];
+
+        assert!(dfa0.accepts(&""));
+        assert!(dfa0.accepts(&"b"));
+        assert!(!dfa2.accepts(&"b"));
+        assert!(dfa2.accepts(&"ba"));
+    }
 
     #[test]
     fn dbas() {

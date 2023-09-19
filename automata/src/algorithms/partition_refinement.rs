@@ -9,7 +9,10 @@ use crate::{
 pub fn partition_refinement<D: IsDfa>(dfa: D) -> Partition<D::StateIndex> {
     let accepting = dfa.accepting_states().into_iter().collect::<Set<_>>();
     let rejecting = dfa.rejecting_states().into_iter().collect::<Set<_>>();
-    let mut p = vec![rejecting, accepting];
+    let mut p: Vec<_> = [rejecting, accepting]
+        .into_iter()
+        .filter(|o| !o.is_empty())
+        .collect();
     let mut w = p.clone();
 
     while let Some(a) = w.pop() {

@@ -1,6 +1,6 @@
 use crate::{
     prelude::{ExpressionOf, HasAlphabet, SymbolOf},
-    Alphabet, Partition, Set, TransitionSystem,
+    Alphabet, Partition, Pointed, Set, TransitionSystem,
 };
 
 use super::{transition_system::IsTransition, FiniteState, HasFiniteStates};
@@ -20,6 +20,13 @@ use super::{transition_system::IsTransition, FiniteState, HasFiniteStates};
 pub struct Quotient<Ts: FiniteState + TransitionSystem> {
     ts: Ts,
     partition: Partition<Ts::StateIndex>,
+}
+
+impl<Ts: FiniteState + TransitionSystem + Pointed> Pointed for Quotient<Ts> {
+    fn initial(&self) -> Self::StateIndex {
+        self.find_id_by_state(self.ts.initial())
+            .expect("Initial class must exist")
+    }
 }
 
 impl<Ts: FiniteState + TransitionSystem> FiniteState for Quotient<Ts> {
@@ -200,7 +207,8 @@ impl<Ts: FiniteState + TransitionSystem> TransitionSystem for Quotient<Ts> {
     }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
-        todo!()
+        let mut it = self.class_iter_by_id(state)?;
+        it.map(|o| self.ts.state_color(o)).collect()
     }
 }
 

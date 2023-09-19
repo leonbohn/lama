@@ -238,6 +238,12 @@ pub trait HasMutableStates: HasStates {
 pub trait Pointed: TransitionSystem {
     /// Returns the index of the initial state.
     fn initial(&self) -> Self::StateIndex;
+
+    /// Returns the color of the initial state.
+    fn initial_color(&self) -> Self::StateColor {
+        self.state_color(self.initial())
+            .expect("Initial state must exist and be colored!")
+    }
 }
 
 /// This module deals with transforming a transition system (or similar) into a representation in the dot (graphviz) format.
