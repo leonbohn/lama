@@ -158,13 +158,18 @@ impl<Ts: FiniteState + TransitionSystem> TransitionSystem for Quotient<Ts> {
     where
         Self: 'this;
 
-    fn transition(
+    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
+        let mut it = self.class_iter_by_id(state)?;
+        it.map(|o| self.ts.state_color(o)).collect()
+    }
+
+    fn transition<Idx: super::transition_system::Indexes<Self>>(
         &self,
-        state: Self::StateIndex,
-        symbol: crate::prelude::SymbolOf<Self>,
+        state: Idx,
+        symbol: SymbolOf<Self>,
     ) -> Option<Self::TransitionRef<'_>> {
         let (states, colors): (Set<_>, Vec<_>) = self
-            .class_iter_by_id(state)?
+            .class_iter_by_id(state.to_index(self)?)?
             .filter_map(|q| {
                 self.ts.transition(q, symbol).map(|tt| {
                     (
@@ -186,29 +191,19 @@ impl<Ts: FiniteState + TransitionSystem> TransitionSystem for Quotient<Ts> {
         })
     }
 
-    fn edge_color(
+    fn edges_from<Idx: super::transition_system::Indexes<Self>>(
         &self,
-        state: Self::StateIndex,
-        expression: &crate::prelude::ExpressionOf<Self>,
-    ) -> Option<super::EdgeColor<Self>> {
-        todo!()
-    }
-
-    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
-        if self.partition.len() <= state {
+        state: Idx,
+    ) -> Option<Self::EdgesFromIter<'_>> {
+        if self.partition.len() <= state.to_index(self)? {
             None
         } else {
             Some(QuotientEdgesFrom::new(
                 self,
                 self.alphabet().universe(),
-                state,
+                state.to_index(self)?,
             ))
         }
-    }
-
-    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
-        let mut it = self.class_iter_by_id(state)?;
-        it.map(|o| self.ts.state_color(o)).collect()
     }
 }
 

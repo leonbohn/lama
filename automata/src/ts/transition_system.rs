@@ -2,6 +2,7 @@ use crate::{
     alphabet::{ExpressionOf, HasAlphabet, SymbolOf},
     automata::WithInitial,
     congruence::ColoredClass,
+    prelude::Expression,
     Alphabet, Class, Color, FiniteLength, Map, Partition, Pointed, RightCongruence, Word,
 };
 
@@ -106,7 +107,7 @@ impl<'a, Idx: IndexType, E, C: Color> IsTransition<E, Idx, C> for (&'a E, &'a (I
 /// with an expression, while a transition is labelled with an actual symbol (that [`Alphabet::matches`]
 /// the expression). So a transition is a concrete edge that is taken (usually by the run on a word), while
 /// an edge may represent any different number of transitions.
-pub trait TransitionSystem: HasAlphabet {
+pub trait TransitionSystem: HasAlphabet + Sized {
     /// The type of the indices of the states of the transition system.
     type StateIndex: IndexType;
     /// The type of the colors of the states of the transition system.
@@ -132,9 +133,9 @@ pub trait TransitionSystem: HasAlphabet {
     }
 
     /// For a given `state` and `symbol`, returns the transition that is taken, if it exists.
-    fn transition(
+    fn transition<Idx: Indexes<Self>>(
         &self,
-        state: Self::StateIndex,
+        state: Idx,
         symbol: SymbolOf<Self>,
     ) -> Option<Self::TransitionRef<'_>>;
 
@@ -144,11 +145,20 @@ pub trait TransitionSystem: HasAlphabet {
         &self,
         state: Self::StateIndex,
         expression: &ExpressionOf<Self>,
-    ) -> Option<EdgeColor<Self>>;
+    ) -> Option<EdgeColor<Self>> {
+        let symbols = expression.symbols().collect::<Vec<_>>();
+        assert_eq!(
+            symbols.len(),
+            1,
+            "Only works for alphabets where expressions and symbols coincide"
+        );
+        let sym = symbols.first().unwrap();
+        Some(self.transition(state, sym)?.color())
+    }
 
     /// Returns an iterator over the transitions that start in the given `state`. If the state does
     /// not exist, `None` is returned.
-    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>>;
+    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>>;
 
     /// Returns the color of the given `state`, if it exists. Otherwise, `None` is returned.
     fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor>;
@@ -726,12 +736,12 @@ impl<Ts: TransitionSystem> TransitionSystem for &Ts {
     type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
     type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
 
-    fn transition(
+    fn transition<Idx: Indexes<Self>>(
         &self,
-        state: Self::StateIndex,
+        state: Idx,
         symbol: SymbolOf<Self>,
     ) -> Option<Self::TransitionRef<'_>> {
-        Ts::transition(self, state, symbol)
+        Ts::transition(self, state.to_index(self)?, symbol)
     }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
@@ -746,8 +756,8 @@ impl<Ts: TransitionSystem> TransitionSystem for &Ts {
         Ts::edge_color(self, state, expression)
     }
 
-    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
-        Ts::edges_from(self, state)
+    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
+        Ts::edges_from(self, state.to_index(self)?)
     }
 }
 impl<Ts: TransitionSystem> TransitionSystem for &mut Ts {
@@ -757,20 +767,16 @@ impl<Ts: TransitionSystem> TransitionSystem for &mut Ts {
     type TransitionRef<'this> = Ts::TransitionRef<'this> where Self : 'this;
     type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
 
-    fn transition(
+    fn transition<Idx: Indexes<Self>>(
         &self,
-        state: Self::StateIndex,
+        state: Idx,
         symbol: SymbolOf<Self>,
     ) -> Option<Self::TransitionRef<'_>> {
-        Ts::transition(self, state, symbol)
+        Ts::transition(self, state.to_index(self)?, symbol)
     }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
         Ts::state_color(self, state)
-    }
-
-    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
-        Ts::edges_from(self, state)
     }
 
     fn edge_color(
@@ -779,6 +785,10 @@ impl<Ts: TransitionSystem> TransitionSystem for &mut Ts {
         expression: &ExpressionOf<Self>,
     ) -> Option<EdgeColor<Self>> {
         Ts::edge_color(self, state, expression)
+    }
+
+    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
+        Ts::edges_from(self, state.to_index(self)?)
     }
 }
 
@@ -791,20 +801,8 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for RightCongruence<A, Q,
     where
         Self: 'this;
 
-    fn transition(
-        &self,
-        state: Self::StateIndex,
-        symbol: crate::alphabet::SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        self.ts().transition(state, symbol)
-    }
-
     fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
         self.ts().state_color(state)
-    }
-
-    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
-        self.ts().edges_from(state)
     }
 
     fn edge_color(
@@ -813,6 +811,18 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for RightCongruence<A, Q,
         expression: &crate::alphabet::ExpressionOf<Self>,
     ) -> Option<crate::ts::EdgeColor<Self>> {
         self.ts().edge_color(state, expression)
+    }
+
+    fn transition<Idx: Indexes<Self>>(
+        &self,
+        state: Idx,
+        symbol: SymbolOf<Self>,
+    ) -> Option<Self::TransitionRef<'_>> {
+        self.ts().transition(state.to_index(self)?, symbol)
+    }
+
+    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
+        self.ts().edges_from(state.to_index(self)?)
     }
 }
 impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A, Q, C, Idx> {
@@ -823,12 +833,6 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A
     type EdgesFromIter<'this> = std::collections::hash_map::Iter<'this, A::Expression, (Idx, C)>
     where
         Self: 'this;
-
-    fn transition(&self, state: Idx, symbol: A::Symbol) -> Option<Self::TransitionRef<'_>> {
-        self.states()
-            .get(&state)
-            .and_then(|o| A::search_edge(o.edge_map(), symbol))
-    }
 
     fn state_color(&self, index: Idx) -> Option<StateColor<Self>> {
         self.states().get(&index).map(|s| s.color().clone())
@@ -844,8 +848,20 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A
             .and_then(|o| o.edge_map().get(expression).map(|(_, c)| c.clone()))
     }
 
-    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
-        self.states().get(&state).map(|o| o.edge_map().iter())
+    fn transition<X: Indexes<Self>>(
+        &self,
+        state: X,
+        symbol: SymbolOf<Self>,
+    ) -> Option<Self::TransitionRef<'_>> {
+        self.states()
+            .get(&state.to_index(self)?)
+            .and_then(|o| A::search_edge(o.edge_map(), symbol))
+    }
+
+    fn edges_from<X: Indexes<Self>>(&self, state: X) -> Option<Self::EdgesFromIter<'_>> {
+        self.states()
+            .get(&state.to_index(self)?)
+            .map(|o| o.edge_map().iter())
     }
 }
 
@@ -862,22 +878,6 @@ where
     type StateColor = (L::StateColor, R::StateColor);
     type TransitionRef<'this> = ProductTransition<L::StateIndex, R::StateIndex, ExpressionOf<L>, L::EdgeColor, R::EdgeColor> where Self: 'this;
     type EdgesFromIter<'this> = ProductEdgesFrom<'this, L, R> where Self: 'this;
-
-    fn transition(
-        &self,
-        state: Self::StateIndex,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        let ProductIndex(l, r) = state;
-
-        let ll = self.0.transition(l, symbol)?;
-        let rr = self.1.transition(r, symbol)?;
-        Some(ProductTransition::new(
-            ll.expression().clone(),
-            ProductIndex(ll.target(), rr.target()),
-            (ll.color(), rr.color()),
-        ))
-    }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
         let ProductIndex(l, r) = state;
@@ -897,8 +897,24 @@ where
         Some((left, right))
     }
 
-    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
-        ProductEdgesFrom::new(&self.0, &self.1, state)
+    fn transition<Idx: Indexes<Self>>(
+        &self,
+        state: Idx,
+        symbol: SymbolOf<Self>,
+    ) -> Option<Self::TransitionRef<'_>> {
+        let ProductIndex(l, r) = state.to_index(self)?;
+
+        let ll = self.0.transition(l, symbol)?;
+        let rr = self.1.transition(r, symbol)?;
+        Some(ProductTransition::new(
+            ll.expression().clone(),
+            ProductIndex(ll.target(), rr.target()),
+            (ll.color(), rr.color()),
+        ))
+    }
+
+    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
+        ProductEdgesFrom::new(&self.0, &self.1, state.to_index(self)?)
     }
 }
 
@@ -914,21 +930,9 @@ where
     type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
     type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
 
-    fn transition(
-        &self,
-        state: Self::StateIndex,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        self.ts().transition(state, symbol)
-    }
-
     fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
         let color = self.ts().state_color(state)?;
         Some((self.f())(color))
-    }
-
-    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
-        self.ts().edges_from(state)
     }
 
     fn edge_color(
@@ -937,6 +941,18 @@ where
         expression: &ExpressionOf<Self>,
     ) -> Option<EdgeColor<Self>> {
         self.ts().edge_color(state, expression)
+    }
+
+    fn transition<Idx: Indexes<Self>>(
+        &self,
+        state: Idx,
+        symbol: SymbolOf<Self>,
+    ) -> Option<Self::TransitionRef<'_>> {
+        self.ts().transition(state.to_index(self)?, symbol)
+    }
+
+    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
+        self.ts().edges_from(state.to_index(self)?)
     }
 }
 
@@ -953,17 +969,6 @@ where
     type EdgesFromIter<'this> =
         MappedEdgesFromIter<'this, Ts::EdgesFromIter<'this>, F, Ts::EdgeColor> where Self: 'this;
 
-    fn transition(
-        &self,
-        state: Self::StateIndex,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        Some(MappedTransition::new(
-            self.ts().transition(state, symbol)?,
-            self.f(),
-        ))
-    }
-
     fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
         self.ts().state_color(state)
     }
@@ -978,9 +983,20 @@ where
             .map(|c| (self.f())(c))
     }
 
-    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
+    fn transition<Idx: Indexes<Self>>(
+        &self,
+        state: Idx,
+        symbol: SymbolOf<Self>,
+    ) -> Option<Self::TransitionRef<'_>> {
+        Some(MappedTransition::new(
+            self.ts().transition(state.to_index(self)?, symbol)?,
+            self.f(),
+        ))
+    }
+
+    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
         Some(MappedEdgesFromIter::new(
-            self.ts().edges_from(state)?,
+            self.ts().edges_from(state.to_index(self)?)?,
             self.f(),
         ))
     }
@@ -996,28 +1012,9 @@ where
     type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
     type EdgesFromIter<'this> = RestrictedEdgesFromIter<'this, Ts, F> where Self: 'this;
 
-    fn transition(
-        &self,
-        state: Self::StateIndex,
-        symbol: crate::alphabet::SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        self.ts().transition(state, symbol).filter(|successor| {
-            (self.filter()).is_unmasked(state) && (self.filter()).is_unmasked(successor.target())
-        })
-    }
-
     fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
         assert!((self.filter()).is_unmasked(state));
         self.ts().state_color(state)
-    }
-
-    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
-        if !(self.filter()).is_unmasked(state) {
-            return None;
-        }
-        self.ts()
-            .edges_from(state)
-            .map(|iter| RestrictedEdgesFromIter::new(iter, self.filter()))
     }
 
     fn edge_color(
@@ -1029,6 +1026,26 @@ where
             .edge_color(state, expression)
             .filter(|_| (self.filter()).is_unmasked(state))
     }
+
+    fn transition<Idx: Indexes<Self>>(
+        &self,
+        state: Idx,
+        symbol: SymbolOf<Self>,
+    ) -> Option<Self::TransitionRef<'_>> {
+        let q = state.to_index(self)?;
+        self.ts()
+            .transition(q, symbol)
+            .filter(|t| self.filter().is_unmasked(q) && self.filter().is_unmasked(t.target()))
+    }
+
+    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
+        if !(self.filter()).is_unmasked(state.to_index(self)?) {
+            return None;
+        }
+        self.ts()
+            .edges_from(state.to_index(self)?)
+            .map(|iter| RestrictedEdgesFromIter::new(iter, self.filter()))
+    }
 }
 
 impl<Ts: TransitionSystem> TransitionSystem for WithInitial<Ts> {
@@ -1037,14 +1054,6 @@ impl<Ts: TransitionSystem> TransitionSystem for WithInitial<Ts> {
     type EdgeColor = Ts::EdgeColor;
     type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
     type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
-
-    fn transition(
-        &self,
-        state: Self::StateIndex,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        self.ts().transition(state, symbol)
-    }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
         self.ts().state_color(state)
@@ -1058,8 +1067,16 @@ impl<Ts: TransitionSystem> TransitionSystem for WithInitial<Ts> {
         self.ts().edge_color(state, expression)
     }
 
-    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
-        self.ts().edges_from(state)
+    fn transition<Idx: Indexes<Self>>(
+        &self,
+        state: Idx,
+        symbol: SymbolOf<Self>,
+    ) -> Option<Self::TransitionRef<'_>> {
+        self.ts().transition(state.to_index(self)?, symbol)
+    }
+
+    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
+        self.ts().edges_from(state.to_index(self)?)
     }
 }
 

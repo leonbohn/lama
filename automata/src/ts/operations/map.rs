@@ -194,19 +194,6 @@ where
     where
         Self: 'this;
 
-    fn transition(
-        &self,
-        state: Self::StateIndex,
-        symbol: crate::alphabet::SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        Some(MappedEdge {
-            transition: self.ts().transition(state, symbol)?,
-            from: state,
-            f: self.f(),
-            _old_color: PhantomData,
-        })
-    }
-
     fn edge_color(
         &self,
         state: Self::StateIndex,
@@ -215,17 +202,33 @@ where
         todo!()
     }
 
-    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
-        Some(MapEdgesSuccessorsIter {
-            it: self.ts().edges_from(state)?,
-            source: state,
+    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
+        self.ts().state_color(state)
+    }
+
+    fn transition<Idx: crate::ts::transition_system::Indexes<Self>>(
+        &self,
+        state: Idx,
+        symbol: crate::prelude::SymbolOf<Self>,
+    ) -> Option<Self::TransitionRef<'_>> {
+        Some(MappedEdge {
+            transition: self.ts().transition(state.to_index(self)?, symbol)?,
+            from: state.to_index(self)?,
             f: self.f(),
             _old_color: PhantomData,
         })
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
-        self.ts().state_color(state)
+    fn edges_from<Idx: crate::ts::transition_system::Indexes<Self>>(
+        &self,
+        state: Idx,
+    ) -> Option<Self::EdgesFromIter<'_>> {
+        Some(MapEdgesSuccessorsIter {
+            it: self.ts().edges_from(state.to_index(self)?)?,
+            source: state.to_index(self)?,
+            f: self.f(),
+            _old_color: PhantomData,
+        })
     }
 }
 

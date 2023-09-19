@@ -8,11 +8,25 @@ use itertools::Itertools;
 pub type ClassId = usize;
 pub type StateId = usize;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PState<const N: usize> {
     class: usize,
     progress_classes: [usize; N],
     progress_states: [usize; N],
+}
+
+impl<const N: usize> std::fmt::Display for PState<N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "[{} | {}]",
+            self.class,
+            self.progress_classes()
+                .zip(self.progress_states())
+                .map(|(c, q)| format!("({c} - {q})"))
+                .join(", ")
+        )
+    }
 }
 
 pub struct PreciseDPAState {
@@ -66,19 +80,21 @@ pub struct PreciseDPA<A: Alphabet, const N: usize = 8> {
     states: Vec<PState<N>>,
     cong: RightCongruence<A>,
     /// Nat -> class -> DFA
-    dfas: Vec<Vec<DFA<A>>>,
+    dfas: Vec<[DFA<A>; N]>,
 }
 
-pub struct PreciseDPATransition<'a, A: Alphabet> {
-    dpa: &'a PreciseDPA<A>,
-    source: usize,
+pub struct PreciseDPATransition<'a, A: Alphabet, const N: usize> {
+    dpa: &'a PreciseDPA<A, N>,
+    source: PState<N>,
     expression: A::Expression,
-    target: usize,
+    target: PState<N>,
     color: usize,
 }
 
-impl<'a, A: Alphabet> IsTransition<A::Expression, usize, usize> for PreciseDPATransition<'a, A> {
-    fn target(&self) -> usize {
+impl<'a, A: Alphabet, const N: usize> IsTransition<A::Expression, PState<N>, usize>
+    for PreciseDPATransition<'a, A, N>
+{
+    fn target(&self) -> PState<N> {
         self.target
     }
 
@@ -91,12 +107,12 @@ impl<'a, A: Alphabet> IsTransition<A::Expression, usize, usize> for PreciseDPATr
     }
 }
 
-impl<'a, A: Alphabet> PreciseDPATransition<'a, A> {
+impl<'a, A: Alphabet, const N: usize> PreciseDPATransition<'a, A, N> {
     pub fn new(
-        dpa: &'a PreciseDPA<A>,
-        source: usize,
+        dpa: &'a PreciseDPA<A, N>,
+        source: PState<N>,
         expression: A::Expression,
-        target: usize,
+        target: PState<N>,
         color: usize,
     ) -> Self {
         Self {
@@ -109,34 +125,25 @@ impl<'a, A: Alphabet> PreciseDPATransition<'a, A> {
     }
 }
 
-pub struct PreciseDPAEdgesFrom<'a, A: Alphabet> {
-    dpa: &'a PreciseDPA<A>,
-    state: usize,
+pub struct PreciseDPAEdgesFrom<'a, A: Alphabet, const N: usize> {
+    dpa: &'a PreciseDPA<A, N>,
+    state: PState<N>,
     it: A::Universe<'a>,
 }
 
-impl<'a, A: Alphabet> Iterator for PreciseDPAEdgesFrom<'a, A> {
-    type Item = PreciseDPATransition<'a, A>;
+impl<'a, A: Alphabet, const N: usize> Iterator for PreciseDPAEdgesFrom<'a, A, N> {
+    type Item = PreciseDPATransition<'a, A, N>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.it.find_map(|o| {
-            if let Some(t) = self.dpa.transition(self.state, *o) {
-                Some(PreciseDPATransition::new(
-                    self.dpa,
-                    self.state,
-                    t.expression().clone(),
-                    t.target(),
-                    t.color(),
-                ))
-            } else {
-                None
-            }
+        self.it.next().map(|o| {
+            let (i, q) = self.dpa.take_precise_transition(&self.state, *o);
+            PreciseDPATransition::new(self.dpa, self.state, A::expression(*o), q, i)
         })
     }
 }
 
-impl<'a, A: Alphabet> PreciseDPAEdgesFrom<'a, A> {
-    pub fn new(dpa: &'a PreciseDPA<A>, state: usize) -> Self {
+impl<'a, A: Alphabet, const N: usize> PreciseDPAEdgesFrom<'a, A, N> {
+    pub fn new(dpa: &'a PreciseDPA<A, N>, state: PState<N>) -> Self {
         Self {
             dpa,
             state,
@@ -145,66 +152,64 @@ impl<'a, A: Alphabet> PreciseDPAEdgesFrom<'a, A> {
     }
 }
 
-impl<A: Alphabet> TransitionSystem for PreciseDPA<A> {
-    type StateIndex = usize;
+impl<A: Alphabet, const N: usize> TransitionSystem for PreciseDPA<A, N> {
+    type StateIndex = PState<N>;
 
     type StateColor = ();
 
     type EdgeColor = usize;
 
-    type TransitionRef<'this> = PreciseDPATransition<'this, A>
+    type TransitionRef<'this> = PreciseDPATransition<'this, A, N>
     where
         Self: 'this;
 
-    type EdgesFromIter<'this> = PreciseDPAEdgesFrom<'this, A>
+    type EdgesFromIter<'this> = PreciseDPAEdgesFrom<'this, A, N>
     where
         Self: 'this;
-
-    fn transition(
-        &self,
-        state: Self::StateIndex,
-        symbol: automata::prelude::SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        todo!()
-    }
-
-    fn edge_color(
-        &self,
-        state: Self::StateIndex,
-        expression: &automata::prelude::ExpressionOf<Self>,
-    ) -> Option<automata::ts::EdgeColor<Self>> {
-        let symbols = expression.symbols().collect::<Vec<_>>();
-        assert_eq!(
-            symbols.len(),
-            1,
-            "Only works for alphabets where expressions and symbols coincide"
-        );
-        let sym = *symbols.first().unwrap();
-        todo!()
-    }
-
-    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
-        Some(PreciseDPAEdgesFrom::new(self, state))
-    }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
         Some(())
     }
+
+    fn transition<Idx: automata::prelude::Indexes<Self>>(
+        &self,
+        state: Idx,
+        symbol: automata::prelude::SymbolOf<Self>,
+    ) -> Option<Self::TransitionRef<'_>> {
+        let q = state.to_index(self)?;
+        let (i, p) = self.take_precise_transition(&q, symbol);
+        Some(PreciseDPATransition::new(
+            self,
+            q,
+            A::expression(symbol),
+            p,
+            i,
+        ))
+    }
+
+    fn edges_from<Idx: automata::prelude::Indexes<Self>>(
+        &self,
+        state: Idx,
+    ) -> Option<Self::EdgesFromIter<'_>> {
+        Some(PreciseDPAEdgesFrom::new(self, state.to_index(self)?))
+    }
 }
 
-impl<A: Alphabet> HasAlphabet for PreciseDPA<A> {
+impl<A: Alphabet, const N: usize> HasAlphabet for PreciseDPA<A, N> {
     type Alphabet = A;
     fn alphabet(&self) -> &Self::Alphabet {
         self.dfas[0][0].alphabet()
     }
 }
 
+impl<A: Alphabet, const N: usize> Pointed for PreciseDPA<A, N> {
+    fn initial(&self) -> Self::StateIndex {
+        *self.states.first().expect("We add this during creation")
+    }
+}
+
 impl<A: Alphabet, const N: usize> PreciseDPA<A, N> {
-    pub fn new(cong: RightCongruence<A>, dfas: Vec<Vec<DFA<A>>>) -> Self {
-        assert_eq!(
-            dfas.iter().map(|o| o.len()).unique().collect::<Vec<_>>(),
-            vec![cong.size()]
-        );
+    pub fn new(cong: RightCongruence<A>, dfas: Vec<[DFA<A>; N]>) -> Self {
         let e = cong.initial();
         let initial = PState::from_iters(e, [e; N], (0..dfas.len()).map(|i| dfas[i][e].initial()));
         Self {
@@ -222,7 +227,7 @@ impl<A: Alphabet, const N: usize> PreciseDPA<A, N> {
     pub fn dfas<'a>(&'a self, q: &'a PState<N>) -> impl Iterator<Item = &DFA<A>> + 'a {
         q.progress_classes()
             .enumerate()
-            .map(move |(i, c)| &self.dfas[i][c])
+            .map(move |(i, c)| &self.dfas[c][i])
     }
 
     pub fn take_precise_transition(&self, q: &PState<N>, a: A::Symbol) -> (usize, PState<N>) {
@@ -259,8 +264,93 @@ impl<A: Alphabet, const N: usize> PreciseDPA<A, N> {
                     .iter()
                     .enumerate()
                     .map(|(i, (c, p, b))| if i < least_accepting { *c } else { d }),
-                progress.iter().map(|(_, p, _)| *p),
+                progress.iter().enumerate().map(|(i, (c, p, b))| {
+                    if i < least_accepting {
+                        *p
+                    } else {
+                        self.dfas[d][i].initial()
+                    }
+                }),
             ),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use automata::{
+        alphabet, prelude::DFA, ts::Sproutable, Pointed, RightCongruence, TransitionSystem,
+    };
+
+    use super::PreciseDPA;
+
+    #[test]
+    fn precise_dpa() {
+        let alph = alphabet!(simple 'a', 'b', 'c');
+        let mut cong = RightCongruence::new(alph.clone());
+        let e = cong.initial();
+        let a = cong.add_state(vec!['a']);
+        cong.add_edge(e, 'a', a, ());
+        cong.add_edge(e, 'b', e, ());
+        cong.add_edge(e, 'c', e, ());
+        cong.add_edge(a, 'a', e, ());
+        cong.add_edge(a, 'b', a, ());
+        cong.add_edge(a, 'c', a, ());
+
+        let mut de0 = DFA::new(alph.clone());
+        let de0e = de0.initial();
+        let de0t = de0.add_state(true);
+        de0.add_edge(de0e, 'a', de0e, ());
+        de0.add_edge(de0e, 'b', de0t, ());
+        de0.add_edge(de0e, 'c', de0e, ());
+        de0.add_edge(de0t, 'a', de0t, ());
+        de0.add_edge(de0t, 'b', de0t, ());
+        de0.add_edge(de0t, 'c', de0t, ());
+        let mut da0 = DFA::new(alph.clone());
+        let da0e = da0.initial();
+        let da0t = da0.add_state(true);
+        da0.add_edge(da0e, 'a', da0e, ());
+        da0.add_edge(da0e, 'b', da0e, ());
+        da0.add_edge(da0e, 'c', da0t, ());
+        da0.add_edge(da0t, 'a', da0t, ());
+        da0.add_edge(da0t, 'b', da0t, ());
+        da0.add_edge(da0t, 'c', da0t, ());
+
+        let mut de1 = DFA::new(alph.clone());
+        let de1e = de1.initial();
+        let de1c = de1.add_state(false);
+        let de1t = de1.add_state(true);
+        de1.add_edge(de1e, 'a', de1e, ());
+        de1.add_edge(de1e, 'b', de1t, ());
+        de1.add_edge(de1e, 'c', de1c, ());
+        de1.add_edge(de1c, 'a', de1e, ());
+        de1.add_edge(de1c, 'b', de1t, ());
+        de1.add_edge(de1c, 'c', de1t, ());
+        de1.add_edge(de1t, 'a', de1t, ());
+        de1.add_edge(de1t, 'b', de1t, ());
+        de1.add_edge(de1t, 'c', de1t, ());
+
+        let mut full = DFA::new(alph);
+        let full0 = full.initial();
+        let full1 = full.add_state(true);
+        full.add_edge(full0, 'a', full1, ());
+        full.add_edge(full0, 'b', full1, ());
+        full.add_edge(full0, 'c', full1, ());
+        full.add_edge(full1, 'a', full1, ());
+        full.add_edge(full1, 'b', full1, ());
+        full.add_edge(full1, 'c', full1, ());
+
+        let dfas_e = [de0, de1, full.clone()];
+        let dfas_a = [da0, full.clone(), full];
+
+        let dpa = PreciseDPA::new(cong, vec![dfas_e, dfas_a]);
+
+        let q = dpa.initial();
+        let t = dpa.transition(q, 'a').unwrap();
+        println!("{:?} -a:{}-> {:?}", q, t.color, t.target);
+        let t = dpa.transition(q, 'b').unwrap();
+        println!("{:?} -b:{}-> {:?}", q, t.color, t.target);
+        let t = dpa.transition(q, 'c').unwrap();
+        println!("{:?} -c:{}-> {:?}", q, t.color, t.target);
     }
 }
