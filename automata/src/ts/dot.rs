@@ -1,9 +1,10 @@
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 use itertools::Itertools;
 
 use crate::{
-    congurence::FORC, ts::FiniteState, Alphabet, Class, Pointed, RightCongruence, TransitionSystem,
+    automata::WithInitial, congruence::FORC, ts::FiniteState, Alphabet, Class, Color, Pointed,
+    RightCongruence, TransitionSystem,
 };
 
 use super::transition_system::IsTransition;
@@ -92,7 +93,7 @@ pub trait ToDot {
         }
     }
 
-    /// Similar to the [`render`] method, but returns a [`tempfile::TempPath`] instead
+    /// Similar to the [`Self::render()`] method, but returns a [`tempfile::TempPath`] instead
     /// of a buffer of bytes.
     #[cfg(feature = "graphviz")]
     fn render_tempfile(&self) -> Result<tempfile::TempPath, std::io::Error> {
@@ -103,7 +104,7 @@ pub trait ToDot {
         render_dot_to_tempfile(dot.as_str())
     }
 
-    /// First creates a rendered PNG using [`render_tempfile`], after which the rendered
+    /// First creates a rendered PNG using [`Self::render_tempfile()`], after which the rendered
     /// image is displayed using a locally installed image viewer (`eog` on linux, `qlmanage`
     /// i.e. quicklook on macos and nothing yet on windows).
     #[cfg(feature = "graphviz")]
@@ -113,12 +114,28 @@ pub trait ToDot {
     }
 }
 
-impl<A: Alphabet> ToDot for RightCongruence<A>
+impl<Ts: ToDot + TransitionSystem> ToDot for WithInitial<Ts> {
+    fn dot_representation(&self) -> String {
+        Ts::dot_representation(self.ts())
+    }
+
+    fn header(&self) -> String {
+        Ts::header(self.ts())
+    }
+
+    fn body(&self, prefix: &str) -> String {
+        Ts::body(self.ts(), prefix)
+    }
+}
+
+impl<A: Alphabet, Q, C> ToDot for RightCongruence<A, Q, C>
 where
     A::Symbol: Display,
+    Q: Debug + Color,
+    C: Debug + Color,
 {
     fn dot_representation(&self) -> String {
-        format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""),)
+        format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""))
     }
 
     fn header(&self) -> String {
@@ -159,7 +176,7 @@ where
     }
 }
 
-impl<A: Alphabet> ToDot for Vec<RightCongruence<A>>
+impl<A: Alphabet, Q: Color + Debug, C: Color + Debug> ToDot for Vec<RightCongruence<A, Q, C>>
 where
     A::Symbol: Display,
 {
@@ -192,7 +209,7 @@ where
     }
 }
 
-impl<A: Alphabet> ToDot for FORC<A>
+impl<A: Alphabet, Q: Color + Debug, C: Color + Debug> ToDot for FORC<A, Q, C>
 where
     A::Symbol: Display,
 {
@@ -217,7 +234,11 @@ where
             .map(|(class, prc)| {
                 format!(
                     "subgraph cluster_{} {{\n{}\n{}\n}}\n",
-                    class.mr_to_string(),
+                    self.leading()
+                        .state_color(*class)
+                        .unwrap()
+                        .class()
+                        .mr_to_string(),
                     prc.header(),
                     prc.body(&class.to_string())
                 )
@@ -226,8 +247,7 @@ where
 
         lines.push("init [label=\"\", shape=none]".to_string());
         let eps_prc = self
-            .progress
-            .get(&Class::epsilon())
+            .prc(&Class::epsilon())
             .expect("Must have at least the epsilon prc");
         lines.push(format!(
             "init -> \"{},init\" [style=\"solid\"]",
@@ -240,21 +260,19 @@ where
             for &sym in self.leading.alphabet().universe() {
                 if let Some(edge) = self.leading.transition(state, sym) {
                     let _source_prc = self
-                        .progress
-                        .get(
-                            &self
-                                .leading
+                        .prc(
+                            self.leading
                                 .state_color(state)
-                                .expect("State should be colored"),
+                                .expect("State should be colored")
+                                .class(),
                         )
                         .expect("Must have a prc for every state");
                     let _target_prc = self
-                        .progress
-                        .get(
-                            &self
-                                .leading
+                        .prc(
+                            self.leading
                                 .state_color(edge.target())
-                                .expect("State should be colored"),
+                                .expect("State should be colored")
+                                .class(),
                         )
                         .expect("Must have a prc for every state");
                     lines.push(format!(
@@ -262,8 +280,8 @@ where
                         self.leading.state_color(state).expect("State should be colored"),
                         self.leading.state_color(edge.target()).expect("State should be colored"),
                         sym,
-                        self.leading.state_color(state).expect("State should be colored").mr_to_string(),
-                        self.leading.state_color(edge.target()).expect("State should be colored").mr_to_string()
+                        self.leading.state_color(state).expect("State should be colored").class().mr_to_string(),
+                        self.leading.state_color(edge.target()).expect("State should be colored").class().mr_to_string()
                     ));
                 }
             }
@@ -340,17 +358,17 @@ fn display_png(rendered_path: tempfile::TempPath) -> Result<(), std::io::Error> 
 
 #[cfg(test)]
 mod tests {
-    use crate::{congurence::FORC, simple, ts::Sproutable, Class, Pointed, RightCongruence};
+    use crate::{alphabet, congruence::FORC, ts::Sproutable, Class, Pointed, RightCongruence};
 
     use super::ToDot;
 
     #[test]
     #[ignore]
     fn display_forc() {
-        let alphabet = simple!('a', 'b');
+        let alphabet = alphabet!(simple 'a', 'b');
         let mut cong = RightCongruence::new(alphabet.clone());
         let q0 = cong.initial();
-        let q1 = cong.add_state(vec!['a'].into());
+        let q1 = cong.add_state(vec!['a']);
         cong.add_edge(q0, 'a', q1, ());
         cong.add_edge(q0, 'b', q0, ());
         cong.add_edge(q1, 'a', q0, ());
@@ -358,8 +376,8 @@ mod tests {
 
         let mut prc_e = RightCongruence::new(alphabet.clone());
         let e0 = prc_e.initial();
-        let e1 = prc_e.add_state(vec!['a'].into());
-        let e2 = prc_e.add_state(vec!['b'].into());
+        let e1 = prc_e.add_state(vec!['a']);
+        let e2 = prc_e.add_state(vec!['b']);
         prc_e.add_edge(e0, 'a', e1, ());
         prc_e.add_edge(e0, 'b', e2, ());
         prc_e.add_edge(e1, 'a', e1, ());
@@ -369,9 +387,9 @@ mod tests {
 
         let mut prc_a = RightCongruence::new(alphabet);
         let a0 = prc_a.initial();
-        let a1 = prc_a.add_state(vec!['a'].into());
-        let a2 = prc_a.add_state(vec!['b'].into());
-        let a3 = prc_a.add_state(vec!['a', 'a'].into());
+        let a1 = prc_a.add_state(vec!['a']);
+        let a2 = prc_a.add_state(vec!['b']);
+        let a3 = prc_a.add_state(vec!['a', 'a']);
         prc_a.add_edge(a0, 'a', a1, ());
         prc_a.add_edge(a0, 'b', a2, ());
         prc_a.add_edge(a1, 'a', a3, ());
@@ -381,22 +399,17 @@ mod tests {
         prc_a.add_edge(a3, 'a', a3, ());
         prc_a.add_edge(a3, 'b', a3, ());
 
-        let forc = FORC::from_iter(
-            cong,
-            [(Class::epsilon(), prc_e), (Class::singleton('a'), prc_a)]
-                .iter()
-                .cloned(),
-        );
+        let forc = FORC::from_iter(cong, [(0, prc_e), (1, prc_a)].iter().cloned());
         forc.render_to_file_name("/home/leon/test.png");
     }
 
     #[test]
     #[ignore]
     fn dot_render_and_display() {
-        let alphabet = simple!('a', 'b');
+        let alphabet = alphabet!(simple 'a', 'b');
         let mut cong = RightCongruence::new(alphabet);
         let q0 = cong.initial();
-        let q1 = cong.add_state(vec!['a'].into());
+        let q1 = cong.add_state(vec!['a']);
         cong.add_edge(q0, 'a', q1, ());
         cong.add_edge(q0, 'b', q0, ());
         cong.add_edge(q1, 'a', q0, ());

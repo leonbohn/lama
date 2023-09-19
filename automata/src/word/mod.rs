@@ -102,7 +102,7 @@ pub trait Word: HasLength {
         (first, self.offset(1))
     }
 
-    /// Creates a [`Suffix`] object, which is the suffix of `self` that starts at the given `offset`.
+    /// Creates an [`subword::Offset`] object, which is the suffix of `self` that starts at the given `offset`.
     fn offset(&self, offset: usize) -> subword::Offset<'_, Self>
     where
         Self: Sized,
@@ -173,7 +173,7 @@ impl<S, L> OmegaWord<S, L> {
         }
     }
 
-    /// Does the same as [`RawWithLength::new`], but reverses the arguments.
+    /// Does the same as [`Self::new()`], but reverses the arguments.
     pub fn new_reverse_args<R: RawSymbols<S>>(length: L, raw: R) -> Self
     where
         L: Length,
@@ -295,48 +295,6 @@ impl<S: Symbol> Word for &[S] {
     }
 
     type Symbol = S;
-}
-
-/// An iterator over the raw representation of a word. It stores a reference to the [`Rawpresentation`],
-/// the [`Length`] of the word and the current position.
-#[derive(Debug, Clone, PartialEq)]
-pub struct RawpresentationIter<'a, R, L> {
-    raw: &'a [R],
-    length: L,
-    position: usize,
-}
-
-impl<'a, R, L> Iterator for RawpresentationIter<'a, R, L>
-where
-    R: Symbol,
-    L: Length,
-{
-    type Item = R;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let symbol = self.raw.get(
-            self.length
-                .calculate_raw_position(self.position)?
-                .position(),
-        )?;
-        self.position += 1;
-        Some(*symbol)
-    }
-}
-
-impl<'a, R, L> RawpresentationIter<'a, R, L>
-where
-    R: Symbol,
-    L: Length,
-{
-    /// Creates a new iterator over the raw representation of a word.
-    pub fn new(raw: &'a [R], length: L, position: usize) -> Self {
-        Self {
-            raw,
-            length,
-            position,
-        }
-    }
 }
 
 /// This macro can be used to create a [`OmegaWord`] object from some representation, it is mainly interesting

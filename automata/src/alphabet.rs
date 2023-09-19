@@ -20,7 +20,7 @@ impl<S: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash + Display> Symbo
     }
 }
 
-/// An expression is used to label [`crate::ts::Edge`]s of a [`crate::ts::TransitionSystem`]. For [`Simple`]
+/// An expression is used to label edges of a [`crate::ts::TransitionSystem`]. For [`Simple`]
 /// alphabets, an expression is simply a single symbol, whereas for a [`Propositional`] alphabet, an expression
 /// is a propositional formula over the atomic propositions. See [`Propositional`] for more details.
 pub trait Expression<S: Symbol>: Hash + Clone + Debug + Eq + Ord {
@@ -95,10 +95,10 @@ pub type ExpressionOf<A> = <<A as HasAlphabet>::Alphabet as Alphabet>::Expressio
 /// Assume we have a propositional alphabet over the atomic propositions `a`, `b` and `c`.
 ///
 /// Then a **symbol** in this alphabet is a valuation of these variables, e.g. `a & !b & c`. This is used to label
-/// [`crate::ts::Transition`]s in a [`crate::ts::TransitionSystem`].
+/// transitions in a [`crate::ts::TransitionSystem`].
 ///
-/// An **expression** on the other hand is used to label [`crate::ts::Edge`]s and it is a boolean expression over
-/// the atomic propositions, e.g. `(a | b) & c`. Such an expression is [`super::Alphabet::matches`](matched) by
+/// An **expression** on the other hand is used to label edges and it is a boolean expression over
+/// the atomic propositions, e.g. `(a | b) & c`. Such an expression is matched by
 /// a symbol if the symbol satisfies the expression, i.e. if the expression evaluates to `true` under the given
 /// valuation. The expression from above, for example, would be matched by the symbol given above (`a & !b & c`),
 /// but not by the symbols `a & b & !c` or `!a & !b & c`.
@@ -111,9 +111,9 @@ pub struct Propositional {
 ///
 /// # Example
 /// Assume we have a simple alphabet over the symbols 'a' and 'b'. Then a **symbol** would be just one of these
-/// characters, e.g. 'a'. This is used to label [`crate::ts::Transition`]s in a [`crate::ts::TransitionSystem`].
+/// characters, e.g. 'a'. This is used to label transitions in a [`crate::ts::TransitionSystem`].
 /// Now an **expression** would also be just a single character, e.g. 'a'. Then such an expression is
-/// [`super::Alphabet::matches`](matched) by a symbol if the expression equals the symbol.
+/// matched by a symbol if the expression equals the symbol.
 #[derive(Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
 pub struct Simple(Vec<char>);
 
@@ -175,8 +175,8 @@ impl Expression<Empty> for Empty {
 /// Helper macro for creating a [`Simple`] alphabet. Is called simply with a list of symbols
 /// that are separated by commata.
 #[macro_export]
-macro_rules! simple {
-    ($($c:literal),*) => {
+macro_rules! alphabet {
+    (simple $($c:literal),*) => {
         $crate::alphabet::Simple::new(vec![$($c),*])
     };
 }
@@ -245,5 +245,63 @@ impl Alphabet for Simple {
         sym: Self::Symbol,
     ) -> Option<(&Self::Expression, &X)> {
         map.get_key_value(&sym)
+    }
+}
+
+/// An alphabet of fixed arity, uses const generics. This is more seen as a test
+/// since the performance gains (at least for simple operations like runs) is
+/// negligible.
+#[derive(Clone, Debug)]
+pub struct Fixed<S: Symbol, const N: usize>([S; N]);
+
+impl Expression<usize> for usize {
+    type SymbolsIter = std::iter::Once<usize>;
+
+    fn symbols(&self) -> Self::SymbolsIter {
+        std::iter::once(*self)
+    }
+
+    fn matches(&self, symbol: usize) -> bool {
+        *self == symbol
+    }
+}
+
+impl<S: Symbol, const N: usize> Fixed<S, N> {
+    /// Create a new [`Fixed`] alphabet from a slice of length `N`.
+    pub fn from(symbols: [S; N]) -> Self {
+        Self(symbols)
+    }
+}
+
+impl<S: Symbol + Expression<S>, const N: usize> Alphabet for Fixed<S, N> {
+    type Symbol = S;
+
+    type Expression = S;
+
+    fn search_edge<X>(
+        map: &Map<Self::Expression, X>,
+        sym: Self::Symbol,
+    ) -> Option<(&Self::Expression, &X)> {
+        map.get_key_value(&sym)
+    }
+
+    type Universe<'this> = std::slice::Iter<'this, S>
+    where
+        Self: 'this;
+
+    fn universe(&self) -> Self::Universe<'_> {
+        self.0.iter()
+    }
+
+    fn contains(&self, symbol: Self::Symbol) -> bool {
+        self.0.contains(&symbol)
+    }
+
+    fn matches(&self, expression: &Self::Expression, symbol: Self::Symbol) -> bool {
+        expression == &symbol
+    }
+
+    fn expression(symbol: Self::Symbol) -> Self::Expression {
+        symbol
     }
 }

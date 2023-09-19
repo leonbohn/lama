@@ -3,24 +3,16 @@ use std::{
     fmt::Display,
 };
 
-use automata::{
-    alphabet::Symbol,
-    automaton::IsDfa,
-    ts::{
-        operations::{Product, ProductIndex},
-        predecessors::{IsPreTransition, PredecessorIterable},
-        Congruence, FiniteState, Sproutable, ToDot,
-    },
-    Alphabet, Class, InfiniteLength, Map, Pointed, RightCongruence, Set, TransitionSystem, Word,
-};
+use automata::{prelude::*, ts::operations::ProductIndex, Map, Set};
 use itertools::Itertools;
 use tracing::trace;
 
-use crate::{prefixtree::prefix_tree, Sample};
+use crate::{
+    passive::{ClassOmegaSample, OmegaSample, Sample, SplitOmegaSample},
+    prefixtree::prefix_tree,
+};
 
 use owo_colors::OwoColorize;
-
-use super::{ClassOmegaSample, OmegaSample, SplitOmegaSample};
 
 /// Stores two DFAs and a set of conflicts between them.
 #[derive(Clone)]
@@ -155,12 +147,16 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
     let looping_words = samples.cong().looping_words(&class);
 
     let left_pta = prefix_tree(sample.alphabet.clone(), periodic_sample.positive())
-        .map_colors(|mr| !mr.is_empty() && periodic_sample.classify(mr.omega_power()) == Some(true))
+        .map_state_colors(|mr| {
+            !mr.class().is_empty()
+                && periodic_sample.classify(mr.class().omega_power()) == Some(true)
+        })
         .intersection(&looping_words);
 
     let right_pta = prefix_tree(sample.alphabet.clone(), periodic_sample.negative())
-        .map_colors(|mr| {
-            !mr.is_empty() && periodic_sample.classify(mr.omega_power()) == Some(false)
+        .map_state_colors(|mr| {
+            !mr.class().is_empty()
+                && periodic_sample.classify(mr.class().omega_power()) == Some(false)
         })
         .intersection(&looping_words);
 
@@ -358,6 +354,7 @@ where
         let mut new_state_label = cong
             .state_color(source)
             .expect("We expect every state to be colored")
+            .class()
             .clone();
         new_state_label.push(sym);
         trace!(
@@ -381,10 +378,12 @@ where
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use automata::{
-        alphabet::{self, Simple},
-        nupw, simple,
+        alphabet,
+        alphabet::Simple,
+        congruence::FORC,
+        nupw,
         ts::{
             finite::{ReachedColor, ReachedState},
             FiniteState, Sproutable, ToDot,
@@ -394,9 +393,9 @@ mod tests {
     use itertools::Itertools;
     use tracing_test::traced_test;
 
-    use crate::{passive::OmegaSample, Sample};
+    use crate::passive::{OmegaSample, Sample};
 
-    fn testing_larger_forc_sample() -> (Simple, OmegaSample<Simple, bool>) {
+    pub fn testing_larger_forc_sample() -> (Simple, OmegaSample<Simple, bool>) {
         let Ok(sample) = OmegaSample::try_from(
             r#"omega
         alphabet: a,b
@@ -454,7 +453,7 @@ mod tests {
     }
 
     fn testing_smaller_forc_smaple() -> (Simple, OmegaSample<Simple, bool>) {
-        let alphabet = simple!('a', 'b', 'c');
+        let alphabet = alphabet!(simple 'a', 'b', 'c');
         (
             alphabet.clone(),
             Sample::new_omega_from_pos_neg(
@@ -523,7 +522,7 @@ mod tests {
 
     #[test]
     fn prefix_consistency_sprout_two() {
-        let alphabet = simple!('a', 'b');
+        let alphabet = alphabet!(simple 'a', 'b');
         let sample = Sample::new_omega(
             alphabet.clone(),
             vec![
@@ -534,9 +533,9 @@ mod tests {
                 (("a", 0), false),
             ],
         );
-        let mut expected_cong = RightCongruence::new(simple!('a', 'b'));
+        let mut expected_cong = RightCongruence::new(alphabet!(simple 'a', 'b'));
         let q0 = expected_cong.initial();
-        let q1 = expected_cong.add_state(vec!['a'].into());
+        let q1 = expected_cong.add_state(vec!['a']);
         expected_cong.add_edge(q0, 'a', q1, ());
         expected_cong.add_edge(q1, 'a', q0, ());
         expected_cong.add_edge(q0, 'b', q0, ());
@@ -557,7 +556,7 @@ mod tests {
 
     #[test]
     fn prefix_consistency_sprout_one() {
-        let alphabet = simple!('a', 'b');
+        let alphabet = alphabet!(simple 'a', 'b');
         let sample = Sample::new_omega(alphabet.clone(), vec![(("a", 0), false), (("b", 0), true)]);
         let conflicts = super::prefix_consistency_conflicts(sample);
         let cong = super::omega_sprout_conflicts(conflicts, (), true);
@@ -568,7 +567,7 @@ mod tests {
 
     #[test]
     fn prefix_consistency_sprout_four() {
-        let alphabet = simple!('a', 'b', 'c');
+        let alphabet = alphabet!(simple 'a', 'b', 'c');
         let sample = Sample::new_omega(
             alphabet.clone(),
             vec![

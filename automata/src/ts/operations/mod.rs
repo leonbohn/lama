@@ -44,7 +44,7 @@ mod tests {
         if let Some(ReachedState(_q)) = xxx.induced(&"abb", ProductIndex(0, 0)) {}
         let c = xxx.transform("aa");
 
-        let yyy = xxx.clone().map_colors(|(a, b)| a || b);
+        let yyy = xxx.clone().map_state_colors(|(a, b)| a || b);
         let d = yyy.transform("aa");
 
         assert_eq!(c.0 || c.1, d);

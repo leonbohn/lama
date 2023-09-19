@@ -1,21 +1,24 @@
 use crate::{
     alphabet::{ExpressionOf, HasAlphabet, SymbolOf},
-    automaton::WithInitial,
-    Alphabet, Class, Color, Map, Pointed, RightCongruence, Word,
+    automata::WithInitial,
+    congruence::ColoredClass,
+    Alphabet, Class, Color, FiniteLength, Map, Partition, Pointed, RightCongruence, Word,
 };
 
 use super::{
+    connected_components::{tarjan_scc, SccDecomposition, TarjanDAG},
     operations::{
         MapEdgeColor, MapStateColor, MappedEdgesFromIter, MappedTransition, MatchingProduct,
         ProductEdgesFrom, ProductIndex, ProductTransition, RestrictByStateIndex,
-        RestrictedEdgesFromIter,
+        RestrictedEdgesFromIter, StateIndexFilter,
     },
+    predecessors::PredecessorIterable,
     reachable::{MinimalRepresentatives, ReachableStateIndices, ReachableStates},
     run::{
         successful::Successful,
         walker::{RunResult, Walker},
     },
-    sccs::{tarjan_scc, SccDecomposition, TarjanDAG},
+    Quotient,
 };
 
 use super::{
@@ -25,6 +28,28 @@ use super::{
 };
 
 use impl_tools::autoimpl;
+use itertools::Itertools;
+
+/// Trait that helps with accessing states in more elaborate [`TransitionSystem`]s. For
+/// example in a [`crate::RightCongruence`], we have more information than the [`Color`]
+/// on a state, we have its [`Class`] as well. Since we would like to be able to
+/// access a state of a congruence not only by its index, but also by its classname
+/// or any other [`Word`] of finite length, this trait is necessary.
+///
+/// Implementors should be able to _uniquely_ identify a single state in a transition
+/// system of type `Ts`.
+pub trait Indexes<Ts: TransitionSystem> {
+    /// _Uniquely_ identifies a state in `ts` and return its index. If the state does
+    /// not exist, `None` is returned.
+    fn to_index(&self, ts: &Ts) -> Option<Ts::StateIndex>;
+}
+
+impl<Ts: TransitionSystem> Indexes<Ts> for Ts::StateIndex {
+    #[inline(always)]
+    fn to_index(&self, ts: &Ts) -> Option<<Ts as TransitionSystem>::StateIndex> {
+        Some(*self)
+    }
+}
 
 /// This trait is implemented for references to transitions, so that they can be used in
 /// generic contexts. It is automatically implemented for (mutable) references.
@@ -43,6 +68,14 @@ pub trait IsTransition<E, Idx, C> {
         Self: Sized,
     {
         (self.expression().clone(), self.target(), self.color())
+    }
+    /// Destructures `self` but into a slightly different form.
+    fn into_nested_tuple(self) -> (E, (Idx, C))
+    where
+        E: Clone,
+        Self: Sized,
+    {
+        (self.expression().clone(), (self.target(), self.color()))
     }
 }
 
@@ -66,11 +99,11 @@ impl<'a, Idx: IndexType, E, C: Color> IsTransition<E, Idx, C> for (&'a E, &'a (I
 /// is labeled with a [`Color`], which can be used to store additional information about it, like an
 /// associated priority.
 ///
-/// # The difference between [`Transition`]s and [`crate::ts::Edge`]s
+/// # The difference between transitions and edges
 /// Internally, a transition system is represented as a graph, where the states are the nodes and the
-/// transitions are the edges. However, the [`Transition`]s are not the same as the [`crate::ts::Edge`]s.
-/// Both store the source and target vertex as well as the color, however an [`crate::ts::Edge`] is labelled
-/// with an expression, while a [`Transition`] is labelled with an actual symbol (that [`Alphabet::matches`]
+/// transitions are the edges. However, the transitions are not the same as the edges.
+/// Both store the source and target vertex as well as the color, however an edge is labelled
+/// with an expression, while a transition is labelled with an actual symbol (that [`Alphabet::matches`]
 /// the expression). So a transition is a concrete edge that is taken (usually by the run on a word), while
 /// an edge may represent any different number of transitions.
 pub trait TransitionSystem: HasAlphabet {
@@ -88,6 +121,15 @@ pub trait TransitionSystem: HasAlphabet {
     type EdgesFromIter<'this>: Iterator<Item = Self::TransitionRef<'this>>
     where
         Self: 'this;
+
+    /// Obtains the [`Self::StateIndex`] of a state if it can be found. See [`Indexes`]
+    /// for more.
+    fn get<I: Indexes<Self>>(&self, elem: I) -> Option<Self::StateIndex>
+    where
+        Self: Sized,
+    {
+        elem.to_index(self)
+    }
 
     /// For a given `state` and `symbol`, returns the transition that is taken, if it exists.
     fn transition(
@@ -121,20 +163,66 @@ pub trait TransitionSystem: HasAlphabet {
         (self, initial).into()
     }
 
+    /// Builds the [`Quotient`] of `self` with regard to some given [`Partition`].
+    fn quotient(self, partition: Partition<Self::StateIndex>) -> Quotient<Self>
+    where
+        Self: Sized + FiniteState,
+    {
+        Quotient::new(self, partition)
+    }
+
     /// Restricts the state indices with the given function. This means that only the states for
     /// which the function returns `true` are kept, while all others are removed.
-    fn restrict_state_indices<F: Fn(Self::StateIndex) -> bool>(
-        self,
-        filter: F,
-    ) -> RestrictByStateIndex<Self, F>
+    fn restrict_state_indices<F>(self, filter: F) -> RestrictByStateIndex<Self, F>
     where
         Self: Sized,
+        F: StateIndexFilter<Self::StateIndex>,
     {
         RestrictByStateIndex::new(self, filter)
     }
 
+    /// Recolors the edges of `self` with the given function `f`. This works akin to
+    /// [`Self::map_edge_colors()`] but allows for a more fine-grained control over the
+    /// recoloring process, by giving access not only to the color itself, but also to
+    /// the origin, target and expression of the respective edge.
+    fn map_edge_colors_full<D, F>(self, f: F) -> super::operations::MapEdges<Self, F>
+    where
+        F: Fn(Self::StateIndex, &ExpressionOf<Self>, Self::EdgeColor, Self::StateIndex) -> D,
+        D: Color,
+        Self: Sized,
+    {
+        super::operations::MapEdges::new(self, f)
+    }
+
+    /// Completely removes the edge coloring.
+    fn erase_edge_colors(self) -> MapEdgeColor<Self, fn(Self::EdgeColor) -> ()>
+    where
+        Self: Sized,
+    {
+        self.map_edge_colors(|_| ())
+    }
+
+    /// Completely removes the state coloring.
+    fn erase_state_colors(self) -> MapStateColor<Self, fn(Self::StateColor) -> ()>
+    where
+        Self: Sized,
+    {
+        self.map_state_colors(|_| ())
+    }
+
+    /// Map the edge colors of `self` with the given function `f`.
+    fn map_edge_colors<D: Color, F: Fn(Self::EdgeColor) -> D>(self, f: F) -> MapEdgeColor<Self, F>
+    where
+        Self: Sized,
+    {
+        MapEdgeColor::new(self, f)
+    }
+
     /// Map the state colors of `self` with the given function.
-    fn map_colors<D: Color, F: Fn(Self::StateColor) -> D>(self, f: F) -> MapStateColor<Self, F>
+    fn map_state_colors<D: Color, F: Fn(Self::StateColor) -> D>(
+        self,
+        f: F,
+    ) -> MapStateColor<Self, F>
     where
         Self: Sized,
     {
@@ -146,7 +234,7 @@ pub trait TransitionSystem: HasAlphabet {
     where
         Self: Sized,
     {
-        self.map_colors(|_| true)
+        self.map_state_colors(|_| true)
     }
 
     /// Obtains the [`SccDecomposition`] of self, which is a partition of the states into strongly
@@ -160,14 +248,14 @@ pub trait TransitionSystem: HasAlphabet {
 
     /// Obtains the [`TarjanDAG`] of self, which is a directed acyclic graph that represents the
     /// strongly connected components of the transition system and the edges between them.
-    fn tarjan_tree(&self) -> TarjanDAG<'_, Self>
+    fn tarjan_dag(&self) -> TarjanDAG<'_, Self>
     where
         Self: Sized + FiniteState + Clone,
     {
         TarjanDAG::from(tarjan_scc(self))
     }
 
-    /// Returns just the [Self::Index] of the successor that is reached on the given `symbol`
+    /// Returns just the [`Self::StateIndex`] of the successor that is reached on the given `symbol`
     /// from `state`. If no suitable transition exists, `None` is returned.
     fn successor_index(
         &self,
@@ -288,7 +376,7 @@ pub trait TransitionSystem: HasAlphabet {
     /// run is successful (i.e. for all symbols of `word` a suitable transition can be taken), this
     /// returns a [`Successful`] run, which can then be used to obtain the colors of the transitions
     /// or the sequence of states that are visited. If the run is unsuccessful, meaning a symbol is
-    /// encountered for which no transition exists, this returns a [`Partial`] run, which can be used
+    /// encountered for which no transition exists, this returns a [`super::run::partial::Partial`] run, which can be used
     /// to obtain the colors of the transitions that were taken before, as well as the state that
     /// the transition system was left from and the remaining suffix.
     fn run<'a, 'b, R: Word<Symbol = SymbolOf<Self>>>(
@@ -362,6 +450,26 @@ pub trait TransitionSystem: HasAlphabet {
         R: Word<Symbol = SymbolOf<Self>>,
     {
         self.induced(word, self.initial())
+    }
+
+    /// Tries to run the given `word` starting in the state indexed by `origin`. If
+    /// no state is indexed, then `None` is immediately returned. Otherwise, the
+    /// word is run and the index of the reached state is returned. If the run is
+    /// unsuccessful, the function returns `None`.
+    fn reached_state_index_from<
+        I: Indexes<Self>,
+        W: Word<Symbol = SymbolOf<Self>, Length = FiniteLength>,
+    >(
+        &self,
+        origin: I,
+        word: W,
+    ) -> Option<Self::StateIndex>
+    where
+        Self: Sized,
+    {
+        self.finite_run(self.get(origin)?, &word.finite_to_vec())
+            .ok()
+            .map(|p| p.reached())
     }
 
     /// Returns an iterator over the minimal representative (i.e. length-lexicographically minimal
@@ -491,7 +599,41 @@ pub trait TransitionSystem: HasAlphabet {
 
     /// Collects `self` into a new transition system of type `Ts` with the same alphabet, state indices
     /// and edge colors.
-    fn collect_into_ts<
+    fn collect<
+        Ts: TransitionSystem<
+                StateColor = Self::StateColor,
+                EdgeColor = Self::EdgeColor,
+                Alphabet = Self::Alphabet,
+            > + super::Sproutable,
+    >(
+        &self,
+    ) -> Ts
+    where
+        Self: FiniteState,
+    {
+        let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
+
+        let (l, r) = self.state_indices().tee();
+        let map: Map<_, _> = l
+            .zip(ts.extend_states(r.map(|q| self.state_color(q).unwrap())))
+            .collect();
+        for index in self.state_indices() {
+            let q = *map.get(&index).unwrap();
+            self.edges_from(index).unwrap().for_each(|tt| {
+                ts.add_edge(
+                    q,
+                    tt.expression().clone(),
+                    *map.get(&tt.target()).unwrap(),
+                    tt.color(),
+                );
+            });
+        }
+        ts
+    }
+
+    /// Collects `self` into a new transition system of type `Ts` with the same alphabet, state indices
+    /// and edge colors.
+    fn collect_old<
         Ts: TransitionSystem<
                 StateColor = Self::StateColor,
                 EdgeColor = Self::EdgeColor,
@@ -593,12 +735,12 @@ impl<Ts: TransitionSystem> TransitionSystem for &mut Ts {
     }
 }
 
-impl<A: Alphabet> TransitionSystem for RightCongruence<A> {
+impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for RightCongruence<A, Q, C> {
     type StateIndex = usize;
-    type EdgeColor = ();
-    type StateColor = Class<A::Symbol>;
-    type TransitionRef<'this> = (&'this A::Expression, &'this (usize, ())) where Self: 'this;
-    type EdgesFromIter<'this> = std::collections::hash_map::Iter<'this, A::Expression, (usize, ())>
+    type EdgeColor = C;
+    type StateColor = ColoredClass<A::Symbol, Q>;
+    type TransitionRef<'this> = (&'this A::Expression, &'this (usize, C)) where Self: 'this;
+    type EdgesFromIter<'this> = std::collections::hash_map::Iter<'this, A::Expression, (usize, C)>
     where
         Self: 'this;
 
@@ -799,7 +941,7 @@ where
 
 impl<Ts: TransitionSystem, F> TransitionSystem for RestrictByStateIndex<Ts, F>
 where
-    F: Fn(Ts::StateIndex) -> bool,
+    F: StateIndexFilter<Ts::StateIndex>,
 {
     type StateIndex = Ts::StateIndex;
     type EdgeColor = Ts::EdgeColor;
@@ -812,18 +954,18 @@ where
         state: Self::StateIndex,
         symbol: crate::alphabet::SymbolOf<Self>,
     ) -> Option<Self::TransitionRef<'_>> {
-        self.ts()
-            .transition(state, symbol)
-            .filter(|successor| (self.filter())(state) && (self.filter())(successor.target()))
+        self.ts().transition(state, symbol).filter(|successor| {
+            (self.filter()).is_unmasked(state) && (self.filter()).is_unmasked(successor.target())
+        })
     }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
-        assert!((self.filter())(state));
+        assert!((self.filter()).is_unmasked(state));
         self.ts().state_color(state)
     }
 
     fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
-        if !(self.filter())(state) {
+        if !(self.filter()).is_unmasked(state) {
             return None;
         }
         self.ts()
@@ -838,7 +980,7 @@ where
     ) -> Option<crate::ts::EdgeColor<Self>> {
         self.ts()
             .edge_color(state, expression)
-            .filter(|_| (self.filter())(state))
+            .filter(|_| (self.filter()).is_unmasked(state))
     }
 }
 

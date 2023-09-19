@@ -2,19 +2,20 @@ use impl_tools::autoimpl;
 
 use crate::{
     alphabet::{ExpressionOf, SymbolOf},
-    automaton::WithInitial,
+    automata::WithInitial,
     Alphabet, Color, RightCongruence, TransitionSystem,
 };
 
 use super::{
     operations::{
-        MapEdgeColor, MapStateColor, MappedEdgesToIter, MappedPreTransition, MatchingProduct,
+        MapEdgeColor, MapStateColor, MappedPreTransition, MappedTransitionsToIter, MatchingProduct,
         ProductEdgesTo, ProductPreTransition, RestrictByStateIndex, RestrictedEdgesToIter,
+        StateIndexFilter,
     },
     EdgeColor, IndexType, BTS,
 };
 
-/// The counterpart to the [`IsTransition`] trait for predecessors.
+/// The counterpart to the [`super::transition_system::IsTransition`] trait for predecessors.
 #[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
 pub trait IsPreTransition<Idx, E, C> {
     /// Return the source state of the pre-transition.
@@ -80,8 +81,10 @@ pub trait PredecessorIterable: TransitionSystem {
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>>;
 }
 
-impl<Ts: PredecessorIterable, F: Fn(Ts::StateIndex) -> bool> PredecessorIterable
-    for RestrictByStateIndex<Ts, F>
+impl<Ts, F> PredecessorIterable for RestrictByStateIndex<Ts, F>
+where
+    Ts: PredecessorIterable,
+    F: StateIndexFilter<Ts::StateIndex>,
 {
     type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
     type EdgesToIter<'this> = RestrictedEdgesToIter<'this, Ts, F> where Self: 'this;
@@ -115,9 +118,9 @@ where
     F: Fn(Ts::EdgeColor) -> D,
 {
     type PreTransitionRef<'this> = MappedPreTransition<Ts::PreTransitionRef<'this>, &'this F, Ts::EdgeColor> where Self: 'this;
-    type EdgesToIter<'this> = MappedEdgesToIter<'this, Ts::EdgesToIter<'this>, F, Ts::EdgeColor> where Self: 'this;
+    type EdgesToIter<'this> = MappedTransitionsToIter<'this, Ts::EdgesToIter<'this>, F, Ts::EdgeColor> where Self: 'this;
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
-        Some(MappedEdgesToIter::new(
+        Some(MappedTransitionsToIter::new(
             self.ts().predecessors(state)?,
             self.f(),
         ))

@@ -1,9 +1,4 @@
-use automata::alphabet::Simple;
-use automata::ts::predecessors::PredecessorIterable;
-use automata::ts::FiniteState;
-use automata::word::Normalized;
-use automata::{simple, ts::Sproutable};
-use automata::{InfiniteLength, MooreMachine, TransitionSystem};
+use automata::prelude::*;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use itertools::Itertools;
 
@@ -40,9 +35,9 @@ fn data() -> (
     (random_automata, words, random_loops)
 }
 fn pseudorandom_sprout(states: usize, n: usize) -> MooreMachine<Simple, usize> {
-    let alphabet = simple!('a', 'b', 'c', 'd');
+    let alphabet = alphabet!(simple 'a', 'b', 'c', 'd');
 
-    let mut ts = automata::MooreMachine::new(alphabet);
+    let mut ts = MooreMachine::new(alphabet);
 
     for i in 0..states {
         ts.add_state(i);
@@ -68,7 +63,7 @@ fn random_automata(rand: &[usize]) -> Vec<MooreMachine<Simple, usize>> {
 
 fn scc_decomposition(aut: &[MooreMachine<Simple, usize>]) {
     for automaton in aut {
-        automaton.tarjan_tree();
+        automaton.tarjan_dag();
     }
 }
 

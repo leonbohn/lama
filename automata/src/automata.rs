@@ -4,12 +4,14 @@ use itertools::Itertools;
 use owo_colors::OwoColorize;
 
 use crate::{
+    algorithms::minimize_dfa,
     alphabet::{Alphabet, HasAlphabet, Symbol, SymbolOf},
+    prelude::Simple,
     ts::{
         finite::{InfinityColors, ReachedColor},
         operations::{MapStateColor, MatchingProduct, Product},
         EdgeColor, FiniteState, FiniteStatesIterType, HasFiniteStates, HasMutableStates, HasStates,
-        IndexType, Pointed, Sproutable, StateColor, TransitionSystem, BTS,
+        IndexType, Pointed, Quotient, Sproutable, StateColor, TransitionSystem, BTS,
     },
     word::{Normalized, OmegaWord},
     Color, FiniteLength, InfiniteLength, Length, Word,
@@ -99,14 +101,6 @@ impl<Ts: TransitionSystem + Sproutable> Sproutable for WithInitial<Ts>
 where
     StateColor<Ts>: Default,
 {
-    fn add_state(&mut self, color: StateColor<Self>) -> Self::StateIndex {
-        self.ts_mut().add_state(color)
-    }
-
-    fn set_state_color(&mut self, index: Self::StateIndex, color: StateColor<Self>) {
-        self.ts_mut().set_state_color(index, color)
-    }
-
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
         let mut ts = Ts::new_for_alphabet(alphabet);
         let initial = ts.add_state(<StateColor<Ts> as Default>::default());
@@ -133,6 +127,22 @@ where
         on: <Self::Alphabet as Alphabet>::Expression,
     ) -> bool {
         self.ts_mut().remove_edge(from, on)
+    }
+
+    fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
+        self.ts_mut().add_state(color)
+    }
+
+    fn set_state_color<X: Into<StateColor<Self>>>(&mut self, index: Self::StateIndex, color: X) {
+        self.ts_mut().set_state_color(index, color)
+    }
+
+    type ExtendStateIndexIter = Ts::ExtendStateIndexIter;
+    fn extend_states<I: IntoIterator<Item = StateColor<Self>>>(
+        &mut self,
+        iter: I,
+    ) -> Self::ExtendStateIndexIter {
+        self.ts_mut().extend_states(iter)
     }
 }
 impl<Ts: TransitionSystem + HasStates> HasStates for WithInitial<Ts> {
@@ -179,15 +189,15 @@ pub type MooreMachine<A, Q, Idx = usize> = WithInitial<BTS<A, Q, (), Idx>>;
 pub type MealyMachine<A, C, Idx = usize> = WithInitial<BTS<A, (), C, Idx>>;
 
 /// A [`MooreMachine`] which outputs booleans.
-pub type DFA<A, Idx = usize> = MooreMachine<A, bool, Idx>;
+pub type DFA<A = Simple, Idx = usize> = MooreMachine<A, bool, Idx>;
 /// A [`MealyMachine`] that ouputs booleans.
-pub type DBA<A, Idx = usize> = MealyMachine<A, bool, Idx>;
+pub type DBA<A = Simple, Idx = usize> = MealyMachine<A, bool, Idx>;
 /// A [`MealyMachine`] that ouputs non-negative integers.
-pub type DPA<A, Idx = usize> = MealyMachine<A, usize, Idx>;
+pub type DPA<A = Simple, Idx = usize> = MealyMachine<A, usize, Idx>;
 /// A variant of [`DBA`] which has colors on its states.
-pub type SBDBA<A, Idx = usize> = MooreMachine<A, bool, Idx>;
+pub type SBDBA<A = Simple, Idx = usize> = MooreMachine<A, bool, Idx>;
 /// A variant of [`DPA`] which has colors on states.
-pub type SBDPA<A, Idx = usize> = MooreMachine<A, usize, Idx>;
+pub type SBDPA<A = Simple, Idx = usize> = MooreMachine<A, usize, Idx>;
 
 /// Implementors of this trait can take in a word and transform it into some kind of output.
 pub trait Transformer<S, Len: Length> {
@@ -325,6 +335,7 @@ type DfaProductReduced<L, R> = MapStateColor<MatchingProduct<L, R>, fn((bool, bo
 pub trait IsDfa:
     TransitionSystem<StateColor = bool>
     + Pointed
+    + FiniteState
     + Sized
     + Acceptor<SymbolOf<Self>, FiniteLength>
     + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>
@@ -341,6 +352,21 @@ pub trait IsDfa:
                     .expect("Every state must have a color!")
             })
             .collect_vec()
+    }
+
+    /// Minimizes `self` using Hopcroft's partition refinement algorithm.
+    fn minimize(self) -> Quotient<Self>
+    where
+        Self: FiniteState,
+    {
+        minimize_dfa(self)
+    }
+
+    /// Returns a vector containing the indices of all states that are rejecting.
+    fn rejecting_states(&self) -> Vec<Self::StateIndex> {
+        self.state_indices()
+            .filter(|&i| !self.state_color(i).unwrap())
+            .collect()
     }
 
     /// Tries to construct a (finite) word witnessing that the accepted language is empty. If such a word exists,
@@ -366,7 +392,7 @@ pub trait IsDfa:
     /// Computes the union of `self` with the given `other` object (that can be viewed as a DFA) through
     /// a simple product construction.
     fn union<Ts: IsDfa<Alphabet = Self::Alphabet>>(self, other: Ts) -> DfaProductReduced<Self, Ts> {
-        self.ts_product(other).map_colors(|(a, b)| a || b)
+        self.ts_product(other).map_state_colors(|(a, b)| a || b)
     }
 
     /// Computes the intersection of `self` with the given `other` object (that can be viewed as a DFA) through
@@ -375,18 +401,19 @@ pub trait IsDfa:
         self,
         other: Ts,
     ) -> DfaProductReduced<Self, Ts> {
-        self.ts_product(other).map_colors(|(a, b)| a && b)
+        self.ts_product(other).map_state_colors(|(a, b)| a && b)
     }
 
     /// Computes the negation of `self` by swapping accepting and non-accepting states.
     fn negation(self) -> MapStateColor<Self, fn(bool) -> bool> {
-        self.map_colors(|x| !x)
+        self.map_state_colors(|x| !x)
     }
 }
 
 impl<Ts> IsDfa for Ts where
     Ts: TransitionSystem<StateColor = bool>
         + Pointed
+        + FiniteState
         + Sized
         + Acceptor<SymbolOf<Self>, FiniteLength>
         + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>
@@ -394,7 +421,7 @@ impl<Ts> IsDfa for Ts where
 }
 
 /// Similar to [`IsDfa`], this trait is supposed to be (automatically) implemented by everything that can be viewed
-/// as a [`Dba`].
+/// as a [`crate::DBA`].
 pub trait IsDba:
     TransitionSystem<EdgeColor = bool>
     + Pointed
@@ -408,14 +435,18 @@ pub trait IsDba:
     where
         Self: FiniteState,
     {
-        for good_scc in self.sccs().iter().filter(|scc| self.is_reachable(scc[0])) {
+        for good_scc in self
+            .sccs()
+            .iter()
+            .filter(|scc| self.is_reachable(*scc.first().unwrap()))
+        {
             if let Some(full_word) = good_scc.maximal_word() {
                 let InfinityColors(colors) = self
                     .induced(&full_word, self.initial())
                     .expect("word is valid");
                 if colors.contains(&true) {
                     let base = self
-                        .word_from_to(self.initial(), good_scc[0])
+                        .word_from_to(self.initial(), *good_scc.first().unwrap())
                         .expect("we know this is reachable");
                     return Some(OmegaWord::from_parts(base, full_word));
                 }
@@ -442,7 +473,7 @@ impl<Ts> IsDba for Ts where
 {
 }
 
-/// Trait that should be implemented by every object that can be viewed as a [`Dpa`].
+/// Trait that should be implemented by every object that can be viewed as a [`crate::DPA`].
 pub trait IsDpa:
     TransitionSystem<EdgeColor = usize>
     + Pointed
@@ -464,14 +495,7 @@ impl<Ts> IsDpa for Ts where
 #[cfg(test)]
 mod tests {
     use super::IsDfa;
-    use crate::{
-        alphabet::Simple,
-        automaton::{Acceptor, IsDba},
-        ts::{HasColorMut, HasMutableStates, Pointed, Sproutable},
-        upw,
-        word::OmegaWord,
-        InfiniteLength,
-    };
+    use crate::prelude::*;
 
     #[test]
     fn dbas() {

@@ -1,7 +1,7 @@
-name: Run checks
+name: Verify code
 
 on:
-  push:
+  pull_request:
     branches:
       - '*'
       - '!main'

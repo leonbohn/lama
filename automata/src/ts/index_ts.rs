@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
     Color, Map, Set,
@@ -94,7 +96,7 @@ impl<A: Alphabet, Q: std::fmt::Display, C: Color, Idx: IndexType> std::fmt::Disp
 /// the states and edges in a vector, which allows for fast access and iteration. The states and edges
 /// are indexed by their position in the respective vector.
 #[derive(Clone, PartialEq, Eq)]
-pub struct BTS<A: Alphabet, Q: Color, C: Color, Idx: IndexType = usize> {
+pub struct BTS<A: Alphabet, Q, C: Color, Idx: IndexType = usize> {
     alphabet: A,
     states: Map<Idx, BTState<A, Q, C, Idx>>,
 }
@@ -167,6 +169,22 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
         &self.states
     }
 
+    /// Attempts to find the index of a state with the given `color`. If no such state is
+    /// found, `None` is returned. Note, that the function simply returns the first state
+    /// with the given color. As the order in which the states are stored is not guaranteed,
+    /// subsequent calls may lead to different results, if two states with the same color
+    /// exist.
+    #[inline(always)]
+    pub fn find_by_color(&self, color: &Q) -> Option<Idx> {
+        self.states.iter().find_map(|(idx, state)| {
+            if state.color() == color {
+                Some(*idx)
+            } else {
+                None
+            }
+        })
+    }
+
     /// Returns an iterator emitting pairs of state indices and their colors.
     pub fn indices_with_color(&self) -> impl Iterator<Item = (Idx, &StateColor<Self>)> {
         self.states.iter().map(|(idx, state)| (*idx, state.color()))
@@ -189,18 +207,29 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> BTS<A, Q, C, Idx> {
 }
 
 impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
-    /// Adds a state with given `color` to the transition system, returning the [Idx] of
+    type ExtendStateIndexIter = std::ops::Range<Self::StateIndex>;
+    fn extend_states<I: IntoIterator<Item = StateColor<Self>>>(
+        &mut self,
+        iter: I,
+    ) -> Self::ExtendStateIndexIter {
+        let n = self.states.len();
+        let it = (n..).zip(iter.into_iter().map(|c| BTState::new(c)));
+        self.states.extend(it);
+        n..self.states.len()
+    }
+
+    /// Adds a state with given `color` to the transition system, returning the index of
     /// the new state.
-    fn add_state(&mut self, color: StateColor<Self>) -> usize {
+    fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
         let id = self.states.len();
-        let state = BTState::new(color);
+        let state = BTState::new(color.into());
         self.states.insert(id, state);
         id
     }
 
-    /// Adds an edge from `source` to `target` with the given `trigger` and `color`, returning the
-    /// [`EdgeIndex`] of the new edge. This method panics if `source` or `target` do not exist in
-    /// the graph.
+    /// Adds an edge from `source` to `target` with the given `trigger` and `color`. If an edge
+    /// was already present, its target index and color are returned, otherwise, the function gives back
+    /// `None`. This method panics if `source` or `target` do not exist in the graph.
     fn add_edge<X, Y>(
         &mut self,
         from: X,
@@ -227,8 +256,11 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
             .and_then(|o| o.add_edge(on, target, color))
     }
 
-    fn set_state_color(&mut self, index: Self::StateIndex, color: StateColor<Self>) {
-        self.state_mut(index).unwrap().set_color(color);
+    fn set_state_color<X: Into<StateColor<Self>>>(&mut self, index: Self::StateIndex, color: X) {
+        self.states
+            .get_mut(&index)
+            .expect("State must exist")
+            .set_color(color.into());
     }
 
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {

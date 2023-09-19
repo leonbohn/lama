@@ -1,7 +1,7 @@
 use automata::{
-    congurence::FORC,
+    congruence::FORC,
     ts::{dot::display_dot, ToDot},
-    Map,
+    Map, TransitionSystem,
 };
 use automata_learning::passive::{
     sprout::{
@@ -143,7 +143,7 @@ fn main() {
                             .into_iter()
                             .map(|(c, conflicts)| {
                                 (
-                                    c.clone(),
+                                    cong.get(&c).unwrap(),
                                     omega_sprout_conflicts(
                                         conflicts,
                                         SeparatesIdempotents::new(

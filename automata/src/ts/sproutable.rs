@@ -1,8 +1,8 @@
 use itertools::Itertools;
 
-use crate::{Alphabet, Pointed, TransitionSystem};
+use crate::{alphabet::ExpressionOf, Alphabet, Pointed, TransitionSystem};
 
-use super::{EdgeColor, FiniteState, StateColor};
+use super::{transition_system::IsTransition, EdgeColor, FiniteState, StateColor};
 
 /// Trait for transition systems that allow insertion of states and transitions.
 pub trait Sproutable: TransitionSystem {
@@ -10,24 +10,36 @@ pub trait Sproutable: TransitionSystem {
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self;
 
     /// Adds a new state with the given color, returning the index of the newly created state.
-    fn add_state(&mut self, color: StateColor<Self>) -> Self::StateIndex;
-
+    ///
+    fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex;
+    /// The type of iterator that is returned when calling [`Self::extend_states()`].
+    ///
+    type ExtendStateIndexIter: IntoIterator<Item = Self::StateIndex>;
+    /// For each element that `iter` provides, a new state with the corresponding color is added.
+    /// The function returns something which can be turned into an iterator over the indices of
+    /// the newly created states.
+    ///
+    fn extend_states<I: IntoIterator<Item = StateColor<Self>>>(
+        &mut self,
+        iter: I,
+    ) -> Self::ExtendStateIndexIter;
     /// Removes the state with the given index. Note, that this should also remove all transitions
     /// that start or end in the given state. If the no state with the given `index` exists, the
     /// method is a no-op.
-    fn set_state_color(&mut self, index: Self::StateIndex, color: StateColor<Self>);
-
+    ///
+    fn set_state_color<X: Into<StateColor<Self>>>(&mut self, index: Self::StateIndex, color: X);
     /// Sets the state color of the initial state.
-    fn set_initial_color(&mut self, color: StateColor<Self>)
+    ///
+    fn set_initial_color<X: Into<StateColor<Self>>>(&mut self, color: X)
     where
         Self: Pointed,
     {
         self.set_state_color(self.initial(), color);
     }
-
     /// Adds a new transition from the state `from` to the state `to` on the given expression. If
     /// a transition already exists, the method returns the index of the original target and the
     /// color of the original edge. Otherwise, the method returns `None`.
+    ///
     fn add_edge<X, Y>(
         &mut self,
         from: X,
