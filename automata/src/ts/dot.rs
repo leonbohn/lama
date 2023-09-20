@@ -3,11 +3,143 @@ use std::fmt::{Debug, Display};
 use itertools::Itertools;
 
 use crate::{
-    automata::WithInitial, congruence::FORC, ts::FiniteState, Alphabet, Class, Color, Pointed,
-    RightCongruence, TransitionSystem,
+    automata::WithInitial,
+    congruence::{ColoredClass, FORC},
+    prelude::{Symbol, SymbolOf},
+    ts::FiniteState,
+    Alphabet, Class, Color, Map, Pointed, RightCongruence, TransitionSystem,
 };
 
-use super::{transition_system::IsTransition, IndexType, BTS};
+use super::{
+    transition_system::{Indexes, IsTransition},
+    IndexType, BTS,
+};
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct DotStateInfo<Idx: IndexType, Q: Color> {
+    idx: Idx,
+    color: Q,
+    prefix: String,
+}
+
+pub trait DotState {
+    fn dot_statement(&self) -> String {
+        format!("node [{}]\n{}", self.attributes(), self.name())
+    }
+    fn name(&self) -> String {
+        format!("\"{}\"", self.raw_name())
+    }
+    fn raw_name(&self) -> String;
+    fn attributes(&self) -> String;
+}
+
+impl<Idx: IndexType + Display> DotState for DotStateInfo<Idx, bool> {
+    fn raw_name(&self) -> String {
+        format!("q{}", self.idx)
+    }
+
+    fn attributes(&self) -> String {
+        format!(
+            "label=\"{}\", shape=\"{}\"",
+            self.raw_name(),
+            if self.color { "doublecircle" } else { "circle" }
+        )
+    }
+}
+
+impl<Idx: IndexType + Display> DotState for DotStateInfo<Idx, usize> {
+    fn raw_name(&self) -> String {
+        format!("q{}", self.idx)
+    }
+
+    fn attributes(&self) -> String {
+        format!("shape=circle, label=\"{}\"", self.raw_name())
+    }
+}
+
+impl<Idx: IndexType + Display, S: Symbol + Display> DotState
+    for DotStateInfo<Idx, crate::congruence::ColoredClass<S, bool>>
+{
+    fn raw_name(&self) -> String {
+        format!("{}[{}]", self.prefix, self.idx)
+    }
+
+    fn attributes(&self) -> String {
+        format!("shape=box, label=\"{}:{}\"", self.raw_name(), self.color)
+    }
+}
+
+impl<Idx: IndexType + Display, S: Symbol + Display> DotState
+    for DotStateInfo<Idx, crate::congruence::ColoredClass<S, usize>>
+{
+    fn raw_name(&self) -> String {
+        format!("{}[{}]", self.prefix, self.idx)
+    }
+
+    fn attributes(&self) -> String {
+        format!("shape=box, label=\"{}:{}\"", self.raw_name(), self.color)
+    }
+}
+
+impl<Idx: IndexType + Display, S: Symbol + Display> DotState
+    for DotStateInfo<Idx, crate::congruence::ColoredClass<S, ()>>
+{
+    fn raw_name(&self) -> String {
+        format!("{}[{}]", self.prefix, self.idx)
+    }
+
+    fn attributes(&self) -> String {
+        format!("shape=box, label=\"{}\"", self.raw_name())
+    }
+}
+
+pub struct DotTransitionInfo<Idx: IndexType, Q: Color, C: Color, A: Alphabet> {
+    source: DotStateInfo<Idx, Q>,
+    target: DotStateInfo<Idx, Q>,
+    color: C,
+    expression: A::Expression,
+}
+
+pub trait DotTransition {
+    fn dot_statement(&self) -> String;
+}
+
+impl<Idx, Q, A> DotTransition for DotTransitionInfo<Idx, Q, usize, A>
+where
+    Idx: IndexType,
+    Q: Color,
+    A: Alphabet,
+    A::Expression: Display,
+    DotStateInfo<Idx, Q>: DotState,
+{
+    fn dot_statement(&self) -> String {
+        format!(
+            "{} -> {} [label={}:{}]",
+            self.source.name(),
+            self.target.name(),
+            self.expression,
+            self.color
+        )
+    }
+}
+
+impl<Idx, Q, A> DotTransition for DotTransitionInfo<Idx, Q, (), A>
+where
+    Idx: IndexType,
+    Q: Color,
+    A: Alphabet,
+    A::Expression: Display,
+    DotStateInfo<Idx, Q>: DotState,
+{
+    fn dot_statement(&self) -> String {
+        format!(
+            "{} -> {} [label={}]",
+            self.source.name(),
+            self.target.name(),
+            self.expression,
+        )
+    }
+}
 
 /// Trait that encapsulates the functionality of converting an object
 /// into a [graphviz](https://graphviz.org/) representation.
@@ -101,6 +233,7 @@ pub trait ToDot {
 
         trace!("Outputting dot and rendering to png");
         let dot = self.dot_representation();
+        println!("{dot}");
         render_dot_to_tempfile(dot.as_str())
     }
 
@@ -114,26 +247,11 @@ pub trait ToDot {
     }
 }
 
-impl<Ts: ToDot + TransitionSystem> ToDot for WithInitial<Ts> {
-    fn dot_representation(&self) -> String {
-        Ts::dot_representation(self.ts())
-    }
-
-    fn header(&self) -> String {
-        Ts::header(self.ts())
-    }
-
-    fn body(&self, prefix: &str) -> String {
-        Ts::body(self.ts(), prefix)
-    }
-}
-
-impl<A: Alphabet, Q, C, Idx> ToDot for BTS<A, Q, C, Idx>
+impl<Ts> ToDot for Ts
 where
-    A::Symbol: Display,
-    Q: Debug + Color,
-    C: Debug + Color,
-    Idx: IndexType + Debug,
+    Ts: FiniteState,
+    DotStateInfo<Ts::StateIndex, Ts::StateColor>: DotState,
+    DotTransitionInfo<Ts::StateIndex, Ts::StateColor, Ts::EdgeColor, Ts::Alphabet>: DotTransition,
 {
     fn dot_representation(&self) -> String {
         format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""))
@@ -142,28 +260,40 @@ where
     fn header(&self) -> String {
         [
             "fontname=\"Helvetica,Arial,sans-serif\"\nrankdir=LR".to_string(),
-            "node [shape=none]".into(),
+            "node [shape=circle]".into(),
         ]
         .join("\n")
     }
 
     fn body(&self, prefix: &str) -> String {
-        let mut lines = vec![];
-        let to_consider = self.state_indices();
+        let mut state_map = self
+            .state_indices()
+            .map(|q| {
+                (
+                    q,
+                    DotStateInfo {
+                        color: self.state_color(q).unwrap(),
+                        idx: q,
+                        prefix: prefix.to_string(),
+                    },
+                )
+            })
+            .collect::<Map<_, _>>();
 
-        for state in to_consider {
+        let mut lines = state_map.values().map(|q| q.dot_statement()).collect_vec();
+
+        for state in self.state_indices() {
+            let q = state_map.get(&state).unwrap();
             if let Some(it) = self.edges_from(state) {
                 for e in it {
-                    lines.push(format!(
-                        "\"{prefix}{state},{:?}\" -> \"{prefix}{},{:?}\" [label = \"{:?}\"]",
-                        self.state_color(state)
-                            .expect("Actually every state should be colored!"),
-                        e.target(),
-                        self.state_color(e.target())
-                            .expect("Actually every state should be colored!"),
-                        e.expression(),
-                        prefix = prefix
-                    ));
+                    let p = state_map.get(&e.target()).unwrap();
+                    let info = DotTransitionInfo {
+                        source: q.clone(),
+                        target: p.clone(),
+                        color: e.color(),
+                        expression: e.expression().clone(),
+                    };
+                    lines.push(info.dot_statement());
                 }
             }
         }
@@ -171,57 +301,102 @@ where
     }
 }
 
-impl<A: Alphabet, Q, C> ToDot for RightCongruence<A, Q, C>
-where
-    A::Symbol: Display,
-    Q: Debug + Color,
-    C: Debug + Color,
-{
-    fn dot_representation(&self) -> String {
-        format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""))
-    }
+// impl<A: Alphabet, Q, C, Idx> ToDot for BTS<A, Q, C, Idx>
+// where
+//     A::Symbol: Display,
+//     Q: Debug + Color,
+//     C: Debug + Color,
+//     Idx: IndexType + Debug,
+// {
+//     fn dot_representation(&self) -> String {
+//         format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""))
+//     }
 
-    fn header(&self) -> String {
-        [
-            "fontname=\"Helvetica,Arial,sans-serif\"\nrankdir=LR".to_string(),
-            "node [shape=none]".into(),
-        ]
-        .join("\n")
-    }
+//     fn header(&self) -> String {
+//         [
+//             "fontname=\"Helvetica,Arial,sans-serif\"\nrankdir=LR".to_string(),
+//             "node [shape=none]".into(),
+//         ]
+//         .join("\n")
+//     }
 
-    fn body(&self, prefix: &str) -> String {
-        let mut lines = vec![format!("\"{prefix},init\" [label=\"\", shape=none]")];
+//     fn body(&self, prefix: &str) -> String {
+//         let mut lines = vec![];
+//         let to_consider = self.state_indices();
 
-        lines.push(format!(
-            "\"{prefix},init\" -> \"{prefix},{}\" [style=\"solid\"]",
-            self.state_color(self.initial())
-                .expect("The initial state must be colored!"),
-        ));
+//         for state in to_consider {
+//             if let Some(it) = self.edges_from(state) {
+//                 for e in it {
+//                     lines.push(format!(
+//                         "\"{prefix}{state},{:?}\" -> \"{prefix}{},{:?}\" [label = \"{:?}\"]",
+//                         self.state_color(state)
+//                             .expect("Actually every state should be colored!"),
+//                         e.target(),
+//                         self.state_color(e.target())
+//                             .expect("Actually every state should be colored!"),
+//                         e.expression(),
+//                         prefix = prefix
+//                     ));
+//                 }
+//             }
+//         }
+//         lines.join("\n")
+//     }
+// }
 
-        let to_consider = self.state_indices();
+// impl<A: Alphabet, Q, C> ToDot for RightCongruence<A, Q, C>
+// where
+//     A::Symbol: Display,
+//     Q: Debug + Color,
+//     C: Debug + Color,
+// {
+//     fn dot_representation(&self) -> String {
+//         format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""))
+//     }
 
-        for state in to_consider {
-            if let Some(it) = self.edges_from(state) {
-                for e in it {
-                    lines.push(format!(
-                        "\"{prefix},{}\" -> \"{prefix},{}\" [label = \"{:?}\"]",
-                        self.state_color(state)
-                            .expect("Actually every state should be colored!"),
-                        self.state_color(e.target())
-                            .expect("Actually every state should be colored!"),
-                        e.expression(),
-                        prefix = prefix
-                    ));
-                }
-            }
-        }
-        lines.join("\n")
-    }
-}
+//     fn header(&self) -> String {
+//         [
+//             "fontname=\"Helvetica,Arial,sans-serif\"\nrankdir=LR".to_string(),
+//             "node [shape=none]".into(),
+//         ]
+//         .join("\n")
+//     }
+
+//     fn body(&self, prefix: &str) -> String {
+//         let mut lines = vec![format!("\"{prefix},init\" [label=\"\", shape=none]")];
+
+//         lines.push(format!(
+//             "\"{prefix},init\" -> \"{prefix},{}\" [style=\"solid\"]",
+//             self.state_color(self.initial())
+//                 .expect("The initial state must be colored!"),
+//         ));
+
+//         let to_consider = self.state_indices();
+
+//         for state in to_consider {
+//             if let Some(it) = self.edges_from(state) {
+//                 for e in it {
+//                     lines.push(format!(
+//                         "\"{prefix},{}\" -> \"{prefix},{}\" [label = \"{:?}\"]",
+//                         self.state_color(state)
+//                             .expect("Actually every state should be colored!"),
+//                         self.state_color(e.target())
+//                             .expect("Actually every state should be colored!"),
+//                         e.expression(),
+//                         prefix = prefix
+//                     ));
+//                 }
+//             }
+//         }
+//         lines.join("\n")
+//     }
+// }
 
 impl<A: Alphabet, Q: Color + Debug, C: Color + Debug> ToDot for Vec<RightCongruence<A, Q, C>>
 where
     A::Symbol: Display,
+    DotStateInfo<usize, ColoredClass<A::Symbol, Q>>: DotState,
+    DotTransitionInfo<usize, ColoredClass<A::Symbol, Q>, C, A>: DotTransition,
 {
     fn dot_representation(&self) -> String {
         format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""),)
@@ -255,6 +430,8 @@ where
 impl<A: Alphabet, Q: Color + Debug, C: Color + Debug> ToDot for FORC<A, Q, C>
 where
     A::Symbol: Display,
+    DotStateInfo<usize, ColoredClass<A::Symbol, Q>>: DotState,
+    DotTransitionInfo<usize, ColoredClass<A::Symbol, Q>, C, A>: DotTransition,
 {
     fn dot_representation(&self) -> String {
         format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""),)
