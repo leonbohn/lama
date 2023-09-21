@@ -5,9 +5,13 @@ use automata::{
 };
 use itertools::Itertools;
 
-pub type ClassId = usize;
-pub type StateId = usize;
+type ClassId = usize;
+type StateId = usize;
 
+/// A PState is a state in the precise DPA. It keeps track of the class in the leading
+/// congruence and for each Mostowski level, it tracks the class and the state in the
+/// corresponding progress DFA. We use const generics (the parameter `N`) to ensure that
+/// `PState`s are [`Copy`].
 #[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PState<const N: usize> {
     class: usize,
@@ -29,24 +33,25 @@ impl<const N: usize> std::fmt::Display for PState<N> {
     }
 }
 
-pub struct PreciseDPAState {
-    class: ClassId,
-    progress: Vec<(ClassId, StateId)>,
-}
-
 impl<const N: usize> PState<N> {
+    /// Returns the index of the class in the leading congruence.
     pub fn class(&self) -> ClassId {
         self.class
     }
 
+    /// Returns an iterator over the classes of the currently active DFAs.
     pub fn progress_classes(&self) -> impl Iterator<Item = ClassId> + '_ {
         self.progress_classes.iter().cloned()
     }
 
+    /// Returns an iterator over the states of the currently active DFAs.
     pub fn progress_states(&self) -> impl Iterator<Item = StateId> + '_ {
         self.progress_states.iter().cloned()
     }
 
+    /// Creates a new instance of `Self` from the index of the class in the leading
+    /// congruence and iterators over the classes and states of the currently active
+    /// DFAs.
     pub fn from_iters<I: IntoIterator<Item = ClassId>, J: IntoIterator<Item = StateId>>(
         leading: ClassId,
         pc: I,
@@ -63,6 +68,8 @@ impl<const N: usize> PState<N> {
         }
     }
 
+    /// Creates a new instance of `Self` from the index of the class in the leading
+    /// congruence and arrays of the classes and states of the currently active DFAs.
     pub fn new(leading: ClassId, pc: &[ClassId], pq: &[StateId]) -> Self {
         let c = std::array::from_fn(|i| pc[i]);
         let p = std::array::from_fn(|i| pq[i]);
@@ -75,7 +82,9 @@ impl<const N: usize> PState<N> {
     }
 }
 
-#[derive(Clone)]
+/// The precise DPA is a construction for going from a specifically colored FORC to a deterministic
+/// parity automaton. It is described (https://arxiv.org/pdf/2302.11043.pdf)[here, below Lemma 15].
+#[derive(Clone, Debug)]
 pub struct PreciseDPA<A: Alphabet, const N: usize = 8> {
     states: Vec<PState<N>>,
     cong: RightCongruence<A>,
@@ -83,6 +92,8 @@ pub struct PreciseDPA<A: Alphabet, const N: usize = 8> {
     dfas: Vec<[DFA<A>; N]>,
 }
 
+/// Represents a transition in a precise DPA.
+#[derive(Clone, Copy, Debug)]
 pub struct PreciseDPATransition<'a, A: Alphabet, const N: usize> {
     dpa: &'a PreciseDPA<A, N>,
     source: PState<N>,
@@ -108,6 +119,7 @@ impl<'a, A: Alphabet, const N: usize> IsTransition<A::Expression, PState<N>, usi
 }
 
 impl<'a, A: Alphabet, const N: usize> PreciseDPATransition<'a, A, N> {
+    /// Creates a new instance of `Self`.
     pub fn new(
         dpa: &'a PreciseDPA<A, N>,
         source: PState<N>,
@@ -125,6 +137,8 @@ impl<'a, A: Alphabet, const N: usize> PreciseDPATransition<'a, A, N> {
     }
 }
 
+/// An iterator over the outgoing edges of a state in a precise DPA.
+#[derive(Debug, Clone)]
 pub struct PreciseDPAEdgesFrom<'a, A: Alphabet, const N: usize> {
     dpa: &'a PreciseDPA<A, N>,
     state: PState<N>,
@@ -143,6 +157,7 @@ impl<'a, A: Alphabet, const N: usize> Iterator for PreciseDPAEdgesFrom<'a, A, N>
 }
 
 impl<'a, A: Alphabet, const N: usize> PreciseDPAEdgesFrom<'a, A, N> {
+    /// Creates a new instance of `Self`.
     pub fn new(dpa: &'a PreciseDPA<A, N>, state: PState<N>) -> Self {
         Self {
             dpa,
@@ -209,6 +224,7 @@ impl<A: Alphabet, const N: usize> Pointed for PreciseDPA<A, N> {
 }
 
 impl<A: Alphabet, const N: usize> PreciseDPA<A, N> {
+    /// Creates a new precise DPA from the given leading congruence and sequence of sequences of DFAs.
     pub fn new(cong: RightCongruence<A>, dfas: Vec<[DFA<A>; N]>) -> Self {
         let e = cong.initial();
         let initial = PState::from_iters(e, [e; N], (0..dfas.len()).map(|i| dfas[i][e].initial()));
@@ -224,12 +240,15 @@ impl<A: Alphabet, const N: usize> PreciseDPA<A, N> {
         &self.cong
     }
 
+    /// Given a [`PState`], returns an iterator over the DFAs that are currently active.
     pub fn dfas<'a>(&'a self, q: &'a PState<N>) -> impl Iterator<Item = &DFA<A>> + 'a {
         q.progress_classes()
             .enumerate()
             .map(move |(i, c)| &self.dfas[c][i])
     }
 
+    /// Given a [`PState`] and a symbol, returns the index of the least accepting DFA (which is
+    /// the priority of the corresponding edge) and the successor [`PState`].
     pub fn take_precise_transition(&self, q: &PState<N>, a: A::Symbol) -> (usize, PState<N>) {
         let d = self
             .cong()

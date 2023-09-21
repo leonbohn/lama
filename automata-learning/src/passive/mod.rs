@@ -12,6 +12,7 @@ pub mod sprout;
 /// Deals with families of weak priority mappings.
 pub mod fwpm;
 
+/// Defines the precise DPA.
 pub mod precise;
 
 /// Executes the RPNI algorithm on the given sample. This returns a DFA that is

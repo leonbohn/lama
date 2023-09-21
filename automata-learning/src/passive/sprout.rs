@@ -65,6 +65,7 @@ impl<A: Alphabet> ConflictRelation<A> {
 
 impl<A: Alphabet> ToDot for ConflictRelation<A>
 where
+    A::Expression: Display,
     A::Symbol: Display,
 {
     fn dot_representation(&self) -> String {

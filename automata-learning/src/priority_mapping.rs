@@ -1,7 +1,7 @@
 use impl_tools::autoimpl;
 use owo_colors::OwoColorize;
 
-use automata::{prelude::*, Set};
+use automata::{prelude::*, ts::dot::DotStateColorize, Set};
 
 /// A priority mapping is essentially a [`crate::MealyMachine`], i.e. it reads
 /// finite words and ouptuts a priority (which in this case is a `usize`).
@@ -15,6 +15,12 @@ pub type PriorityMapping<A = Simple> = RightCongruence<A, (), usize>;
 pub struct Annotation {
     pub(super) idempotent: bool,
     pub(super) good: Option<bool>,
+}
+
+impl DotStateColorize for Annotation {
+    fn dot_state_colorize(&self, base: &mut automata::ts::dot::DotStateData) {
+        todo!()
+    }
 }
 
 impl std::fmt::Debug for Annotation {
@@ -46,6 +52,7 @@ impl<A> ToDot for AnnotatedCongruence<A>
 where
     A: Alphabet,
     A::Symbol: std::fmt::Display,
+    A::Expression: std::fmt::Display,
 {
     fn dot_representation(&self) -> String {
         format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""))
