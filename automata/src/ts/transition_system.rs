@@ -654,6 +654,44 @@ pub trait TransitionSystem: HasAlphabet + Sized {
         ts
     }
 
+    fn trim_collect<
+        Ts: TransitionSystem<
+                StateColor = Self::StateColor,
+                EdgeColor = Self::EdgeColor,
+                Alphabet = Self::Alphabet,
+            > + super::Sproutable
+            + FiniteState
+            + Pointed,
+    >(
+        &self,
+    ) -> Ts
+    where
+        Self: Pointed,
+    {
+        let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
+        ts.set_initial_color(self.initial_color());
+
+        let (l, r) = self
+            .reachable_state_indices()
+            .filter(|i| i != &self.initial())
+            .tee();
+        let map: Map<Self::StateIndex, Ts::StateIndex> = l
+            .zip(ts.extend_states(r.map(|q| self.state_color(q).unwrap())))
+            .chain(std::iter::once((self.initial(), ts.initial())))
+            .collect();
+        for (index, q) in map.iter() {
+            self.edges_from(*index).unwrap().for_each(|tt| {
+                ts.add_edge(
+                    *q,
+                    tt.expression().clone(),
+                    *map.get(&tt.target()).unwrap(),
+                    tt.color(),
+                );
+            });
+        }
+        ts
+    }
+
     /// Collects `self` into a new transition system of type `Ts` with the same alphabet, state indices
     /// and edge colors.
     fn collect<
@@ -727,6 +765,10 @@ pub trait TransitionSystem: HasAlphabet + Sized {
         }
         ts
     }
+
+    fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
+        None
+    }
 }
 
 impl<Ts: TransitionSystem> TransitionSystem for &Ts {
@@ -759,6 +801,10 @@ impl<Ts: TransitionSystem> TransitionSystem for &Ts {
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
         Ts::edges_from(self, state.to_index(self)?)
     }
+
+    fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
+        Ts::maybe_initial_state(self)
+    }
 }
 impl<Ts: TransitionSystem> TransitionSystem for &mut Ts {
     type StateIndex = Ts::StateIndex;
@@ -789,6 +835,10 @@ impl<Ts: TransitionSystem> TransitionSystem for &mut Ts {
 
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
         Ts::edges_from(self, state.to_index(self)?)
+    }
+
+    fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
+        Ts::maybe_initial_state(self)
     }
 }
 
@@ -823,6 +873,10 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for RightCongruence<A, Q,
 
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
         self.ts().edges_from(state.to_index(self)?)
+    }
+
+    fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
+        Some(self.initial())
     }
 }
 impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A, Q, C, Idx> {
@@ -916,6 +970,13 @@ where
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
         ProductEdgesFrom::new(&self.0, &self.1, state.to_index(self)?)
     }
+
+    fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
+        Some(ProductIndex(
+            self.0.maybe_initial_state()?,
+            self.1.maybe_initial_state()?,
+        ))
+    }
 }
 
 impl<D, Ts, F> TransitionSystem for MapStateColor<Ts, F>
@@ -953,6 +1014,10 @@ where
 
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
         self.ts().edges_from(state.to_index(self)?)
+    }
+
+    fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
+        self.ts().maybe_initial_state()
     }
 }
 
@@ -1000,6 +1065,10 @@ where
             self.f(),
         ))
     }
+
+    fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
+        self.ts().maybe_initial_state()
+    }
 }
 
 impl<Ts: TransitionSystem, F> TransitionSystem for RestrictByStateIndex<Ts, F>
@@ -1046,6 +1115,15 @@ where
             .edges_from(state.to_index(self)?)
             .map(|iter| RestrictedEdgesFromIter::new(iter, self.filter()))
     }
+
+    fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
+        let initial = self.ts().maybe_initial_state()?;
+        if self.filter().is_unmasked(initial) {
+            Some(initial)
+        } else {
+            None
+        }
+    }
 }
 
 impl<Ts: TransitionSystem> TransitionSystem for WithInitial<Ts> {
@@ -1077,6 +1155,10 @@ impl<Ts: TransitionSystem> TransitionSystem for WithInitial<Ts> {
 
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
         self.ts().edges_from(state.to_index(self)?)
+    }
+
+    fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
+        Some(self.initial())
     }
 }
 

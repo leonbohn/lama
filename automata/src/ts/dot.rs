@@ -113,8 +113,8 @@ impl<S: Symbol + Display, C: Color + DotStateColorize> DotStateColorize
 /// Stores all necessary information for producing a DOT statement, which draws a singular
 /// transition between two nodes.
 pub struct DotTransitionInfo<C: Color, A: Alphabet> {
-    source: String,
-    target: String,
+    source_name: String,
+    target_name: String,
     color: C,
     expression: A::Expression,
 }
@@ -132,8 +132,8 @@ where
 {
     fn dot_statement(&self) -> String {
         format!(
-            "{} -> {} [label={}:{}]",
-            self.source, self.target, self.expression, self.color
+            "{} -> {} [label=\"{}:{}\"]",
+            self.source_name, self.target_name, self.expression, self.color
         )
     }
 }
@@ -146,7 +146,7 @@ where
     fn dot_statement(&self) -> String {
         format!(
             "{} -> {} [label={}]",
-            self.source, self.target, self.expression,
+            self.source_name, self.target_name, self.expression,
         )
     }
 }
@@ -293,8 +293,8 @@ where
                 for e in it {
                     let p = state_map.get(&e.target()).unwrap();
                     let info = DotTransitionInfo {
-                        source: q.dot_name().to_string(),
-                        target: p.dot_name().to_string(),
+                        source_name: q.dot_name().to_string(),
+                        target_name: p.dot_name().to_string(),
                         color: e.color(),
                         expression: e.expression().clone(),
                     };
@@ -302,6 +302,14 @@ where
                 }
             }
         }
+
+        // deal with the initial state if it exists
+        if let Some(initial) = self.maybe_initial_state() {
+            let q = state_map.get(&initial).unwrap();
+            lines.push("init [shape=\"none\", label=\" \"]".to_string());
+            lines.push(format!("init -> {}", q.dot_name()));
+        }
+
         lines.join("\n")
     }
 }
@@ -492,7 +500,9 @@ fn display_png(rendered_path: tempfile::TempPath) -> Result<(), std::io::Error> 
 
 #[cfg(test)]
 mod tests {
-    use crate::{alphabet, congruence::FORC, ts::Sproutable, Class, Pointed, RightCongruence};
+    use crate::{
+        alphabet, congruence::FORC, prelude::DPA, ts::Sproutable, Class, Pointed, RightCongruence,
+    };
 
     use super::ToDot;
 
@@ -552,5 +562,20 @@ mod tests {
         cong.display_rendered();
         let three_congs = vec![cong.clone(), cong.clone(), cong];
         three_congs.display_rendered();
+    }
+
+    #[test]
+    #[ignore]
+    fn dot_render_dpa() {
+        let alphabet = alphabet!(simple 'a', 'b');
+        let mut dpa = DPA::new(alphabet);
+        let q0 = dpa.initial();
+        let q1 = dpa.add_state(());
+        dpa.add_edge(q0, 'a', q0, 1);
+        dpa.add_edge(q0, 'b', q1, 2);
+        dpa.add_edge(q1, 'a', q1, 0);
+        dpa.add_edge(q1, 'b', q0, 2);
+        println!("{:?}", dpa);
+        dpa.display_rendered();
     }
 }

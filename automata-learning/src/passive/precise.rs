@@ -1,6 +1,6 @@
 use automata::{
     prelude::{Expression, HasAlphabet, IsTransition, DFA},
-    ts::FiniteState,
+    ts::{FiniteState, HasFiniteStates},
     Alphabet, Map, Pointed, RightCongruence, TransitionSystem,
 };
 use itertools::Itertools;
@@ -167,6 +167,15 @@ impl<'a, A: Alphabet, const N: usize> PreciseDPAEdgesFrom<'a, A, N> {
     }
 }
 
+// impl<'a, A: Alphabet, const N: usize> HasFiniteStates<'a> for PreciseDPA<A, N> {
+//     type StateIndicesIter = PreciseDPAStatesIter<'a, A, N>;
+// }
+
+pub struct PreciseDPAStatesIter<'a, A: Alphabet, const N: usize> {
+    dpa: &'a PreciseDPA<A, N>,
+    it: std::slice::Iter<'a, PState<N>>,
+}
+
 impl<A: Alphabet, const N: usize> TransitionSystem for PreciseDPA<A, N> {
     type StateIndex = PState<N>;
 
@@ -297,9 +306,7 @@ impl<A: Alphabet, const N: usize> PreciseDPA<A, N> {
 
 #[cfg(test)]
 mod tests {
-    use automata::{
-        alphabet, prelude::DFA, ts::Sproutable, Pointed, RightCongruence, TransitionSystem,
-    };
+    use automata::prelude::*;
 
     use super::PreciseDPA;
 
@@ -371,5 +378,8 @@ mod tests {
         println!("{:?} -b:{}-> {:?}", q, t.color, t.target);
         let t = dpa.transition(q, 'c').unwrap();
         println!("{:?} -c:{}-> {:?}", q, t.color, t.target);
+
+        let trim: DPA = dpa.trim_collect();
+        trim.display_rendered();
     }
 }
