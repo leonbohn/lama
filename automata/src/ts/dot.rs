@@ -22,6 +22,8 @@ pub enum DotStateAttribute {
     Label(String),
     /// The shape of a node
     Shape(String),
+    /// The color of a node
+    Color(String),
 }
 
 impl Display for DotStateAttribute {
@@ -32,6 +34,7 @@ impl Display for DotStateAttribute {
             match self {
                 DotStateAttribute::Label(s) => format!("label=\"{}\"", s),
                 DotStateAttribute::Shape(s) => format!("shape=\"{}\"", s),
+                DotStateAttribute::Color(c) => format!("color=\"{}\"", c),
             }
         )
     }
@@ -53,8 +56,18 @@ impl DotStateData {
         )
     }
 
+    /// Appends the given attribute.
+    pub fn push_attribute(&mut self, attr: DotStateAttribute) {
+        self.attributes.push(attr);
+    }
+
     fn dot_name(&self) -> String {
         format!("\"{}\"", self.name)
+    }
+
+    /// Returns a pointer to the raw name of the node.
+    pub fn raw_name(&self) -> &str {
+        &self.name
     }
 }
 
@@ -103,7 +116,7 @@ impl<S: Symbol + Display, C: Color + DotStateColorize> DotStateColorize
     for crate::congruence::ColoredClass<S, C>
 {
     fn dot_state_colorize(&self, base: &mut DotStateData) {
-        base.name = format!("[{}]", base.name);
+        base.name = format!("[{}]", self.class().mr_to_string());
         base.attributes
             .push(DotStateAttribute::Shape("box".to_string()));
         self.color().dot_state_colorize(base);

@@ -167,10 +167,8 @@ impl<'a, A: Alphabet, const N: usize> PreciseDPAEdgesFrom<'a, A, N> {
     }
 }
 
-// impl<'a, A: Alphabet, const N: usize> HasFiniteStates<'a> for PreciseDPA<A, N> {
-//     type StateIndicesIter = PreciseDPAStatesIter<'a, A, N>;
-// }
-
+/// An iterator over the states of a precise DPA.
+#[derive(Debug, Clone)]
 pub struct PreciseDPAStatesIter<'a, A: Alphabet, const N: usize> {
     dpa: &'a PreciseDPA<A, N>,
     it: std::slice::Iter<'a, PState<N>>,

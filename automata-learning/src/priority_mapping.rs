@@ -1,7 +1,11 @@
 use impl_tools::autoimpl;
 use owo_colors::OwoColorize;
 
-use automata::{prelude::*, ts::dot::DotStateColorize, Set};
+use automata::{
+    prelude::*,
+    ts::dot::{DotStateAttribute, DotStateColorize},
+    Set,
+};
 
 /// A priority mapping is essentially a [`crate::MealyMachine`], i.e. it reads
 /// finite words and ouptuts a priority (which in this case is a `usize`).
@@ -19,7 +23,19 @@ pub struct Annotation {
 
 impl DotStateColorize for Annotation {
     fn dot_state_colorize(&self, base: &mut automata::ts::dot::DotStateData) {
-        todo!()
+        let i = if self.idempotent { "*" } else { "" };
+        base.push_attribute(DotStateAttribute::Label(format!(
+            "{}{}",
+            base.raw_name(),
+            i,
+        )));
+        if let Some(b) = self.good {
+            base.push_attribute(DotStateAttribute::Color(if b {
+                "green".to_string()
+            } else {
+                "red".to_string()
+            }));
+        }
     }
 }
 
@@ -41,6 +57,7 @@ impl Annotation {
 
 /// This a simple newtype wrapper around a congruence, which has no edge colors and uses
 /// [`Annotation`]s as state colors.
+#[derive(Clone, Debug)]
 pub struct AnnotatedCongruence<A: Alphabet = Simple>(RightCongruence<A, Annotation, ()>);
 
 #[autoimpl(for<T: trait + ?Sized> &T)]
@@ -74,6 +91,7 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
     pub fn canonic_coloring(
         &self,
     ) -> impl FiniteState
+           + Pointed
            + TransitionSystem<
         StateIndex = usize,
         StateColor = automata::congruence::ColoredClass<A::Symbol, Annotation>,
@@ -99,7 +117,6 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
                 break 'outer;
             }
             let t = dag.masked_terminal_nodes(&seen).next().unwrap();
-            println!("{:?}\n{:?}", seen, dag);
             assert!(seen.insert(t), "This must not have been seen before!");
             let i = dag
                 .immediate(t)
@@ -148,7 +165,7 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
                         c.recolor(Annotation::new(false, None))
                     }
                 })
-                .collect(),
+                .collect_with_initial(),
         )
     }
 }

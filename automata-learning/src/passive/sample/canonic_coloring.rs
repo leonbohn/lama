@@ -27,10 +27,11 @@ mod tests {
         let periodic = split.get(0).unwrap().to_periodic_sample();
 
         let annotated = AnnotatedCongruence::build(forc.prc(0).unwrap(), &periodic);
+        println!("{:?}", annotated);
 
         let coloring = annotated.canonic_coloring();
         coloring
-            .collect::<RightCongruence<_, _, usize>>()
+            .collect_with_initial::<RightCongruence<_, _, usize>>()
             .display_rendered();
     }
 }

@@ -2,6 +2,7 @@
 //!
 #![warn(missing_docs)]
 #![allow(unused)]
+#![allow(clippy::pedantic)]
 
 /// The prelude is supposed to make using this package easier. Including everything, i.e.
 /// `use automata::prelude::*;` should be enough to use the package.

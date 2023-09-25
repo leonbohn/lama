@@ -654,6 +654,9 @@ pub trait TransitionSystem: HasAlphabet + Sized {
         ts
     }
 
+    /// Collects into a transition system of type `Ts`, but only considers states that
+    /// are reachable from the initial state. Naturally, this means that `self` must
+    /// be a pointed transition system.
     fn trim_collect<
         Ts: TransitionSystem<
                 StateColor = Self::StateColor,
@@ -766,6 +769,13 @@ pub trait TransitionSystem: HasAlphabet + Sized {
         ts
     }
 
+    /// Returns an option containing the index of the initial state, if it exists.
+    /// This is a somewhat hacky way of dealing with the fact that we cannot express
+    /// negative trait bounds. In particular, we cannot express that a transition system
+    /// is not pointed, which prevents us from correctly implementing e.g. the `ToDot`
+    /// trait for non-pointed transition systems. This function is a workaround for this
+    /// problem, as it allows us to check whether a transition system is pointed or not,
+    /// since the provided default implementation assumes that the no initial state exists.
     fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
         None
     }
