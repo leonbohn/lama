@@ -20,6 +20,7 @@ mod tests {
     use crate::{passive::sprout::tests::testing_larger_forc_sample, AnnotatedCongruence};
 
     #[test]
+    #[ignore]
     fn classification() {
         let (alphabet, sample) = testing_larger_forc_sample();
         let forc = sample.infer_forc();

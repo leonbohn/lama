@@ -378,6 +378,5 @@ mod tests {
         println!("{:?} -c:{}-> {:?}", q, t.color, t.target);
 
         let trim: DPA = dpa.trim_collect();
-        trim.display_rendered();
     }
 }
