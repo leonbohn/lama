@@ -93,6 +93,7 @@ where
             self.dfas[0].header(),
             self.dfas[0].body("B"),
         );
+        #[allow(clippy::unwrap_or_default)]
         let conflicts = self
             .conflicts
             .iter()
@@ -165,7 +166,6 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
     let mut queue = VecDeque::from_iter(
         left_pta
             .accepting_states()
-            .into_iter()
             .cartesian_product(right_pta.accepting_states()),
     );
 

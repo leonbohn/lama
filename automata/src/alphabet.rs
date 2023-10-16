@@ -104,7 +104,7 @@ pub type ExpressionOf<A> = <<A as HasAlphabet>::Alphabet as Alphabet>::Expressio
 /// but not by the symbols `a & b & !c` or `!a & !b & c`.
 #[derive(Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
 pub struct Propositional {
-    aps: Vec<String>,
+    aps: Vec<char>,
 }
 
 /// A simple alphabet is an alphabet where a [`Symbol`] is just a single character.

@@ -334,8 +334,46 @@ where
 
 type DfaProductReduced<L, R> = MapStateColor<MatchingProduct<L, R>, fn((bool, bool)) -> bool>;
 
+/// Iterator over the accepting states of a [`TransitionSystem`] that have a certain coloring.
+pub struct StatesWithColor<'a, Ts: TransitionSystem + FiniteState> {
+    ts: &'a Ts,
+    iter: FiniteStatesIterType<'a, Ts>,
+    color: Ts::StateColor,
+}
+
+impl<'a, Ts: TransitionSystem + FiniteState> StatesWithColor<'a, Ts> {
+    /// Creates a new instance for the given transition system and color.
+    pub fn new(ts: &'a Ts, color: Ts::StateColor) -> Self {
+        Self {
+            iter: ts.state_indices(),
+            ts,
+            color,
+        }
+    }
+}
+
+impl<'a, Ts: TransitionSystem + FiniteState> Clone for StatesWithColor<'a, Ts> {
+    fn clone(&self) -> Self {
+        Self {
+            ts: self.ts,
+            iter: self.ts.state_indices(),
+            color: self.color.clone(),
+        }
+    }
+}
+
+impl<'a, Ts: TransitionSystem<StateColor = bool> + FiniteState> Iterator
+    for StatesWithColor<'a, Ts>
+{
+    type Item = Ts::StateIndex;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.find(|&index| self.ts.state_color(index).unwrap())
+    }
+}
+
 /// This trait is (automatically) implemented by everything which can be viewed as a [`DFA`].
-pub trait IsDfa:
+pub trait DFALike:
     TransitionSystem<StateColor = bool>
     + Pointed
     + FiniteState
@@ -343,18 +381,20 @@ pub trait IsDfa:
     + Acceptor<SymbolOf<Self>, FiniteLength>
     + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>
 {
-    /// Returns a vector containing the indices of all states that are accepting.
-    // TODO: return iterator instead.
-    fn accepting_states(&self) -> Vec<Self::StateIndex>
+    /// Returns the indices of all states that are accepting.
+    fn accepting_states(&self) -> StatesWithColor<'_, Self>
     where
         Self: FiniteState,
     {
-        self.state_indices()
-            .filter(|&index| {
-                self.state_color(index)
-                    .expect("Every state must have a color!")
-            })
-            .collect_vec()
+        StatesWithColor::new(self, true)
+    }
+
+    /// Returns the indices of all states that are rejecting.
+    fn rejecting_states(&self) -> StatesWithColor<'_, Self>
+    where
+        Self: FiniteState,
+    {
+        StatesWithColor::new(self, false)
     }
 
     /// Minimizes `self` using Hopcroft's partition refinement algorithm.
@@ -363,13 +403,6 @@ pub trait IsDfa:
         Self: FiniteState,
     {
         minimize_dfa(self)
-    }
-
-    /// Returns a vector containing the indices of all states that are rejecting.
-    fn rejecting_states(&self) -> Vec<Self::StateIndex> {
-        self.state_indices()
-            .filter(|&i| !self.state_color(i).unwrap())
-            .collect()
     }
 
     /// Tries to construct a (finite) word witnessing that the accepted language is empty. If such a word exists,
@@ -394,13 +427,16 @@ pub trait IsDfa:
 
     /// Computes the union of `self` with the given `other` object (that can be viewed as a DFA) through
     /// a simple product construction.
-    fn union<Ts: IsDfa<Alphabet = Self::Alphabet>>(self, other: Ts) -> DfaProductReduced<Self, Ts> {
+    fn union<Ts: DFALike<Alphabet = Self::Alphabet>>(
+        self,
+        other: Ts,
+    ) -> DfaProductReduced<Self, Ts> {
         self.ts_product(other).map_state_colors(|(a, b)| a || b)
     }
 
     /// Computes the intersection of `self` with the given `other` object (that can be viewed as a DFA) through
     /// a simple product construction.
-    fn intersection<Ts: IsDfa<Alphabet = Self::Alphabet>>(
+    fn intersection<Ts: DFALike<Alphabet = Self::Alphabet>>(
         self,
         other: Ts,
     ) -> DfaProductReduced<Self, Ts> {
@@ -413,7 +449,7 @@ pub trait IsDfa:
     }
 }
 
-impl<Ts> IsDfa for Ts where
+impl<Ts> DFALike for Ts where
     Ts: TransitionSystem<StateColor = bool>
         + Pointed
         + FiniteState
@@ -425,7 +461,7 @@ impl<Ts> IsDfa for Ts where
 
 /// Similar to [`IsDfa`], this trait is supposed to be (automatically) implemented by everything that can be viewed
 /// as a [`crate::DBA`].
-pub trait IsDba:
+pub trait DBALike:
     TransitionSystem<EdgeColor = bool>
     + Pointed
     + Sized
@@ -467,7 +503,7 @@ pub trait IsDba:
     }
 }
 
-impl<Ts> IsDba for Ts where
+impl<Ts> DBALike for Ts where
     Ts: TransitionSystem<EdgeColor = bool>
         + Pointed
         + Sized
@@ -477,7 +513,7 @@ impl<Ts> IsDba for Ts where
 }
 
 /// Trait that should be implemented by every object that can be viewed as a [`crate::DPA`].
-pub trait IsDpa:
+pub trait DPALike:
     TransitionSystem<EdgeColor = usize>
     + Pointed
     + Sized
@@ -486,7 +522,7 @@ pub trait IsDpa:
 {
 }
 
-impl<Ts> IsDpa for Ts where
+impl<Ts> DPALike for Ts where
     Ts: TransitionSystem<EdgeColor = usize>
         + Pointed
         + Sized
@@ -543,7 +579,7 @@ impl<Ts: TransitionSystem<StateColor = usize> + Pointed + Sized> IsMoore for Ts 
 
 #[cfg(test)]
 mod tests {
-    use super::{IsDfa, IsMoore, WithInitial};
+    use super::{DFALike, IsMoore, WithInitial};
     use crate::{prelude::*, ts::BTS};
 
     #[test]
