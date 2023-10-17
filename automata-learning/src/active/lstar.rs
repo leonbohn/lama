@@ -246,9 +246,10 @@ impl<
 #[cfg(test)]
 mod tests {
     use automata::prelude::*;
+    use owo_colors::OwoColorize;
     use tracing_test::traced_test;
 
-    use crate::active::Oracle;
+    use crate::active::{oracle::DFAOracle, Oracle};
 
     struct ModkAmodlB(Simple);
     struct WordLenModk(Simple, usize);
@@ -372,5 +373,34 @@ mod tests {
         assert!(mm.transform("abba"));
         assert!(!mm.transform("ab"));
         assert!(mm.transform(""))
+    }
+
+    #[test]
+    fn lstar_for_dfa() {
+        let alphabet = Simple::from_iter(['a', 'b', 'c']);
+        let mut dfa = DFA::new(alphabet.clone());
+        let q0 = dfa.initial();
+        dfa.set_initial_color(true);
+        let q1 = dfa.add_state(false);
+        let q2 = dfa.add_state(true);
+        let q3 = dfa.add_state(false);
+        dfa.add_edge(q0, 'a', q1, ());
+        dfa.add_edge(q0, 'b', q3, ());
+        dfa.add_edge(q0, 'c', q0, ());
+        dfa.add_edge(q1, 'a', q0, ());
+        dfa.add_edge(q1, 'b', q2, ());
+        dfa.add_edge(q1, 'c', q0, ());
+        dfa.add_edge(q2, 'a', q2, ());
+        dfa.add_edge(q2, 'b', q2, ());
+        dfa.add_edge(q2, 'c', q0, ());
+        dfa.add_edge(q3, 'a', q3, ());
+        dfa.add_edge(q3, 'b', q3, ());
+        dfa.add_edge(q3, 'c', q0, ());
+        let oracle = DFAOracle::new(&dfa);
+
+        let mut lstar = super::LStar::new(oracle, alphabet);
+
+        let learned = lstar.infer();
+        assert!(learned.equivalent(&dfa));
     }
 }

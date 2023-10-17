@@ -1,4 +1,4 @@
-use automata::prelude::*;
+use automata::{prelude::*, ts::operations::MapStateColor};
 
 /// A trait that encapsulates a minimally adequate teacher (MAT) for active learning. This is mainly used by
 /// L*-esque algorithms and can be implemented by wildly different types, for example an automaton, a function
@@ -26,6 +26,59 @@ pub trait Oracle: HasAlphabet {
     fn equivalence<H>(&self, hypothesis: H) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)>
     where
         H: Pointed
+            + FiniteState
             + TransitionSystem<Alphabet = Self::Alphabet, StateColor = Self::Output>
             + Transformer<SymbolOf<Self>, Self::Length, Output = Self::Output>;
+}
+
+#[derive(Debug, Clone)]
+pub struct DFAOracle<D: DFALike> {
+    automaton: D,
+    negated: MapStateColor<D, fn(bool) -> bool>,
+}
+
+impl<D: DFALike + Clone> DFAOracle<D> {
+    pub fn new(automaton: D) -> Self {
+        Self {
+            negated: automaton.clone().negation(),
+            automaton,
+        }
+    }
+}
+
+impl<D: DFALike> HasAlphabet for DFAOracle<D> {
+    type Alphabet = D::Alphabet;
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.automaton.alphabet()
+    }
+}
+
+impl<D: DFALike> Oracle for DFAOracle<D> {
+    type Length = FiniteLength;
+
+    type Output = bool;
+
+    fn output<W: Word<Symbol = SymbolOf<Self>, Length = Self::Length>>(
+        &self,
+        word: W,
+    ) -> Self::Output {
+        self.automaton.accepts(word)
+    }
+
+    fn equivalence<H>(&self, hypothesis: H) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)>
+    where
+        H: Pointed
+            + FiniteState
+            + TransitionSystem<Alphabet = Self::Alphabet, StateColor = Self::Output>
+            + Transformer<SymbolOf<Self>, Self::Length, Output = Self::Output>,
+    {
+        let i = (&self.negated).intersection(&hypothesis);
+        match (&self.negated).intersection(hypothesis).dfa_give_word() {
+            Some(w) => {
+                let should_be_accepted = self.automaton.accepts(&w);
+                Err((w, should_be_accepted))
+            }
+            None => Ok(()),
+        }
+    }
 }

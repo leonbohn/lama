@@ -561,7 +561,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
             std::iter::once("State".to_string())
                 .chain(self.alphabet().universe().map(|s| format!("{:?}", s))),
         );
-        for id in self.state_indices() {
+        for id in self.state_indices().sorted() {
             let mut row = vec![format!(
                 "{}",
                 state_decorator(

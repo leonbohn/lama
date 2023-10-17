@@ -373,13 +373,9 @@ impl<'a, Ts: TransitionSystem<StateColor = bool> + FiniteState> Iterator
 }
 
 /// This trait is (automatically) implemented by everything which can be viewed as a [`DFA`].
-pub trait DFALike:
-    TransitionSystem<StateColor = bool>
-    + Pointed
-    + FiniteState
-    + Sized
-    + Acceptor<SymbolOf<Self>, FiniteLength>
-    + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>
+pub trait DFALike: TransitionSystem<StateColor = bool> + Pointed + FiniteState
+// + Acceptor<SymbolOf<Self>, FiniteLength>
+// + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>
 {
     /// Returns the indices of all states that are accepting.
     fn accepting_states(&self) -> StatesWithColor<'_, Self>
@@ -403,6 +399,16 @@ pub trait DFALike:
         Self: FiniteState,
     {
         minimize_dfa(self)
+    }
+
+    /// Checks whether `self` is equivalent to `other`, i.e. whether the two DFAs accept
+    /// the same language. This is done by negating `self` and then verifying that the intersection
+    /// of the negated automaton with `other` is empty.
+    fn equivalent<D: DFALike<Alphabet = Self::Alphabet>>(&self, other: D) -> bool {
+        self.negation()
+            .intersection(other)
+            .dfa_give_word()
+            .is_none()
     }
 
     /// Tries to construct a (finite) word witnessing that the accepted language is empty. If such a word exists,
@@ -450,12 +456,8 @@ pub trait DFALike:
 }
 
 impl<Ts> DFALike for Ts where
-    Ts: TransitionSystem<StateColor = bool>
-        + Pointed
-        + FiniteState
-        + Sized
-        + Acceptor<SymbolOf<Self>, FiniteLength>
-        + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>
+    Ts: TransitionSystem<StateColor = bool> + Pointed + FiniteState + Sized // + Acceptor<SymbolOf<Self>, FiniteLength>
+                                                                            // + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>
 {
 }
 

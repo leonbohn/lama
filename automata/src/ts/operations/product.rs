@@ -75,35 +75,65 @@ impl<L: HasAlphabet, R> HasAlphabet for MatchingProduct<L, R> {
     }
 }
 
+/// Iterator over the state indices of a product transition system.
+pub struct ProductStatesIter<'a, L: FiniteState, R: FiniteState> {
+    left: FiniteStatesIterType<'a, L>,
+    right: FiniteStatesIterType<'a, R>,
+    left_state: Option<L::StateIndex>,
+    rts: &'a R,
+}
+
+impl<'a, L: FiniteState, R: FiniteState> Iterator for ProductStatesIter<'a, L, R> {
+    type Item = ProductIndex<L::StateIndex, R::StateIndex>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.left_state {
+            None => None,
+            Some(p) => {
+                if let Some(q) = self.right.next() {
+                    Some(ProductIndex(p, q))
+                } else {
+                    self.left_state = self.left.next();
+                    self.right = self.rts.state_indices();
+                    self.next()
+                }
+            }
+        }
+    }
+}
+
+impl<'a, L: FiniteState, R: FiniteState> ProductStatesIter<'a, L, R> {
+    /// Create a new iterator over the state indices of a product transition system.
+    pub fn new(lts: &'a L, rts: &'a R) -> Self {
+        let mut lit = lts.state_indices();
+        Self {
+            left_state: lit.next(),
+            left: lit,
+            right: rts.state_indices(),
+            rts,
+        }
+    }
+}
+
 impl<'a, L, R> HasFiniteStates<'a> for MatchingProduct<L, R>
 where
-    L: HasFiniteStates<'a>,
-    R: HasFiniteStates<'a>,
-    R::Alphabet: Alphabet<Symbol = SymbolOf<L>, Expression = ExpressionOf<L>>,
+    L: FiniteState,
+    R: FiniteState<Alphabet = L::Alphabet>,
     L::StateColor: Clone,
     R::StateColor: Clone,
-    R::StateIndicesIter: Clone,
 {
-    type StateIndicesIter = std::iter::Map<
-        itertools::Product<L::StateIndicesIter, R::StateIndicesIter>,
-        fn((L::StateIndex, R::StateIndex)) -> ProductIndex<L::StateIndex, R::StateIndex>,
-    >;
+    type StateIndicesIter = ProductStatesIter<'a, L, R>;
 }
 
 impl<L, R> FiniteState for MatchingProduct<L, R>
 where
     L: FiniteState,
-    R: FiniteState,
-    R::Alphabet: Alphabet<Symbol = SymbolOf<L>, Expression = ExpressionOf<L>>,
+    R: FiniteState<Alphabet = L::Alphabet>,
     L::StateColor: Clone,
     R::StateColor: Clone,
-    for<'a> FiniteStatesIterType<'a, R>: Clone,
 {
     fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
-        self.0
-            .state_indices()
-            .cartesian_product(self.1.state_indices())
-            .map(|(l, r)| ProductIndex(l, r))
+        ProductStatesIter::new(&self.0, &self.1)
     }
 }
 
