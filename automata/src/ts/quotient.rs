@@ -78,7 +78,6 @@ impl<Ts: FiniteState + TransitionSystem> Quotient<Ts> {
 
     /// Creates a new quotient of the given transition system by the give [`Partition`].
     pub fn new(ts: Ts, partition: Partition<Ts::StateIndex>) -> Self {
-        // assert!(Self::sanity_check(&ts, &partition));
         Self { ts, partition }
     }
 }

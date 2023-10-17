@@ -56,7 +56,7 @@ pub fn infer_precise_dpa<A: Alphabet>(
 
     let forc = split.infer_forc();
     let mut fwpm = FWPM::empty(&cong);
-    for (prc, idx) in cong.classes() {
+    for (class, idx) in cong.classes() {
         let periodic_sample = split.get(idx).expect("Must exist!").to_periodic_sample();
         let annotated_prc =
             AnnotatedCongruence::build(forc.prc(idx).expect("Must exist"), &periodic_sample);
@@ -82,11 +82,14 @@ mod tests {
 
     #[test]
     fn infer_precise_dpa_inf_aa() {
-        let alphabet = alphabet!(simple 'a', 'b');
-        let sample =
-            sample! {alphabet; pos "a", "aba", "caa", "acaba"; neg "b", "c", "ab", "ca", "abc"};
-        println!("{:?}", sample);
+        let alphabet = alphabet!(simple 'a', 'b', 'c');
+        let sample = sample! {alphabet; pos "a", "aab", "aaab", "bbaa", "aca", "caa", "abca", "baac"; neg "c", "b", "bc", "abc", "cba", "ac", "ba"};
         let dpa = super::infer_precise_dpa(&sample);
-        assert!(dpa.accepts(nupw!("a")));
+        assert!(dpa.consistent_with([
+            (nupw!("a"), true),
+            (nupw!("baa"), true),
+            (nupw!("cabaca"), false),
+            (nupw!("baacbacbac"), true)
+        ]));
     }
 }

@@ -274,6 +274,15 @@ pub trait Acceptor<S, K> {
     fn accepts<W>(&self, word: W) -> bool
     where
         W: Word<Length = K, Symbol = S>;
+
+    /// Verifies that the acceptor is consistent with the given iterator of words and their acceptance.
+    fn consistent_with<W, I>(&self, iter: I) -> bool
+    where
+        W: Word<Length = K, Symbol = S>,
+        I: IntoIterator<Item = (W, bool)>,
+    {
+        iter.into_iter().all(|(w, b)| self.accepts(w) == b)
+    }
 }
 
 impl<S: Symbol, T: Transformer<S, FiniteLength, Output = bool>> Acceptor<S, FiniteLength> for T {
@@ -369,7 +378,8 @@ impl<'a, Ts: TransitionSystem<StateColor = bool> + FiniteState> Iterator
     type Item = Ts::StateIndex;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.find(|&index| self.ts.state_color(index).unwrap())
+        self.iter
+            .find(|&index| self.ts.state_color(index).unwrap() == self.color)
     }
 }
 
@@ -568,6 +578,7 @@ pub trait IsMoore: TransitionSystem<StateColor = usize> + Pointed + Sized {
     {
         self.color_range()
             .into_iter()
+            .rev()
             .map(|i| (&self).color_or_below_dfa(i))
             .collect()
     }
