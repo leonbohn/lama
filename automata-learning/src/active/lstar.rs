@@ -6,6 +6,101 @@ use tracing::trace;
 
 use super::oracle::Oracle;
 
+const ITERATION_THRESHOLD: usize = 2000;
+
+pub type LStarExample<A, C> = (Vec<<A as Alphabet>::Symbol>, C);
+
+#[derive(Clone)]
+pub enum LStarQuery<A: Alphabet, C: Color> {
+    Membership(LStarExample<A, C>),
+    Equivalence(MooreMachine<A, C>, Option<LStarExample<A, C>>),
+}
+
+impl<A: Alphabet, C: Color + std::fmt::Debug> std::fmt::Debug for LStarQuery<A, C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Membership((w, c)) => write!(f, "Membership({:?}) = {:?}", w, c),
+            Self::Equivalence(hyp, cex) => match cex {
+                Some((w, c)) => write!(f, "Equivalence({:?}, {:?}) = {:?}", hyp, w, c),
+                None => write!(f, "Consistent hypothesis {:?}", hyp),
+            },
+        }
+    }
+}
+
+impl<A: Alphabet, C: Color> LStarQuery<A, C> {
+    pub fn is_equivalence(&self) -> bool {
+        matches!(self, LStarQuery::Equivalence(_, _))
+    }
+
+    pub fn is_successful_equivalence(&self) -> bool {
+        matches!(self, LStarQuery::Equivalence(_, None))
+    }
+
+    pub fn example(&self) -> Option<LStarExample<A, C>> {
+        match self {
+            LStarQuery::Membership(ex) => Some(ex.clone()),
+            LStarQuery::Equivalence(_, Some(ex)) => Some(ex.clone()),
+            _ => None,
+        }
+    }
+}
+
+pub trait LStarLogger<A: Alphabet, C: Color> {
+    fn log(&mut self, query: LStarQuery<A, C>);
+    fn create() -> Self;
+}
+
+impl<A: Alphabet, C: Color> LStarLogger<A, C> for () {
+    fn log(&mut self, query: LStarQuery<A, C>) {}
+
+    fn create() -> Self {}
+}
+
+#[derive(Debug, Clone)]
+pub struct LStarLogbook<A: Alphabet, C: Color>(Vec<LStarQuery<A, C>>);
+
+impl<A: Alphabet, C: Color> LStarLogbook<A, C> {
+    pub fn is_sane(&self) -> bool {
+        match self
+            .0
+            .iter()
+            .map(|e| match e {
+                LStarQuery::Membership(_) => 0,
+                LStarQuery::Equivalence(_, x) => {
+                    if x.is_some() {
+                        0
+                    } else {
+                        1
+                    }
+                }
+            })
+            .reduce(|acc, x| acc + x)
+            .unwrap_or(0)
+        {
+            0 => true,
+            1 => self.0.last().unwrap().is_successful_equivalence(),
+            _ => unreachable!("This should never be possible"),
+        }
+    }
+
+    pub fn examples(&self) -> impl Iterator<Item = LStarExample<A, C>> + '_ {
+        assert!(self.is_sane());
+        self.0.iter().filter_map(|e| e.example()).unique()
+    }
+}
+
+impl<A: Alphabet, C: Color> LStarLogger<A, C> for LStarLogbook<A, C> {
+    fn log(&mut self, query: LStarQuery<A, C>) {
+        assert!(self.is_sane());
+        self.0.push(query);
+    }
+
+    fn create() -> Self {
+        Self(vec![])
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct LStarRow<S: Symbol, C: Color> {
     base: Vec<S>,
@@ -34,44 +129,86 @@ impl<S: Symbol, C: Color> LStarRow<S, C> {
 }
 
 #[derive(Debug, Clone)]
-pub struct LStar<A: Alphabet, C: Color, T: Oracle<Alphabet = A, Output = C>> {
+pub struct LStar<
+    A: Alphabet,
+    C: Color,
+    T: Oracle<Alphabet = A, Output = C>,
+    L: LStarLogger<A, C> = LStarLogbook<A, C>,
+> {
     teacher: T,
     alphabet: A,
     experiments: Vec<Vec<A::Symbol>>,
     rows: Vec<LStarRow<A::Symbol, C>>,
+    logger: L,
 }
 
 impl<
         A: Alphabet,
         C: Color + Default + Debug,
         T: Oracle<Length = FiniteLength, Alphabet = A, Output = C>,
-    > LStar<A, C, T>
+    > LStar<A, C, T, ()>
+{
+    pub fn unlogged(teacher: T, alphabet: A) -> LStar<A, C, T, ()> {
+        LStar::new(teacher, alphabet)
+    }
+}
+
+impl<
+        A: Alphabet,
+        C: Color + Default + Debug,
+        T: Oracle<Length = FiniteLength, Alphabet = A, Output = C>,
+    > LStar<A, C, T, LStarLogbook<A, C>>
+{
+    pub fn logged(teacher: T, alphabet: A) -> LStar<A, C, T, LStarLogbook<A, C>> {
+        LStar::new(teacher, alphabet)
+    }
+}
+
+impl<
+        A: Alphabet,
+        C: Color + Default + Debug,
+        T: Oracle<Length = FiniteLength, Alphabet = A, Output = C>,
+        L: LStarLogger<A, C>,
+    > LStar<A, C, T, L>
 {
     pub fn new(teacher: T, alphabet: A) -> Self {
         let experiments = std::iter::once(vec![])
             .chain(alphabet.universe().map(|sym| vec![*sym]))
             .collect_vec();
 
+        let mut logger = L::create();
         let rows = vec![LStarRow::new(
             vec![],
             experiments
                 .iter()
-                .map(|experiment| teacher.output(experiment))
+                .map(|experiment| {
+                    let output = teacher.output(experiment);
+                    logger.log(LStarQuery::Membership((
+                        experiment.to_owned(),
+                        output.clone(),
+                    )));
+                    output
+                })
                 .collect_vec(),
         )];
 
-        Self {
+        LStar {
             teacher,
             alphabet,
             experiments,
             rows,
+            logger: L::create(),
         }
+    }
+
+    pub fn logs(&self) -> &L {
+        &self.logger
     }
 
     pub fn infer(&mut self) -> MooreMachine<A, C> {
         let mut iteration = 0;
         loop {
-            if iteration > 100 {
+            if iteration > ITERATION_THRESHOLD {
                 panic!("Too many iterations");
             }
             iteration += 1;
@@ -100,6 +237,10 @@ impl<
             hypothesis.transform(&counterexample) != expected_color,
             "This is not a real counterexample"
         );
+        self.logger.log(LStarQuery::Equivalence(
+            hypothesis.clone(),
+            Some((counterexample.clone(), expected_color.clone())),
+        ));
 
         let mut state = hypothesis.initial();
         let mut previous_color = expected_color;
@@ -187,7 +328,15 @@ impl<
                         extension.clone(),
                         self.experiments
                             .iter()
-                            .map(|experiment| self.teacher.output((&extension).append(experiment)))
+                            .map(|experiment| {
+                                let word = (&extension).append(experiment);
+                                let output = self.teacher.output(&word);
+                                self.logger.log(LStarQuery::Membership((
+                                    word.finite_to_vec(),
+                                    output.clone(),
+                                )));
+                                output
+                            })
                             .collect_vec(),
                     );
 
@@ -249,7 +398,10 @@ mod tests {
     use owo_colors::OwoColorize;
     use tracing_test::traced_test;
 
-    use crate::active::{oracle::DFAOracle, Oracle};
+    use crate::active::{
+        oracle::{self, DFAOracle},
+        Oracle,
+    };
 
     struct ModkAmodlB(Simple);
     struct WordLenModk(Simple, usize);
@@ -353,7 +505,7 @@ mod tests {
         for k in (30..=50) {
             let time_start = std::time::Instant::now();
             let oracle = WordLenModk(alphabet.clone(), k);
-            let mut lstar = super::LStar::new(oracle, alphabet.clone());
+            let mut lstar = super::LStar::unlogged(oracle, alphabet.clone());
             let mm = lstar.infer();
             let time_taken = time_start.elapsed().as_micros();
             assert_eq!(mm.hs_size(), k);
@@ -366,7 +518,7 @@ mod tests {
     fn lstar_even_a_even_b() {
         let alphabet = Simple::from_iter(vec!['a', 'b']);
         let mut oracle = ModkAmodlB(alphabet.clone());
-        let mut lstar = super::LStar::new(oracle, alphabet);
+        let mut lstar = super::LStar::unlogged(oracle, alphabet);
 
         let mm = lstar.infer();
 
@@ -375,10 +527,9 @@ mod tests {
         assert!(mm.transform(""))
     }
 
-    #[test]
-    fn lstar_for_dfa() {
+    fn test_dfa() -> DFA {
         let alphabet = Simple::from_iter(['a', 'b', 'c']);
-        let mut dfa = DFA::new(alphabet.clone());
+        let mut dfa = DFA::new(alphabet);
         let q0 = dfa.initial();
         dfa.set_initial_color(true);
         let q1 = dfa.add_state(false);
@@ -396,11 +547,29 @@ mod tests {
         dfa.add_edge(q3, 'a', q3, ());
         dfa.add_edge(q3, 'b', q3, ());
         dfa.add_edge(q3, 'c', q0, ());
-        let oracle = DFAOracle::new(&dfa);
+        dfa
+    }
 
-        let mut lstar = super::LStar::new(oracle, alphabet);
+    #[test]
+    fn lstar_for_dfa() {
+        let target = test_dfa();
+        let oracle = DFAOracle::new(&target);
+
+        let mut lstar = super::LStar::unlogged(oracle, target.alphabet().clone());
 
         let learned = lstar.infer();
-        assert!(learned.equivalent(&dfa));
+        assert!(learned.equivalent(&target));
+    }
+
+    #[test]
+    fn lstar_logged() {
+        let target = test_dfa();
+        let oracle = DFAOracle::new(&target);
+        let mut lstar = super::LStar::logged(oracle, target.alphabet().clone());
+        let learned = lstar.infer();
+        let logs = lstar.logs();
+        for ex in logs.examples() {
+            println!("{:?}", ex);
+        }
     }
 }
