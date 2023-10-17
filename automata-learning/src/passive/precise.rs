@@ -1,12 +1,17 @@
 use automata::{
+    automata::{IsMealy, IsMoore},
     prelude::{Expression, HasAlphabet, IsTransition, DFA},
-    ts::{FiniteState, HasFiniteStates},
+    ts::{FiniteState, HasFiniteStates, Sproutable},
     Alphabet, Map, Pointed, RightCongruence, TransitionSystem,
 };
 use itertools::Itertools;
 
+use super::fwpm::FWPM;
+
 type ClassId = usize;
 type StateId = usize;
+
+pub const PRECISE_DPA_COLORS: usize = 8;
 
 /// A PState is a state in the precise DPA. It keeps track of the class in the leading
 /// congruence and for each Mostowski level, it tracks the class and the state in the
@@ -169,7 +174,7 @@ impl<'a, A: Alphabet, const N: usize> PreciseDPAEdgesFrom<'a, A, N> {
 
 /// An iterator over the states of a precise DPA.
 #[derive(Debug, Clone)]
-pub struct PreciseDPAStatesIter<'a, A: Alphabet, const N: usize> {
+pub struct PreciseDPAStatesIter<'a, A: Alphabet, const N: usize = 8> {
     dpa: &'a PreciseDPA<A, N>,
     it: std::slice::Iter<'a, PState<N>>,
 }
@@ -299,6 +304,37 @@ impl<A: Alphabet, const N: usize> PreciseDPA<A, N> {
                 }),
             ),
         )
+    }
+}
+
+fn padding_universal_dfa<A: Alphabet>(alphabet: &A) -> DFA<A> {
+    let mut dfa = DFA::new(alphabet.clone());
+    let e = dfa.initial();
+    dfa.set_initial_color(true);
+    for sym in alphabet.universe() {
+        dfa.add_edge(e, A::expression(*sym), e, ());
+    }
+    dfa
+}
+
+impl<'a, A: Alphabet, const N: usize> From<FWPM<'a, A>> for PreciseDPA<A, N> {
+    fn from(value: FWPM<'a, A>) -> Self {
+        let leading = value.leading().clone();
+        let padding_dfa = padding_universal_dfa(leading.alphabet());
+        let mut prc_dfas = Vec::with_capacity(leading.size());
+        for (mm, idx) in value.pms() {
+            let mut dfas = mm.decompose_dfa();
+            assert!(dfas.len() <= N);
+            while dfas.len() < N {
+                dfas.push(padding_dfa.clone());
+            }
+            let array_dfas = dfas
+                .try_into()
+                .unwrap_or_else(|v| panic!("LENGTH DOES NOT MATCH {N}"));
+            prc_dfas.insert(idx, array_dfas);
+        }
+
+        PreciseDPA::new(leading, prc_dfas)
     }
 }
 

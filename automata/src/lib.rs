@@ -14,6 +14,7 @@ pub mod prelude {
             Acceptor, DBALike, DFALike, DPALike, MealyMachine, MooreMachine, Transformer, DBA, DFA,
             DPA, SBDBA, SBDPA,
         },
+        nupw,
         ts::{
             dag::Dag,
             operations::Product,

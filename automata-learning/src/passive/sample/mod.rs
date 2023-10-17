@@ -11,7 +11,7 @@ use tracing::{debug, trace};
 
 use crate::passive::sprout::iteration_consistency_conflicts;
 
-use super::sprout::{omega_sprout_conflicts, prefix_consistency_conflicts, SeparatesIdempotents};
+use super::sprout::{prefix_consistency_conflicts, sprout, SeparatesIdempotents};
 
 mod split;
 pub use split::{ClassOmegaSample, SplitOmegaSample};
@@ -82,6 +82,11 @@ impl<A: Alphabet, C: Color> Sample<A, FiniteLength, C> {
             .collect();
         Self { alphabet, words }
     }
+
+    /// Returns the maximum length of any finite word in the sample. Gives back `0` if no word exists in the sample.
+    pub fn max_word_len(&self) -> usize {
+        self.words().map(|w| w.length().0).max().unwrap_or(0)
+    }
 }
 
 impl<A, L, C> Debug for Sample<A, L, C>
@@ -98,6 +103,13 @@ where
         }
         Ok(())
     }
+}
+
+#[macro_export]
+macro_rules! sample {
+    ($alph:expr; pos $($pos:expr),+; neg $($neg:expr),+) => {
+        $crate::passive::Sample::new_omega($alph, [$($pos),+].into_iter().map(|p| ($crate::passive::Normalized::try_from(p).unwrap(), true)).chain([$($neg),+].into_iter().map(|n| ($crate::passive::Normalized::try_from(n).unwrap(), false))).collect::<automata::Map<_, bool>>())
+    };
 }
 
 #[cfg(test)]

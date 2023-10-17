@@ -50,7 +50,9 @@ fn build_sample() -> OmegaSample<Simple, bool> {
 }
 
 fn infer_forc(sample: &OmegaSample<Simple, bool>) -> FORC<Simple> {
-    sample.infer_forc()
+    let cong = sample.infer_right_congruence();
+    let split = sample.split(&cong);
+    split.infer_forc()
 }
 
 fn iai_infer_forc() {

@@ -9,10 +9,11 @@ use owo_colors::OwoColorize;
 use crate::{
     algorithms::minimize_dfa,
     alphabet::{Alphabet, HasAlphabet, Symbol, SymbolOf},
-    prelude::Simple,
+    prelude::{ExpressionOf, Simple},
     ts::{
         finite::{InfinityColors, ReachedColor},
-        operations::{MapStateColor, MatchingProduct, Product},
+        operations::{MapStateColor, MatchingProduct, Product, ProductIndex, ProductTransition},
+        transition_system::IsTransition,
         EdgeColor, FiniteState, FiniteStatesIterType, HasFiniteStates, HasMutableStates, HasStates,
         IndexType, Pointed, Quotient, Sproutable, StateColor, TransitionSystem, BTS,
     },
@@ -535,7 +536,14 @@ impl<Ts> DPALike for Ts where
 
 /// Implemented by objects which can be viewed as a MealyMachine, i.e. a finite transition system
 /// which has outputs of type usize on its edges.
-pub trait IsMealy: TransitionSystem<EdgeColor = usize> + Pointed + Sized {}
+pub trait IsMealy: TransitionSystem<EdgeColor = usize> + Pointed + Sized {
+    fn color_range(&self) -> Vec<Self::EdgeColor> {
+        self.reachable_state_indices()
+            .flat_map(|o| self.edges_from(o).unwrap().map(|e| IsTransition::color(&e)))
+            .unique()
+            .collect()
+    }
+}
 impl<Ts: TransitionSystem<EdgeColor = usize> + Pointed + Sized> IsMealy for Ts {}
 
 /// Implemented by objects that can be viewed as MooreMachines, i.e. finite transition systems

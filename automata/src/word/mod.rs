@@ -10,6 +10,7 @@ pub use subword::{Offset, Prefix};
 mod concat;
 pub use concat::Concat;
 
+#[macro_use]
 mod normalized;
 pub use normalized::{Normalized, NormalizedParseError, NormalizedPeriodic};
 

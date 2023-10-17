@@ -23,16 +23,17 @@ mod tests {
     #[ignore]
     fn classification() {
         let (alphabet, sample) = testing_larger_forc_sample();
-        let forc = sample.infer_forc();
-        let split = sample.split(forc.leading());
+        let cong = sample.infer_right_congruence();
+        let split = sample.split(&cong);
+        let forc = split.infer_forc();
         let periodic = split.get(0).unwrap().to_periodic_sample();
 
         let annotated = AnnotatedCongruence::build(forc.prc(0).unwrap(), &periodic);
         println!("{:?}", annotated);
 
         let coloring = annotated.canonic_coloring();
-        coloring
-            .collect_with_initial::<RightCongruence<_, _, usize>>()
-            .display_rendered();
+        // coloring
+        //     .collect_with_initial::<RightCongruence<_, usize, _>>()
+        //     .display_rendered();
     }
 }

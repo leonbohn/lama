@@ -5,8 +5,7 @@ use automata::{
 };
 use automata_learning::passive::{
     sprout::{
-        iteration_consistency_conflicts, omega_sprout_conflicts, prefix_consistency_conflicts,
-        SeparatesIdempotents,
+        iteration_consistency_conflicts, prefix_consistency_conflicts, sprout, SeparatesIdempotents,
     },
     OmegaSample,
 };
@@ -105,7 +104,7 @@ fn main() {
                                 .expect("Unable to render conflict relation to file");
                         }
 
-                        let cong = omega_sprout_conflicts(conflicts, (), true);
+                        let cong = sprout(conflicts, vec![], true);
 
                         if passive_matches.get_flag("nooutput") {
                             "".to_string()
@@ -143,12 +142,13 @@ fn main() {
                             .into_iter()
                             .map(|(c, conflicts)| {
                                 (
-                                    cong.get(&c).unwrap(),
-                                    omega_sprout_conflicts(
+                                    cong.get(c).unwrap(),
+                                    sprout(
                                         conflicts,
-                                        SeparatesIdempotents::new(
-                                            split_sample.get(&c).expect("This must exist"),
-                                        ),
+                                        vec![],
+                                        // SeparatesIdempotents::new(
+                                        //     split_sample.get(&c).expect("This must exist"),
+                                        // ),
                                         false,
                                     ),
                                 )

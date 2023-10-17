@@ -49,6 +49,10 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
         }
     }
 
+    pub fn classes(&self) -> impl Iterator<Item = (&Class<A::Symbol>, usize)> + '_ {
+        self.ts.indices_with_color().map(|(id, c)| (c.class(), id))
+    }
+
     /// Returns a reference to the underlying [`TransitionSystem`].
     pub fn ts(&self) -> &BTS<A, ColoredClass<A::Symbol, Q>, C> {
         &self.ts
