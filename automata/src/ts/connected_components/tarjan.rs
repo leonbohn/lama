@@ -1,5 +1,5 @@
 use crate::{
-    ts::{connected_components::Scc, FiniteState, IndexType},
+    ts::{connected_components::Scc, IndexType},
     Alphabet, Map, TransitionSystem,
 };
 
@@ -99,7 +99,7 @@ impl<Idx: IndexType> Tarjan<Idx> {
 
     pub(crate) fn execute<Ts, F>(&mut self, ts: &Ts, mut f: F)
     where
-        Ts: TransitionSystem<StateIndex = Idx> + FiniteState,
+        Ts: TransitionSystem<StateIndex = Idx>,
         F: FnMut(&[Idx]),
     {
         self.data.clear();
@@ -115,7 +115,7 @@ impl<Idx: IndexType> Tarjan<Idx> {
 
 pub(crate) fn tarjan_scc<Ts>(ts: &Ts) -> SccDecomposition<'_, Ts>
 where
-    Ts: TransitionSystem + FiniteState,
+    Ts: TransitionSystem,
 {
     let mut sccs = Vec::new();
     {

@@ -26,7 +26,6 @@ pub trait Oracle: HasAlphabet {
     fn equivalence<H>(&self, hypothesis: H) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)>
     where
         H: Pointed
-            + FiniteState
             + TransitionSystem<Alphabet = Self::Alphabet, StateColor = Self::Output>
             + Transformer<SymbolOf<Self>, Self::Length, Output = Self::Output>;
 }
@@ -68,7 +67,6 @@ impl<D: DFALike> Oracle for DFAOracle<D> {
     fn equivalence<H>(&self, hypothesis: H) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)>
     where
         H: Pointed
-            + FiniteState
             + TransitionSystem<Alphabet = Self::Alphabet, StateColor = Self::Output>
             + Transformer<SymbolOf<Self>, Self::Length, Output = Self::Output>,
     {

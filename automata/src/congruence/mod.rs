@@ -4,10 +4,7 @@ use itertools::Itertools;
 
 use crate::{
     alphabet::{HasAlphabet, Simple, Symbol},
-    ts::{
-        transition_system::Indexes, FiniteState, FiniteStatesIterType, HasFiniteStates, Sproutable,
-        BTS,
-    },
+    ts::{transition_system::Indexes, Sproutable, BTS},
     Alphabet, Color, FiniteLength, HasLength, Map, Pointed, TransitionSystem, Word, DFA,
 };
 
@@ -96,16 +93,6 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
             .erase_edge_colors()
             .collect_ts()
             .with_initial(self.class_to_index(class).unwrap())
-    }
-}
-
-impl<'a, A: Alphabet, Q: Color, C: Color> HasFiniteStates<'a> for RightCongruence<A, Q, C> {
-    type StateIndicesIter = FiniteStatesIterType<'a, BTS<A, ColoredClass<A::Symbol, Q>, C, usize>>;
-}
-
-impl<A: Alphabet, Q: Color, C: Color> FiniteState for RightCongruence<A, Q, C> {
-    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
-        self.ts.state_indices()
     }
 }
 

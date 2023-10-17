@@ -7,7 +7,7 @@ use itertools::Itertools;
 
 use crate::{
     alphabet::{HasAlphabet, SymbolOf},
-    ts::{finite::SeenColors, CanInduce, FiniteState, IndexType},
+    ts::{finite::SeenColors, CanInduce, IndexType},
     Alphabet, Map, Set, TransitionSystem,
 };
 
@@ -24,9 +24,9 @@ pub use tarjan_dag::TarjanDAG;
 
 /// Represents a decomposition of a transition system into strongly connected components.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SccDecomposition<'a, Ts: TransitionSystem + FiniteState>(&'a Ts, Vec<Scc<'a, Ts>>);
+pub struct SccDecomposition<'a, Ts: TransitionSystem>(&'a Ts, Vec<Scc<'a, Ts>>);
 
-impl<'a, Ts: TransitionSystem + FiniteState> std::ops::Deref for SccDecomposition<'a, Ts> {
+impl<'a, Ts: TransitionSystem> std::ops::Deref for SccDecomposition<'a, Ts> {
     type Target = Vec<Scc<'a, Ts>>;
 
     fn deref(&self) -> &Self::Target {
@@ -34,7 +34,7 @@ impl<'a, Ts: TransitionSystem + FiniteState> std::ops::Deref for SccDecompositio
     }
 }
 
-impl<'a, Ts: TransitionSystem + FiniteState> SccDecomposition<'a, Ts> {
+impl<'a, Ts: TransitionSystem> SccDecomposition<'a, Ts> {
     /// Creates a new SCC decomposition from a transition system and a vector of SCCs.
     pub fn new(ts: &'a Ts, sccs: Vec<Scc<'a, Ts>>) -> Self {
         Self(ts, sccs)
@@ -50,7 +50,7 @@ impl<'a, Ts: TransitionSystem + FiniteState> SccDecomposition<'a, Ts> {
     }
 }
 
-impl<'a, Ts: TransitionSystem + FiniteState + Debug> std::fmt::Debug for SccDecomposition<'a, Ts> {
+impl<'a, Ts: TransitionSystem + Debug> std::fmt::Debug for SccDecomposition<'a, Ts> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(
             f,

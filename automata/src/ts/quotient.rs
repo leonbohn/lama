@@ -3,7 +3,7 @@ use crate::{
     Alphabet, Partition, Pointed, Set, TransitionSystem,
 };
 
-use super::{transition_system::IsTransition, FiniteState, HasFiniteStates};
+use super::transition_system::IsTransition;
 
 /// A quotient takes a transition system and merges states which are in the same
 /// congruence class of some [`Partition`]. We assume that the [`Partition`] is
@@ -17,29 +17,19 @@ use super::{transition_system::IsTransition, FiniteState, HasFiniteStates};
 /// state colors are [`Vec`]s of the respective colors of the underlying transition
 /// system, where we simply collect all colors.
 #[derive(Debug, Clone)]
-pub struct Quotient<Ts: FiniteState + TransitionSystem> {
+pub struct Quotient<Ts: TransitionSystem> {
     ts: Ts,
     partition: Partition<Ts::StateIndex>,
 }
 
-impl<Ts: FiniteState + TransitionSystem + Pointed> Pointed for Quotient<Ts> {
+impl<Ts: TransitionSystem + Pointed> Pointed for Quotient<Ts> {
     fn initial(&self) -> Self::StateIndex {
         self.find_id_by_state(self.ts.initial())
             .expect("Initial class must exist")
     }
 }
 
-impl<Ts: FiniteState + TransitionSystem> FiniteState for Quotient<Ts> {
-    fn state_indices(&self) -> super::FiniteStatesIterType<'_, Self> {
-        0..self.partition.len()
-    }
-}
-
-impl<'a, Ts: FiniteState + TransitionSystem> HasFiniteStates<'a> for Quotient<Ts> {
-    type StateIndicesIter = std::ops::Range<usize>;
-}
-
-impl<Ts: FiniteState + TransitionSystem> Quotient<Ts> {
+impl<Ts: TransitionSystem> Quotient<Ts> {
     /// Returns an iterator over the indices in the quotient class with the given `id`.
     /// If no such class exists, `None` is returned.
     pub fn class_iter_by_id(&self, id: usize) -> Option<impl Iterator<Item = Ts::StateIndex> + '_> {
@@ -113,7 +103,7 @@ impl<Idx, E, C> QuotientTransition<Idx, E, C> {
 }
 
 #[derive(Clone)]
-pub struct QuotientEdgesFrom<'a, Ts: TransitionSystem + FiniteState, I> {
+pub struct QuotientEdgesFrom<'a, Ts: TransitionSystem, I> {
     it: I,
     quot: &'a Quotient<Ts>,
     class: usize,
@@ -121,7 +111,7 @@ pub struct QuotientEdgesFrom<'a, Ts: TransitionSystem + FiniteState, I> {
 
 impl<'a, Ts, I> Iterator for QuotientEdgesFrom<'a, Ts, I>
 where
-    Ts: TransitionSystem + FiniteState,
+    Ts: TransitionSystem,
     I: Iterator<Item = &'a SymbolOf<Ts>>,
 {
     type Item = QuotientTransition<usize, ExpressionOf<Ts>, Ts::EdgeColor>;
@@ -132,7 +122,7 @@ where
     }
 }
 
-impl<'a, Ts: TransitionSystem + FiniteState, I> QuotientEdgesFrom<'a, Ts, I> {
+impl<'a, Ts: TransitionSystem, I> QuotientEdgesFrom<'a, Ts, I> {
     pub fn new(ts: &'a Quotient<Ts>, it: I, class: usize) -> Self {
         Self {
             it,
@@ -142,7 +132,7 @@ impl<'a, Ts: TransitionSystem + FiniteState, I> QuotientEdgesFrom<'a, Ts, I> {
     }
 }
 
-impl<Ts: FiniteState + TransitionSystem> TransitionSystem for Quotient<Ts> {
+impl<Ts: TransitionSystem> TransitionSystem for Quotient<Ts> {
     type StateIndex = usize;
 
     type StateColor = Vec<Ts::StateColor>;
@@ -156,6 +146,11 @@ impl<Ts: FiniteState + TransitionSystem> TransitionSystem for Quotient<Ts> {
     type EdgesFromIter<'this> = QuotientEdgesFrom<'this, Ts, <Self::Alphabet as Alphabet>::Universe<'this>>
     where
         Self: 'this;
+    type StateIndices<'this> = std::ops::Range<usize> where Self: 'this;
+
+    fn state_indices(&self) -> Self::StateIndices<'_> {
+        0..self.partition.len()
+    }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
         let mut it = self.class_iter_by_id(state)?;
@@ -206,7 +201,7 @@ impl<Ts: FiniteState + TransitionSystem> TransitionSystem for Quotient<Ts> {
     }
 }
 
-impl<Ts: FiniteState + TransitionSystem> HasAlphabet for Quotient<Ts> {
+impl<Ts: TransitionSystem> HasAlphabet for Quotient<Ts> {
     type Alphabet = Ts::Alphabet;
 
     fn alphabet(&self) -> &Self::Alphabet {

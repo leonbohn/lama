@@ -2,7 +2,7 @@ use itertools::Itertools;
 
 use crate::{alphabet::ExpressionOf, Alphabet, Pointed, TransitionSystem};
 
-use super::{transition_system::IsTransition, EdgeColor, FiniteState, StateColor};
+use super::{transition_system::IsTransition, EdgeColor, StateColor};
 
 /// Trait for transition systems that allow insertion of states and transitions.
 pub trait Sproutable: TransitionSystem {
@@ -61,10 +61,7 @@ pub trait Sproutable: TransitionSystem {
 
     /// Turns the automaton into a complete one, by adding a sink state and adding transitions
     /// to it from all states that do not have a transition for a given symbol.
-    fn complete_with_sink(&mut self, sink_color: Self::StateColor) -> Self::StateIndex
-    where
-        Self: FiniteState,
-    {
+    fn complete_with_sink(&mut self, sink_color: Self::StateColor) -> Self::StateIndex {
         let _sink = self.add_state(sink_color.clone());
 
         let _universe = self.alphabet().universe().cloned().collect_vec();

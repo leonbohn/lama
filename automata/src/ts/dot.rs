@@ -6,7 +6,6 @@ use crate::{
     automata::WithInitial,
     congruence::{ColoredClass, FORC},
     prelude::{Symbol, SymbolOf},
-    ts::FiniteState,
     Alphabet, Class, Color, Map, Pointed, RightCongruence, TransitionSystem,
 };
 
@@ -272,7 +271,7 @@ pub trait ToDot {
 
 impl<Ts> ToDot for Ts
 where
-    Ts: FiniteState,
+    Ts: TransitionSystem,
     Ts::StateColor: DotStateColorize,
     DotTransitionInfo<Ts::EdgeColor, Ts::Alphabet>: DotTransition,
 {

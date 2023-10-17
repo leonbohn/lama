@@ -2,7 +2,7 @@ use itertools::Itertools;
 
 use crate::{
     alphabet::{Symbol, SymbolOf},
-    ts::{transition_system::Indexes, FiniteState},
+    ts::transition_system::Indexes,
     Alphabet, Color, FiniteLength, HasLength, RightCongruence, TransitionSystem, Word,
 };
 

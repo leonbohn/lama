@@ -1,7 +1,7 @@
 use automata::{
     automata::{IsMealy, IsMoore},
     prelude::{Expression, HasAlphabet, IsTransition, DFA},
-    ts::{FiniteState, HasFiniteStates, Sproutable},
+    ts::{reachable::ReachableStateIndices, Sproutable},
     Alphabet, Map, Pointed, RightCongruence, TransitionSystem,
 };
 use itertools::Itertools;
@@ -193,6 +193,11 @@ impl<A: Alphabet, const N: usize> TransitionSystem for PreciseDPA<A, N> {
     type EdgesFromIter<'this> = PreciseDPAEdgesFrom<'this, A, N>
     where
         Self: 'this;
+    type StateIndices<'this> = ReachableStateIndices<&'this Self> where Self: 'this;
+
+    fn state_indices(&self) -> Self::StateIndices<'_> {
+        self.reachable_state_indices()
+    }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
         Some(())

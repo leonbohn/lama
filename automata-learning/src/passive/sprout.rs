@@ -432,7 +432,7 @@ pub(crate) mod tests {
         nupw,
         ts::{
             finite::{ReachedColor, ReachedState},
-            FiniteState, Sproutable, ToDot,
+            Sproutable, ToDot,
         },
         Class, Pointed, RightCongruence, TransitionSystem,
     };

@@ -3,7 +3,6 @@ use std::collections::VecDeque;
 use automata::{
     alphabet::Simple,
     congruence::FORC,
-    ts::FiniteState,
     word::{Normalized, NormalizedParseError, NormalizedPeriodic},
     Alphabet, Class, Color, InfiniteLength, Map, Pointed, RightCongruence, Set, TransitionSystem,
     Word,

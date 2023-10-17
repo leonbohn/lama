@@ -5,7 +5,7 @@ use crate::{
     ts::{
         predecessors::{IsPreTransition, PredecessorIterable},
         transition_system::IsTransition,
-        FiniteState, FiniteStatesIterType, HasFiniteStates, IndexType,
+        IndexType,
     },
     Color, Pointed, TransitionSystem,
 };
@@ -97,26 +97,6 @@ where
     }
 }
 
-impl<'a, D, Ts, F> HasFiniteStates<'a> for MapEdges<Ts, F>
-where
-    D: Color,
-    Ts: FiniteState,
-    F: Fn(Ts::StateIndex, &ExpressionOf<Ts>, Ts::EdgeColor, Ts::StateIndex) -> D,
-{
-    type StateIndicesIter = FiniteStatesIterType<'a, Ts>;
-}
-
-impl<D, Ts, F> FiniteState for MapEdges<Ts, F>
-where
-    D: Color,
-    Ts: FiniteState,
-    F: Fn(Ts::StateIndex, &ExpressionOf<Ts>, Ts::EdgeColor, Ts::StateIndex) -> D,
-{
-    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
-        self.ts.state_indices()
-    }
-}
-
 /// Iterator over the successors of a transition system whose colors are mapped by some function.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapEdgesSuccessorsIter<'a, Idx, I, F, C> {
@@ -193,6 +173,12 @@ where
     type EdgesFromIter<'this> = MapEdgesSuccessorsIter<'this, Ts::StateIndex, Ts::EdgesFromIter<'this>, F, Ts::EdgeColor>
     where
         Self: 'this;
+
+    type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
+
+    fn state_indices(&self) -> Self::StateIndices<'_> {
+        self.ts().state_indices()
+    }
 
     fn edge_color(
         &self,
@@ -345,18 +331,6 @@ where
     }
 }
 
-impl<'a, D: Color, Ts: FiniteState, F: Fn(Ts::EdgeColor) -> D> HasFiniteStates<'a>
-    for MapEdgeColor<Ts, F>
-{
-    type StateIndicesIter = FiniteStatesIterType<'a, Ts>;
-}
-
-impl<D: Color, Ts: FiniteState, F: Fn(Ts::EdgeColor) -> D> FiniteState for MapEdgeColor<Ts, F> {
-    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
-        self.ts.state_indices()
-    }
-}
-
 /// Iterator over the edges of a transition system whose colors are mapped by some function.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MappedEdgesFromIter<'a, I, F, C> {
@@ -472,18 +446,6 @@ impl<Ts, F> MapStateColor<Ts, F> {
 
     pub fn f(&self) -> &F {
         &self.f
-    }
-}
-
-impl<'a, D: Color, Ts: FiniteState, F: Fn(Ts::StateColor) -> D> HasFiniteStates<'a>
-    for MapStateColor<Ts, F>
-{
-    type StateIndicesIter = FiniteStatesIterType<'a, Ts>;
-}
-
-impl<D: Color, Ts: FiniteState, F: Fn(Ts::StateColor) -> D> FiniteState for MapStateColor<Ts, F> {
-    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
-        self.ts.state_indices()
     }
 }
 

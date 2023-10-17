@@ -2,10 +2,7 @@ use std::{collections::BTreeSet, fmt::Debug};
 
 use itertools::Itertools;
 
-use crate::{
-    ts::{transition_system::IsTransition, FiniteState},
-    Color, Set, TransitionSystem,
-};
+use crate::{ts::transition_system::IsTransition, Color, Set, TransitionSystem};
 
 /// Represents a directed acyclic graph. The nodes have usize indices and are
 /// colored with some type `C`. The edges are represented as a vector of pairs

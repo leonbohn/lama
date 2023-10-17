@@ -6,8 +6,8 @@ use crate::{
 };
 
 use super::{
-    EdgeColor, FiniteState, FiniteStatesIterType, HasColor, HasColorMut, HasFiniteStates,
-    HasMutableStates, HasStates, IndexType, Sproutable, StateColor, TransitionSystem,
+    EdgeColor, HasColor, HasColorMut, HasMutableStates, HasStates, IndexType, Sproutable,
+    StateColor, TransitionSystem,
 };
 
 /// A state in a transition system. This stores the color of the state and the index of the
@@ -98,7 +98,7 @@ impl<A: Alphabet, Q: std::fmt::Display, C: Color, Idx: IndexType> std::fmt::Disp
 #[derive(Clone, PartialEq, Eq)]
 pub struct BTS<A: Alphabet, Q, C: Color, Idx: IndexType = usize> {
     alphabet: A,
-    states: Map<Idx, BTState<A, Q, C, Idx>>,
+    pub(crate) states: Map<Idx, BTState<A, Q, C, Idx>>,
 }
 
 impl<A, C, Q, Idx> std::fmt::Debug for BTS<A, Q, C, Idx>
@@ -165,7 +165,7 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
     }
 
     /// Returns a reference to the underlying statemap.
-    pub fn states(&self) -> &Map<Idx, BTState<A, Q, C, Idx>> {
+    pub fn raw_state_map(&self) -> &Map<Idx, BTState<A, Q, C, Idx>> {
         &self.states
     }
 
@@ -290,43 +290,6 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
         } else {
             false
         }
-    }
-}
-
-impl<'a, A, Q, Idx, C> HasFiniteStates<'a> for BTS<A, Q, C, Idx>
-where
-    A: Alphabet,
-    Q: Color,
-    Idx: IndexType,
-    C: Color,
-{
-    type StateIndicesIter =
-        std::iter::Cloned<std::collections::hash_map::Keys<'a, Idx, BTState<A, Q, C, Idx>>>;
-}
-
-impl<A, Q, Idx, C> FiniteState for BTS<A, Q, C, Idx>
-where
-    A: Alphabet,
-    Q: Color,
-    Idx: IndexType,
-    C: Color,
-{
-    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
-        self.states.keys().cloned()
-    }
-
-    fn size(&self) -> usize {
-        self.states.len()
-    }
-
-    fn contains_state_index(&self, index: Self::StateIndex) -> bool {
-        self.states.contains_key(&index)
-    }
-
-    fn find_by_color(&self, color: &StateColor<Self>) -> Option<Self::StateIndex> {
-        self.states
-            .iter()
-            .find_map(|(id, s)| if s.color() == color { Some(*id) } else { None })
     }
 }
 

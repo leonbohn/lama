@@ -12,7 +12,7 @@ pub fn minimize_dfa<D: DFALike>(dfa: D) -> Quotient<D> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{prelude::DFALike, tests::wiki_dfa, ts::FiniteState};
+    use crate::{prelude::DFALike, tests::wiki_dfa, TransitionSystem};
 
     #[test]
     fn dfa_minimization() {

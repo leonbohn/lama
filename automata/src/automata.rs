@@ -14,8 +14,8 @@ use crate::{
         finite::{InfinityColors, ReachedColor},
         operations::{MapStateColor, MatchingProduct, Product, ProductIndex, ProductTransition},
         transition_system::IsTransition,
-        EdgeColor, FiniteState, FiniteStatesIterType, HasFiniteStates, HasMutableStates, HasStates,
-        IndexType, Pointed, Quotient, Sproutable, StateColor, TransitionSystem, BTS,
+        EdgeColor, HasMutableStates, HasStates, IndexType, Pointed, Quotient, Sproutable,
+        StateColor, TransitionSystem, BTS,
     },
     word::{Normalized, OmegaWord},
     Color, FiniteLength, InfiniteLength, Length, Word,
@@ -27,7 +27,7 @@ pub struct WithInitial<Ts: TransitionSystem>(Ts, Ts::StateIndex);
 
 impl<Ts> std::fmt::Debug for WithInitial<Ts>
 where
-    Ts: TransitionSystem + FiniteState + Debug,
+    Ts: TransitionSystem + Debug,
     Ts::StateColor: Debug,
     Ts::EdgeColor: Debug,
 {
@@ -50,16 +50,6 @@ where
 impl<Ts: TransitionSystem> From<(Ts, Ts::StateIndex)> for WithInitial<Ts> {
     fn from(value: (Ts, Ts::StateIndex)) -> Self {
         Self(value.0, value.1)
-    }
-}
-
-impl<'a, Ts: TransitionSystem + HasFiniteStates<'a>> HasFiniteStates<'a> for WithInitial<Ts> {
-    type StateIndicesIter = Ts::StateIndicesIter;
-}
-
-impl<Ts: FiniteState> FiniteState for WithInitial<Ts> {
-    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
-        self.ts().state_indices()
     }
 }
 
@@ -345,13 +335,13 @@ where
 type DfaProductReduced<L, R> = MapStateColor<MatchingProduct<L, R>, fn((bool, bool)) -> bool>;
 
 /// Iterator over the accepting states of a [`TransitionSystem`] that have a certain coloring.
-pub struct StatesWithColor<'a, Ts: TransitionSystem + FiniteState> {
+pub struct StatesWithColor<'a, Ts: TransitionSystem> {
     ts: &'a Ts,
-    iter: FiniteStatesIterType<'a, Ts>,
+    iter: Ts::StateIndices<'a>,
     color: Ts::StateColor,
 }
 
-impl<'a, Ts: TransitionSystem + FiniteState> StatesWithColor<'a, Ts> {
+impl<'a, Ts: TransitionSystem> StatesWithColor<'a, Ts> {
     /// Creates a new instance for the given transition system and color.
     pub fn new(ts: &'a Ts, color: Ts::StateColor) -> Self {
         Self {
@@ -362,7 +352,7 @@ impl<'a, Ts: TransitionSystem + FiniteState> StatesWithColor<'a, Ts> {
     }
 }
 
-impl<'a, Ts: TransitionSystem + FiniteState> Clone for StatesWithColor<'a, Ts> {
+impl<'a, Ts: TransitionSystem> Clone for StatesWithColor<'a, Ts> {
     fn clone(&self) -> Self {
         Self {
             ts: self.ts,
@@ -372,9 +362,7 @@ impl<'a, Ts: TransitionSystem + FiniteState> Clone for StatesWithColor<'a, Ts> {
     }
 }
 
-impl<'a, Ts: TransitionSystem<StateColor = bool> + FiniteState> Iterator
-    for StatesWithColor<'a, Ts>
-{
+impl<'a, Ts: TransitionSystem<StateColor = bool>> Iterator for StatesWithColor<'a, Ts> {
     type Item = Ts::StateIndex;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -384,31 +372,22 @@ impl<'a, Ts: TransitionSystem<StateColor = bool> + FiniteState> Iterator
 }
 
 /// This trait is (automatically) implemented by everything which can be viewed as a [`DFA`].
-pub trait DFALike: TransitionSystem<StateColor = bool> + Pointed + FiniteState
+pub trait DFALike: TransitionSystem<StateColor = bool> + Pointed
 // + Acceptor<SymbolOf<Self>, FiniteLength>
 // + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>
 {
     /// Returns the indices of all states that are accepting.
-    fn accepting_states(&self) -> StatesWithColor<'_, Self>
-    where
-        Self: FiniteState,
-    {
+    fn accepting_states(&self) -> StatesWithColor<'_, Self> {
         StatesWithColor::new(self, true)
     }
 
     /// Returns the indices of all states that are rejecting.
-    fn rejecting_states(&self) -> StatesWithColor<'_, Self>
-    where
-        Self: FiniteState,
-    {
+    fn rejecting_states(&self) -> StatesWithColor<'_, Self> {
         StatesWithColor::new(self, false)
     }
 
     /// Minimizes `self` using Hopcroft's partition refinement algorithm.
-    fn minimize(self) -> Quotient<Self>
-    where
-        Self: FiniteState,
-    {
+    fn minimize(self) -> Quotient<Self> {
         minimize_dfa(self)
     }
 
@@ -467,8 +446,8 @@ pub trait DFALike: TransitionSystem<StateColor = bool> + Pointed + FiniteState
 }
 
 impl<Ts> DFALike for Ts where
-    Ts: TransitionSystem<StateColor = bool> + Pointed + FiniteState + Sized // + Acceptor<SymbolOf<Self>, FiniteLength>
-                                                                            // + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>
+    Ts: TransitionSystem<StateColor = bool> + Pointed + Sized // + Acceptor<SymbolOf<Self>, FiniteLength>
+                                                              // + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>
 {
 }
 
@@ -483,10 +462,7 @@ pub trait DBALike:
 {
     /// Tries to identify a word which is accepted by `self`. If such a word exists, it returns it and otherwise
     /// the function gives back `None`.
-    fn dba_give_word(&self) -> Option<OmegaWord<SymbolOf<Self>, InfiniteLength>>
-    where
-        Self: FiniteState,
-    {
+    fn dba_give_word(&self) -> Option<OmegaWord<SymbolOf<Self>, InfiniteLength>> {
         for good_scc in self
             .sccs()
             .iter()
@@ -508,10 +484,7 @@ pub trait DBALike:
     }
 
     /// Returns `true` if and only if `self` accepts a non-empty language.
-    fn dba_is_empty(&self) -> bool
-    where
-        Self: FiniteState,
-    {
+    fn dba_is_empty(&self) -> bool {
         self.dba_give_word().is_none()
     }
 }
@@ -572,10 +545,7 @@ pub trait IsMoore: TransitionSystem<StateColor = usize> + Pointed + Sized {
 
     /// Decomposes `self` into a sequence of DFAs, where the i-th DFA accepts all words which
     /// produce a color less than or equal to i.
-    fn decompose_dfa(&self) -> Vec<DFA<Self::Alphabet>>
-    where
-        Self: FiniteState,
-    {
+    fn decompose_dfa(&self) -> Vec<DFA<Self::Alphabet>> {
         self.color_range()
             .into_iter()
             .rev()
@@ -584,10 +554,7 @@ pub trait IsMoore: TransitionSystem<StateColor = usize> + Pointed + Sized {
     }
 
     /// Builds a DFA that accepts all words which emit a color less than or equal to `color`.
-    fn color_or_below_dfa(&self, color: usize) -> DFA<Self::Alphabet>
-    where
-        Self: FiniteState,
-    {
+    fn color_or_below_dfa(&self, color: usize) -> DFA<Self::Alphabet> {
         self.map_state_colors(|o| o <= color)
             .erase_edge_colors()
             .minimize()

@@ -165,60 +165,6 @@ pub trait HasStates: TransitionSystem + Sized {
     }
 }
 
-/// Auxiliary type alias that allows easier access to the type of state index iterator
-/// returned for transition systems that have a finite state space.
-pub type FiniteStatesIterType<'a, This> = <This as HasFiniteStates<'a>>::StateIndicesIter;
-
-/// Helper trait that must be implemented for every possible lifetime `'a`, in order
-/// for a type to implement [`FiniteState`]. This is a (arguably hacky) solution to
-/// deal with lifetime issues when iterating over the state indices of a transition
-/// system. Especially interesting in the case of a [`DirectProduct`] for example.
-pub trait HasFiniteStates<'a, Outlives = &'a Self>: TransitionSystem {
-    /// Type of the iterator over the state indices of `Self`.
-    type StateIndicesIter: Iterator<Item = Self::StateIndex>;
-}
-
-impl<'a, 'b, HFS: HasFiniteStates<'a>> HasFiniteStates<'a> for &'b HFS {
-    type StateIndicesIter = <HFS as HasFiniteStates<'a>>::StateIndicesIter;
-}
-
-/// Implementors of this trait have a finite number of states and allow iteration over the
-/// set of all state indices.
-pub trait FiniteState: Sized + for<'a> HasFiniteStates<'a> {
-    /// Returns an iterator over the state indices in `self`.
-    fn state_indices(&self) -> FiniteStatesIterType<'_, Self>;
-
-    /// Gives the size of `self`.
-    fn size(&self) -> usize {
-        self.state_indices().count()
-    }
-
-    /// Returns true if and only if the given state `index` exists.
-    fn contains_state_index(&self, index: Self::StateIndex) -> bool {
-        self.state_indices().contains(&index)
-    }
-
-    /// Tries to find the index of a state with the given `color`. Note that this uses `find` and thus
-    /// returns the first such state that is found. There is no guarantee on the order in which the states
-    /// are visited such that if more than one state with the given `color` exists, subsequent calls to
-    /// this method may return different indices.
-    fn find_by_color(&self, color: &StateColor<Self>) -> Option<Self::StateIndex> {
-        self.state_indices()
-            .find(|index| self.state_color(*index).as_ref() == Some(color))
-    }
-
-    /// Returns true if and only if a state with the given `color` exists.
-    fn contains_state_color(&self, color: &StateColor<Self>) -> bool {
-        self.find_by_color(color).is_some()
-    }
-}
-
-impl<'a, FS: FiniteState> FiniteState for &'a FS {
-    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
-        FS::state_indices(self)
-    }
-}
-
 /// Abstracts possessing a set of states, which can be mutated. Note, that implementors of this
 /// trait must be able to iterate over the set of states.
 #[autoimpl(for<T: trait + ?Sized> &mut T)]
@@ -267,10 +213,7 @@ pub trait Congruence: TransitionSystem + Pointed {
     ) -> (
         RightCongruence<Self::Alphabet>,
         Map<Self::StateIndex, usize>,
-    )
-    where
-        Self: FiniteState,
-    {
+    ) {
         let mut cong = RightCongruence::new_for_alphabet(self.alphabet().clone());
         let mut map = Map::default();
 

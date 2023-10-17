@@ -5,7 +5,7 @@ use crate::{
     ts::{
         predecessors::{IsPreTransition, PredecessorIterable},
         transition_system::IsTransition,
-        FiniteState, FiniteStatesIterType, HasFiniteStates, IndexType,
+        IndexType,
     },
     Alphabet, Color, Pointed, TransitionSystem,
 };
@@ -76,14 +76,15 @@ impl<L: HasAlphabet, R> HasAlphabet for MatchingProduct<L, R> {
 }
 
 /// Iterator over the state indices of a product transition system.
-pub struct ProductStatesIter<'a, L: FiniteState, R: FiniteState> {
-    left: FiniteStatesIterType<'a, L>,
-    right: FiniteStatesIterType<'a, R>,
+pub struct ProductStatesIter<'a, L: TransitionSystem, R: TransitionSystem> {
+    left: L::StateIndices<'a>,
+    right: R::StateIndices<'a>,
     left_state: Option<L::StateIndex>,
+    lts: &'a L,
     rts: &'a R,
 }
 
-impl<'a, L: FiniteState, R: FiniteState> Iterator for ProductStatesIter<'a, L, R> {
+impl<'a, L: TransitionSystem, R: TransitionSystem> Iterator for ProductStatesIter<'a, L, R> {
     type Item = ProductIndex<L::StateIndex, R::StateIndex>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -102,7 +103,7 @@ impl<'a, L: FiniteState, R: FiniteState> Iterator for ProductStatesIter<'a, L, R
     }
 }
 
-impl<'a, L: FiniteState, R: FiniteState> ProductStatesIter<'a, L, R> {
+impl<'a, L: TransitionSystem, R: TransitionSystem> ProductStatesIter<'a, L, R> {
     /// Create a new iterator over the state indices of a product transition system.
     pub fn new(lts: &'a L, rts: &'a R) -> Self {
         let mut lit = lts.state_indices();
@@ -111,29 +112,8 @@ impl<'a, L: FiniteState, R: FiniteState> ProductStatesIter<'a, L, R> {
             left: lit,
             right: rts.state_indices(),
             rts,
+            lts,
         }
-    }
-}
-
-impl<'a, L, R> HasFiniteStates<'a> for MatchingProduct<L, R>
-where
-    L: FiniteState,
-    R: FiniteState<Alphabet = L::Alphabet>,
-    L::StateColor: Clone,
-    R::StateColor: Clone,
-{
-    type StateIndicesIter = ProductStatesIter<'a, L, R>;
-}
-
-impl<L, R> FiniteState for MatchingProduct<L, R>
-where
-    L: FiniteState,
-    R: FiniteState<Alphabet = L::Alphabet>,
-    L::StateColor: Clone,
-    R::StateColor: Clone,
-{
-    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
-        ProductStatesIter::new(&self.0, &self.1)
     }
 }
 

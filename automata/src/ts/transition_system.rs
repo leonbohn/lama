@@ -8,9 +8,10 @@ use crate::{
 
 use super::{
     connected_components::{tarjan_scc, SccDecomposition, TarjanDAG},
+    index_ts::BTState,
     operations::{
         MapEdgeColor, MapStateColor, MappedEdgesFromIter, MappedTransition, MatchingProduct,
-        ProductEdgesFrom, ProductIndex, ProductTransition, RestrictByStateIndex,
+        ProductEdgesFrom, ProductIndex, ProductStatesIter, ProductTransition, RestrictByStateIndex,
         RestrictedEdgesFromIter, StateIndexFilter,
     },
     predecessors::PredecessorIterable,
@@ -25,7 +26,7 @@ use super::{
 use super::{
     finite::{ReachedColor, ReachedState},
     path::Lasso,
-    CanInduce, EdgeColor, FiniteState, IndexType, Induced, Path, StateColor, BTS,
+    CanInduce, EdgeColor, IndexType, Induced, Path, StateColor, BTS,
 };
 
 use impl_tools::autoimpl;
@@ -123,6 +124,38 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     where
         Self: 'this;
 
+    /// Type of the iterator over the state indices.
+    type StateIndices<'this>: Iterator<Item = Self::StateIndex>
+    where
+        Self: 'this;
+
+    /// Returns an iterator over the state indices of `self`.
+    fn state_indices(&self) -> Self::StateIndices<'_>;
+
+    /// Gives the size of `self`, which is obtained simply by counting the number of elements yielded by [`Self::states()`].
+    fn size(&self) -> usize {
+        self.state_indices().count()
+    }
+
+    /// Returns true if and only if the given state `index` exists.
+    fn contains_state_index(&self, index: Self::StateIndex) -> bool {
+        self.state_indices().contains(&index)
+    }
+
+    /// Tries to find the index of a state with the given `color`. Note that this uses `find` and thus
+    /// returns the first such state that is found. There is no guarantee on the order in which the states
+    /// are visited such that if more than one state with the given `color` exists, subsequent calls to
+    /// this method may return different indices.
+    fn find_by_color(&self, color: &StateColor<Self>) -> Option<Self::StateIndex> {
+        self.state_indices()
+            .find(|index| self.state_color(*index).as_ref() == Some(color))
+    }
+
+    /// Returns true if and only if a state with the given `color` exists.
+    fn contains_state_color(&self, color: &StateColor<Self>) -> bool {
+        self.find_by_color(color).is_some()
+    }
+
     /// Obtains the [`Self::StateIndex`] of a state if it can be found. See [`Indexes`]
     /// for more.
     fn get<I: Indexes<Self>>(&self, elem: I) -> Option<Self::StateIndex>
@@ -176,7 +209,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     /// Builds the [`Quotient`] of `self` with regard to some given [`Partition`].
     fn quotient(self, partition: Partition<Self::StateIndex>) -> Quotient<Self>
     where
-        Self: Sized + FiniteState,
+        Self: Sized,
     {
         Quotient::new(self, partition)
     }
@@ -251,7 +284,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     /// connected components. Uses Tarjan's algorithm.
     fn sccs(&self) -> SccDecomposition<'_, Self>
     where
-        Self: Sized + FiniteState,
+        Self: Sized,
     {
         tarjan_scc(self)
     }
@@ -260,7 +293,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     /// strongly connected components of the transition system and the edges between them.
     fn tarjan_dag(&self) -> TarjanDAG<'_, Self>
     where
-        Self: Sized + FiniteState + Clone,
+        Self: Sized + Clone,
     {
         TarjanDAG::from(tarjan_scc(self))
     }
@@ -347,10 +380,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
 
     /// Checks whether `self` is complete, meaning every state has a transition for every symbol
     /// of the alphabet.
-    fn is_complete(&self) -> bool
-    where
-        Self: FiniteState,
-    {
+    fn is_complete(&self) -> bool {
         self.state_indices()
             .cartesian_product(self.alphabet().universe())
             .all(|(q, a)| self.transition(q, *a).is_some())
@@ -503,14 +533,6 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     }
 
     /// Returns an iterator over the indices of the states that are reachable from the initial state.
-    fn reachable_state_indices(&self) -> ReachableStateIndices<&Self>
-    where
-        Self: Sized + Pointed,
-    {
-        ReachableStateIndices::new(self, self.initial())
-    }
-
-    /// Returns an iterator over the states that are reachable from the initial state.
     fn reachable_states(&self) -> ReachableStates<&Self>
     where
         Self: Sized + Pointed,
@@ -530,6 +552,14 @@ pub trait TransitionSystem: HasAlphabet + Sized {
         MinimalRepresentatives::new(self, state.into())
     }
 
+    /// Returns an iterator over the indices of the states that are reachable from the initial state.
+    fn reachable_state_indices(&self) -> ReachableStateIndices<&Self>
+    where
+        Self: Sized + Pointed,
+    {
+        self.reachable_state_indices_from(self.initial())
+    }
+
     /// Returns an iterator over the indices of the states that are reachable from the given `state`.
     fn reachable_state_indices_from<I: Into<Self::StateIndex>>(
         &self,
@@ -542,18 +572,17 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     }
 
     /// Returns an iterator over the states that are reachable from the given `state`.
-    fn reachable_states_from<I: Into<Self::StateIndex>>(&self, _state: I) -> ReachableStates<&Self>
+    fn reachable_states_from<I: Indexes<Self>>(&self, state: I) -> ReachableStates<&Self>
     where
-        Self: Sized + Pointed,
+        Self: Sized,
     {
-        ReachableStates::new(self, self.initial())
+        ReachableStates::new(self, state.to_index(self).unwrap())
     }
 
     /// Returns a string representation of the transition table of the transition system.
     fn build_transition_table<SD>(&self, state_decorator: SD) -> String
     where
         SD: Fn(Self::StateIndex, StateColor<Self>) -> String,
-        Self: FiniteState,
         Self::EdgeColor: std::fmt::Debug,
     {
         let mut builder = tabled::builder::Builder::default();
@@ -587,10 +616,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     }
 
     /// Collects `self` into a new [`BTS`] with the same alphabet, state colors and edge colors.
-    fn collect_ts(&self) -> BTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>
-    where
-        Self: FiniteState,
-    {
+    fn collect_ts(&self) -> BTS<Self::Alphabet, Self::StateColor, Self::EdgeColor> {
         use crate::ts::Sproutable;
         let mut ts = BTS::new_for_alphabet(self.alphabet().clone());
         let mut map = std::collections::HashMap::new();
@@ -630,7 +656,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
         &self,
     ) -> Ts
     where
-        Self: FiniteState + Pointed,
+        Self: Pointed,
     {
         let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
         ts.set_initial_color(self.initial_color());
@@ -663,7 +689,6 @@ pub trait TransitionSystem: HasAlphabet + Sized {
                 EdgeColor = Self::EdgeColor,
                 Alphabet = Self::Alphabet,
             > + super::Sproutable
-            + FiniteState
             + Pointed,
     >(
         &self,
@@ -705,10 +730,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
             > + super::Sproutable,
     >(
         &self,
-    ) -> Ts
-    where
-        Self: FiniteState,
-    {
+    ) -> Ts {
         let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
 
         let (l, r) = self.state_indices().tee();
@@ -739,10 +761,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
             > + super::Sproutable,
     >(
         &self,
-    ) -> Ts
-    where
-        Self: FiniteState,
-    {
+    ) -> Ts {
         let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
         let mut map = std::collections::HashMap::new();
         for index in self.state_indices() {
@@ -787,6 +806,11 @@ impl<Ts: TransitionSystem> TransitionSystem for &Ts {
     type StateColor = Ts::StateColor;
     type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
     type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
+    type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
+
+    fn state_indices(&self) -> Self::StateIndices<'_> {
+        Ts::state_indices(self)
+    }
 
     fn transition<Idx: Indexes<Self>>(
         &self,
@@ -822,6 +846,11 @@ impl<Ts: TransitionSystem> TransitionSystem for &mut Ts {
     type StateColor = Ts::StateColor;
     type TransitionRef<'this> = Ts::TransitionRef<'this> where Self : 'this;
     type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
+    type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
+
+    fn state_indices(&self) -> Self::StateIndices<'_> {
+        Ts::state_indices(self)
+    }
 
     fn transition<Idx: Indexes<Self>>(
         &self,
@@ -860,6 +889,11 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for RightCongruence<A, Q,
     type EdgesFromIter<'this> = std::collections::hash_map::Iter<'this, A::Expression, (usize, C)>
     where
         Self: 'this;
+    type StateIndices<'this> = std::iter::Cloned<std::collections::hash_map::Keys<'this, usize, BTState<A, ColoredClass<A::Symbol, Q>, C, usize>>> where Self: 'this;
+
+    fn state_indices(&self) -> Self::StateIndices<'_> {
+        self.ts().state_indices()
+    }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
         self.ts().state_color(state)
@@ -897,9 +931,14 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A
     type EdgesFromIter<'this> = std::collections::hash_map::Iter<'this, A::Expression, (Idx, C)>
     where
         Self: 'this;
+    type StateIndices<'this> = std::iter::Cloned<std::collections::hash_map::Keys<'this, Idx, super::index_ts::BTState<A, Q, C, Idx>>> where Self: 'this;
+
+    fn state_indices(&self) -> Self::StateIndices<'_> {
+        self.states.keys().cloned()
+    }
 
     fn state_color(&self, index: Idx) -> Option<StateColor<Self>> {
-        self.states().get(&index).map(|s| s.color().clone())
+        self.raw_state_map().get(&index).map(|s| s.color().clone())
     }
 
     fn edge_color(
@@ -907,7 +946,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A
         state: Self::StateIndex,
         expression: &crate::alphabet::ExpressionOf<Self>,
     ) -> Option<EdgeColor<Self>> {
-        self.states()
+        self.raw_state_map()
             .get(&state)
             .and_then(|o| o.edge_map().get(expression).map(|(_, c)| c.clone()))
     }
@@ -917,13 +956,13 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A
         state: X,
         symbol: SymbolOf<Self>,
     ) -> Option<Self::TransitionRef<'_>> {
-        self.states()
+        self.raw_state_map()
             .get(&state.to_index(self)?)
             .and_then(|o| A::search_edge(o.edge_map(), symbol))
     }
 
     fn edges_from<X: Indexes<Self>>(&self, state: X) -> Option<Self::EdgesFromIter<'_>> {
-        self.states()
+        self.raw_state_map()
             .get(&state.to_index(self)?)
             .map(|o| o.edge_map().iter())
     }
@@ -942,6 +981,11 @@ where
     type StateColor = (L::StateColor, R::StateColor);
     type TransitionRef<'this> = ProductTransition<L::StateIndex, R::StateIndex, ExpressionOf<L>, L::EdgeColor, R::EdgeColor> where Self: 'this;
     type EdgesFromIter<'this> = ProductEdgesFrom<'this, L, R> where Self: 'this;
+    type StateIndices<'this> = ProductStatesIter<'this, L, R> where Self: 'this;
+
+    fn state_indices(&self) -> Self::StateIndices<'_> {
+        ProductStatesIter::new(&self.0, &self.1)
+    }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
         let ProductIndex(l, r) = state;
@@ -1000,6 +1044,11 @@ where
     type StateColor = D;
     type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
     type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
+    type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
+
+    fn state_indices(&self) -> Self::StateIndices<'_> {
+        self.ts().state_indices()
+    }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
         let color = self.ts().state_color(state)?;
@@ -1043,6 +1092,12 @@ where
     type TransitionRef<'this> = MappedTransition<Ts::TransitionRef<'this>, &'this F, Ts::EdgeColor> where Self: 'this;
     type EdgesFromIter<'this> =
         MappedEdgesFromIter<'this, Ts::EdgesFromIter<'this>, F, Ts::EdgeColor> where Self: 'this;
+
+    type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
+
+    fn state_indices(&self) -> Self::StateIndices<'_> {
+        self.ts().state_indices()
+    }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
         self.ts().state_color(state)
@@ -1090,6 +1145,11 @@ where
     type StateColor = Ts::StateColor;
     type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
     type EdgesFromIter<'this> = RestrictedEdgesFromIter<'this, Ts, F> where Self: 'this;
+    type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
+
+    fn state_indices(&self) -> Self::StateIndices<'_> {
+        self.ts().state_indices()
+    }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
         assert!((self.filter()).is_unmasked(state));
@@ -1142,6 +1202,11 @@ impl<Ts: TransitionSystem> TransitionSystem for WithInitial<Ts> {
     type EdgeColor = Ts::EdgeColor;
     type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
     type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
+    type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
+
+    fn state_indices(&self) -> Self::StateIndices<'_> {
+        self.ts().state_indices()
+    }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
         self.ts().state_color(state)

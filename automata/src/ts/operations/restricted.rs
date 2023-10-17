@@ -3,7 +3,7 @@ use crate::{
     ts::{
         predecessors::{IsPreTransition, PredecessorIterable},
         transition_system::IsTransition,
-        FiniteState, FiniteStatesIterType, HasFiniteStates, IndexType,
+        IndexType,
     },
     Pointed, Set, TransitionSystem,
 };
@@ -63,14 +63,14 @@ pub struct RestrictByStateIndex<Ts: TransitionSystem, F> {
 }
 
 /// Iterator over the state indices of a transition system that are restricted by a filter function.
-pub struct RestrictByStateIndexIter<'a, Ts: TransitionSystem + HasFiniteStates<'a>, F> {
+pub struct RestrictByStateIndexIter<'a, Ts: TransitionSystem + 'a, F> {
     filter: &'a F,
-    it: FiniteStatesIterType<'a, Ts>,
+    it: Ts::StateIndices<'a>,
 }
 
 impl<'a, Ts, F> Iterator for RestrictByStateIndexIter<'a, Ts, F>
 where
-    Ts: TransitionSystem + HasFiniteStates<'a>,
+    Ts: TransitionSystem,
     F: StateIndexFilter<Ts::StateIndex>,
 {
     type Item = Ts::StateIndex;
@@ -79,29 +79,11 @@ where
     }
 }
 
-impl<'a, Ts: TransitionSystem + HasFiniteStates<'a>, F> RestrictByStateIndexIter<'a, Ts, F> {
+impl<'a, Ts: TransitionSystem, F> RestrictByStateIndexIter<'a, Ts, F> {
     /// Creates a new iterator over the state indices of a transition system that are restricted by a
     /// filter function.
-    pub fn new(filter: &'a F, it: FiniteStatesIterType<'a, Ts>) -> Self {
+    pub fn new(filter: &'a F, it: Ts::StateIndices<'a>) -> Self {
         Self { filter, it }
-    }
-}
-
-impl<'a, Ts, F> HasFiniteStates<'a> for RestrictByStateIndex<Ts, F>
-where
-    Ts: HasFiniteStates<'a>,
-    F: StateIndexFilter<Ts::StateIndex>,
-{
-    type StateIndicesIter = RestrictByStateIndexIter<'a, Ts, F>;
-}
-
-impl<Ts, F> FiniteState for RestrictByStateIndex<Ts, F>
-where
-    Ts: FiniteState,
-    F: StateIndexFilter<Ts::StateIndex>,
-{
-    fn state_indices(&self) -> crate::ts::FiniteStatesIterType<'_, Self> {
-        RestrictByStateIndexIter::new(&self.filter, self.ts.state_indices())
     }
 }
 
