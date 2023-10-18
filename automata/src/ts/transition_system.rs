@@ -800,6 +800,112 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     }
 }
 
+/// This macro implements the [`TransitionSystem`] trait for a given wrapper type. This is
+/// especially useful for the automata definitions, since a DFA/DPA is simply a wrapper
+/// around a transition system. We want to use it just like it was the underlying ts, but we
+/// also want to encapsulate it in a new type to avoid ambiguity.
+///
+/// The macro assumes that the type for which the trait is implemented makes the functions
+/// `ts()` and `ts_mut()` available, which return a reference/mutable reference to the underlying
+/// transition system.
+macro_rules! impl_ts_by_passthrough_on_wrapper {
+    ($basetype: ident <Ts>) => {
+        impl_ts_by_passthrough_on_wrapper! { $basetype<Ts: TransitionSystem> }
+    };
+    ($basetype: ident < $($typevar:ident : $type:ident),* > ) => {
+        impl<$($typevar : $type),*> TransitionSystem for $basetype<$($typevar),*> {
+            type StateIndex = Ts::StateIndex;
+            type EdgeColor = Ts::EdgeColor;
+            type StateColor = Ts::StateColor;
+            type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
+            type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
+            type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
+
+            fn state_indices(&self) -> Self::StateIndices<'_> {
+                self.ts().state_indices()
+            }
+
+            fn transition<Idx: Indexes<Self>>(
+                &self,
+                state: Idx,
+                symbol: SymbolOf<Self>,
+            ) -> Option<Self::TransitionRef<'_>> {
+                self.ts().transition(state.to_index(self)?, symbol)
+            }
+
+            fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
+                self.ts().state_color(state)
+            }
+
+            fn edge_color(
+                &self,
+                state: Self::StateIndex,
+                expression: &ExpressionOf<Self>,
+            ) -> Option<EdgeColor<Self>> {
+                self.ts().edge_color(state, expression)
+            }
+
+            fn edges_from<Idx: Indexes<Self>>(
+                &self,
+                state: Idx,
+            ) -> Option<Self::EdgesFromIter<'_>> {
+                self.ts().edges_from(state.to_index(self)?)
+            }
+
+            fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
+                self.ts().maybe_initial_state()
+            }
+        }
+    };
+    ($basetype: ident < Ts: TransitionSystem >) => {
+        impl<Ts: TransitionSystem> TransitionSystem for $basetype<Ts> {
+            type StateIndex = Ts::StateIndex;
+            type EdgeColor = Ts::EdgeColor;
+            type StateColor = Ts::StateColor;
+            type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
+            type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
+            type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
+
+            fn state_indices(&self) -> Self::StateIndices<'_> {
+                self.ts().state_indices()
+            }
+
+            fn transition<Idx: Indexes<Self>>(
+                &self,
+                state: Idx,
+                symbol: SymbolOf<Self>,
+            ) -> Option<Self::TransitionRef<'_>> {
+                self.ts().transition(state.to_index(self)?, symbol)
+            }
+
+            fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
+                self.ts().state_color(state)
+            }
+
+            fn edge_color(
+                &self,
+                state: Self::StateIndex,
+                expression: &ExpressionOf<Self>,
+            ) -> Option<EdgeColor<Self>> {
+                self.ts().edge_color(state, expression)
+            }
+
+            fn edges_from<Idx: Indexes<Self>>(
+                &self,
+                state: Idx,
+            ) -> Option<Self::EdgesFromIter<'_>> {
+                self.ts().edges_from(state.to_index(self)?)
+            }
+
+            fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
+                self.ts().maybe_initial_state()
+            }
+        }
+    };
+}
+
+impl_ts_by_passthrough_on_wrapper!(WithInitial<Ts>);
+
 impl<Ts: TransitionSystem> TransitionSystem for &Ts {
     type StateIndex = Ts::StateIndex;
     type EdgeColor = Ts::EdgeColor;
@@ -1193,47 +1299,6 @@ where
         } else {
             None
         }
-    }
-}
-
-impl<Ts: TransitionSystem> TransitionSystem for WithInitial<Ts> {
-    type StateIndex = Ts::StateIndex;
-    type StateColor = Ts::StateColor;
-    type EdgeColor = Ts::EdgeColor;
-    type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
-    type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
-    type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
-
-    fn state_indices(&self) -> Self::StateIndices<'_> {
-        self.ts().state_indices()
-    }
-
-    fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
-        self.ts().state_color(state)
-    }
-
-    fn edge_color(
-        &self,
-        state: Self::StateIndex,
-        expression: &crate::alphabet::ExpressionOf<Self>,
-    ) -> Option<EdgeColor<Self>> {
-        self.ts().edge_color(state, expression)
-    }
-
-    fn transition<Idx: Indexes<Self>>(
-        &self,
-        state: Idx,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        self.ts().transition(state.to_index(self)?, symbol)
-    }
-
-    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
-        self.ts().edges_from(state.to_index(self)?)
-    }
-
-    fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
-        Some(self.initial())
     }
 }
 
