@@ -13,7 +13,7 @@ pub type LStarExample<A, Q> = (Vec<<A as Alphabet>::Symbol>, Q);
 #[derive(Clone)]
 pub enum LStarQuery<A: Alphabet, Q: Color> {
     Membership(LStarExample<A, Q>),
-    Equivalence(MooreMachine<A, Q>, Option<LStarExample<A, Q>>),
+    Equivalence(MooreMachine<A, Q, Q>, Option<LStarExample<A, Q>>),
 }
 
 impl<A: Alphabet, Q: Color + Debug> std::fmt::Debug for LStarQuery<A, Q> {
@@ -103,9 +103,9 @@ impl<A: Alphabet, Q: Color> LStarLogger<A, Q> for LStarLogbook<A, Q> {
 
 #[derive(Debug, Clone)]
 pub struct LStarRow<S: Symbol, C: Color> {
-    base: Vec<S>,
-    minimal: bool,
-    outputs: Vec<C>,
+    pub(crate) base: Vec<S>,
+    pub(crate) minimal: bool,
+    pub(crate) outputs: Vec<C>,
 }
 
 impl<S: Symbol, C: Color> PartialEq for LStarRow<S, C> {
@@ -128,6 +128,9 @@ impl<S: Symbol, C: Color> LStarRow<S, C> {
     }
 }
 
+pub type LStarExperiments<A> = Vec<Vec<<A as Alphabet>::Symbol>>;
+pub type LStarRows<A, C> = Vec<LStarRow<<A as Alphabet>::Symbol, C>>;
+
 #[derive(Debug, Clone)]
 pub struct LStar<
     A: Alphabet,
@@ -137,8 +140,8 @@ pub struct LStar<
 > {
     teacher: T,
     alphabet: A,
-    experiments: Vec<Vec<A::Symbol>>,
-    rows: Vec<LStarRow<A::Symbol, Q>>,
+    experiments: LStarExperiments<A>,
+    rows: LStarRows<A, Q>,
     logger: L,
 }
 
@@ -205,7 +208,7 @@ impl<
         &self.logger
     }
 
-    pub fn infer(&mut self) -> MooreMachine<A, Q> {
+    pub fn infer(&mut self) -> MooreMachine<A, Q, Q> {
         let mut iteration = 0;
         loop {
             if iteration > ITERATION_THRESHOLD {
@@ -230,7 +233,7 @@ impl<
 
     pub fn process_counterexample(
         &mut self,
-        hypothesis: MooreMachine<A, Q>,
+        hypothesis: MooreMachine<A, Q, Q>,
         (counterexample, expected_color): LStarExample<A, Q>,
     ) {
         debug_assert!(
@@ -272,19 +275,36 @@ impl<
         unreachable!("A breakpoint has to exist!");
     }
 
-    pub fn hypothesis(&mut self) -> MooreMachine<A, Q>
+    pub fn hypothesis<H>(&mut self) -> H
     where
+        Self: BuildHypothesis<H>,
         Q: Default,
     {
+        self.build_hypothesis()
+    }
+}
+
+pub trait BuildHypothesis<D>: Sized {
+    fn build_hypothesis(&mut self) -> D;
+}
+
+impl<
+        A: Alphabet,
+        C: Color + Default + std::fmt::Debug,
+        T: Oracle<Alphabet = A, Output = C, Length = FiniteLength>,
+        L: LStarLogger<A, C>,
+    > BuildHypothesis<MooreMachine<A, C, C>> for LStar<A, C, T, L>
+{
+    fn build_hypothesis(&mut self) -> MooreMachine<A, C, C> {
         trace!(
-            "Computing hypothesis with experiments {{{}}}",
+            "Computing Moore hypothesis with experiments {{{}}}",
             self.experiments
                 .iter()
                 .map(|experiment| experiment.iter().map(|sym| format!("{:?}", sym)).join(""))
                 .join(", ")
         );
         'outer: loop {
-            let mut out: MooreMachine<A, Q> =
+            let mut out: MooreMachine<A, C, C> =
                 MooreMachine::new(self.alphabet.clone(), self.rows[0].outputs[0].clone());
 
             let state_mapping: Vec<_> = std::iter::once((vec![], out.initial()))
@@ -364,21 +384,18 @@ impl<
                                 .map(|sym| format!("{:?}", sym))
                                 .join(", "),
                         );
-                        out.add_edge(
-                            *state,
-                            A::expression(*sym),
-                            state_mapping
-                                .iter()
-                                .find_map(|(base, idx)| {
-                                    if base == &equivalent_row.base {
-                                        Some(*idx)
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .unwrap(),
-                            (),
-                        );
+                        let target_idx = state_mapping
+                            .iter()
+                            .find_map(|(base, idx)| {
+                                if base == &equivalent_row.base {
+                                    Some(*idx)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap();
+                        let target_color = equivalent_row.outputs[0].clone();
+                        out.add_edge(*state, A::expression(*sym), target_idx, target_color);
                         continue 'transition;
                     } else {
                         trace!("No equivalent row exists, adding new state");
@@ -400,8 +417,8 @@ mod tests {
     use tracing_test::traced_test;
 
     use crate::active::{
-        oracle::{self, DFAOracle},
-        Oracle,
+        oracle,
+        oracle::{DFAOracle, Oracle},
     };
 
     struct ModkAmodlB(Simple);

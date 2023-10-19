@@ -21,6 +21,8 @@ pub use omega::{OmegaSample, OmegaSampleParseError, PeriodicOmegaSample};
 
 mod canonic_coloring;
 
+mod characterize;
+
 /// Represents a finite sample, which is a pair of positive and negative instances.
 #[derive(Clone, Eq, PartialEq)]
 #[allow(missing_docs)]

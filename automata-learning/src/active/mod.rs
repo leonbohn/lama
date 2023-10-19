@@ -1,5 +1,4 @@
 mod lstar;
+pub use lstar::*;
 
-mod oracle;
-
-pub use oracle::Oracle;
+pub mod oracle;

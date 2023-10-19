@@ -11,8 +11,9 @@ pub mod prelude {
         alphabet,
         alphabet::{Expression, ExpressionOf, HasAlphabet, Simple, Symbol, SymbolOf},
         automata::{
-            Acceptor, DBALike, DFALike, DPALike, MealyLike, MealyMachine, MooreLike, MooreMachine,
-            NoColor, StateBasedDBA, StateBasedDPA, WithInitial, DBA, DFA, DPA,
+            Acceptor, DBALike, DFALike, DPALike, IntoMealyMachine, IntoMooreMachine, MealyLike,
+            MealyMachine, MooreLike, MooreMachine, NoColor, StateBasedDBA, StateBasedDPA,
+            WithInitial, DBA, DFA, DPA,
         },
         nupw,
         ts::{

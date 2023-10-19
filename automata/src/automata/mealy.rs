@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use itertools::Itertools;
 use std::{fmt::Debug, marker::PhantomData};
 
@@ -10,6 +11,9 @@ pub struct MealyMachine<A, C = usize, Ts = WithInitial<BTS<A, NoColor, C, usize>
     ts: Ts,
     _q: PhantomData<(A, C)>,
 }
+
+pub type IntoMealyMachine<Ts> =
+    MealyMachine<<Ts as HasAlphabet>::Alphabet, <Ts as TransitionSystem>::EdgeColor, Ts>;
 
 impl<A: Alphabet> MealyMachine<A> {
     pub fn new(alphabet: A) -> Self {

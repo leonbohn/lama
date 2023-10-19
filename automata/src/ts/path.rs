@@ -74,6 +74,17 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
             .expect("We assume every state to be colored")
     }
 
+    pub fn last_transition_color<'a, TS>(&'a self, ts: &'a TS) -> Option<TS::EdgeColor>
+    where
+        TS: TransitionSystem<Alphabet = A, StateIndex = Idx>,
+        Idx: IndexType,
+        TS::EdgeColor: Clone,
+    {
+        self.transitions
+            .last()
+            .and_then(|t| ts.edge_color(t.0, &t.1))
+    }
+
     /// Gives an iterator over all colors of the states visited by the path.
     pub fn state_colors<'a, TS>(&'a self, ts: &'a TS) -> impl Iterator<Item = TS::StateColor> + 'a
     where

@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use std::{fmt::Debug, marker::PhantomData};
+use std::fmt::Debug;
 
 use crate::prelude::*;
 
@@ -8,14 +8,21 @@ use super::MooreLike;
 #[derive(Clone)]
 pub struct MooreMachine<A, Q = usize, C: Color = NoColor, Ts = WithInitial<BTS<A, Q, C, usize>>> {
     ts: Ts,
-    _q: PhantomData<(A, Q, C)>,
+    _q: std::marker::PhantomData<(A, Q, C)>,
 }
 
-impl<A: Alphabet, Q: Color> MooreMachine<A, Q> {
+pub type IntoMooreMachine<Ts> = MooreMachine<
+    <Ts as HasAlphabet>::Alphabet,
+    <Ts as TransitionSystem>::StateColor,
+    <Ts as TransitionSystem>::EdgeColor,
+    Ts,
+>;
+
+impl<A: Alphabet, Q: Color, C: Color> MooreMachine<A, Q, C> {
     pub fn new(alphabet: A, initial_state_output: Q) -> Self {
         Self {
             ts: WithInitial::with_initial_color(alphabet, initial_state_output),
-            _q: PhantomData,
+            _q: std::marker::PhantomData,
         }
     }
 }
@@ -78,7 +85,7 @@ impl<Ts: Sproutable> Sproutable for MooreMachine<Ts::Alphabet, Ts::StateColor, T
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
         Self {
             ts: Ts::new_for_alphabet(alphabet),
-            _q: PhantomData,
+            _q: std::marker::PhantomData,
         }
     }
 
@@ -158,7 +165,7 @@ impl<Q: Color, Ts: MooreLike<Q>> From<Ts> for MooreMachine<Ts::Alphabet, Q, Ts::
     fn from(ts: Ts) -> Self {
         Self {
             ts,
-            _q: PhantomData,
+            _q: std::marker::PhantomData,
         }
     }
 }
@@ -173,11 +180,11 @@ impl<Ts: TransitionSystem + Debug> std::fmt::Debug
 
 #[allow(missing_docs)]
 macro_rules! impl_moore_automaton {
-    ($name:ident, $color:ident) => {
-        paste::paste! {
-            pub type [< Into $name >]<Ts> = $name<<Ts as HasAlphabet>::Alphabet, <Ts as TransitionSystem>::EdgeColor, Ts>;
-        }
-
+    (
+        $(#[$($attributes:tt)*])*
+        $name:ident, $color:ident
+    ) => {
+        $(#[$($attributes)*])*
         #[derive(Clone)]
         pub struct $name<
             A = Simple,
@@ -185,15 +192,19 @@ macro_rules! impl_moore_automaton {
             Ts = WithInitial<BTS<A, $color, C, usize>>,
         > {
             ts: Ts,
-            _alphabet: PhantomData<(A, $color, C)>,
+            _alphabet: std::marker::PhantomData<(A, $color, C)>,
         }
+        paste::paste! {
+            pub type [< Into $name >]<Ts> = $name<<Ts as HasAlphabet>::Alphabet, <Ts as TransitionSystem>::EdgeColor, Ts>;
+        }
+
         impl<A: Alphabet, C: Color>
             $name<A, C, WithInitial<BTS<A, $color, C, usize>>>
         {
             pub fn new(alphabet: A) -> $name<A, C, WithInitial<BTS<A, $color, C, usize>>> {
                 $name {
                     ts: WithInitial::new(alphabet),
-                    _alphabet: PhantomData,
+                    _alphabet: std::marker::PhantomData,
                 }
             }
         }
@@ -211,7 +222,7 @@ macro_rules! impl_moore_automaton {
             fn from(ts: Ts) -> Self {
                 Self {
                     ts,
-                    _alphabet: PhantomData,
+                    _alphabet: std::marker::PhantomData,
                 }
             }
         }
@@ -226,6 +237,7 @@ macro_rules! impl_moore_automaton {
         }
         impl<Ts: Pointed> std::fmt::Debug for $name<Ts::Alphabet,  Ts::EdgeColor, Ts> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                use itertools::Itertools;
                 writeln!(
                     f,
                     "Initial state {} with states {}",
@@ -267,7 +279,7 @@ macro_rules! impl_moore_automaton {
             fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
                 Self {
                     ts: Ts::new_for_alphabet(alphabet),
-                    _alphabet: PhantomData,
+                    _alphabet: std::marker::PhantomData,
                 }
             }
             fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
@@ -337,15 +349,4 @@ macro_rules! impl_moore_automaton {
             }
         }
     };
-}
-
-impl_moore_automaton!(DFA, bool);
-
-impl<D: DFALike> Acceptor<SymbolOf<D>, FiniteLength> for DFA<D::Alphabet, D::EdgeColor, D> {
-    fn accepts<W>(&self, word: W) -> bool
-    where
-        W: Word<Length = FiniteLength, Symbol = SymbolOf<D>>,
-    {
-        todo!()
-    }
 }

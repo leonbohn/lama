@@ -75,20 +75,92 @@ impl<D: DFALike> Oracle for DFAOracle<D> {
             None => Ok(()),
         }
     }
+}
 
-    // fn equivalence<H>(&self, hypothesis: H) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)>
-    // where
-    //     H: Pointed
-    //         + TransitionSystem<Alphabet = Self::Alphabet, StateColor = Self::Output>
-    //         + Transformer<SymbolOf<Self>, Self::Length, Output = Self::Output>,
-    // {
-    //     let i = (&self.negated).intersection(&hypothesis);
-    //     match (&self.negated).intersection(hypothesis).dfa_give_word() {
-    //         Some(w) => {
-    //             let should_be_accepted = self.automaton.accepts(&w);
-    //             Err((w, should_be_accepted))
-    //         }
-    //         None => Ok(()),
-    //     }
-    // }
+#[derive(Debug, Clone)]
+pub struct MealyOracle<C: Color, D: MealyLike<C>> {
+    automaton: D,
+    _color: std::marker::PhantomData<C>,
+}
+
+impl<C: Color, D: MealyLike<C>> Oracle for MealyOracle<C, D> {
+    type Length = FiniteLength;
+
+    type Output = C;
+
+    fn output<W: Word<Symbol = SymbolOf<Self>, Length = Self::Length>>(
+        &self,
+        word: W,
+    ) -> Self::Output {
+        self.automaton
+            .try_mealy_map(word)
+            .expect("The oracle must be total!")
+    }
+
+    fn equivalence<H>(&self, hypothesis: H) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)>
+    where
+        H: MooreLike<Self::Output, Alphabet = Self::Alphabet>,
+    {
+        todo!()
+    }
+}
+
+impl<C: Color, D: MealyLike<C>> HasAlphabet for MealyOracle<C, D> {
+    type Alphabet = D::Alphabet;
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.automaton.alphabet()
+    }
+}
+
+impl<C: Color, D: MealyLike<C>> MealyOracle<C, D> {
+    pub fn new(automaton: D) -> Self {
+        Self {
+            automaton,
+            _color: std::marker::PhantomData,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MooreOracle<C: Color, D: MooreLike<C>> {
+    automaton: D,
+    _color: std::marker::PhantomData<C>,
+}
+
+impl<C: Color, D: MooreLike<C>> Oracle for MooreOracle<C, D> {
+    type Length = FiniteLength;
+
+    type Output = C;
+
+    fn output<W: Word<Symbol = SymbolOf<Self>, Length = Self::Length>>(
+        &self,
+        word: W,
+    ) -> Self::Output {
+        self.automaton
+            .try_moore_map(word)
+            .expect("The oracle must be total!")
+    }
+
+    fn equivalence<H>(&self, hypothesis: H) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)>
+    where
+        H: MooreLike<Self::Output, Alphabet = Self::Alphabet>,
+    {
+        todo!()
+    }
+}
+
+impl<C: Color, D: MooreLike<C>> HasAlphabet for MooreOracle<C, D> {
+    type Alphabet = D::Alphabet;
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.automaton.alphabet()
+    }
+}
+
+impl<C: Color, D: MooreLike<C>> MooreOracle<C, D> {
+    pub fn new(automaton: D) -> Self {
+        Self {
+            automaton,
+            _color: std::marker::PhantomData,
+        }
+    }
 }

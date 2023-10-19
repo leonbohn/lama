@@ -24,11 +24,15 @@ use crate::{
     Color, FiniteLength, InfiniteLength, Length, Word,
 };
 
+#[macro_use]
 mod moore;
-pub use moore::{IntoDFA, MooreMachine, DFA};
+pub use moore::{IntoMooreMachine, MooreMachine};
 
 mod mealy;
-pub use mealy::{IntoDBA, IntoDPA, MealyMachine, DBA, DPA};
+pub use mealy::{IntoDBA, IntoDPA, IntoMealyMachine, MealyMachine, DBA, DPA};
+
+mod dfa;
+pub use dfa::{IntoDFA, DFA};
 
 /// Wrapper around a [`TransitionSystem`] with a designated initial state.
 #[derive(Clone, PartialEq)]
@@ -600,6 +604,15 @@ impl<Ts> DPALike for Ts where Ts: TransitionSystem<EdgeColor = usize> + Pointed 
 /// Implemented by objects which can be viewed as a MealyMachine, i.e. a finite transition system
 /// which has outputs of type usize on its edges.
 pub trait MealyLike<C: Color>: TransitionSystem<EdgeColor = C> + Pointed + Sized {
+    fn try_mealy_map<W: Word<Symbol = SymbolOf<Self>, Length = FiniteLength>>(
+        &self,
+        input: W,
+    ) -> Option<C> {
+        self.finite_run(self.initial(), &input.finite_to_vec())
+            .ok()
+            .and_then(|p| p.last_transition_color(self))
+    }
+
     fn color_range(&self) -> Vec<Self::EdgeColor> {
         self.reachable_state_indices()
             .flat_map(|o| self.edges_from(o).unwrap().map(|e| IsTransition::color(&e)))
@@ -612,6 +625,15 @@ impl<Ts: TransitionSystem<EdgeColor = usize> + Pointed + Sized> MealyLike<usize>
 /// Implemented by objects that can be viewed as MooreMachines, i.e. finite transition systems
 /// that have usize annotated/outputting states.
 pub trait MooreLike<Q: Color>: TransitionSystem<StateColor = Q> + Pointed {
+    fn try_moore_map<W: Word<Symbol = SymbolOf<Self>, Length = FiniteLength>>(
+        &self,
+        input: W,
+    ) -> Option<Q> {
+        self.finite_run(self.initial(), &input.finite_to_vec())
+            .ok()
+            .map(|p| p.reached_state_color(self))
+    }
+
     fn transform<W: Word<Symbol = SymbolOf<Self>, Length = FiniteLength>>(&self, input: W) -> Q {
         match self.finite_run(self.initial(), &input.finite_to_vec()) {
             Ok(p) => p.reached_state_color(self),
