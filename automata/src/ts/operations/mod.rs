@@ -10,21 +10,13 @@ pub use restricted::*;
 mod tests {
     use itertools::Itertools;
 
-    use crate::{
-        alphabet::Simple,
-        ts::{
-            finite::ReachedState,
-            operations::product::{Product, ProductIndex},
-            HasColorMut, HasMutableStates, Pointed, Sproutable, TransitionSystem,
-        },
-        Transformer,
-    };
+    use crate::prelude::*;
 
     #[test]
     fn product() {
         let mut dfa = crate::DFA::new(Simple::new(['a', 'b']));
         let s0 = dfa.initial();
-        dfa.state_mut(s0).unwrap().set_color(true);
+        dfa.set_initial_color(true);
         let s1 = dfa.add_state(false);
         let _e0 = dfa.add_edge(s0, 'a', s1, ());
         let _e1 = dfa.add_edge(s0, 'b', s0, ());
@@ -33,7 +25,7 @@ mod tests {
 
         let mut dfb = crate::DFA::new(Simple::new(['a', 'b']));
         let s0 = dfb.initial();
-        dfb.state_mut(s0).unwrap().set_color(true);
+        dfb.set_initial_color(true);
         let s1 = dfb.add_state(false);
         let _e0 = dfb.add_edge(s0, 'a', s1, ());
         let _e1 = dfb.add_edge(s0, 'b', s0, ());

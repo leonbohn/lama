@@ -84,7 +84,7 @@ mod tests {
     fn infer_precise_dpa_inf_aa() {
         let alphabet = alphabet!(simple 'a', 'b', 'c');
         let sample = sample! {alphabet; pos "a", "aab", "aaab", "bbaa", "aca", "caa", "abca", "baac"; neg "c", "b", "bc", "abc", "cba", "ac", "ba"};
-        let dpa = super::infer_precise_dpa(&sample);
+        let dpa = super::infer_precise_dpa(&sample).into_dpa();
         assert!(dpa.consistent_with([
             (nupw!("a"), true),
             (nupw!("baa"), true),

@@ -2,7 +2,7 @@ use impl_tools::autoimpl;
 use owo_colors::OwoColorize;
 
 use automata::{
-    automata::IsMoore,
+    automata::MooreLike,
     prelude::*,
     ts::dot::{DotStateAttribute, DotStateColorize},
     Set,
@@ -89,7 +89,7 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
     /// Computes the canonic coloring on a given annotated congruence. This makes use
     /// of the dag of strongly connected components of the congruence. For more information
     /// on how the computation is done exactly, see [Section 5, Step 2](https://arxiv.org/pdf/2302.11043.pdf).
-    pub fn canonic_coloring(&self) -> impl IsMoore<Alphabet = A> + Clone + '_ {
+    pub fn canonic_coloring(&self) -> impl MooreLike<usize, Alphabet = A> + Clone + '_ {
         // we first need to decompose into sccs and mark them with the color of the
         // idempotent that it contains.
         let tjdag = self.0.tarjan_dag();

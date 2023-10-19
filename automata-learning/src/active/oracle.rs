@@ -1,4 +1,4 @@
-use automata::{prelude::*, ts::operations::MapStateColor};
+use automata::{automata::MooreLike, prelude::*, ts::operations::MapStateColor};
 
 /// A trait that encapsulates a minimally adequate teacher (MAT) for active learning. This is mainly used by
 /// L*-esque algorithms and can be implemented by wildly different types, for example an automaton, a function
@@ -25,9 +25,7 @@ pub trait Oracle: HasAlphabet {
     /// meaning it produces a different output in the hypothesis compared to the target.
     fn equivalence<H>(&self, hypothesis: H) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)>
     where
-        H: Pointed
-            + TransitionSystem<Alphabet = Self::Alphabet, StateColor = Self::Output>
-            + Transformer<SymbolOf<Self>, Self::Length, Output = Self::Output>;
+        H: MooreLike<Self::Output, Alphabet = Self::Alphabet>;
 }
 
 #[derive(Debug, Clone)]
@@ -61,22 +59,36 @@ impl<D: DFALike> Oracle for DFAOracle<D> {
         &self,
         word: W,
     ) -> Self::Output {
-        self.automaton.accepts(word)
+        (&self.automaton).into_dfa().accepts(word)
     }
 
     fn equivalence<H>(&self, hypothesis: H) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)>
     where
-        H: Pointed
-            + TransitionSystem<Alphabet = Self::Alphabet, StateColor = Self::Output>
-            + Transformer<SymbolOf<Self>, Self::Length, Output = Self::Output>,
+        H: MooreLike<Self::Output, Alphabet = Self::Alphabet>,
     {
-        let i = (&self.negated).intersection(&hypothesis);
-        match (&self.negated).intersection(hypothesis).dfa_give_word() {
+        let dfa = (&self.negated).intersection(&hypothesis).into_dfa();
+        match dfa.dfa_give_word() {
             Some(w) => {
-                let should_be_accepted = self.automaton.accepts(&w);
+                let should_be_accepted = (&self.automaton).into_dfa().accepts(&w);
                 Err((w, should_be_accepted))
             }
             None => Ok(()),
         }
     }
+
+    // fn equivalence<H>(&self, hypothesis: H) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)>
+    // where
+    //     H: Pointed
+    //         + TransitionSystem<Alphabet = Self::Alphabet, StateColor = Self::Output>
+    //         + Transformer<SymbolOf<Self>, Self::Length, Output = Self::Output>,
+    // {
+    //     let i = (&self.negated).intersection(&hypothesis);
+    //     match (&self.negated).intersection(hypothesis).dfa_give_word() {
+    //         Some(w) => {
+    //             let should_be_accepted = self.automaton.accepts(&w);
+    //             Err((w, should_be_accepted))
+    //         }
+    //         None => Ok(()),
+    //     }
+    // }
 }

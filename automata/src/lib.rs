@@ -11,22 +11,23 @@ pub mod prelude {
         alphabet,
         alphabet::{Expression, ExpressionOf, HasAlphabet, Simple, Symbol, SymbolOf},
         automata::{
-            Acceptor, DBALike, DFALike, DPALike, MealyMachine, MooreMachine, Transformer, DBA, DFA,
-            DPA, SBDBA, SBDPA,
+            Acceptor, DBALike, DFALike, DPALike, MealyLike, MealyMachine, MooreLike, MooreMachine,
+            NoColor, StateBasedDBA, StateBasedDPA, WithInitial, DBA, DFA, DPA,
         },
         nupw,
         ts::{
             dag::Dag,
-            operations::Product,
+            finite::ReachedState,
+            operations::{Product, ProductIndex},
             predecessors::{IsPreTransition, PredecessorIterable},
             transition_system::{Indexes, IsTransition},
-            Congruence, HasColor, HasColorMut, HasMutableStates, HasStates, Sproutable, ToDot,
-            TransitionSystem,
+            Congruence, EdgeColor, HasColor, HasColorMut, HasMutableStates, HasStates, Sproutable,
+            StateColor, ToDot, TransitionSystem, BTS,
         },
         upw,
         word::{Normalized, NormalizedParseError, NormalizedPeriodic, OmegaWord, Word},
-        Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length, Pointed,
-        RightCongruence,
+        Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Isomorphic, Length,
+        Pointed, RightCongruence,
     };
 }
 
@@ -44,13 +45,14 @@ use std::hash::Hash;
 pub use length::{FiniteLength, HasLength, InfiniteLength, Length};
 
 /// This module defines transition systems and successor functions and such.
+#[macro_use]
 pub mod ts;
 pub use ts::{Pointed, TransitionSystem};
 
 /// Defines automata and common types of combinations of transition system with acceptance condition.
 #[allow(clippy::upper_case_acronyms)]
 pub mod automata;
-use automata::{Acceptor, MealyMachine, MooreMachine, Transformer, DBA, DFA, DPA, SBDBA, SBDPA};
+use automata::{Acceptor, MealyMachine, MooreMachine, DBA, DFA, DPA};
 
 /// Defines congruence relations and congruence classes.
 pub mod congruence;
@@ -109,11 +111,29 @@ impl<I: Hash + Eq> Partition<I> {
     }
 }
 
+pub trait Isomorphic<T> {
+    fn map_to(&self) -> T;
+    fn inverse_map(b: T) -> Self;
+}
+
+impl Isomorphic<bool> for usize {
+    fn map_to(&self) -> bool {
+        self == &1
+    }
+    fn inverse_map(b: bool) -> usize {
+        if b {
+            1
+        } else {
+            0
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{alphabet, prelude::*};
 
-    pub fn wiki_dfa() -> DFA {
+    pub fn wiki_dfa() -> DFA<Simple> {
         let mut dfa = DFA::new(alphabet!(simple 'a', 'b'));
         let a = dfa.initial();
         dfa.set_initial_color(false);

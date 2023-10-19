@@ -808,12 +808,18 @@ pub trait TransitionSystem: HasAlphabet + Sized {
 /// The macro assumes that the type for which the trait is implemented makes the functions
 /// `ts()` and `ts_mut()` available, which return a reference/mutable reference to the underlying
 /// transition system.
+#[macro_export]
 macro_rules! impl_ts_by_passthrough_on_wrapper {
-    ($basetype: ident <Ts>) => {
-        impl_ts_by_passthrough_on_wrapper! { $basetype<Ts: TransitionSystem> }
-    };
-    ($basetype: ident < $($typevar:ident : $type:ident),* > ) => {
-        impl<$($typevar : $type),*> TransitionSystem for $basetype<$($typevar),*> {
+    ($basetype: ident <Ts, $($typevar:ident : $type:ident),* > ) => {
+        use $crate::prelude::*;
+        impl<Ts: TransitionSystem, $($typevar : $type),*> HasAlphabet for $basetype<Ts::Alphabet, $($typevar),*, Ts> {
+            type Alphabet = Ts::Alphabet;
+
+            fn alphabet(&self) -> &Self::Alphabet {
+                self.ts().alphabet()
+            }
+        }
+        impl<Ts: TransitionSystem, $($typevar : $type),*> TransitionSystem for $basetype<Ts::Alphabet, $($typevar),*, Ts> {
             type StateIndex = Ts::StateIndex;
             type EdgeColor = Ts::EdgeColor;
             type StateColor = Ts::StateColor;
@@ -825,7 +831,7 @@ macro_rules! impl_ts_by_passthrough_on_wrapper {
                 self.ts().state_indices()
             }
 
-            fn transition<Idx: Indexes<Self>>(
+            fn transition<Idx: $crate::prelude::Indexes<Self>>(
                 &self,
                 state: Idx,
                 symbol: SymbolOf<Self>,
@@ -845,7 +851,7 @@ macro_rules! impl_ts_by_passthrough_on_wrapper {
                 self.ts().edge_color(state, expression)
             }
 
-            fn edges_from<Idx: Indexes<Self>>(
+            fn edges_from<Idx: $crate::prelude::Indexes<Self>>(
                 &self,
                 state: Idx,
             ) -> Option<Self::EdgesFromIter<'_>> {
@@ -857,7 +863,13 @@ macro_rules! impl_ts_by_passthrough_on_wrapper {
             }
         }
     };
-    ($basetype: ident < Ts: TransitionSystem >) => {
+    ($basetype: ident < Ts >) => {
+        impl<Ts: TransitionSystem> HasAlphabet for $basetype<Ts> {
+            type Alphabet = Ts::Alphabet;
+            fn alphabet(&self) -> &Self::Alphabet {
+                self.ts().alphabet()
+            }
+        }
         impl<Ts: TransitionSystem> TransitionSystem for $basetype<Ts> {
             type StateIndex = Ts::StateIndex;
             type EdgeColor = Ts::EdgeColor;

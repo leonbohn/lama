@@ -1,14 +1,17 @@
 use std::{
     collections::BTreeSet,
     fmt::{Debug, Display},
+    marker::PhantomData,
 };
 
+use impl_tools::autoimpl;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 
 use crate::{
     algorithms::minimize_dfa,
     alphabet::{Alphabet, HasAlphabet, Symbol, SymbolOf},
+    prelude::*,
     prelude::{ExpressionOf, Simple},
     ts::{
         finite::{InfinityColors, ReachedColor},
@@ -21,9 +24,30 @@ use crate::{
     Color, FiniteLength, InfiniteLength, Length, Word,
 };
 
+mod moore;
+pub use moore::{IntoDFA, MooreMachine, DFA};
+
+mod mealy;
+pub use mealy::{IntoDBA, IntoDPA, MealyMachine, DBA, DPA};
+
 /// Wrapper around a [`TransitionSystem`] with a designated initial state.
 #[derive(Clone, PartialEq)]
 pub struct WithInitial<Ts: TransitionSystem>(Ts, Ts::StateIndex);
+
+impl<Ts: TransitionSystem> WithInitial<Ts> {
+    pub fn ts(&self) -> &Ts {
+        &self.0
+    }
+    pub fn ts_mut(&mut self) -> &mut Ts {
+        &mut self.0
+    }
+}
+
+impl<Ts: TransitionSystem> Pointed for WithInitial<Ts> {
+    fn initial(&self) -> Self::StateIndex {
+        self.1
+    }
+}
 
 impl<Ts> std::fmt::Debug for WithInitial<Ts>
 where
@@ -59,14 +83,18 @@ where
     C: Color,
     Q: Color,
 {
+    pub fn with_initial_color(alphabet: A, color: Q) -> Self {
+        let mut ts = BTS::new(alphabet);
+        let initial = ts.add_state(color);
+        Self(ts, initial)
+    }
+
     /// Creates a new instance for the given `alphabet`.
     pub fn new(alphabet: A) -> Self
     where
         StateColor<Self>: Default,
     {
-        let mut ts = BTS::new(alphabet);
-        let initial = ts.add_state(<StateColor<Self> as Default>::default());
-        Self(ts, initial)
+        Self::with_initial_color(alphabet, Q::default())
     }
 
     /// Creats a new instance for the given `alphabet` and ensures capacity for at least `size` states.
@@ -80,17 +108,6 @@ where
     }
 }
 
-impl<Ts: TransitionSystem> WithInitial<Ts> {
-    /// Returns a reference to the underlying [`TransitionSystem`].
-    pub fn ts(&self) -> &Ts {
-        &self.0
-    }
-
-    /// Returns a mutable reference to the underlying [`TransitionSystem`].
-    pub fn ts_mut(&mut self) -> &mut Ts {
-        &mut self.0
-    }
-}
 impl<Ts: TransitionSystem + Sproutable> Sproutable for WithInitial<Ts>
 where
     StateColor<Ts>: Default,
@@ -163,102 +180,192 @@ impl<Ts: TransitionSystem + HasMutableStates> HasMutableStates for WithInitial<T
         self.ts_mut().state_mut(index)
     }
 }
-impl<Ts: TransitionSystem + HasAlphabet> HasAlphabet for WithInitial<Ts> {
-    type Alphabet = Ts::Alphabet;
 
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.0.alphabet()
-    }
-}
+pub type NoColor = ();
 
-impl<Ts: TransitionSystem> Pointed for WithInitial<Ts> {
-    fn initial(&self) -> Self::StateIndex {
-        self.1
-    }
-}
-
-/// A Moore machine is simply a [`TransitionSystem`] with a designated initial state, which has colors on states.
-pub type MooreMachine<A, Q = usize, Idx = usize> = WithInitial<BTS<A, Q, (), Idx>>;
-/// A Mealy machine is a [`TransitionSystem`] with a designated initial state and colors on edges.
-pub type MealyMachine<A, C = usize, Idx = usize> = WithInitial<BTS<A, (), C, Idx>>;
-
-/// A [`MooreMachine`] which outputs booleans.
-pub type DFA<A = Simple, Idx = usize> = MooreMachine<A, bool, Idx>;
-/// A [`MealyMachine`] that ouputs booleans.
-pub type DBA<A = Simple, Idx = usize> = MealyMachine<A, bool, Idx>;
-/// A [`MealyMachine`] that ouputs non-negative integers.
-pub type DPA<A = Simple, Idx = usize> = MealyMachine<A, usize, Idx>;
-/// A variant of [`DBA`] which has colors on its states.
-pub type SBDBA<A = Simple, Idx = usize> = MooreMachine<A, bool, Idx>;
-/// A variant of [`DPA`] which has colors on states.
-pub type SBDPA<A = Simple, Idx = usize> = MooreMachine<A, usize, Idx>;
-
-/// Implementors of this trait can take in a word and transform it into some kind of output.
-pub trait Transformer<S, Len: Length> {
-    /// The object that results from the transformation.
-    type Output;
-    /// Transform the given word into an object of type [`Self::Output`].
-    fn transform<W: Word<Symbol = S, Length = Len>>(&self, input: W) -> Self::Output;
-}
-
-impl<Ts> Transformer<SymbolOf<Ts>, FiniteLength> for Ts
-where
-    Ts: TransitionSystem + Pointed,
-    Ts::StateColor: Clone + Default,
-{
-    type Output = Ts::StateColor;
-
-    fn transform<W: Word<Symbol = SymbolOf<Ts>, Length = FiniteLength>>(
-        &self,
-        input: W,
-    ) -> Self::Output {
-        if let Some(ReachedColor(c)) = self.induced(&input, self.initial()) {
-            c
-        } else {
-            Default::default()
+#[allow(missing_docs)]
+macro_rules! impl_automaton_type {
+    ($name:ident, onstates $color:ident) => {
+        impl_automaton_type!($name, $color, NoColor);
+    };
+    ($name:ident, onedges $color:ident) => {
+        impl_automaton_type!($name, NoColor, $color);
+    };
+    ($name:ident, $color:ident, $edgecolor:ident) => {
+        paste::paste! {
+            pub type [< Into $name >]<Ts> = $name<<Ts as HasAlphabet>::Alphabet, <Ts as TransitionSystem>::StateColor, <Ts as TransitionSystem>::EdgeColor, Ts>;
         }
-    }
-}
 
-impl<Ts> Transformer<SymbolOf<Ts>, InfiniteLength> for Ts
-where
-    Ts: TransitionSystem + Pointed,
-    Ts::EdgeColor: Clone,
-{
-    type Output = BTreeSet<Ts::EdgeColor>;
-
-    fn transform<W: Word<Symbol = SymbolOf<Ts>, Length = InfiniteLength>>(
-        &self,
-        input: W,
-    ) -> Self::Output {
-        if let Some(InfinityColors(c)) = self.induced(&input, self.initial()) {
-            c
-        } else {
-            unreachable!()
+        #[derive(Clone)]
+        pub struct $name<
+            A = Simple,
+            Q = $color,
+            C = $edgecolor,
+            Ts = WithInitial<BTS<A, Q, C, usize>>,
+        > {
+            ts: Ts,
+            _alphabet: PhantomData<(A, Q, C)>,
         }
-    }
-}
-
-/// Implementors of this trait are able to classify objects of type `X`.
-pub trait Classifies<X> {
-    /// Given an object of type `X`, classify it, i.e. return a boolean. This is e.g. implemented by automata,
-    /// which classify words and return `true` iff the given word is accepted.
-    fn classify(&self, x: X) -> bool;
-}
-
-impl<A: Alphabet, Idx: IndexType> Classifies<Normalized<A::Symbol, InfiniteLength>> for DBA<A, Idx>
-where
-    A::Symbol: Clone + Ord,
-{
-    fn classify(&self, x: Normalized<A::Symbol, InfiniteLength>) -> bool {
-        match self.omega_run(self.initial(), x.initial_segment(), x.repeating_segment()) {
-            Ok(path) => path.infinity_set(self).contains(&true),
-            Err(_) => false,
+        impl<A: Alphabet>
+            $name<A, $color, $edgecolor, WithInitial<BTS<A, $color, $edgecolor, usize>>>
+        {
+            pub fn new(alphabet: A) -> $name<A, $color, $edgecolor, WithInitial<BTS<A, $color, $edgecolor, usize>>> {
+                $name {
+                    ts: WithInitial::new(alphabet),
+                    _alphabet: PhantomData,
+                }
+            }
         }
-    }
+        impl<Ts: TransitionSystem> $name<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts> {
+            pub fn ts(&self) -> &Ts {
+                &self.ts
+            }
+            pub fn ts_mut(&mut self) -> &mut Ts {
+                &mut self.ts
+            }
+        }
+        impl<Ts: TransitionSystem<StateColor = $color>> From<Ts>
+            for $name<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
+        {
+            fn from(ts: Ts) -> Self {
+                Self {
+                    ts,
+                    _alphabet: PhantomData,
+                }
+            }
+        }
+        impl<Ts: PredecessorIterable> PredecessorIterable
+            for $name<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
+        {
+            type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
+            type EdgesToIter<'this> = Ts::EdgesToIter<'this> where Self: 'this;
+            fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
+                self.ts().predecessors(state)
+            }
+        }
+        impl<Ts: Pointed> std::fmt::Debug for $name<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                writeln!(
+                    f,
+                    "Initial state {} with states {}",
+                    self.ts().initial(),
+                    self.ts().state_indices().map(|i| format!("{i}")).join(", ")
+                )
+            }
+        }
+        impl<Ts: Sproutable> Sproutable
+            for $name<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
+        {
+            type ExtendStateIndexIter = Ts::ExtendStateIndexIter;
+            fn extend_states<I: IntoIterator<Item = StateColor<Self>>>(
+                &mut self,
+                iter: I,
+            ) -> Self::ExtendStateIndexIter {
+                self.ts_mut().extend_states(iter)
+            }
+            fn set_state_color<X: Into<StateColor<Self>>>(
+                &mut self,
+                index: Self::StateIndex,
+                color: X,
+            ) {
+                self.ts_mut().set_state_color(index, color)
+            }
+            fn add_edge<X, Y>(
+                &mut self,
+                from: X,
+                on: <Self::Alphabet as Alphabet>::Expression,
+                to: Y,
+                color: EdgeColor<Self>,
+            ) -> Option<(Self::StateIndex, Self::EdgeColor)>
+            where
+                X: Into<Self::StateIndex>,
+                Y: Into<Self::StateIndex>,
+            {
+                self.ts_mut().add_edge(from, on, to, color)
+            }
+            fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
+                Self {
+                    ts: Ts::new_for_alphabet(alphabet),
+                    _alphabet: PhantomData,
+                }
+            }
+            fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
+                self.ts_mut().add_state(color)
+            }
+            fn remove_edge(
+                &mut self,
+                from: Self::StateIndex,
+                on: <Self::Alphabet as Alphabet>::Expression,
+            ) -> bool {
+                self.ts_mut().remove_edge(from, on)
+            }
+        }
+        impl<Ts: TransitionSystem> HasAlphabet for $name<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts> {
+            type Alphabet = Ts::Alphabet;
+            fn alphabet(&self) -> &Self::Alphabet {
+                self.ts.alphabet()
+            }
+        }
+        impl<Ts: TransitionSystem> TransitionSystem
+            for $name<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
+        {
+            type StateIndex = Ts::StateIndex;
+            type EdgeColor = Ts::EdgeColor;
+            type StateColor = Ts::StateColor;
+            type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
+            type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
+            type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
+            fn state_indices(&self) -> Self::StateIndices<'_> {
+                self.ts().state_indices()
+            }
+
+            fn transition<Idx: $crate::prelude::Indexes<Self>>(
+                &self,
+                state: Idx,
+                symbol: SymbolOf<Self>,
+            ) -> Option<Self::TransitionRef<'_>> {
+                self.ts().transition(state.to_index(self)?, symbol)
+            }
+
+            fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
+                self.ts().state_color(state)
+            }
+
+            fn edge_color(
+                &self,
+                state: Self::StateIndex,
+                expression: &ExpressionOf<Self>,
+            ) -> Option<EdgeColor<Self>> {
+                self.ts().edge_color(state, expression)
+            }
+
+            fn edges_from<Idx: $crate::prelude::Indexes<Self>>(
+                &self,
+                state: Idx,
+            ) -> Option<Self::EdgesFromIter<'_>> {
+                self.ts().edges_from(state.to_index(self)?)
+            }
+
+            fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
+                self.ts().maybe_initial_state()
+            }
+        }
+        impl<Ts: Pointed> Pointed for $name<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts> {
+            fn initial(&self) -> Self::StateIndex {
+                self.ts().initial()
+            }
+        }
+    };
 }
+
+#[allow(missing_docs)]
+// impl_automaton_type!(DFA, onstates bool);
+// impl_automaton_type!(MooreMachine, onstates usize);
+impl_automaton_type!(StateBasedDBA, onstates bool);
+impl_automaton_type!(StateBasedDPA, onstates usize);
 
 /// Implementors of this trait are acceptors of sequences of symbols `S` with length `K`
+#[autoimpl( for<T: trait> &T, &mut T)]
 pub trait Acceptor<S, K> {
     /// Returns true if and only if `self` accepts the given `word`.
     fn accepts<W>(&self, word: W) -> bool
@@ -272,15 +379,6 @@ pub trait Acceptor<S, K> {
         I: IntoIterator<Item = (W, bool)>,
     {
         iter.into_iter().all(|(w, b)| self.accepts(w) == b)
-    }
-}
-
-impl<S: Symbol, T: Transformer<S, FiniteLength, Output = bool>> Acceptor<S, FiniteLength> for T {
-    fn accepts<W>(&self, word: W) -> bool
-    where
-        W: Word<Length = FiniteLength, Symbol = S>,
-    {
-        self.transform(word)
     }
 }
 
@@ -314,21 +412,6 @@ impl ReducesTo<bool> for BTreeSet<bool> {
 impl ReducesTo<bool> for BTreeSet<usize> {
     fn reduce(self) -> bool {
         self.into_iter().min().unwrap() % 2 == 0
-    }
-}
-
-impl<S, T> Acceptor<S, InfiniteLength> for T
-where
-    S: Symbol,
-    T: Transformer<S, InfiniteLength>,
-    T::Output: ReducesTo<bool>,
-{
-    fn accepts<W>(&self, word: W) -> bool
-    where
-        W: Word<Length = InfiniteLength, Symbol = S>,
-    {
-        let transformed = self.transform(word);
-        transformed.reduce()
     }
 }
 
@@ -376,6 +459,14 @@ pub trait DFALike: TransitionSystem<StateColor = bool> + Pointed
 // + Acceptor<SymbolOf<Self>, FiniteLength>
 // + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>
 {
+    fn into_dfa(self) -> DFA<Self::Alphabet, Self::EdgeColor, Self> {
+        DFA::from(self)
+    }
+
+    fn as_dfa(&self) -> DFA<Self::Alphabet, Self::EdgeColor, &Self> {
+        DFA::from(self)
+    }
+
     /// Returns the indices of all states that are accepting.
     fn accepting_states(&self) -> StatesWithColor<'_, Self> {
         StatesWithColor::new(self, true)
@@ -453,13 +544,15 @@ impl<Ts> DFALike for Ts where
 
 /// Similar to [`IsDfa`], this trait is supposed to be (automatically) implemented by everything that can be viewed
 /// as a [`crate::DBA`].
-pub trait DBALike:
-    TransitionSystem<EdgeColor = bool>
-    + Pointed
-    + Sized
-    + Acceptor<SymbolOf<Self>, InfiniteLength>
-    + Transformer<SymbolOf<Self>, InfiniteLength, Output = BTreeSet<bool>>
-{
+pub trait DBALike: TransitionSystem<EdgeColor = bool> + Pointed {
+    fn as_dba(&self) -> IntoDBA<&Self> {
+        DBA::from(self)
+    }
+
+    fn into_dba(self) -> IntoDBA<Self> {
+        DBA::from(self)
+    }
+
     /// Tries to identify a word which is accepted by `self`. If such a word exists, it returns it and otherwise
     /// the function gives back `None`.
     fn dba_give_word(&self) -> Option<OmegaWord<SymbolOf<Self>, InfiniteLength>> {
@@ -489,37 +582,24 @@ pub trait DBALike:
     }
 }
 
-impl<Ts> DBALike for Ts where
-    Ts: TransitionSystem<EdgeColor = bool>
-        + Pointed
-        + Sized
-        + Acceptor<SymbolOf<Self>, InfiniteLength>
-        + Transformer<SymbolOf<Self>, InfiniteLength, Output = BTreeSet<bool>>
-{
-}
+impl<Ts> DBALike for Ts where Ts: TransitionSystem<EdgeColor = bool> + Pointed {}
 
 /// Trait that should be implemented by every object that can be viewed as a [`crate::DPA`].
-pub trait DPALike:
-    TransitionSystem<EdgeColor = usize>
-    + Pointed
-    + Sized
-    + Acceptor<SymbolOf<Self>, InfiniteLength>
-    + Transformer<SymbolOf<Self>, InfiniteLength, Output = BTreeSet<usize>>
-{
+pub trait DPALike: TransitionSystem<EdgeColor = usize> + Pointed {
+    fn into_dpa(self) -> IntoDPA<Self> {
+        DPA::from(self)
+    }
+
+    fn as_dpa(&self) -> IntoDPA<&Self> {
+        DPA::from(self)
+    }
 }
 
-impl<Ts> DPALike for Ts where
-    Ts: TransitionSystem<EdgeColor = usize>
-        + Pointed
-        + Sized
-        + Acceptor<SymbolOf<Self>, InfiniteLength>
-        + Transformer<SymbolOf<Self>, InfiniteLength, Output = BTreeSet<usize>>
-{
-}
+impl<Ts> DPALike for Ts where Ts: TransitionSystem<EdgeColor = usize> + Pointed {}
 
 /// Implemented by objects which can be viewed as a MealyMachine, i.e. a finite transition system
 /// which has outputs of type usize on its edges.
-pub trait IsMealy: TransitionSystem<EdgeColor = usize> + Pointed + Sized {
+pub trait MealyLike<C: Color>: TransitionSystem<EdgeColor = C> + Pointed + Sized {
     fn color_range(&self) -> Vec<Self::EdgeColor> {
         self.reachable_state_indices()
             .flat_map(|o| self.edges_from(o).unwrap().map(|e| IsTransition::color(&e)))
@@ -527,11 +607,18 @@ pub trait IsMealy: TransitionSystem<EdgeColor = usize> + Pointed + Sized {
             .collect()
     }
 }
-impl<Ts: TransitionSystem<EdgeColor = usize> + Pointed + Sized> IsMealy for Ts {}
+impl<Ts: TransitionSystem<EdgeColor = usize> + Pointed + Sized> MealyLike<usize> for Ts {}
 
 /// Implemented by objects that can be viewed as MooreMachines, i.e. finite transition systems
 /// that have usize annotated/outputting states.
-pub trait IsMoore: TransitionSystem<StateColor = usize> + Pointed + Sized {
+pub trait MooreLike<Q: Color>: TransitionSystem<StateColor = Q> + Pointed {
+    fn transform<W: Word<Symbol = SymbolOf<Self>, Length = FiniteLength>>(&self, input: W) -> Q {
+        match self.finite_run(self.initial(), &input.finite_to_vec()) {
+            Ok(p) => p.reached_state_color(self),
+            Err(_) => unreachable!("We consider transformers to be complete"),
+        }
+    }
+
     /// Obtains a vec containing the possible colors emitted by `self` (without duplicates).
     fn color_range(&self) -> Vec<Self::StateColor> {
         self.reachable_state_indices()
@@ -549,12 +636,12 @@ pub trait IsMoore: TransitionSystem<StateColor = usize> + Pointed + Sized {
         self.color_range()
             .into_iter()
             .rev()
-            .map(|i| (&self).color_or_below_dfa(i))
+            .map(|i| self.color_or_below_dfa(i))
             .collect()
     }
 
     /// Builds a DFA that accepts all words which emit a color less than or equal to `color`.
-    fn color_or_below_dfa(&self, color: usize) -> DFA<Self::Alphabet> {
+    fn color_or_below_dfa(&self, color: Q) -> DFA<Self::Alphabet> {
         self.map_state_colors(|o| o <= color)
             .erase_edge_colors()
             .minimize()
@@ -563,18 +650,17 @@ pub trait IsMoore: TransitionSystem<StateColor = usize> + Pointed + Sized {
             .collect_with_initial()
     }
 }
-impl<Ts: TransitionSystem<StateColor = usize> + Pointed + Sized> IsMoore for Ts {}
+impl<Ts: TransitionSystem + Pointed> MooreLike<Ts::StateColor> for Ts {}
 
 #[cfg(test)]
 mod tests {
-    use super::{DFALike, IsMoore, WithInitial};
-    use crate::{prelude::*, ts::BTS};
+    use super::{Acceptor, DFALike, MooreLike, WithInitial};
+    use crate::{automata::NoColor, prelude::*, ts::BTS};
 
     #[test]
     fn mealy_color_or_below() {
-        let mut mm: WithInitial<BTS<_, usize, _>> = MooreMachine::new(alphabet!(simple 'a', 'b'));
+        let mut mm = MooreMachine::new(alphabet!(simple 'a', 'b'), 2);
         let a = mm.initial();
-        mm.set_initial_color(2usize);
         let b = mm.add_state(1usize);
         let c = mm.add_state(1usize);
         let d = mm.add_state(0usize);
@@ -599,7 +685,7 @@ mod tests {
 
     #[test]
     fn dbas() {
-        let mut dba = super::DBA::new(Simple::from_iter(['a', 'b']));
+        let mut dba = super::DBA::new(Simple::from_iter(['a', 'b']), ());
         let q1 = dba.add_state(());
         let q0 = dba.initial();
 
@@ -622,7 +708,7 @@ mod tests {
     fn dfas_and_boolean_operations() {
         let mut dfa = super::DFA::new(Simple::new(['a', 'b']));
         let s0 = dfa.initial();
-        dfa.state_mut(s0).unwrap().set_color(true);
+        dfa.set_initial_color(true);
         let s1 = dfa.add_state(false);
         let _e0 = dfa.add_edge(s0, 'a', s1, ());
         let _e1 = dfa.add_edge(s0, 'b', s0, ());
@@ -637,15 +723,15 @@ mod tests {
         assert!(dfa.accepts("ababab"));
         assert!(!dfa.accepts("a"));
 
-        let notdfa = (&dfa).negation();
+        let notdfa = (&dfa).negation().into_dfa();
         assert!(!notdfa.accepts("ababab"));
         assert!(notdfa.accepts("a"));
 
-        let intersection = (&dfa).intersection(&notdfa);
+        let intersection = (&dfa).intersection(&notdfa).into_dfa();
         assert!(!intersection.accepts("ababab"));
         assert!(!intersection.accepts("a"));
 
-        let union = (&dfa).union(&notdfa);
+        let union = (&dfa).union(&notdfa).into_dfa();
         assert!(union.accepts("ababab"));
         assert!(union.accepts("a"));
     }

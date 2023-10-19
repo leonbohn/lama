@@ -1,5 +1,5 @@
 use automata::{
-    automata::{IsMealy, IsMoore},
+    automata::{MealyLike, MooreLike},
     prelude::{Expression, HasAlphabet, IsTransition, DFA},
     ts::{reachable::ReachableStateIndices, Sproutable},
     Alphabet, Map, Pointed, RightCongruence, TransitionSystem,

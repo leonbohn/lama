@@ -8,15 +8,15 @@ use super::oracle::Oracle;
 
 const ITERATION_THRESHOLD: usize = 2000;
 
-pub type LStarExample<A, C> = (Vec<<A as Alphabet>::Symbol>, C);
+pub type LStarExample<A, Q> = (Vec<<A as Alphabet>::Symbol>, Q);
 
 #[derive(Clone)]
-pub enum LStarQuery<A: Alphabet, C: Color> {
-    Membership(LStarExample<A, C>),
-    Equivalence(MooreMachine<A, C>, Option<LStarExample<A, C>>),
+pub enum LStarQuery<A: Alphabet, Q: Color> {
+    Membership(LStarExample<A, Q>),
+    Equivalence(MooreMachine<A, Q>, Option<LStarExample<A, Q>>),
 }
 
-impl<A: Alphabet, C: Color + std::fmt::Debug> std::fmt::Debug for LStarQuery<A, C> {
+impl<A: Alphabet, Q: Color + Debug> std::fmt::Debug for LStarQuery<A, Q> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Membership((w, c)) => write!(f, "Membership({:?}) = {:?}", w, c),
@@ -28,7 +28,7 @@ impl<A: Alphabet, C: Color + std::fmt::Debug> std::fmt::Debug for LStarQuery<A, 
     }
 }
 
-impl<A: Alphabet, C: Color> LStarQuery<A, C> {
+impl<A: Alphabet, Q: Color> LStarQuery<A, Q> {
     pub fn is_equivalence(&self) -> bool {
         matches!(self, LStarQuery::Equivalence(_, _))
     }
@@ -37,7 +37,7 @@ impl<A: Alphabet, C: Color> LStarQuery<A, C> {
         matches!(self, LStarQuery::Equivalence(_, None))
     }
 
-    pub fn example(&self) -> Option<LStarExample<A, C>> {
+    pub fn example(&self) -> Option<LStarExample<A, Q>> {
         match self {
             LStarQuery::Membership(ex) => Some(ex.clone()),
             LStarQuery::Equivalence(_, Some(ex)) => Some(ex.clone()),
@@ -46,21 +46,21 @@ impl<A: Alphabet, C: Color> LStarQuery<A, C> {
     }
 }
 
-pub trait LStarLogger<A: Alphabet, C: Color> {
-    fn log(&mut self, query: LStarQuery<A, C>);
+pub trait LStarLogger<A: Alphabet, Q: Color> {
+    fn log(&mut self, query: LStarQuery<A, Q>);
     fn create() -> Self;
 }
 
-impl<A: Alphabet, C: Color> LStarLogger<A, C> for () {
-    fn log(&mut self, query: LStarQuery<A, C>) {}
+impl<A: Alphabet, Q: Color> LStarLogger<A, Q> for () {
+    fn log(&mut self, query: LStarQuery<A, Q>) {}
 
     fn create() -> Self {}
 }
 
 #[derive(Debug, Clone)]
-pub struct LStarLogbook<A: Alphabet, C: Color>(Vec<LStarQuery<A, C>>);
+pub struct LStarLogbook<A: Alphabet, Q: Color>(Vec<LStarQuery<A, Q>>);
 
-impl<A: Alphabet, C: Color> LStarLogbook<A, C> {
+impl<A: Alphabet, Q: Color> LStarLogbook<A, Q> {
     pub fn is_sane(&self) -> bool {
         match self
             .0
@@ -84,14 +84,14 @@ impl<A: Alphabet, C: Color> LStarLogbook<A, C> {
         }
     }
 
-    pub fn examples(&self) -> impl Iterator<Item = LStarExample<A, C>> + '_ {
+    pub fn examples(&self) -> impl Iterator<Item = LStarExample<A, Q>> + '_ {
         assert!(self.is_sane());
         self.0.iter().filter_map(|e| e.example()).unique()
     }
 }
 
-impl<A: Alphabet, C: Color> LStarLogger<A, C> for LStarLogbook<A, C> {
-    fn log(&mut self, query: LStarQuery<A, C>) {
+impl<A: Alphabet, Q: Color> LStarLogger<A, Q> for LStarLogbook<A, Q> {
+    fn log(&mut self, query: LStarQuery<A, Q>) {
         assert!(self.is_sane());
         self.0.push(query);
     }
@@ -131,45 +131,45 @@ impl<S: Symbol, C: Color> LStarRow<S, C> {
 #[derive(Debug, Clone)]
 pub struct LStar<
     A: Alphabet,
-    C: Color,
-    T: Oracle<Alphabet = A, Output = C>,
-    L: LStarLogger<A, C> = LStarLogbook<A, C>,
+    Q: Color,
+    T: Oracle<Alphabet = A, Output = Q>,
+    L: LStarLogger<A, Q> = LStarLogbook<A, Q>,
 > {
     teacher: T,
     alphabet: A,
     experiments: Vec<Vec<A::Symbol>>,
-    rows: Vec<LStarRow<A::Symbol, C>>,
+    rows: Vec<LStarRow<A::Symbol, Q>>,
     logger: L,
 }
 
 impl<
         A: Alphabet,
-        C: Color + Default + Debug,
-        T: Oracle<Length = FiniteLength, Alphabet = A, Output = C>,
-    > LStar<A, C, T, ()>
+        Q: Color + Default + std::fmt::Debug,
+        T: Oracle<Length = FiniteLength, Alphabet = A, Output = Q>,
+    > LStar<A, Q, T, ()>
 {
-    pub fn unlogged(teacher: T, alphabet: A) -> LStar<A, C, T, ()> {
+    pub fn unlogged(teacher: T, alphabet: A) -> LStar<A, Q, T, ()> {
         LStar::new(teacher, alphabet)
     }
 }
 
 impl<
         A: Alphabet,
-        C: Color + Default + Debug,
-        T: Oracle<Length = FiniteLength, Alphabet = A, Output = C>,
-    > LStar<A, C, T, LStarLogbook<A, C>>
+        Q: Color + Default + std::fmt::Debug,
+        T: Oracle<Length = FiniteLength, Alphabet = A, Output = Q>,
+    > LStar<A, Q, T, LStarLogbook<A, Q>>
 {
-    pub fn logged(teacher: T, alphabet: A) -> LStar<A, C, T, LStarLogbook<A, C>> {
+    pub fn logged(teacher: T, alphabet: A) -> LStar<A, Q, T, LStarLogbook<A, Q>> {
         LStar::new(teacher, alphabet)
     }
 }
 
 impl<
         A: Alphabet,
-        C: Color + Default + Debug,
-        T: Oracle<Length = FiniteLength, Alphabet = A, Output = C>,
-        L: LStarLogger<A, C>,
-    > LStar<A, C, T, L>
+        Q: Color + Default + std::fmt::Debug,
+        T: Oracle<Length = FiniteLength, Alphabet = A, Output = Q>,
+        L: LStarLogger<A, Q>,
+    > LStar<A, Q, T, L>
 {
     pub fn new(teacher: T, alphabet: A) -> Self {
         let experiments = std::iter::once(vec![])
@@ -205,7 +205,7 @@ impl<
         &self.logger
     }
 
-    pub fn infer(&mut self) -> MooreMachine<A, C> {
+    pub fn infer(&mut self) -> MooreMachine<A, Q> {
         let mut iteration = 0;
         loop {
             if iteration > ITERATION_THRESHOLD {
@@ -217,11 +217,11 @@ impl<
             match self.teacher.equivalence(&hypothesis) {
                 Ok(_) => return hypothesis,
                 Err(conflict) => {
-                    trace!(
-                        "Obtained counterexample \"{}\" with classification {:?}",
-                        conflict.0.iter().map(|sym| format!("{:?}", sym)).join(""),
-                        conflict.1
-                    );
+                    // trace!(
+                    //     "Obtained counterexample \"{}\" with classification {:?}",
+                    //     conflict.0.iter().map(|sym| format!("{:?}", sym)).join(""),
+                    //     conflict.1
+                    // );
                     self.process_counterexample(hypothesis, conflict)
                 }
             }
@@ -230,8 +230,8 @@ impl<
 
     pub fn process_counterexample(
         &mut self,
-        hypothesis: MooreMachine<A, C>,
-        (counterexample, expected_color): (Vec<A::Symbol>, C),
+        hypothesis: MooreMachine<A, Q>,
+        (counterexample, expected_color): LStarExample<A, Q>,
     ) {
         debug_assert!(
             hypothesis.transform(&counterexample) != expected_color,
@@ -272,7 +272,10 @@ impl<
         unreachable!("A breakpoint has to exist!");
     }
 
-    pub fn hypothesis(&mut self) -> MooreMachine<A, C> {
+    pub fn hypothesis(&mut self) -> MooreMachine<A, Q>
+    where
+        Q: Default,
+    {
         trace!(
             "Computing hypothesis with experiments {{{}}}",
             self.experiments
@@ -281,11 +284,9 @@ impl<
                 .join(", ")
         );
         'outer: loop {
-            let mut out = MooreMachine::new(self.alphabet.clone());
+            let mut out: MooreMachine<A, Q> =
+                MooreMachine::new(self.alphabet.clone(), self.rows[0].outputs[0].clone());
 
-            out.state_mut(out.initial())
-                .unwrap()
-                .set_color(self.rows[0].outputs[0].clone());
             let state_mapping: Vec<_> = std::iter::once((vec![], out.initial()))
                 .chain(self.rows.iter().skip(1).enumerate().filter_map(|(i, row)| {
                     if row.minimal {
@@ -415,7 +416,7 @@ mod tests {
     }
 
     impl Oracle for ModkAmodlB {
-        type Output = bool;
+        type Output = usize;
 
         fn output<
             W: automata::Word<Symbol = automata::alphabet::SymbolOf<Self>, Length = Self::Length>,
@@ -432,7 +433,11 @@ mod tests {
                         _ => unreachable!(),
                     });
 
-            count_a % 2 == 0 && count_b % 2 == 0
+            if count_a % 2 == 0 && count_b % 2 == 0 {
+                1
+            } else {
+                0
+            }
         }
 
         fn equivalence<H>(
@@ -441,8 +446,7 @@ mod tests {
         ) -> Result<(), (Vec<automata::alphabet::SymbolOf<Self>>, Self::Output)>
         where
             H: automata::ts::Pointed
-                + automata::ts::TransitionSystem<Alphabet = Self::Alphabet, StateColor = Self::Output>
-                + Transformer<automata::alphabet::SymbolOf<Self>, FiniteLength, Output = Self::Output>,
+                + automata::ts::TransitionSystem<Alphabet = Self::Alphabet, StateColor = Self::Output>,
         {
             for word in ["aa", "bb", "bab", "aba", "abba", "bbab", "", "b", "a"] {
                 let output = self.output(&word);
@@ -508,7 +512,7 @@ mod tests {
             let mut lstar = super::LStar::unlogged(oracle, alphabet.clone());
             let mm = lstar.infer();
             let time_taken = time_start.elapsed().as_micros();
-            assert_eq!(mm.hs_size(), k);
+            assert_eq!(mm.size(), k);
             println!("Took {:>6}μs for k={}", time_taken, k);
         }
     }
@@ -522,9 +526,9 @@ mod tests {
 
         let mm = lstar.infer();
 
-        assert!(mm.transform("abba"));
-        assert!(!mm.transform("ab"));
-        assert!(mm.transform(""))
+        assert_eq!(mm.transform("abba"), 1);
+        assert_eq!(mm.transform("ab"), 0);
+        assert_eq!(mm.transform(""), 1)
     }
 
     fn test_dfa() -> DFA {

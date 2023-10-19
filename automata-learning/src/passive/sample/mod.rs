@@ -221,7 +221,7 @@ mod tests {
             );
         }
 
-        let dfa = cong.map_state_colors(|_| true);
+        let dfa = cong.map_state_colors(|_| true).into_dfa();
         for prf in ["aba", "ababbbbbb", "", "aa", "b", "bbabbab"] {
             assert!(dfa.accepts(&prf));
         }

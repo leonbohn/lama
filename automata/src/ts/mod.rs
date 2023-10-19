@@ -1,4 +1,5 @@
 /// Contains the most central trait for this module, the trait [`TransitionSystem`].
+#[macro_use]
 pub mod transition_system;
 use std::{fmt::Display, hash::Hash, ops::Deref};
 

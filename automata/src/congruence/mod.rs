@@ -4,6 +4,7 @@ use itertools::Itertools;
 
 use crate::{
     alphabet::{HasAlphabet, Simple, Symbol},
+    prelude::DFALike,
     ts::{transition_system::Indexes, Sproutable, BTS},
     Alphabet, Color, FiniteLength, HasLength, Map, Pointed, TransitionSystem, Word, DFA,
 };
@@ -93,6 +94,7 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
             .erase_edge_colors()
             .collect_ts()
             .with_initial(self.class_to_index(class).unwrap())
+            .into_dfa()
     }
 }
 
