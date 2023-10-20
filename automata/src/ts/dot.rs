@@ -42,6 +42,7 @@ impl Display for DotStateAttribute {
 /// Stores all necessary information for introducing and referencing a node in the DOT format.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DotStateData {
+    prefix: Option<String>,
     name: String,
     attributes: Vec<DotStateAttribute>,
 }
@@ -61,7 +62,10 @@ impl DotStateData {
     }
 
     fn dot_name(&self) -> String {
-        format!("\"{}\"", self.name)
+        match &self.prefix {
+            Some(prefix) => format!("\"{prefix}|{}\"", self.name),
+            None => format!("\"{}\"", self.name)
+        }
     }
 
     /// Returns a pointer to the raw name of the node.
@@ -72,13 +76,19 @@ impl DotStateData {
 
 impl<Idx: Display> From<(&str, Idx)> for DotStateData {
     fn from((prefix, value): (&str, Idx)) -> Self {
-        let name = match prefix.len() {
-            0 => value.to_string(),
-            _prefix_len => format!("{prefix}|{}", value),
-        };
-        Self {
-            name,
-            attributes: vec![],
+        match prefix.len() {
+            0 => { Self {
+                name: value.to_string(),
+                prefix: None,
+                attributes: vec![],
+            } },
+            _prefix_len => {
+                Self {
+                    name: value.to_string(),
+                    prefix: Some(prefix.to_string()),
+                    attributes: vec![]
+                }
+            }
         }
     }
 }

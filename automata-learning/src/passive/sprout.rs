@@ -124,8 +124,8 @@ where
         );
         let right = format!(
             "subgraph cluster_right {{\nlabel=\"B\"\n{}\n{}\n}}",
-            self.dfas[0].header(),
-            self.dfas[0].body("B"),
+            self.dfas[1].header(),
+            self.dfas[1].body("B"),
         );
         #[allow(clippy::unwrap_or_default)]
         let conflicts = self
@@ -441,6 +441,34 @@ pub(crate) mod tests {
 
     use crate::passive::{OmegaSample, Sample};
 
+    pub fn inf_aba_sample() -> (Simple, OmegaSample<Simple, bool>) {
+        let Ok(sample) = OmegaSample::try_from(
+            r#"omega
+            alphabet: a,b
+            positive:
+            abab
+            aba
+            ababb
+            abaa
+            abaab
+            negative:
+            bab
+            abba
+            bbab
+            aaabb
+            a
+            abb
+            aabb
+            babb
+            b
+            abbba
+            abbb"#,
+        ) else {
+            panic!("Cannot parse sample")
+        };
+        (sample.alphabet.clone(), sample)
+    }
+
     pub fn testing_larger_forc_sample() -> (Simple, OmegaSample<Simple, bool>) {
         let Ok(sample) = OmegaSample::try_from(
             r#"omega
@@ -520,6 +548,13 @@ pub(crate) mod tests {
                 ],
             ),
         )
+    }
+
+    #[test]
+    fn conflicts_inf_aba() {
+        let (alphabet, sample) = inf_aba_sample();
+        let conflicts = super::prefix_consistency_conflicts(sample);
+        conflicts.display_rendered();
     }
 
     #[test]
