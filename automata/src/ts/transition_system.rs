@@ -95,6 +95,9 @@ impl<'a, Idx: IndexType, E, C: Color> IsTransition<E, Idx, C> for (&'a E, &'a (I
     }
 }
 
+pub type StateColorOf<Ts> = <Ts as TransitionSystem>::StateColor;
+pub type EdgeColorOf<Ts> = <Ts as TransitionSystem>::EdgeColor;
+
 /// Encapsulates the transition function δ of a (finite) transition system. This is the main trait that
 /// is used to query a transition system. Transitions are labeled with a [`Alphabet::Expression`], which
 /// determines on which [`Alphabet::Symbol`]s the transition can be taken. Additionally, every transition

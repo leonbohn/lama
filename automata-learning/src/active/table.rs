@@ -1,270 +1,724 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    default,
-    fmt::Display,
-};
+use std::{collections::BTreeSet, fmt::Debug};
 
-use automata::{
-    alphabet::{Alphabet, HasUniverse, Symbol},
-    ts::{HasColorMut, HasMutableStates},
-    word::RawWithLength,
-    Color, FiniteLength, MealyMachine, MooreMachine,
-};
+use automata::prelude::*;
 use itertools::Itertools;
-use owo_colors::OwoColorize;
-use tabled::{builder::Builder, settings::Style};
-use tracing::{debug, trace};
+use tracing::trace;
 
-use super::oracle::Oracle;
+use crate::active::logging::LStarQuery;
 
-/// Represents a row of an observation table. It stores a mapping that associates classes (which
-/// are in essence words over `Input`) to outputs of type `Output`.
-/// It should be ensured that each row maps every experiment to an output.
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
-pub(super) struct Row<C: Color>(Vec<C>);
+use super::{logging::LStarLogger, oracle::Oracle};
 
-impl<C: Color> Row<C> {
-    pub fn create<
-        T: Oracle<Length = FiniteLength, Output = C>,
-        W: IntoIterator<Item = Vec<<T::Alphabet as Alphabet>::Symbol>>,
+pub type LStarExample<A, Q> = (Vec<<A as Alphabet>::Symbol>, Q);
+pub type LStarExampleFor<Cong> = (Vec<SymbolOf<Cong>>, StateColorOf<Cong>);
+
+pub type RowIndex = usize;
+
+pub enum LStarHypothesisResult<const ForMealy: bool, T: LStarTarget<ForMealy>> {
+    Success(T::Hypothesis),
+    MissingRow(LStarRow<<T::Alphabet as Alphabet>::Symbol, T::Output, ForMealy>),
+    PromoteRow(RowIndex),
+}
+
+impl<const ForMealy: bool, T: LStarTarget<ForMealy>> LStarHypothesisResult<ForMealy, T> {
+    pub fn to_hypothesis(&self) -> Option<T::Hypothesis> {
+        match self {
+            LStarHypothesisResult::Success(hypothesis) => Some(hypothesis.clone()),
+            _ => None,
+        }
+    }
+}
+
+pub trait LStarTarget<const ForMealy: bool>: Sized {
+    type Alphabet: Alphabet;
+    type Output: Color + Debug;
+    type Hypothesis: Congruence<Alphabet = Self::Alphabet>
+        + Morphism<<Self::Alphabet as Alphabet>::Symbol, Self::Output>
+        + Clone;
+    fn hypothesis(&self) -> LStarHypothesisResult<ForMealy, Self>;
+    fn accept_counterexample<
+        O: Oracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>,
     >(
-        oracle: &T,
-        elements: W,
-    ) -> Self {
-        Self(elements.into_iter().map(|wrd| oracle.output(wrd)).collect())
+        &mut self,
+        hypothesis: &Self::Hypothesis,
+        counterexample: LStarExample<Self::Alphabet, Self::Output>,
+        oracle: &O,
+    ) -> Vec<LStarQuery<ForMealy, Self>>;
+    fn new_table(
+        alphabet: Self::Alphabet,
+        experiments: Vec<Vec<<Self::Alphabet as Alphabet>::Symbol>>,
+    ) -> Self;
+    fn fill_rows<O: Oracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>>(
+        &mut self,
+        oracle: &O,
+    ) -> Vec<LStarQuery<ForMealy, Self>>;
+    fn promote_row(&mut self, row_index: usize);
+    fn add_row(
+        &mut self,
+        row: LStarRow<<Self::Alphabet as Alphabet>::Symbol, Self::Output, ForMealy>,
+    );
+    fn find_equivalent_row_index(&self, outputs: &[Self::Output]) -> Option<usize>;
+    fn recompute_base(&mut self) -> usize;
+}
+
+pub struct LStarTable<A: Alphabet, C: Color, const ForMealy: bool> {
+    pub(crate) rows: LStarRows<A, C, ForMealy>,
+    pub(crate) experiments: LStarExperiments<A>,
+    pub(crate) alphabet: A,
+}
+
+impl<A: Alphabet, C: Color + Debug + Default> LStarTarget<false> for LStarTable<A, C, false> {
+    type Alphabet = A;
+
+    type Output = C;
+
+    type Hypothesis = MooreMachine<A, C>;
+
+    fn add_row(
+        &mut self,
+        row: LStarRow<<Self::Alphabet as Alphabet>::Symbol, Self::Output, false>,
+    ) {
+        self.rows.push(row)
     }
-}
 
-impl<C: Color> From<Vec<C>> for Row<C> {
-    fn from(value: Vec<C>) -> Self {
-        Self(value)
-    }
-}
-
-impl<C: Color> std::ops::Deref for Row<C> {
-    type Target = Vec<C>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-/// An observation table is used to store the obtained information during a run of
-/// an active learning (in our case L*-esque) algorithm.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct Table<A: Alphabet, C: Color> {
-    alphabet: A,
-    experiments: Vec<Vec<A::Symbol>>,
-    base: BTreeSet<Vec<A::Symbol>>,
-    rows: BTreeMap<Vec<A::Symbol>, Row<C>>,
-}
-
-impl<A, C> Table<A, C>
-where
-    A: HasUniverse,
-    C: Color + Default,
-{
-    pub fn new(alphabet: A) -> Self {
-        let base_cases = std::iter::once(vec![])
-            .chain(alphabet.universe().map(|sym| vec![*sym]))
-            .collect_vec();
-        Self {
-            experiments: base_cases.clone(),
-            rows: base_cases
+    fn recompute_base(&mut self) -> usize {
+        trace!(
+            "Recomputing base, currently have {} rows {}",
+            self.rows.len(),
+            self.rows
                 .iter()
-                .map(|class| (class.clone(), Row::default()))
-                .collect(),
-            base: base_cases.into_iter().collect(),
+                .map(|row| format!(
+                    "\"{}\"{}",
+                    row.base.iter().map(|sym| format!("{:?}", sym)).join(""),
+                    if row.minimal { "*" } else { "" }
+                ))
+                .join(", ")
+        );
+        debug_assert!(self.rows[0].minimal);
+        let mut base_size = 1;
+        for i in 1..self.rows.len() {
+            if self.rows[i].minimal {
+                base_size += 1;
+                continue;
+            } else {
+                if let Some(equivalent_row_idx) =
+                    self.find_equivalent_row_index(&self.rows[i].outputs)
+                {
+                    assert!(equivalent_row_idx <= i);
+                    if equivalent_row_idx == i {
+                        // this is actually a minimal row
+                        self.rows[i].minimal = true;
+                        base_size += 1;
+                    } else {
+                        self.rows[i].minimal = false;
+                    }
+                } else {
+                    base_size += 1;
+                    self.rows[i].minimal = true
+                }
+            }
+        }
+        base_size
+    }
+
+    fn promote_row(&mut self, row_index: usize) {
+        assert!(self.rows.len() > row_index);
+        self.rows[row_index].minimal = true;
+        for sym in self.alphabet.universe() {
+            let mut extension: Vec<_> = self.rows[row_index].base.clone();
+            extension.push(*sym);
+            if self.rows.iter().find(|row| row.base == extension).is_none() {
+                self.rows.push(LStarRow::without_outputs(extension, false));
+            }
+        }
+    }
+
+    fn hypothesis(&self) -> LStarHypothesisResult<false, Self> {
+        trace!(
+            "Computing Moore hypothesis with experiments {{{}}}",
+            self.experiments
+                .iter()
+                .map(|experiment| experiment.iter().map(|sym| format!("{:?}", sym)).join(""))
+                .join(", ")
+        );
+
+        assert!(!self.rows.is_empty(), "Cannot have no states!");
+        assert!(
+            !self.rows[0].outputs.is_empty(),
+            "Cannot have no experiments!"
+        );
+
+        let mut out: MooreMachine<A, C> =
+            MooreMachine::new(self.alphabet.clone(), self.rows[0].outputs[0].clone());
+        'outer: loop {
+            let state_mapping: Vec<_> = std::iter::once((0, out.initial()))
+                .chain((1..self.rows.len()).filter_map(|i| {
+                    let row = &self.rows[i];
+                    if row.minimal {
+                        Some((i, out.add_state(row.outputs[0].clone())))
+                    } else {
+                        None
+                    }
+                }))
+                .collect();
+            trace!(
+                "Considering {} base states {{{}}}",
+                state_mapping.len(),
+                state_mapping
+                    .iter()
+                    .map(|(i, _)| format!(
+                        "{} | {}",
+                        self.rows[*i]
+                            .base
+                            .iter()
+                            .map(|sym| format!("{:?}", sym))
+                            .join(""),
+                        self.rows
+                            .iter()
+                            .find_map(|row| if row.base == self.rows[*i].base {
+                                Some(
+                                    row.outputs
+                                        .iter()
+                                        .map(|sym| format!("{:?}", sym))
+                                        .join(", "),
+                                )
+                            } else {
+                                None
+                            })
+                            .unwrap()
+                    ))
+                    .join(", ")
+            );
+            for i in 0..state_mapping.len() {
+                let (i, state) = &state_mapping[i];
+                'transition: for sym in self.alphabet.universe() {
+                    let mut extension: Vec<_> = self.rows[*i]
+                        .base
+                        .iter()
+                        .cloned()
+                        .chain(std::iter::once(*sym))
+                        .collect();
+                    match self
+                        .rows
+                        .iter()
+                        .enumerate()
+                        .find(|(idx, r)| r.base() == &extension)
+                    {
+                        None => {
+                            return LStarHypothesisResult::MissingRow(LStarRow::without_outputs(
+                                extension, false,
+                            ));
+                        }
+                        Some((row_index, found_row)) => {
+                            trace!(
+                                "Searching equivalent row for {}|[{}]",
+                                found_row
+                                    .base
+                                    .iter()
+                                    .map(|sym| format!("{:?}", sym))
+                                    .join(""),
+                                found_row
+                                    .outputs
+                                    .iter()
+                                    .map(|sym| format!("{:?}", sym))
+                                    .join(", ")
+                            );
+                            if let Some(equivalent_row_idx) =
+                                self.find_equivalent_row_index(&found_row.outputs)
+                            {
+                                assert!(equivalent_row_idx < self.rows.len());
+                                let equivalent_row = self.rows[equivalent_row_idx].clone();
+                                trace!(
+                                    "Found equivalent row {}|[{}] with index {equivalent_row_idx}",
+                                    equivalent_row
+                                        .base
+                                        .iter()
+                                        .map(|sym| format!("{:?}", sym))
+                                        .join(""),
+                                    equivalent_row
+                                        .outputs
+                                        .iter()
+                                        .map(|sym| format!("{:?}", sym))
+                                        .join(", "),
+                                );
+
+                                let target_state_idx = state_mapping
+                                    .iter()
+                                    .find_map(|(i, j)| {
+                                        if *i == equivalent_row_idx {
+                                            Some(*j)
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .expect("We must have a base row available!");
+
+                                out.add_edge(*state, A::expression(*sym), target_state_idx, ());
+                                continue 'transition;
+                            } else {
+                                trace!(
+                                    "No equivalent row exists, promoting {row_index} to a state"
+                                );
+                                return LStarHypothesisResult::PromoteRow(row_index);
+                            }
+                        }
+                    }
+                }
+            }
+            return LStarHypothesisResult::Success(out);
+        }
+    }
+
+    fn accept_counterexample<
+        O: Oracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>,
+    >(
+        &mut self,
+        hypothesis: &Self::Hypothesis,
+        (counterexample, expected_color): LStarExample<Self::Alphabet, Self::Output>,
+        oracle: &O,
+    ) -> Vec<LStarQuery<false, Self>> {
+        debug_assert!(
+            hypothesis.morph(&counterexample) != expected_color,
+            "This is not a real counterexample"
+        );
+        debug_assert!(
+            !counterexample.is_empty(),
+            "Counterexample must not be empty"
+        );
+
+        let mut queries = vec![];
+        let mut state = hypothesis.initial();
+        let mut loop_start = 0;
+
+        let mut previous_color = expected_color;
+        for i in loop_start..counterexample.len() {
+            let sym = counterexample[i];
+            let next_state = hypothesis
+                .successor_index(state, sym)
+                .expect("We assume the hypothesis to be deterministic!");
+            let suffix = counterexample.offset(i);
+            let next_color = hypothesis.state_color(next_state).unwrap();
+
+            if next_color != previous_color {
+                // this is the breakpoint
+                let experiment = suffix.finite_to_vec();
+
+                for row_index in 0..self.rows.len() {
+                    let word = (&self.rows[row_index].base).append(&experiment);
+                    let output = oracle.output(&word);
+                    queries.push(LStarQuery::Membership((
+                        word.finite_to_vec(),
+                        output.clone(),
+                    )));
+                }
+
+                trace!(
+                    "We add \"{}\" to the experiments {}",
+                    experiment.iter().map(|sym| format!("{:?}", sym)).join(""),
+                    self.experiments
+                        .iter()
+                        .map(|experiment| format!(
+                            "\"{}\"",
+                            experiment.iter().map(|sym| format!("{:?}", sym)).join("")
+                        ))
+                        .join(", ")
+                );
+                assert!(!self.experiments.contains(&experiment));
+                self.experiments.push(experiment);
+                return queries;
+            }
+        }
+        unreachable!("A breakpoint has to exist!");
+    }
+
+    fn new_table(
+        alphabet: Self::Alphabet,
+        experiments: Vec<Vec<<Self::Alphabet as Alphabet>::Symbol>>,
+    ) -> Self {
+        let rows = vec![LStarRow::without_outputs(vec![], true)];
+        Self {
+            rows,
+            experiments,
             alphabet,
         }
     }
 
-    pub(crate) fn insert_extensions(&mut self) {
-        let mut missing = BTreeSet::new();
-        for base in &self.base {
-            for sym in self.alphabet.universe() {
-                let extension = Row::create();
-                if !self.base.iter().any(|b| extension.matches(b)) {
-                    missing.insert(extension.to_vec());
+    fn fill_rows<O: Oracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>>(
+        &mut self,
+        oracle: &O,
+    ) -> Vec<LStarQuery<false, Self>> {
+        let mut queries = vec![];
+        for row in self.rows.iter_mut() {
+            if row.len_outputs() == self.experiments.len() {
+                continue;
+            }
+            for i in row.len_outputs()..self.experiments.len() {
+                let word = (&row.base).append(&self.experiments[i]);
+                let output = oracle.output(&word);
+                trace!("Obtained output {:?} for word {:?}", output, word);
+                queries.push(LStarQuery::Membership((
+                    word.finite_to_vec(),
+                    output.clone(),
+                )));
+                row.outputs.push(output);
+            }
+        }
+        queries
+    }
+
+    fn find_equivalent_row_index(&self, outputs: &[Self::Output]) -> Option<usize> {
+        self.rows.iter().position(|r| r.outputs == outputs)
+    }
+}
+
+impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
+    type Alphabet = A;
+    type Output = usize;
+    type Hypothesis = MealyMachine<A, usize>;
+
+    fn add_row(&mut self, row: LStarRow<<Self::Alphabet as Alphabet>::Symbol, Self::Output, true>) {
+        self.rows.push(row)
+    }
+
+    fn recompute_base(&mut self) -> usize {
+        trace!(
+            "Recomputing base, currently have {} rows {}",
+            self.rows.len(),
+            self.rows
+                .iter()
+                .map(|row| format!(
+                    "\"{}\"{}",
+                    row.base.iter().map(|sym| format!("{:?}", sym)).join(""),
+                    if row.minimal { "*" } else { "" }
+                ))
+                .join(", ")
+        );
+        debug_assert!(self.rows[0].minimal);
+        let mut base_size = 1;
+        for i in 1..self.rows.len() {
+            if self.rows[i].minimal {
+                base_size += 1;
+                continue;
+            } else {
+                if let Some(equivalent_row_idx) =
+                    self.find_equivalent_row_index(&self.rows[i].outputs)
+                {
+                    assert!(equivalent_row_idx <= i);
+                    if equivalent_row_idx == i {
+                        // this is actually a minimal row
+                        self.rows[i].minimal = true;
+                        base_size += 1;
+                    } else {
+                        self.rows[i].minimal = false;
+                    }
+                } else {
+                    base_size += 1;
+                    self.rows[i].minimal = true
                 }
             }
         }
-        self.base.extend(missing.into_iter())
+        base_size
     }
 
-    pub(crate) fn reduce(&mut self) -> bool {
-        let to_remove = self
-            .base
-            .iter()
-            .rev()
-            .filter(|class| {
-                self.base
+    fn promote_row(&mut self, row_index: usize) {
+        assert!(self.rows.len() > row_index);
+        self.rows[row_index].minimal = true;
+        for sym in self.alphabet.universe() {
+            let mut extension: Vec<_> = self.rows[row_index].base.clone();
+            extension.push(*sym);
+            if self.rows.iter().find(|row| row.base == extension).is_none() {
+                self.rows.push(LStarRow::without_outputs(extension, false));
+            }
+        }
+    }
+
+    fn hypothesis(&self) -> LStarHypothesisResult<true, Self> {
+        trace!(
+            "Computing Moore hypothesis with experiments {{{}}}",
+            self.experiments
+                .iter()
+                .map(|experiment| experiment.iter().map(|sym| format!("{:?}", sym)).join(""))
+                .join(", ")
+        );
+
+        assert!(!self.rows.is_empty(), "Cannot have no states!");
+        assert!(
+            !self.rows[0].outputs.is_empty(),
+            "Cannot have no experiments!"
+        );
+
+        let mut out: MealyMachine<A> = MealyMachine::new(self.alphabet.clone());
+        'outer: loop {
+            let state_mapping: Vec<_> = std::iter::once((0, out.initial()))
+                .chain((1..self.rows.len()).filter_map(|i| {
+                    let row = &self.rows[i];
+                    if row.minimal {
+                        Some((i, out.add_state(())))
+                    } else {
+                        None
+                    }
+                }))
+                .collect();
+            trace!(
+                "Considering {} base states {{{}}}",
+                state_mapping.len(),
+                state_mapping
                     .iter()
-                    .any(|other| other < class && self.rows.get(*class) == self.rows.get(other))
-            })
-            .cloned()
-            .collect_vec();
+                    .map(|(i, _)| format!(
+                        "{} | {}",
+                        self.rows[*i]
+                            .base
+                            .iter()
+                            .map(|sym| format!("{:?}", sym))
+                            .join(""),
+                        self.rows
+                            .iter()
+                            .find_map(|row| if row.base == self.rows[*i].base {
+                                Some(
+                                    row.outputs
+                                        .iter()
+                                        .map(|sym| format!("{:?}", sym))
+                                        .join(", "),
+                                )
+                            } else {
+                                None
+                            })
+                            .unwrap()
+                    ))
+                    .join(", ")
+            );
+            for i in 0..state_mapping.len() {
+                let (i, state) = &state_mapping[i];
+                'transition: for sym in self.alphabet.universe() {
+                    let mut extension: Vec<_> = self.rows[*i]
+                        .base
+                        .iter()
+                        .cloned()
+                        .chain(std::iter::once(*sym))
+                        .collect();
 
-        let changed = to_remove.is_empty();
-        self.base.retain(|class| !to_remove.contains(class));
+                    let symbol_position = self
+                        .experiments
+                        .iter()
+                        .position(|e| e.len() == 1 && e[0] == *sym)
+                        .expect("Single symbol experiments must be present!");
+                    let output_color = self.rows[*i].outputs[symbol_position];
 
-        changed
-    }
+                    match self
+                        .rows
+                        .iter()
+                        .enumerate()
+                        .find(|(idx, r)| r.base() == &extension)
+                    {
+                        None => {
+                            return LStarHypothesisResult::MissingRow(LStarRow::without_outputs(
+                                extension, false,
+                            ));
+                        }
+                        Some((row_index, found_row)) => {
+                            trace!(
+                                "Searching equivalent row for {}|[{}]",
+                                found_row
+                                    .base
+                                    .iter()
+                                    .map(|sym| format!("{:?}", sym))
+                                    .join(""),
+                                found_row
+                                    .outputs
+                                    .iter()
+                                    .map(|sym| format!("{:?}", sym))
+                                    .join(", ")
+                            );
+                            if let Some(equivalent_row_idx) =
+                                self.find_equivalent_row_index(&found_row.outputs)
+                            {
+                                assert!(equivalent_row_idx < self.rows.len());
+                                let equivalent_row = self.rows[equivalent_row_idx].clone();
+                                trace!(
+                                    "Found equivalent row {}|[{}] with index {equivalent_row_idx}",
+                                    equivalent_row
+                                        .base
+                                        .iter()
+                                        .map(|sym| format!("{:?}", sym))
+                                        .join(""),
+                                    equivalent_row
+                                        .outputs
+                                        .iter()
+                                        .map(|sym| format!("{:?}", sym))
+                                        .join(", "),
+                                );
 
-    pub(crate) fn to_hypothesis(&self) -> Option<MooreMachine<A, C>> {
-        if self.find_missing().is_some() {
-            return None;
-        }
+                                let target_state_idx = state_mapping
+                                    .iter()
+                                    .find_map(|(i, j)| {
+                                        if *i == equivalent_row_idx {
+                                            Some(*j)
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .expect("We must have a base row available!");
 
-        let mut mm = MooreMachine::with_capacity(self.alphabet.clone(), self.base.len());
-
-        let epsilon = self
-            .experiments
-            .first()
-            .expect("Epsilon experiment must exist!");
-        for (i, b) in self.base.iter().enumerate() {
-            let row = self.rows.get(b).expect("Row must exist!");
-            let output = row.get(epsilon).expect("Output must exist!");
-            mm.state_mut(i)
-                .expect("This state should exist!")
-                .set_color(output.clone());
-        }
-        todo!()
-    }
-
-    pub(crate) fn is_sane(&self) -> bool {
-        println!("base: {:?}\nexp: {:?}", self.base, self.experiments);
-        if !self.base.contains(&vec![]) || !self.experiments.contains(&vec![]) {
-            debug!("Base or experiments do not contain base class.");
-            return false;
-        }
-        if !self
-            .alphabet
-            .universe()
-            .map(|chr| vec![*chr])
-            .all(|class| self.experiments.contains(&class) && self.base.contains(&class))
-        {
-            debug!("Base or experiments do not contain all letters.");
-            return false;
-        };
-        true
-    }
-
-    pub(crate) fn find_missing<T: Oracle<Alphabet = A, Length = FiniteLength, Output = C>>(
-        &self,
-        oracle: &T,
-    ) -> Option<Vec<A::Symbol>> {
-        trace!("Checking if the table is closed.");
-        debug_assert!(self.is_sane());
-        debug_assert!(self.rows_complete());
-
-        for class in &self.base {
-            for sym in self.alphabet.universe() {
-                let extension = Row::create(oracle, class.iter().chain(std::iter::once(sym)));
-                if !self.base.iter().any(|b| extension.matches(b)) {
-                    debug!("No row for extension {:?} found.", extension);
-                    return Some(extension.to_vec());
+                                out.add_edge(
+                                    *state,
+                                    A::expression(*sym),
+                                    target_state_idx,
+                                    output_color,
+                                );
+                                continue 'transition;
+                            } else {
+                                trace!(
+                                    "No equivalent row exists, promoting {row_index} to a state"
+                                );
+                                return LStarHypothesisResult::PromoteRow(row_index);
+                            }
+                        }
+                    }
                 }
             }
-        }
-        None
-    }
-
-    pub(crate) fn close<T: Oracle<Alphabet = A, Length = FiniteLength, Output = C>>(
-        &mut self,
-        oracle: &T,
-    ) {
-        while let Some(missing) = self.find_missing(oracle) {
-            trace!("Table is not closed. Extending it.");
-            self.base.insert(missing);
-            self.fill(oracle);
+            return LStarHypothesisResult::Success(out);
         }
     }
 
-    pub(crate) fn extend<T: Oracle<Alphabet = A, Length = FiniteLength, Output = C>>(
+    fn accept_counterexample<
+        O: Oracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>,
+    >(
         &mut self,
-        oracle: &mut T,
-    ) -> bool {
-        self.insert_extensions();
-        self.fill(oracle)
-    }
+        hypothesis: &Self::Hypothesis,
+        (counterexample, expected_color): LStarExample<Self::Alphabet, Self::Output>,
+        oracle: &O,
+    ) -> Vec<LStarQuery<true, Self>> {
+        debug_assert!(
+            hypothesis.morph(&counterexample) != expected_color,
+            "This is not a real counterexample"
+        );
+        debug_assert!(
+            !counterexample.is_empty(),
+            "Counterexample must not be empty"
+        );
 
-    pub(crate) fn fill<T: Oracle<Alphabet = A, Length = FiniteLength, Output = C>>(
-        &mut self,
-        oracle: &mut T,
-    ) -> bool {
-        trace!("Filling the table.");
-        let mut changed = false;
-        for (class, row) in self.rows.iter_mut() {
-            for experiment in &self.experiments {
-                if !row.outputs.contains_key(experiment) {
-                    // update the row only if the experiment is not already present
-                    let x: Vec<_> = class.iter().chain(experiment.iter()).cloned().collect();
-                    let output =
-                        oracle.output(RawWithLength::new_reverse_args(FiniteLength(x.len()), x));
-                    row.outputs.insert(experiment.clone(), output);
-                    changed |= true;
+        let mut queries = vec![];
+        let mut state = hypothesis.initial();
+        let mut loop_start = 0;
+
+        let mut previous_color = expected_color;
+        for i in loop_start..counterexample.len() {
+            let sym = counterexample[i];
+            let transition = hypothesis
+                .transition(state, sym)
+                .expect("We assume the hypothesis to be deterministic!");
+            let suffix = counterexample.offset(i);
+            let next_color = transition.color();
+            state = transition.target();
+
+            if next_color != previous_color {
+                // this is the breakpoint
+                let experiment = suffix.finite_to_vec();
+
+                for row_index in 0..self.rows.len() {
+                    let word = (&self.rows[row_index].base).append(&experiment);
+                    let output = oracle.output(&word);
+                    queries.push(LStarQuery::Membership((
+                        word.finite_to_vec(),
+                        output.clone(),
+                    )));
                 }
+
+                trace!(
+                    "We add \"{}\" to the experiments {}",
+                    experiment.iter().map(|sym| format!("{:?}", sym)).join(""),
+                    self.experiments
+                        .iter()
+                        .map(|experiment| format!(
+                            "\"{}\"",
+                            experiment.iter().map(|sym| format!("{:?}", sym)).join("")
+                        ))
+                        .join(", ")
+                );
+                assert!(!self.experiments.contains(&experiment));
+                self.experiments.push(experiment);
+                return queries;
             }
         }
-
-        debug_assert!(self.rows_complete(), "Error in filling up rows.");
-        changed
+        unreachable!("A breakpoint has to exist!");
     }
 
-    fn rows_complete(&self) -> bool {
-        self.rows
-            .values()
-            .all(|row| row.outputs.len() == self.experiments.len())
-    }
-}
-
-impl<A, C> Display for Table<A, C>
-where
-    A: Alphabet,
-    A::Symbol: Display,
-    C: Color + Display,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut builder = Builder::default();
-        let header = std::iter::once("".to_string()).chain(self.experiments.iter().map(|class| {
-            if class.is_empty() {
-                "ε".to_string()
-            } else {
-                class.iter().join("")
-            }
-        }));
-        builder.set_header(header);
-
-        for row in self.rows.keys() {
-            let row_name = if row.is_empty() {
-                "ε".to_string()
-            } else {
-                row.iter().join("")
-            };
-            let printable_row_name = if self.base.contains(row) {
-                row_name.bold().to_string()
-            } else {
-                row_name
-            };
-            let outputs = self
-                .rows
-                .get(row)
-                .expect("row not found")
-                .outputs()
-                .into_iter()
-                .map(|output| output.to_string());
-            builder.push_record(std::iter::once(printable_row_name).chain(outputs));
+    fn new_table(
+        alphabet: Self::Alphabet,
+        experiments: Vec<Vec<<Self::Alphabet as Alphabet>::Symbol>>,
+    ) -> Self {
+        let rows = vec![LStarRow::without_outputs(vec![], true)];
+        Self {
+            rows,
+            experiments,
+            alphabet,
         }
+    }
 
-        let mut table = builder.build();
-        table.with(Style::modern());
-        write!(f, "{}", table)
+    fn fill_rows<O: Oracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>>(
+        &mut self,
+        oracle: &O,
+    ) -> Vec<LStarQuery<true, Self>> {
+        let mut queries = vec![];
+        for row in self.rows.iter_mut() {
+            if row.len_outputs() == self.experiments.len() {
+                continue;
+            }
+            for i in row.len_outputs()..self.experiments.len() {
+                let word = (&row.base).append(&self.experiments[i]);
+                let output = oracle.output(&word);
+                trace!("Obtained output {:?} for word {:?}", output, word);
+                queries.push(LStarQuery::Membership((
+                    word.finite_to_vec(),
+                    output.clone(),
+                )));
+                row.outputs.push(output);
+            }
+        }
+        queries
+    }
+
+    fn find_equivalent_row_index(&self, outputs: &[Self::Output]) -> Option<usize> {
+        self.rows.iter().position(|r| r.outputs == outputs)
     }
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn simple_observation_table() {}
+#[derive(Debug, Clone)]
+pub struct LStarRow<S: Symbol, C: Color, const Mealy: bool> {
+    pub(crate) base: Vec<S>,
+    pub(crate) minimal: bool,
+    pub(crate) outputs: Vec<C>,
 }
+
+impl<S: Symbol, C: Color, const ForMealy: bool> LStarRow<S, C, ForMealy> {
+    pub fn new(base: Vec<S>, outputs: Vec<C>) -> Self {
+        Self {
+            minimal: base.is_empty(),
+            base,
+            outputs,
+        }
+    }
+
+    pub fn len_outputs(&self) -> usize {
+        self.outputs.len()
+    }
+
+    pub fn without_outputs(base: Vec<S>, minimal: bool) -> Self {
+        Self {
+            minimal,
+            base,
+            outputs: vec![],
+        }
+    }
+
+    pub fn get(&self, index: usize) -> Option<&C> {
+        self.outputs.get(index)
+    }
+
+    pub fn base(&self) -> &[S] {
+        &self.base
+    }
+}
+
+pub type LStarExperiments<A> = Vec<Vec<<A as Alphabet>::Symbol>>;
+pub type LStarRows<A, C, const ForMealy: bool> =
+    Vec<LStarRow<<A as Alphabet>::Symbol, C, ForMealy>>;

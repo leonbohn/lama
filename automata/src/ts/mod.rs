@@ -248,3 +248,8 @@ pub trait Congruence: TransitionSystem + Pointed {
     }
 }
 impl<Sim: TransitionSystem + Pointed> Congruence for Sim {}
+
+#[cfg(test)]
+pub mod tests {
+    use crate::prelude::DFA;
+}

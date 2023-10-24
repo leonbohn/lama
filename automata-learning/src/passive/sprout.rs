@@ -14,10 +14,18 @@ use crate::{
 
 use owo_colors::OwoColorize;
 
+/// Represents a consistency check that can be performed on a congruence. This is used in the
+/// omega-sprout algorithm to ensure in each iteration, that the produced congruence relation
+/// is consistent with the given constraints. The constraints can either be given by a conflict
+/// relation, by a list or they could be verified against a sample (or other form of data).
 #[impl_tools::autoimpl(for<T: trait> &T)]
 pub trait ConsistencyCheck<A: Alphabet> {
+    /// Verifies that `cong` is consistent with the constraint.
     fn consistent(&self, cong: &RightCongruence<A>) -> bool;
+    /// Returns an approximate threshold for the number of classes in the congruence. This is
+    /// useful for algorithms to detect infinite loops.
     fn threshold(&self) -> usize;
+    /// Returns a reference to the alphabet used by the constraint.
     fn alphabet(&self) -> &A;
 }
 
@@ -293,11 +301,11 @@ impl<A: Alphabet> ConsistencyCheck<A> for () {
     }
 
     fn threshold(&self) -> usize {
-        todo!()
+        0
     }
 
     fn alphabet(&self) -> &A {
-        todo!()
+        unimplemented!("This does not make sense, you should not call this function directly")
     }
 }
 

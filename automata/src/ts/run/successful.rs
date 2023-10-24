@@ -18,6 +18,16 @@ pub struct Successful<'a, 'b, R, Ts: TransitionSystem> {
     loop_index: Option<usize>,
 }
 
+impl<'a, 'b, R, Ts: TransitionSystem> Successful<'a, 'b, R, Ts> {
+    pub fn path(&self) -> &Path<Ts::Alphabet, Ts::StateIndex> {
+        &self.path
+    }
+
+    pub fn loop_index(&self) -> Option<usize> {
+        self.loop_index
+    }
+}
+
 impl<'a, 'b, R, Ts> CanInduce<SeenColors<Ts::StateColor>> for Successful<'a, 'b, R, Ts>
 where
     Ts: TransitionSystem,

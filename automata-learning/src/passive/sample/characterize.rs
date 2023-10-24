@@ -24,7 +24,7 @@ pub fn actively_exchanged_words_mealy<C: Color + Default + Debug, D: MealyLike<C
 ) -> MealySample<D> {
     let alphabet = mm.alphabet().clone();
     let oracle = MealyOracle::new(mm);
-    let mut lstar = LStar::logged(oracle, alphabet);
+    // let mut lstar = LStar::logged(oracle, alphabet);
     // let learned = lstar.learn();
     // let mut sample = MealySample::new(alphabet);
     todo!()

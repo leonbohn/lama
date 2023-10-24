@@ -1,5 +1,7 @@
 use automata::{automata::MooreLike, prelude::*, ts::operations::MapStateColor};
 
+use crate::passive::Sample;
+
 /// A trait that encapsulates a minimally adequate teacher (MAT) for active learning. This is mainly used by
 /// L*-esque algorithms and can be implemented by wildly different types, for example an automaton, a function
 /// or even a collection of words.
@@ -8,24 +10,39 @@ use automata::{automata::MooreLike, prelude::*, ts::operations::MapStateColor};
 /// non-empty finite words a value of type `Output`. This means we can learn a Mealy machine by using priorities as
 /// the `Output` type, but it also enables us to learn a regular language/deterministic finite automaton by using
 /// `bool` as the `Output` type.
-pub trait Oracle: HasAlphabet {
+pub trait Oracle<H: HasAlphabet> {
     /// The length type of the words that this oracle can handle.
     type Length: Length;
     /// The output type, for a DFA that would be a boolean, but a Mealy Machine might output a priority instead.
     type Output: Color;
 
     /// Query the desired output for the given word.
-    fn output<W: Word<Symbol = SymbolOf<Self>, Length = Self::Length>>(
-        &self,
-        word: W,
-    ) -> Self::Output;
+    fn output<W: Word<Symbol = SymbolOf<H>, Length = Self::Length>>(&self, word: W)
+        -> Self::Output;
 
     /// Test the given hypothesis for equivalence, returning `Ok(())` if it is equivalent and `Err((word, color))` otherwise.
     /// In the latter case, `word` is a counterexample from the symmetric difference of the target and the hypothesis,
     /// meaning it produces a different output in the hypothesis compared to the target.
-    fn equivalence<H>(&self, hypothesis: H) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)>
-    where
-        H: MooreLike<Self::Output, Alphabet = Self::Alphabet>;
+    fn equivalence(&self, hypothesis: &H) -> Result<(), (Vec<SymbolOf<H>>, Self::Output)>;
+}
+
+#[derive(Debug, Clone)]
+pub struct SampleOracle<A: Alphabet, C: Color> {
+    sample: Sample<A, FiniteLength, C>,
+}
+
+impl<A: Alphabet, C: Color> Oracle<MooreMachine<A, C>> for SampleOracle<A, C> {}
+
+impl<A: Alphabet, C: Color> From<Sample<A, FiniteLength, C>> for SampleOracle<A, C> {
+    fn from(value: Sample<A, FiniteLength, C>) -> Self {
+        Self::new(value)
+    }
+}
+
+impl<A: Alphabet, C: Color> SampleOracle<A, C> {
+    pub fn new(sample: Sample<A, FiniteLength, C>) -> Self {
+        Self { sample }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -50,7 +67,7 @@ impl<D: DFALike> HasAlphabet for DFAOracle<D> {
     }
 }
 
-impl<D: DFALike> Oracle for DFAOracle<D> {
+impl<D: DFALike> Oracle<MooreMachine<D::Alphabet, bool>> for DFAOracle<D> {
     type Length = FiniteLength;
 
     type Output = bool;
@@ -62,10 +79,10 @@ impl<D: DFALike> Oracle for DFAOracle<D> {
         (&self.automaton).into_dfa().accepts(word)
     }
 
-    fn equivalence<H>(&self, hypothesis: H) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)>
-    where
-        H: MooreLike<Self::Output, Alphabet = Self::Alphabet>,
-    {
+    fn equivalence(
+        &self,
+        hypothesis: &MooreMachine<D::Alphabet, bool>,
+    ) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)> {
         let dfa = (&self.negated).intersection(&hypothesis).into_dfa();
         match dfa.dfa_give_word() {
             Some(w) => {
@@ -83,7 +100,7 @@ pub struct MealyOracle<C: Color, D: MealyLike<C>> {
     _color: std::marker::PhantomData<C>,
 }
 
-impl<C: Color, D: MealyLike<C>> Oracle for MealyOracle<C, D> {
+impl<C: Color, D: MealyLike<C>> Oracle<MealyMachine<D::Alphabet, C>> for MealyOracle<C, D> {
     type Length = FiniteLength;
 
     type Output = C;
@@ -97,10 +114,10 @@ impl<C: Color, D: MealyLike<C>> Oracle for MealyOracle<C, D> {
             .expect("The oracle must be total!")
     }
 
-    fn equivalence<H>(&self, hypothesis: H) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)>
-    where
-        H: MooreLike<Self::Output, Alphabet = Self::Alphabet>,
-    {
+    fn equivalence(
+        &self,
+        hypothesis: &MealyMachine<D::Alphabet, C>,
+    ) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)> {
         todo!()
     }
 }
@@ -127,7 +144,7 @@ pub struct MooreOracle<C: Color, D: MooreLike<C>> {
     _color: std::marker::PhantomData<C>,
 }
 
-impl<C: Color, D: MooreLike<C>> Oracle for MooreOracle<C, D> {
+impl<C: Color, D: MooreLike<C>> Oracle<MooreMachine<D::Alphabet, C>> for MooreOracle<C, D> {
     type Length = FiniteLength;
 
     type Output = C;
@@ -141,10 +158,10 @@ impl<C: Color, D: MooreLike<C>> Oracle for MooreOracle<C, D> {
             .expect("The oracle must be total!")
     }
 
-    fn equivalence<H>(&self, hypothesis: H) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)>
-    where
-        H: MooreLike<Self::Output, Alphabet = Self::Alphabet>,
-    {
+    fn equivalence(
+        &self,
+        hypothesis: &MooreMachine<D::Alphabet, C>,
+    ) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)> {
         todo!()
     }
 }

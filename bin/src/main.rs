@@ -4,9 +4,7 @@ use automata::{
     Map, TransitionSystem,
 };
 use automata_learning::passive::{
-    sprout::{
-        iteration_consistency_conflicts, prefix_consistency_conflicts, sprout, SeparatesIdempotents,
-    },
+    sprout::{iteration_consistency_conflicts, prefix_consistency_conflicts, sprout},
     OmegaSample,
 };
 use clap::{command, Arg, ArgAction, Command};

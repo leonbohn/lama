@@ -9,19 +9,20 @@
 pub mod prelude {
     pub use super::{
         alphabet,
-        alphabet::{Expression, ExpressionOf, HasAlphabet, Simple, Symbol, SymbolOf},
+        alphabet::{AlphabetOf, Expression, ExpressionOf, HasAlphabet, Simple, Symbol, SymbolOf},
         automata::{
             Acceptor, DBALike, DFALike, DPALike, IntoMealyMachine, IntoMooreMachine, MealyLike,
             MealyMachine, MooreLike, MooreMachine, NoColor, StateBasedDBA, StateBasedDPA,
             WithInitial, DBA, DFA, DPA,
         },
+        mapping::Morphism,
         nupw,
         ts::{
             dag::Dag,
             finite::ReachedState,
             operations::{Product, ProductIndex},
             predecessors::{IsPreTransition, PredecessorIterable},
-            transition_system::{Indexes, IsTransition},
+            transition_system::{EdgeColorOf, Indexes, IsTransition, StateColorOf},
             Congruence, EdgeColor, HasColor, HasColorMut, HasMutableStates, HasStates, Sproutable,
             StateColor, ToDot, TransitionSystem, BTS,
         },

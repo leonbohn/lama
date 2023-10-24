@@ -1,4 +1,8 @@
 mod lstar;
 pub use lstar::*;
 
-pub mod oracle;
+pub(crate) mod oracle;
+
+pub(crate) mod table;
+
+pub(crate) mod logging;

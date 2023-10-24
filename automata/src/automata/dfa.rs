@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{prelude::*, ts::finite::ReachedColor};
 
 impl_moore_automaton! {
     /// A deterministic finite automaton consists of a finite set of states, a finite set of input
@@ -15,6 +15,6 @@ impl<D: DFALike> Acceptor<SymbolOf<D>, FiniteLength> for DFA<D::Alphabet, D::Edg
     where
         W: Word<Length = FiniteLength, Symbol = SymbolOf<D>>,
     {
-        todo!()
+        self.reached_color(&word) == Some(ReachedColor(true))
     }
 }

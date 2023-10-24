@@ -5,12 +5,30 @@ use crate::prelude::*;
 
 use super::MooreLike;
 
+/// A Moore machine is a transition system where each state has an output. Thus, the output
+/// of running a Moore machine on a word produces a sequence of outputs, one for each state
+/// that is visited. For a word of length `n`, there are `n+1` outputs, note in particular
+/// that the empty word produce an output, which is in contrast to [`MealyMachine`]s, where
+/// the empty word produces no output.
+///
+/// Usually, we are interested in the output of the last state that is reached during a run
+/// on a word. In case of a deterministic Moore machine, this is the only output that is
+/// produced. A [`DFA`] is then a Moore machine, where the colors are `bool`. A word reaches
+/// a state and the corresponding `bool` is emitted, where `true` corresponds to an accepted
+/// input, whereas `false` represents a rejected input. For infinite runs, we usually
+/// consider the colors that are produced infinitely often and base acceptance around them. It
+/// is, however, prefered to use a [`MealyMachine`] for this purpose, as for infinite inputs
+/// switching to transition-based acceptance is preferable.
 #[derive(Clone)]
 pub struct MooreMachine<A, Q = usize, C: Color = NoColor, Ts = WithInitial<BTS<A, Q, C, usize>>> {
     ts: Ts,
     _q: std::marker::PhantomData<(A, Q, C)>,
 }
 
+/// Helper type that takes a pointed transition system and returns the corresponding
+/// [`MooreMachine`], which the ts can be converted into using [`Into::into`].
+/// For concrete automaton types such as [`DFA`], the [`IntoDFA`] type can be used to
+/// obtain the type of a [`DFA`] for the given ts.
 pub type IntoMooreMachine<Ts> = MooreMachine<
     <Ts as HasAlphabet>::Alphabet,
     <Ts as TransitionSystem>::StateColor,
@@ -19,7 +37,11 @@ pub type IntoMooreMachine<Ts> = MooreMachine<
 >;
 
 impl<A: Alphabet, Q: Color, C: Color> MooreMachine<A, Q, C> {
-    pub fn new(alphabet: A, initial_state_output: Q) -> Self {
+    /// Creates a new MooreMachine on a [`BTS`].
+    pub fn new(
+        alphabet: A,
+        initial_state_output: Q,
+    ) -> IntoMooreMachine<WithInitial<BTS<A, Q, C, usize>>> {
         Self {
             ts: WithInitial::with_initial_color(alphabet, initial_state_output),
             _q: std::marker::PhantomData,
@@ -59,15 +81,15 @@ impl<Ts: TransitionSystem> TransitionSystem
         state: Idx,
         symbol: SymbolOf<Self>,
     ) -> Option<Self::TransitionRef<'_>> {
-        todo!()
+        self.ts().transition(state.to_index(self)?, symbol)
     }
 
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
-        todo!()
+        self.ts().edges_from(state.to_index(self)?)
     }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
-        todo!()
+        self.ts().state_color(state)
     }
 }
 
@@ -136,10 +158,12 @@ impl<Ts: Pointed> Pointed for MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::Edg
 }
 
 impl<Ts: TransitionSystem> MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts> {
+    /// Gives a reference to the underlying ts.
     pub fn ts(&self) -> &Ts {
         &self.ts
     }
 
+    /// Gives a mutable reference to the underlying ts.
     pub fn ts_mut(&mut self) -> &mut Ts {
         &mut self.ts
     }
@@ -195,12 +219,14 @@ macro_rules! impl_moore_automaton {
             _alphabet: std::marker::PhantomData<(A, $color, C)>,
         }
         paste::paste! {
+            /// See [`IntoMooreMachine`].
             pub type [< Into $name >]<Ts> = $name<<Ts as HasAlphabet>::Alphabet, <Ts as TransitionSystem>::EdgeColor, Ts>;
         }
 
         impl<A: Alphabet, C: Color>
             $name<A, C, WithInitial<BTS<A, $color, C, usize>>>
         {
+            /// Creates a new automaton.
             pub fn new(alphabet: A) -> $name<A, C, WithInitial<BTS<A, $color, C, usize>>> {
                 $name {
                     ts: WithInitial::new(alphabet),
@@ -209,9 +235,11 @@ macro_rules! impl_moore_automaton {
             }
         }
         impl<Ts: TransitionSystem> $name<Ts::Alphabet, Ts::EdgeColor, Ts> {
+            /// Gives a reference to the underlying transition system.
             pub fn ts(&self) -> &Ts {
                 &self.ts
             }
+            /// Gives a mutable reference to the underlying transition system.
             pub fn ts_mut(&mut self) -> &mut Ts {
                 &mut self.ts
             }
