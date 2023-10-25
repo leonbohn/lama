@@ -5,11 +5,14 @@ use tracing::trace;
 /// negative example words.
 #[macro_use]
 pub mod sample;
-pub use sample::{ClassOmegaSample, OmegaSample, PeriodicOmegaSample, Sample, SplitOmegaSample};
+pub use sample::{ClassOmegaSample, PeriodicOmegaSample, Sample, SplitOmegaSample};
 
 use crate::{passive::fwpm::FWPM, AnnotatedCongruence};
 
-use self::precise::PreciseDPA;
+use self::{
+    precise::PreciseDPA,
+    sample::{FiniteSample, InfiniteSample},
+};
 
 /// Module containing the implementations of the sprout/glerc algorithm.
 pub mod sprout;
@@ -23,7 +26,7 @@ pub mod precise;
 /// Executes the RPNI algorithm on the given sample. This returns a DFA that is
 /// composed of a right congruence as well as an acceptance condition, which marks
 /// a classes as accepting if it is reached by a positive sample word.
-pub fn dfa_rpni<A: Alphabet>(sample: &Sample<A, FiniteLength>) -> DFA<A> {
+pub fn dfa_rpni<A: Alphabet>(sample: &FiniteSample<A, bool>) -> DFA<A> {
     let cong = sprout::sprout(sample, vec![], true);
     let accepting: automata::Set<_> = sample
         .positive_words()
@@ -44,12 +47,12 @@ pub fn dfa_rpni<A: Alphabet>(sample: &Sample<A, FiniteLength>) -> DFA<A> {
 }
 
 /// Executes a variant of the RPNI algorithm for omega-words, producing a DBA.
-pub fn dba_rpni<A: Alphabet>(sample: &Sample<A, InfiniteLength>) -> DBA<A> {
+pub fn dba_rpni<A: Alphabet>(sample: &InfiniteSample<A, bool>) -> DBA<A> {
     todo!()
 }
 
 pub fn infer_precise_dpa<A: Alphabet>(
-    sample: &Sample<A, InfiniteLength>,
+    sample: &InfiniteSample<A, bool>,
 ) -> PreciseDPA<A, { precise::PRECISE_DPA_COLORS }> {
     let cong = sample.infer_right_congruence();
     let split = sample.split(&cong);
@@ -70,7 +73,7 @@ pub fn infer_precise_dpa<A: Alphabet>(
 }
 
 /// Similar to [`dba_rpni`], but produces a DPA instead.
-pub fn dpa_rpni<A: Alphabet>(sample: &Sample<A, InfiniteLength>) -> DPA<A> {
+pub fn dpa_rpni<A: Alphabet>(sample: &InfiniteSample<A, bool>) -> DPA<A> {
     todo!()
 }
 
@@ -78,7 +81,7 @@ pub fn dpa_rpni<A: Alphabet>(sample: &Sample<A, InfiniteLength>) -> DPA<A> {
 mod tests {
     use automata::{nupw, prelude::*};
 
-    use super::{sample, OmegaSample};
+    use super::{sample, InfiniteSample};
 
     #[test]
     fn infer_precise_dpa_inf_aa() {

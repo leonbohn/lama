@@ -8,7 +8,7 @@ use itertools::Itertools;
 use tracing::trace;
 
 use crate::{
-    passive::{ClassOmegaSample, OmegaSample, Sample, SplitOmegaSample},
+    passive::{ClassOmegaSample, FiniteSample, InfiniteSample, Sample, SplitOmegaSample},
     prefixtree::prefix_tree,
 };
 
@@ -29,7 +29,7 @@ pub trait ConsistencyCheck<A: Alphabet> {
     fn alphabet(&self) -> &A;
 }
 
-impl<A: Alphabet> ConsistencyCheck<A> for Sample<A, FiniteLength, bool> {
+impl<A: Alphabet> ConsistencyCheck<A> for FiniteSample<A, bool> {
     fn consistent(&self, cong: &RightCongruence<A>) -> bool {
         let positive_indices: Set<_> = self
             .positive_words()
@@ -253,7 +253,7 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
 /// Lemma 28 in [this paper](https://arxiv.org/pdf/2302.11043.pdf).
 pub fn prefix_consistency_conflicts<
     A: Alphabet,
-    S: std::borrow::Borrow<Sample<A, InfiniteLength, bool>>,
+    S: std::borrow::Borrow<InfiniteSample<A, bool>>,
 >(
     sample: S,
 ) -> ConflictRelation<A> {
@@ -447,10 +447,10 @@ pub(crate) mod tests {
     use itertools::Itertools;
     use tracing_test::traced_test;
 
-    use crate::passive::{OmegaSample, Sample};
+    use crate::passive::{sample::InfiniteSample, sprout::ConflictRelation, Sample};
 
-    pub fn inf_aba_sample() -> (Simple, OmegaSample<Simple, bool>) {
-        let Ok(sample) = OmegaSample::try_from(
+    pub fn inf_aba_sample() -> (Simple, InfiniteSample<Simple, bool>) {
+        let Ok(sample) = InfiniteSample::try_from(
             r#"omega
             alphabet: a,b
             positive:
@@ -477,8 +477,8 @@ pub(crate) mod tests {
         (sample.alphabet.clone(), sample)
     }
 
-    pub fn testing_larger_forc_sample() -> (Simple, OmegaSample<Simple, bool>) {
-        let Ok(sample) = OmegaSample::try_from(
+    pub fn testing_larger_forc_sample() -> (Simple, InfiniteSample<Simple, bool>) {
+        let Ok(sample) = InfiniteSample::try_from(
             r#"omega
         alphabet: a,b
         positive:
@@ -534,7 +534,7 @@ pub(crate) mod tests {
         (sample.alphabet.clone(), sample)
     }
 
-    fn testing_smaller_forc_smaple() -> (Simple, OmegaSample<Simple, bool>) {
+    fn testing_smaller_forc_smaple() -> (Simple, InfiniteSample<Simple, bool>) {
         let alphabet = alphabet!(simple 'a', 'b', 'c');
         (
             alphabet.clone(),
@@ -584,7 +584,8 @@ pub(crate) mod tests {
         let eps = Class::epsilon();
         let eps_sample = split_sample.get(&eps).unwrap();
 
-        let conflicts = super::iteration_consistency_conflicts(&split_sample, eps);
+        let conflicts: ConflictRelation<Simple> =
+            super::iteration_consistency_conflicts(&split_sample, eps);
         conflicts.dfas[0].display_rendered();
         conflicts.dfas[1].display_rendered();
         println!(

@@ -17,7 +17,7 @@ mod split;
 pub use split::{ClassOmegaSample, SplitOmegaSample};
 
 mod omega;
-pub use omega::{OmegaSample, OmegaSampleParseError, PeriodicOmegaSample};
+pub use omega::{OmegaSampleParseError, PeriodicOmegaSample};
 
 mod canonic_coloring;
 
@@ -26,52 +26,51 @@ mod characterize;
 /// Represents a finite sample, which is a pair of positive and negative instances.
 #[derive(Clone, Eq, PartialEq)]
 #[allow(missing_docs)]
-pub struct Sample<A: Alphabet, L: Length, C: Color = bool> {
+pub struct Sample<A: Alphabet, W: Word + Hash, C: Color = bool> {
     pub alphabet: A,
-    pub words: Map<Normalized<A::Symbol, L>, C>,
+    pub words: Map<W, C>,
 }
 
-impl<A: Alphabet, L: Length> Sample<A, L, bool> {
+pub type FiniteSample<A, C> = Sample<A, Vec<<A as Alphabet>::Symbol>, C>;
+pub type InfiniteSample<A, C> = Sample<A, Normalized<<A as Alphabet>::Symbol, InfiniteLength>, C>;
+
+impl<A: Alphabet, W: Word> Sample<A, W, bool> {
     /// Gives an iterator over all positive words in the sample.
-    pub fn positive_words(&self) -> impl Iterator<Item = &'_ Normalized<A::Symbol, L>> + '_ {
+    pub fn positive_words(&self) -> impl Iterator<Item = &'_ W> + '_ {
         self.words_with_color(true)
     }
 
     /// Gives an iterator over all negative words in the sample.
-    pub fn negative_words(&self) -> impl Iterator<Item = &'_ Normalized<A::Symbol, L>> + '_ {
+    pub fn negative_words(&self) -> impl Iterator<Item = &'_ W> + '_ {
         self.words_with_color(false)
     }
 }
 
-impl<A: Alphabet, L: Length, C: Color> Sample<A, L, C> {
+impl<A: Alphabet, W: Word, C: Color> Sample<A, W, C> {
     /// Gives an iterator over all words in the sample.
-    pub fn words(&self) -> impl Iterator<Item = &'_ Normalized<A::Symbol, L>> + '_ {
+    pub fn words(&self) -> impl Iterator<Item = &'_ W> + '_ {
         self.words.keys()
     }
 
     /// Classifying a word returns the color that is associated with it.
-    pub fn classify<W: Into<Normalized<A::Symbol, L>>>(&self, word: W) -> Option<C> {
-        let word = word.into();
-        self.words.get(&word).cloned()
+    pub fn classify(&self, word: &W) -> Option<C> {
+        self.words.get(word).cloned()
     }
 
     /// Checks whether a word is contained in the sample.
-    pub fn contains(&self, word: &Normalized<A::Symbol, L>) -> bool {
+    pub fn contains(&self, word: &W) -> bool {
         self.words.contains_key(word)
     }
 
     /// Gives an iterator over all words in the sample with the associated color.
-    pub fn words_with_color(
-        &self,
-        color: C,
-    ) -> impl Iterator<Item = &'_ Normalized<A::Symbol, L>> + '_ {
+    pub fn words_with_color(&self, color: C) -> impl Iterator<Item = &'_ W> + '_ {
         self.words
             .iter()
             .filter_map(move |(w, c)| if *c == color { Some(w) } else { None })
     }
 }
 
-impl<A: Alphabet, C: Color> Sample<A, FiniteLength, C> {
+impl<A: Alphabet, C: Color> FiniteSample<A, C> {
     /// Create a new sample of finite words from the given alphabet and iterator over annotated words. The sample is given
     /// as an iterator over its symbols. The words are given as an iterator of pairs (word, color).
     pub fn new_finite<I: IntoIterator<Item = A::Symbol>, J: IntoIterator<Item = (I, C)>>(
@@ -91,12 +90,11 @@ impl<A: Alphabet, C: Color> Sample<A, FiniteLength, C> {
     }
 }
 
-impl<A, L, C> Debug for Sample<A, L, C>
+impl<A, W, C> Debug for Sample<A, W, C>
 where
     A: Alphabet + Debug,
-    L: Length + Debug,
+    W: Word + Debug,
     C: Color + Debug,
-    Normalized<A::Symbol, L>: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Sample with alphabet {:?}", self.alphabet)?;

@@ -5,7 +5,7 @@ use crate::{
     AnnotatedCongruence,
 };
 
-use super::{OmegaSample, PeriodicOmegaSample};
+use super::PeriodicOmegaSample;
 
 impl<A: Alphabet> ClassifiesIdempotents<A> for PeriodicOmegaSample<A> {
     fn classify(&self, class: &automata::Class<<A as Alphabet>::Symbol>) -> Option<bool> {

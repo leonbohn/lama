@@ -1,7 +1,9 @@
+use std::hash::Hash;
+
 use crate::{length::HasLength, FiniteLength, Length, Word};
 
 /// Represents the concatenation of `W` and `V`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Concat<W, V>(W, V);
 
 impl<W, V> Word for Concat<W, V>

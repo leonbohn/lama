@@ -27,21 +27,40 @@ pub trait Oracle<H: HasAlphabet> {
 }
 
 #[derive(Debug, Clone)]
-pub struct SampleOracle<A: Alphabet, C: Color> {
-    sample: Sample<A, FiniteLength, C>,
+pub struct SampleOracle<A: Alphabet, W: Word, C: Color> {
+    sample: Sample<A, W, C>,
+    default: C,
 }
 
-impl<A: Alphabet, C: Color> Oracle<MooreMachine<A, C>> for SampleOracle<A, C> {}
+impl<A: Alphabet, W: Word, C: Color> Oracle<MooreMachine<A, C>> for SampleOracle<A, W, C> {
+    type Length = FiniteLength;
 
-impl<A: Alphabet, C: Color> From<Sample<A, FiniteLength, C>> for SampleOracle<A, C> {
-    fn from(value: Sample<A, FiniteLength, C>) -> Self {
-        Self::new(value)
+    type Output = C;
+
+    fn output<V: Word<Symbol = SymbolOf<MooreMachine<A, C>>, Length = Self::Length>>(
+        &self,
+        word: V,
+    ) -> Self::Output {
+        self.sample.classify(word).unwrap_or_else(|| self.default)
+    }
+
+    fn equivalence(
+        &self,
+        hypothesis: &MooreMachine<A, C>,
+    ) -> Result<(), (Vec<SymbolOf<MooreMachine<A, C>>>, Self::Output)> {
+        todo!()
     }
 }
 
-impl<A: Alphabet, C: Color> SampleOracle<A, C> {
-    pub fn new(sample: Sample<A, FiniteLength, C>) -> Self {
-        Self { sample }
+impl<A: Alphabet, W: Word, C: Color> From<(Sample<A, W, C>, C)> for SampleOracle<A, W, C> {
+    fn from((value, default): (Sample<A, W, C>, C)) -> Self {
+        Self::new(value, default)
+    }
+}
+
+impl<A: Alphabet, W: Word, C: Color> SampleOracle<A, W, C> {
+    pub fn new(sample: Sample<A, W, C>, default: C) -> Self {
+        Self { sample, default }
     }
 }
 

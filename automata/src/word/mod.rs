@@ -1,4 +1,7 @@
-use std::fmt::{Debug, Display};
+use std::{
+    fmt::{Debug, Display},
+    hash::Hash,
+};
 
 use crate::{alphabet::Symbol, length::HasLength, FiniteLength, InfiniteLength, Length};
 use impl_tools::autoimpl;
@@ -52,7 +55,7 @@ impl<S: Symbol> RawSymbols<S> for [S] {
 /// A word is a sequence of symbols which can be accessed positionally. This trait tries to fully abstract
 /// away whether a word is finite or infinite, by relying on raw positions.
 #[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
-pub trait Word: HasLength {
+pub trait Word: HasLength + Hash + Eq {
     /// The type of symbol that is stored in this word.
     type Symbol: Symbol;
 

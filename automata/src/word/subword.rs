@@ -3,7 +3,7 @@ use crate::{length::HasLength, FiniteLength, Length};
 use super::Word;
 
 /// A suffix of a [`Word`] which skips the first `offset` symbols.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Hash, Eq)]
 pub struct Offset<'a, W: Word> {
     sequence: &'a W,
     offset: usize,
@@ -33,7 +33,7 @@ impl<'a, S: Word> Offset<'a, S> {
 }
 
 /// A prefix of a [`Word`] which only contains the first `length` symbols.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Hash, Eq)]
 pub struct Prefix<'a, S: Word> {
     sequence: &'a S,
     length: usize,

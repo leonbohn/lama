@@ -6,18 +6,18 @@ use itertools::Itertools;
 
 use crate::passive::sprout::{iteration_consistency_conflicts, sprout};
 
-use super::{OmegaSample, Sample};
+use super::{InfiniteSample, Sample};
 
 /// An [`OmegaSample`] restricted/split onto one [`Class`] of a [`RightCongruence`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClassOmegaSample<'a, A: Alphabet, C: Color> {
     congruence: &'a RightCongruence<A>,
     class: Class<A::Symbol>,
-    sample: Sample<A, InfiniteLength, C>,
+    sample: InfiniteSample<A, C>,
 }
 
 impl<'a, A: Alphabet, C: Color> std::ops::Deref for ClassOmegaSample<'a, A, C> {
-    type Target = Sample<A, InfiniteLength, C>;
+    type Target = InfiniteSample<A, C>;
 
     fn deref(&self) -> &Self::Target {
         &self.sample
@@ -35,7 +35,7 @@ impl<'a, A: Alphabet, C: Color> ClassOmegaSample<'a, A, C> {
     pub fn new(
         congruence: &'a RightCongruence<A>,
         class: Class<A::Symbol>,
-        sample: Sample<A, InfiniteLength, C>,
+        sample: InfiniteSample<A, C>,
     ) -> Self {
         Self {
             congruence,
@@ -45,12 +45,12 @@ impl<'a, A: Alphabet, C: Color> ClassOmegaSample<'a, A, C> {
     }
 
     /// Returns a reference to the underlying sample.
-    pub fn sample(&self) -> &OmegaSample<A, C> {
+    pub fn sample(&self) -> &InfiniteSample<A, C> {
         &self.sample
     }
 
     /// Gives a mutable reference to the underlying sample.
-    pub fn sample_mut(&mut self) -> &mut OmegaSample<A, C> {
+    pub fn sample_mut(&mut self) -> &mut InfiniteSample<A, C> {
         &mut self.sample
     }
 
