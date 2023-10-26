@@ -52,15 +52,15 @@ impl<Ts: TransitionSystem> TransitionSystem for MealyMachine<Ts::Alphabet, Ts::E
         state: Idx,
         symbol: SymbolOf<Self>,
     ) -> Option<Self::TransitionRef<'_>> {
-        todo!()
+        self.ts().transition(state.to_index(self)?, symbol)
     }
 
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
-        todo!()
+        self.ts().edges_from(state.to_index(self)?)
     }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
-        todo!()
+        self.ts().state_color(state.to_index(self)?)
     }
 }
 
@@ -152,7 +152,7 @@ impl<Ts: PredecessorIterable> PredecessorIterable
     }
 }
 
-impl<C: Color, Ts: MooreLike<C>> From<Ts> for MealyMachine<Ts::Alphabet, C, Ts> {
+impl<C: Color, Ts: MealyLike<C>> From<Ts> for MealyMachine<Ts::Alphabet, C, Ts> {
     fn from(ts: Ts) -> Self {
         Self {
             ts,

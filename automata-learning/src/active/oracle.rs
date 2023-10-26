@@ -32,7 +32,7 @@ pub struct SampleOracle<A: Alphabet, W: Word, C: Color> {
     default: C,
 }
 
-impl<A: Alphabet, W: Word, C: Color> Oracle<MooreMachine<A, C>> for SampleOracle<A, W, C> {
+impl<A: Alphabet, C: Color> Oracle<MooreMachine<A, C>> for SampleOracle<A, Vec<A::Symbol>, C> {
     type Length = FiniteLength;
 
     type Output = C;
@@ -41,14 +41,63 @@ impl<A: Alphabet, W: Word, C: Color> Oracle<MooreMachine<A, C>> for SampleOracle
         &self,
         word: V,
     ) -> Self::Output {
-        self.sample.classify(word).unwrap_or_else(|| self.default)
+        self.sample
+            .entries()
+            .find_map(|(w, c)| {
+                if w == &word.finite_to_vec() {
+                    Some(c.clone())
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(self.default.clone())
     }
 
     fn equivalence(
         &self,
         hypothesis: &MooreMachine<A, C>,
     ) -> Result<(), (Vec<SymbolOf<MooreMachine<A, C>>>, Self::Output)> {
-        todo!()
+        for (w, c) in self.sample.entries() {
+            if hypothesis.morph(w) != *c {
+                return Err((w.finite_to_vec(), c.clone()));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<A: Alphabet, C: Color> Oracle<MealyMachine<A, C>> for SampleOracle<A, Vec<A::Symbol>, C> {
+    type Length = FiniteLength;
+    type Output = C;
+    fn output<W: Word<Symbol = SymbolOf<MealyMachine<A, C>>, Length = Self::Length>>(
+        &self,
+        word: W,
+    ) -> Self::Output {
+        self.sample
+            .entries()
+            .find_map(|(w, c)| {
+                if w == &word.finite_to_vec() {
+                    Some(c.clone())
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(self.default.clone())
+    }
+    fn equivalence(
+        &self,
+        hypothesis: &MealyMachine<A, C>,
+    ) -> Result<(), (Vec<SymbolOf<MealyMachine<A, C>>>, Self::Output)> {
+        let Some(cex) = self.sample.entries().find_map(|(w, c)| {
+            if hypothesis.morph(w) != *c {
+                Some((w.finite_to_vec(), c.clone()))
+            } else {
+                None
+            }
+        }) else {
+            return Ok(());
+        };
+        Err(cex)
     }
 }
 

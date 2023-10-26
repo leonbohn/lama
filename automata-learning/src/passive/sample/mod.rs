@@ -1,4 +1,5 @@
 use std::{
+    borrow::Borrow,
     cell::RefCell,
     collections::{BTreeSet, VecDeque},
     fmt::Debug,
@@ -52,8 +53,16 @@ impl<A: Alphabet, W: Word, C: Color> Sample<A, W, C> {
         self.words.keys()
     }
 
+    pub fn entries(&self) -> impl Iterator<Item = (&'_ W, &'_ C)> + '_ {
+        self.words.iter()
+    }
+
     /// Classifying a word returns the color that is associated with it.
-    pub fn classify(&self, word: &W) -> Option<C> {
+    pub fn classify<V>(&self, word: &V) -> Option<C>
+    where
+        V: Hash + Eq,
+        W: Borrow<V>,
+    {
         self.words.get(word).cloned()
     }
 
@@ -79,7 +88,7 @@ impl<A: Alphabet, C: Color> FiniteSample<A, C> {
     ) -> Self {
         let words = words
             .into_iter()
-            .map(|(word, color)| (Normalized::new_finite(word), color))
+            .map(|(word, color)| (word.into_iter().collect(), color))
             .collect();
         Self { alphabet, words }
     }
@@ -145,7 +154,7 @@ mod tests {
         assert_eq!(sample.alphabet, alphabet!(simple 'a', 'b'));
         assert_eq!(sample.positive_size(), 4);
         assert_eq!(sample.negative_size(), 3);
-        assert_eq!(sample.classify(nupw!("ab")), Some(false));
+        assert_eq!(sample.classify(&nupw!("ab")), Some(false));
     }
 
     #[test]

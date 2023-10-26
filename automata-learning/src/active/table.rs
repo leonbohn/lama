@@ -28,7 +28,7 @@ impl<const ForMealy: bool, T: LStarTarget<ForMealy>> LStarHypothesisResult<ForMe
     }
 }
 
-pub trait LStarTarget<const ForMealy: bool>: Sized {
+pub trait LStarTarget<const ForMealy: bool>: Sized + std::fmt::Debug {
     type Alphabet: Alphabet;
     type Output: Color + Debug;
     type Hypothesis: Congruence<Alphabet = Self::Alphabet>
@@ -722,3 +722,34 @@ impl<S: Symbol, C: Color, const ForMealy: bool> LStarRow<S, C, ForMealy> {
 pub type LStarExperiments<A> = Vec<Vec<<A as Alphabet>::Symbol>>;
 pub type LStarRows<A, C, const ForMealy: bool> =
     Vec<LStarRow<<A as Alphabet>::Symbol, C, ForMealy>>;
+
+impl<A: Alphabet, C: Color + Debug, const FM: bool> std::fmt::Debug for LStarTable<A, C, FM> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut builder = tabled::builder::Builder::default();
+        builder.set_header(
+            std::iter::once("MR".to_string()).chain(
+                self.experiments
+                    .iter()
+                    .map(|e| e.iter().map(|sym| format!("{:?}", sym)).join("")),
+            ),
+        );
+        for r in &self.rows {
+            let base_name = r.base.iter().map(|sym| format!("{:?}", sym)).join("");
+            let mut table_row = vec![if r.minimal {
+                owo_colors::OwoColorize::blue(&format!("[{}]", base_name)).to_string()
+            } else {
+                base_name
+            }];
+            for o in &r.outputs {
+                table_row.push(format!("{:?}", o));
+            }
+            builder.push_record(table_row);
+        }
+
+        write!(
+            f,
+            "{}",
+            builder.build().with(tabled::settings::Style::rounded())
+        )
+    }
+}

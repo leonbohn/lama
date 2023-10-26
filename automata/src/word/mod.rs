@@ -55,7 +55,7 @@ impl<S: Symbol> RawSymbols<S> for [S] {
 /// A word is a sequence of symbols which can be accessed positionally. This trait tries to fully abstract
 /// away whether a word is finite or infinite, by relying on raw positions.
 #[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
-pub trait Word: HasLength + Hash + Eq {
+pub trait Word: HasLength + Hash + Eq + PartialEq {
     /// The type of symbol that is stored in this word.
     type Symbol: Symbol;
 

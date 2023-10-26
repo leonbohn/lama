@@ -126,6 +126,7 @@ impl<
             if base_size >= ITERATION_THRESHOLD {
                 panic!("Too many iterations, probably an infinite loop!");
             }
+            println!("{:?}", self.table);
             match self.table.hypothesis() {
                 crate::active::table::LStarHypothesisResult::Success(hyp) => {
                     match self.teacher.equivalence(&hyp) {
@@ -170,10 +171,13 @@ mod tests {
     use owo_colors::OwoColorize;
     use tracing_test::traced_test;
 
-    use crate::active::{
-        logging::LStarLogbook,
-        oracle,
-        oracle::{DFAOracle, Oracle},
+    use crate::{
+        active::{
+            logging::LStarLogbook,
+            oracle,
+            oracle::{DFAOracle, Oracle},
+        },
+        passive::FiniteSample,
     };
 
     struct ModkAmodlB(Simple);
@@ -218,7 +222,11 @@ mod tests {
         ) -> Result<(), (Vec<automata::alphabet::SymbolOf<Self>>, Self::Output)> {
             for word in ["aa", "bb", "bab", "aba", "abba", "bbab", "", "b", "a"] {
                 let output = self.output(&word);
-                if output != hypothesis.transform(&word) {
+                if output
+                    != hypothesis
+                        .try_moore_map(&word)
+                        .expect("Hypothesis should be complete")
+                {
                     return Err((word.chars().collect(), output));
                 }
             }
@@ -259,7 +267,7 @@ mod tests {
             ] {
                 let word = OmegaWord::new_reverse_args(FiniteLength(word.len()), word);
                 let output = self.output(&word);
-                if output != hypothesis.transform(&word) {
+                if output != hypothesis.try_moore_map(&word).unwrap() {
                     return Err((word.to_vec(), output));
                 }
             }
@@ -291,9 +299,9 @@ mod tests {
 
         let mm = lstar.infer();
 
-        assert_eq!(mm.transform("abba"), true);
-        assert_eq!(mm.transform("ab"), false);
-        assert_eq!(mm.transform(""), true)
+        assert_eq!(mm.try_moore_map("abba").unwrap(), true);
+        assert_eq!(mm.try_moore_map("ab").unwrap(), false);
+        assert_eq!(mm.try_moore_map("").unwrap(), true)
     }
 
     fn test_dfa() -> DFA {
@@ -341,5 +349,29 @@ mod tests {
         for ex in logs.examples() {
             println!("{:?}", ex);
         }
+    }
+
+    #[test]
+    #[traced_test]
+    fn moore_vs_mealy() {
+        let alphabet = alphabet!(simple 'a', 'b');
+        let classified_words = [
+            "a", "b", "aa", "ab", "ba", "bb", "aaa", "aab", "aba", "abb", "baa", "bab", "bba",
+            "bbb",
+        ]
+        .into_iter()
+        .map(|w| (w.chars(), if w.ends_with('a') { 0 } else { 1 }));
+        let sample = FiniteSample::new_finite(alphabet.clone(), classified_words);
+        let oracle = oracle::SampleOracle::new(sample, 0);
+
+        let mealy = super::LStar::mealy_unlogged(oracle.clone(), alphabet.clone()).infer();
+        let moore = super::LStar::moore_unlogged(oracle, alphabet).infer();
+
+        assert!(mealy.size() <= moore.size());
+        tracing::debug!(
+            "Mealy size is {} while Moore size is {}",
+            mealy.size(),
+            moore.size()
+        )
     }
 }

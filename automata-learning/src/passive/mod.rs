@@ -9,10 +9,9 @@ pub use sample::{ClassOmegaSample, PeriodicOmegaSample, Sample, SplitOmegaSample
 
 use crate::{passive::fwpm::FWPM, AnnotatedCongruence};
 
-use self::{
-    precise::PreciseDPA,
-    sample::{FiniteSample, InfiniteSample},
-};
+use self::precise::PreciseDPA;
+
+pub use self::sample::{FiniteSample, InfiniteSample};
 
 /// Module containing the implementations of the sprout/glerc algorithm.
 pub mod sprout;

@@ -603,7 +603,15 @@ impl<Ts> DPALike for Ts where Ts: TransitionSystem<EdgeColor = usize> + Pointed 
 
 /// Implemented by objects which can be viewed as a MealyMachine, i.e. a finite transition system
 /// which has outputs of type usize on its edges.
-pub trait MealyLike<C: Color>: TransitionSystem<EdgeColor = C> + Pointed + Sized {
+pub trait MealyLike<C: Color>: TransitionSystem<EdgeColor = C> + Pointed {
+    fn as_mealy(&self) -> MealyMachine<Self::Alphabet, C, &Self> {
+        MealyMachine::from(self)
+    }
+
+    fn into_mealy(self) -> MealyMachine<Self::Alphabet, C, Self> {
+        MealyMachine::from(self)
+    }
+
     fn try_mealy_map<W: Word<Symbol = SymbolOf<Self>, Length = FiniteLength>>(
         &self,
         input: W,
@@ -620,11 +628,19 @@ pub trait MealyLike<C: Color>: TransitionSystem<EdgeColor = C> + Pointed + Sized
             .collect()
     }
 }
-impl<Ts: TransitionSystem<EdgeColor = usize> + Pointed + Sized> MealyLike<usize> for Ts {}
+impl<Ts: TransitionSystem + Pointed + Sized> MealyLike<Ts::EdgeColor> for Ts {}
 
 /// Implemented by objects that can be viewed as MooreMachines, i.e. finite transition systems
 /// that have usize annotated/outputting states.
 pub trait MooreLike<Q: Color>: TransitionSystem<StateColor = Q> + Pointed {
+    fn as_moore(&self) -> MooreMachine<Self::Alphabet, Q, Self::EdgeColor, &Self> {
+        MooreMachine::from(self)
+    }
+
+    fn into_moore(self) -> MooreMachine<Self::Alphabet, Q, Self::EdgeColor, Self> {
+        MooreMachine::from(self)
+    }
+
     fn try_moore_map<W: Word<Symbol = SymbolOf<Self>, Length = FiniteLength>>(
         &self,
         input: W,
@@ -632,13 +648,6 @@ pub trait MooreLike<Q: Color>: TransitionSystem<StateColor = Q> + Pointed {
         self.finite_run(self.initial(), &input.finite_to_vec())
             .ok()
             .map(|p| p.reached_state_color(self))
-    }
-
-    fn transform<W: Word<Symbol = SymbolOf<Self>, Length = FiniteLength>>(&self, input: W) -> Q {
-        match self.finite_run(self.initial(), &input.finite_to_vec()) {
-            Ok(p) => p.reached_state_color(self),
-            Err(_) => unreachable!("We consider transformers to be complete"),
-        }
     }
 
     /// Obtains a vec containing the possible colors emitted by `self` (without duplicates).
