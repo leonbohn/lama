@@ -13,13 +13,13 @@ pub type LStarExampleFor<Cong> = (Vec<SymbolOf<Cong>>, StateColorOf<Cong>);
 
 pub type RowIndex = usize;
 
-pub enum LStarHypothesisResult<const ForMealy: bool, T: LStarTarget<ForMealy>> {
+pub enum LStarHypothesisResult<const FOR_MEALY: bool, T: LStarTarget<FOR_MEALY>> {
     Success(T::Hypothesis),
-    MissingRow(LStarRow<<T::Alphabet as Alphabet>::Symbol, T::Output, ForMealy>),
+    MissingRow(LStarRow<<T::Alphabet as Alphabet>::Symbol, T::Output, FOR_MEALY>),
     PromoteRow(RowIndex),
 }
 
-impl<const ForMealy: bool, T: LStarTarget<ForMealy>> LStarHypothesisResult<ForMealy, T> {
+impl<const FOR_MEALY: bool, T: LStarTarget<FOR_MEALY>> LStarHypothesisResult<FOR_MEALY, T> {
     pub fn to_hypothesis(&self) -> Option<T::Hypothesis> {
         match self {
             LStarHypothesisResult::Success(hypothesis) => Some(hypothesis.clone()),
@@ -28,13 +28,13 @@ impl<const ForMealy: bool, T: LStarTarget<ForMealy>> LStarHypothesisResult<ForMe
     }
 }
 
-pub trait LStarTarget<const ForMealy: bool>: Sized + std::fmt::Debug {
+pub trait LStarTarget<const FOR_MEALY: bool>: Sized + std::fmt::Debug {
     type Alphabet: Alphabet;
     type Output: Color + Debug;
     type Hypothesis: Congruence<Alphabet = Self::Alphabet>
-        + Morphism<<Self::Alphabet as Alphabet>::Symbol, Self::Output>
+        + Morphism<<Self::Alphabet as Alphabet>::Symbol, Output = Self::Output>
         + Clone;
-    fn hypothesis(&self) -> LStarHypothesisResult<ForMealy, Self>;
+    fn hypothesis(&self) -> LStarHypothesisResult<FOR_MEALY, Self>;
     fn accept_counterexample<
         O: Oracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>,
     >(
@@ -42,7 +42,7 @@ pub trait LStarTarget<const ForMealy: bool>: Sized + std::fmt::Debug {
         hypothesis: &Self::Hypothesis,
         counterexample: LStarExample<Self::Alphabet, Self::Output>,
         oracle: &O,
-    ) -> Vec<LStarQuery<ForMealy, Self>>;
+    ) -> Vec<LStarQuery<FOR_MEALY, Self>>;
     fn new_table(
         alphabet: Self::Alphabet,
         experiments: Vec<Vec<<Self::Alphabet as Alphabet>::Symbol>>,
@@ -50,18 +50,18 @@ pub trait LStarTarget<const ForMealy: bool>: Sized + std::fmt::Debug {
     fn fill_rows<O: Oracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>>(
         &mut self,
         oracle: &O,
-    ) -> Vec<LStarQuery<ForMealy, Self>>;
+    ) -> Vec<LStarQuery<FOR_MEALY, Self>>;
     fn promote_row(&mut self, row_index: usize);
     fn add_row(
         &mut self,
-        row: LStarRow<<Self::Alphabet as Alphabet>::Symbol, Self::Output, ForMealy>,
+        row: LStarRow<<Self::Alphabet as Alphabet>::Symbol, Self::Output, FOR_MEALY>,
     );
     fn find_equivalent_row_index(&self, outputs: &[Self::Output]) -> Option<usize>;
     fn recompute_base(&mut self) -> usize;
 }
 
-pub struct LStarTable<A: Alphabet, C: Color, const ForMealy: bool> {
-    pub(crate) rows: LStarRows<A, C, ForMealy>,
+pub struct LStarTable<A: Alphabet, C: Color, const FOR_MEALY: bool> {
+    pub(crate) rows: LStarRows<A, C, FOR_MEALY>,
     pub(crate) experiments: LStarExperiments<A>,
     pub(crate) alphabet: A,
 }
@@ -99,22 +99,20 @@ impl<A: Alphabet, C: Color + Debug + Default> LStarTarget<false> for LStarTable<
             if self.rows[i].minimal {
                 base_size += 1;
                 continue;
-            } else {
-                if let Some(equivalent_row_idx) =
-                    self.find_equivalent_row_index(&self.rows[i].outputs)
-                {
-                    assert!(equivalent_row_idx <= i);
-                    if equivalent_row_idx == i {
-                        // this is actually a minimal row
-                        self.rows[i].minimal = true;
-                        base_size += 1;
-                    } else {
-                        self.rows[i].minimal = false;
-                    }
-                } else {
+            } else if let Some(equivalent_row_idx) =
+                self.find_equivalent_row_index(&self.rows[i].outputs)
+            {
+                assert!(equivalent_row_idx <= i);
+                if equivalent_row_idx == i {
+                    // this is actually a minimal row
+                    self.rows[i].minimal = true;
                     base_size += 1;
-                    self.rows[i].minimal = true
+                } else {
+                    self.rows[i].minimal = false;
                 }
+            } else {
+                base_size += 1;
+                self.rows[i].minimal = true
             }
         }
         base_size
@@ -126,7 +124,7 @@ impl<A: Alphabet, C: Color + Debug + Default> LStarTarget<false> for LStarTable<
         for sym in self.alphabet.universe() {
             let mut extension: Vec<_> = self.rows[row_index].base.clone();
             extension.push(*sym);
-            if self.rows.iter().find(|row| row.base == extension).is_none() {
+            if !self.rows.iter().any(|row| row.base == extension) {
                 self.rows.push(LStarRow::without_outputs(extension, false));
             }
         }
@@ -398,22 +396,20 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
             if self.rows[i].minimal {
                 base_size += 1;
                 continue;
-            } else {
-                if let Some(equivalent_row_idx) =
-                    self.find_equivalent_row_index(&self.rows[i].outputs)
-                {
-                    assert!(equivalent_row_idx <= i);
-                    if equivalent_row_idx == i {
-                        // this is actually a minimal row
-                        self.rows[i].minimal = true;
-                        base_size += 1;
-                    } else {
-                        self.rows[i].minimal = false;
-                    }
-                } else {
+            } else if let Some(equivalent_row_idx) =
+                self.find_equivalent_row_index(&self.rows[i].outputs)
+            {
+                assert!(equivalent_row_idx <= i);
+                if equivalent_row_idx == i {
+                    // this is actually a minimal row
+                    self.rows[i].minimal = true;
                     base_size += 1;
-                    self.rows[i].minimal = true
+                } else {
+                    self.rows[i].minimal = false;
                 }
+            } else {
+                base_size += 1;
+                self.rows[i].minimal = true
             }
         }
         base_size
@@ -425,7 +421,7 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
         for sym in self.alphabet.universe() {
             let mut extension: Vec<_> = self.rows[row_index].base.clone();
             extension.push(*sym);
-            if self.rows.iter().find(|row| row.base == extension).is_none() {
+            if !self.rows.iter().any(|row| row.base == extension) {
                 self.rows.push(LStarRow::without_outputs(extension, false));
             }
         }
@@ -617,10 +613,7 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
                 for row_index in 0..self.rows.len() {
                     let word = (&self.rows[row_index].base).append(&experiment);
                     let output = oracle.output(&word);
-                    queries.push(LStarQuery::Membership((
-                        word.finite_to_vec(),
-                        output.clone(),
-                    )));
+                    queries.push(LStarQuery::Membership((word.finite_to_vec(), output)));
                 }
 
                 trace!(
@@ -667,10 +660,7 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
                 let word = (&row.base).append(&self.experiments[i]);
                 let output = oracle.output(&word);
                 trace!("Obtained output {:?} for word {:?}", output, word);
-                queries.push(LStarQuery::Membership((
-                    word.finite_to_vec(),
-                    output.clone(),
-                )));
+                queries.push(LStarQuery::Membership((word.finite_to_vec(), output)));
                 row.outputs.push(output);
             }
         }
@@ -682,14 +672,20 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
     }
 }
 
+/// Represents an individual row in an L* table. Consists of a `base`, which can be viewed as
+/// an access string to the state that corresponds/is equivalent to the row. The marker `minimal`
+/// is `true` iff the row is minimal, i.e. there is no row with a llex-smaller `base` that has
+/// equivalent outputs. Finally, the `outputs` are a vector of the outputs of the row for each
+/// experiment. Formally, if the base is `b` and the `i`-th experiment is `e`, then `outputs[i]`
+/// is equal to the output of the target for `be`.
 #[derive(Debug, Clone)]
-pub struct LStarRow<S: Symbol, C: Color, const Mealy: bool> {
+pub struct LStarRow<S: Symbol, C: Color, const FOR_MEALY: bool> {
     pub(crate) base: Vec<S>,
     pub(crate) minimal: bool,
     pub(crate) outputs: Vec<C>,
 }
 
-impl<S: Symbol, C: Color, const ForMealy: bool> LStarRow<S, C, ForMealy> {
+impl<S: Symbol, C: Color, const FOR_MEALY: bool> LStarRow<S, C, FOR_MEALY> {
     pub fn new(base: Vec<S>, outputs: Vec<C>) -> Self {
         Self {
             minimal: base.is_empty(),
@@ -720,8 +716,8 @@ impl<S: Symbol, C: Color, const ForMealy: bool> LStarRow<S, C, ForMealy> {
 }
 
 pub type LStarExperiments<A> = Vec<Vec<<A as Alphabet>::Symbol>>;
-pub type LStarRows<A, C, const ForMealy: bool> =
-    Vec<LStarRow<<A as Alphabet>::Symbol, C, ForMealy>>;
+pub type LStarRows<A, C, const FOR_MEALY: bool> =
+    Vec<LStarRow<<A as Alphabet>::Symbol, C, FOR_MEALY>>;
 
 impl<A: Alphabet, C: Color + Debug, const FM: bool> std::fmt::Debug for LStarTable<A, C, FM> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

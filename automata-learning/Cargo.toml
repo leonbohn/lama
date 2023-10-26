@@ -27,5 +27,9 @@ name = "forc_inference"
 harness = false
 
 [[bench]]
+name = "active_learning"
+harness = false
+
+[[bench]]
 name = "iai"
 harness = false

@@ -18,13 +18,14 @@ const ITERATION_THRESHOLD: usize = 200000;
 #[cfg(debug_assertions)]
 const ITERATION_THRESHOLD: usize = 200;
 
+/// An implementation of the L* algorithm.
 #[derive(Debug, Clone)]
 pub struct LStar<
     A: Alphabet,
     O,
-    T: LStarTarget<ForMealy>,
-    L: LStarLogger<ForMealy, T> = LStarLogbook<false, T>,
-    const ForMealy: bool = false,
+    T: LStarTarget<FOR_MEALY>,
+    L: LStarLogger<FOR_MEALY, T> = LStarLogbook<false, T>,
+    const FOR_MEALY: bool = false,
 > {
     teacher: O,
     alphabet: A,
@@ -38,6 +39,7 @@ impl<
         O: Oracle<MooreMachine<A, C>, Length = FiniteLength, Output = C>,
     > LStar<A, O, LStarTable<A, C, false>, (), false>
 {
+    /// Creates a new L* instance for a Moore machine, which does not log the queries.
     pub fn moore_unlogged(
         teacher: O,
         alphabet: A,
@@ -52,6 +54,7 @@ impl<
         O: Oracle<MooreMachine<A, C>, Length = FiniteLength, Output = C>,
     > LStar<A, O, LStarTable<A, C, false>, LStarLogbook<false, LStarTable<A, C, false>>, false>
 {
+    /// Creates a new L* instance for a Moore machine, which logs the queries.
     pub fn moore_logged(
         teacher: O,
         alphabet: A,
@@ -63,6 +66,7 @@ impl<
 impl<A: Alphabet, O: Oracle<MealyMachine<A, usize>, Length = FiniteLength, Output = usize>>
     LStar<A, O, LStarTable<A, usize, true>, (), true>
 {
+    /// Creates a new L* instance for a Mealy machine, which does not log the queries.
     pub fn mealy_unlogged(
         teacher: O,
         alphabet: A,
@@ -74,6 +78,7 @@ impl<A: Alphabet, O: Oracle<MealyMachine<A, usize>, Length = FiniteLength, Outpu
 impl<A: Alphabet, O: Oracle<MealyMachine<A, usize>, Length = FiniteLength, Output = usize>>
     LStar<A, O, LStarTable<A, usize, true>, LStarLogbook<true, LStarTable<A, usize, true>>, true>
 {
+    /// Creates a new L* instance for a Mealy machine, which logs the queries.
     pub fn mealy_logged(
         teacher: O,
         alphabet: A,
@@ -85,14 +90,14 @@ impl<A: Alphabet, O: Oracle<MealyMachine<A, usize>, Length = FiniteLength, Outpu
 
 impl<
         A: Alphabet,
-        T: LStarTarget<ForMealy, Alphabet = A>,
+        T: LStarTarget<FOR_MEALY, Alphabet = A>,
         O: Oracle<T::Hypothesis, Length = FiniteLength, Output = T::Output>,
-        L: LStarLogger<ForMealy, T>,
-        const ForMealy: bool,
-    > LStar<A, O, T, L, ForMealy>
+        L: LStarLogger<FOR_MEALY, T>,
+        const FOR_MEALY: bool,
+    > LStar<A, O, T, L, FOR_MEALY>
 {
     fn new(teacher: O, alphabet: A) -> Self {
-        let experiments = if ForMealy {
+        let experiments = if FOR_MEALY {
             either::Either::Right(std::iter::empty())
         } else {
             either::Either::Left(std::iter::once(vec![]))
@@ -116,10 +121,12 @@ impl<
         }
     }
 
-    pub fn logs(&self) -> &L {
+    /// Obtain a reference to the logger.
+    pub fn logger(&self) -> &L {
         &self.logger
     }
 
+    /// Run the L* algorithm and obtain a hypothesis that is equivalent to the target.
     pub fn infer(&mut self) -> T::Hypothesis {
         loop {
             let base_size = self.table.recompute_base();
@@ -209,11 +216,7 @@ mod tests {
                         _ => unreachable!(),
                     });
 
-            if count_a % 2 == 0 && count_b % 2 == 0 {
-                true
-            } else {
-                false
-            }
+            count_a % 2 == 0 && count_b % 2 == 0
         }
 
         fn equivalence(
@@ -299,9 +302,9 @@ mod tests {
 
         let mm = lstar.infer();
 
-        assert_eq!(mm.try_moore_map("abba").unwrap(), true);
-        assert_eq!(mm.try_moore_map("ab").unwrap(), false);
-        assert_eq!(mm.try_moore_map("").unwrap(), true)
+        assert!(mm.try_moore_map("abba").unwrap());
+        assert!(!mm.try_moore_map("ab").unwrap());
+        assert!(mm.try_moore_map("").unwrap())
     }
 
     fn test_dfa() -> DFA {
@@ -345,7 +348,7 @@ mod tests {
         let oracle = DFAOracle::new(&target);
         let mut lstar = super::LStar::moore_logged(oracle, target.alphabet().clone());
         let learned = lstar.infer();
-        let logs = lstar.logs();
+        let logs = lstar.logger();
         for ex in logs.examples() {
             println!("{:?}", ex);
         }

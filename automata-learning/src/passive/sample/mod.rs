@@ -48,6 +48,10 @@ impl<A: Alphabet, W: Word> Sample<A, W, bool> {
 }
 
 impl<A: Alphabet, W: Word, C: Color> Sample<A, W, C> {
+    pub fn alphabet(&self) -> &A {
+        &self.alphabet
+    }
+
     /// Gives an iterator over all words in the sample.
     pub fn words(&self) -> impl Iterator<Item = &'_ W> + '_ {
         self.words.keys()

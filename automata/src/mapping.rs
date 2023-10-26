@@ -9,17 +9,20 @@ use impl_tools::autoimpl;
 use crate::prelude::*;
 
 #[autoimpl(for<T: trait + ?Sized> &T, &mut T, Box<T>)]
-pub trait Morphism<S, Q> {
-    fn morph<W: Word<Symbol = S, Length = FiniteLength>>(&self, word: W) -> Q;
+pub trait Morphism<S> {
+    type Output: Color;
+    fn morph<W: Word<Symbol = S, Length = FiniteLength>>(&self, word: W) -> Self::Output;
 }
 
-impl<A: Alphabet> Morphism<A::Symbol, bool> for DFA<A> {
+impl<A: Alphabet> Morphism<A::Symbol> for DFA<A> {
+    type Output = bool;
     fn morph<W: Word<Symbol = A::Symbol, Length = FiniteLength>>(&self, word: W) -> bool {
         self.accepts(word)
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> Morphism<A::Symbol, Q> for MooreMachine<A, Q, C> {
+impl<A: Alphabet, Q: Color, C: Color> Morphism<A::Symbol> for MooreMachine<A, Q, C> {
+    type Output = Q;
     fn morph<W: Word<Symbol = A::Symbol, Length = FiniteLength>>(&self, word: W) -> Q {
         let Some(reached) = self.reached_color(&word.raw_to_vec()) else {
             panic!("Only deterministic and complete Moore Machines are morphisms");
@@ -28,7 +31,8 @@ impl<A: Alphabet, Q: Color, C: Color> Morphism<A::Symbol, Q> for MooreMachine<A,
     }
 }
 
-impl<A: Alphabet, C: Color> Morphism<A::Symbol, C> for MealyMachine<A, C> {
+impl<A: Alphabet, C: Color> Morphism<A::Symbol> for MealyMachine<A, C> {
+    type Output = C;
     fn morph<W: Word<Symbol = A::Symbol, Length = FiniteLength>>(&self, word: W) -> C {
         let Ok(run) = self.run(&word, self.initial()) else {
             panic!("Only deterministic and complete Mealy Machines are morphisms");

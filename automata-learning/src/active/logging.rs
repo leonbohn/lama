@@ -1,19 +1,19 @@
 use super::table::{LStarExample, LStarExampleFor, LStarTarget};
 use automata::prelude::*;
-use std::fmt::Debug;
 use itertools::Itertools;
+use std::fmt::Debug;
 
 #[derive(Clone)]
-pub enum LStarQuery<const ForMealy: bool, T: LStarTarget<ForMealy>> {
+pub enum LStarQuery<const FOR_MEALY: bool, T: LStarTarget<FOR_MEALY>> {
     Membership(LStarExample<T::Alphabet, T::Output>),
     Equivalence(T::Hypothesis, Option<LStarExample<T::Alphabet, T::Output>>),
 }
 
-impl<const ForMealy: bool, T> std::fmt::Debug for LStarQuery<ForMealy, T>
+impl<const FOR_MEALY: bool, T> std::fmt::Debug for LStarQuery<FOR_MEALY, T>
 where
-    T: LStarTarget<ForMealy>,
+    T: LStarTarget<FOR_MEALY>,
     T::Hypothesis: Debug,
-T::Output: Debug,
+    T::Output: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -26,7 +26,7 @@ T::Output: Debug,
     }
 }
 
-impl<const ForMealy: bool, T: LStarTarget<ForMealy>> LStarQuery<ForMealy, T> {
+impl<const FOR_MEALY: bool, T: LStarTarget<FOR_MEALY>> LStarQuery<FOR_MEALY, T> {
     pub fn is_equivalence(&self) -> bool {
         matches!(self, LStarQuery::Equivalence(_, _))
     }
@@ -44,23 +44,23 @@ impl<const ForMealy: bool, T: LStarTarget<ForMealy>> LStarQuery<ForMealy, T> {
     }
 }
 
-pub trait LStarLogger<const ForMealy: bool, T: LStarTarget<ForMealy>> {
-    fn log(&mut self, query: LStarQuery<ForMealy, T>);
+pub trait LStarLogger<const FOR_MEALY: bool, T: LStarTarget<FOR_MEALY>> {
+    fn log(&mut self, query: LStarQuery<FOR_MEALY, T>);
     fn create() -> Self;
 }
 
-impl<const ForMealy: bool, T: LStarTarget<ForMealy>> LStarLogger<ForMealy, T> for () {
-    fn log(&mut self, query: LStarQuery<ForMealy, T>) {}
+impl<const FOR_MEALY: bool, T: LStarTarget<FOR_MEALY>> LStarLogger<FOR_MEALY, T> for () {
+    fn log(&mut self, query: LStarQuery<FOR_MEALY, T>) {}
 
     fn create() -> Self {}
 }
 
 #[derive(Clone)]
-pub struct LStarLogbook<const ForMealy: bool, T: LStarTarget<ForMealy>>(
-    Vec<LStarQuery<ForMealy, T>>,
+pub struct LStarLogbook<const FOR_MEALY: bool, T: LStarTarget<FOR_MEALY>>(
+    Vec<LStarQuery<FOR_MEALY, T>>,
 );
 
-impl<const ForMealy: bool, T: LStarTarget<ForMealy>> LStarLogbook<ForMealy, T> {
+impl<const FOR_MEALY: bool, T: LStarTarget<FOR_MEALY>> LStarLogbook<FOR_MEALY, T> {
     pub fn is_sane(&self) -> bool {
         match self
             .0
@@ -84,10 +84,10 @@ impl<const ForMealy: bool, T: LStarTarget<ForMealy>> LStarLogbook<ForMealy, T> {
     }
 }
 
-impl<const ForMealy: bool, T: LStarTarget<ForMealy>> LStarLogger<ForMealy, T>
-    for LStarLogbook<ForMealy, T>
+impl<const FOR_MEALY: bool, T: LStarTarget<FOR_MEALY>> LStarLogger<FOR_MEALY, T>
+    for LStarLogbook<FOR_MEALY, T>
 {
-    fn log(&mut self, query: LStarQuery<ForMealy, T>) {
+    fn log(&mut self, query: LStarQuery<FOR_MEALY, T>) {
         assert!(self.is_sane());
         self.0.push(query);
     }

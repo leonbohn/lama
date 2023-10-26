@@ -500,7 +500,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     ) -> Option<ReachedState<Self::StateIndex>>
     where
         Successful<'a, 'b, R, Self>: CanInduce<ReachedState<Self::StateIndex>>,
-        Self: Sized + Pointed,
+        Self: Pointed,
         R: Word<Symbol = SymbolOf<Self>>,
     {
         self.induced(word, self.initial())

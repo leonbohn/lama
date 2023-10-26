@@ -26,10 +26,21 @@ pub trait Oracle<H: HasAlphabet> {
     fn equivalence(&self, hypothesis: &H) -> Result<(), (Vec<SymbolOf<H>>, Self::Output)>;
 }
 
+/// An oracle/minimally adequate teacher based on a [`Sample`]. It answers membership queries by looking up the
+/// word in the sample and returning the corresponding color. If the word is not in the sample, it returns the
+/// default color. Equivalence queries are perfomed by checking if the hypothesis produces the same output as the
+/// sample for all words in the sample.
 #[derive(Debug, Clone)]
 pub struct SampleOracle<A: Alphabet, W: Word, C: Color> {
     sample: Sample<A, W, C>,
     default: C,
+}
+
+impl<A: Alphabet, W: Word, C: Color> SampleOracle<A, W, C> {
+    /// Returns a reference to the underlying alphabet, as provided by [`Sample::alphabet()`].
+    pub fn alphabet(&self) -> &A {
+        self.sample.alphabet()
+    }
 }
 
 impl<A: Alphabet, C: Color> Oracle<MooreMachine<A, C>> for SampleOracle<A, Vec<A::Symbol>, C> {
@@ -108,11 +119,15 @@ impl<A: Alphabet, W: Word, C: Color> From<(Sample<A, W, C>, C)> for SampleOracle
 }
 
 impl<A: Alphabet, W: Word, C: Color> SampleOracle<A, W, C> {
+    /// Creates a new instance of a [`SampleOracle`] with the given sample and default color.
     pub fn new(sample: Sample<A, W, C>, default: C) -> Self {
         Self { sample, default }
     }
 }
 
+/// An oracle base on a [`DFALike`] instance. It answers membership queries by running the word through the
+/// automaton and returning the result. Equivalence queries are performed by intersecting the hypothesis with
+/// the negated input automaton and returning a counterexample if the intersection is non-empty.
 #[derive(Debug, Clone)]
 pub struct DFAOracle<D: DFALike> {
     automaton: D,
@@ -120,6 +135,7 @@ pub struct DFAOracle<D: DFALike> {
 }
 
 impl<D: DFALike + Clone> DFAOracle<D> {
+    /// Creates a new instance of a [`DFAOracle`] from the given automaton.
     pub fn new(automaton: D) -> Self {
         Self {
             negated: automaton.clone().negation(),
@@ -162,6 +178,7 @@ impl<D: DFALike> Oracle<MooreMachine<D::Alphabet, bool>> for DFAOracle<D> {
     }
 }
 
+/// An oracle based on a [`MealyMachine`].
 #[derive(Debug, Clone)]
 pub struct MealyOracle<C: Color, D: MealyLike<C>> {
     automaton: D,
@@ -198,6 +215,7 @@ impl<C: Color, D: MealyLike<C>> HasAlphabet for MealyOracle<C, D> {
 }
 
 impl<C: Color, D: MealyLike<C>> MealyOracle<C, D> {
+    /// Creates a new [`MealyOracle`] based on an instance of [`MealyLike`].
     pub fn new(automaton: D) -> Self {
         Self {
             automaton,
@@ -206,6 +224,7 @@ impl<C: Color, D: MealyLike<C>> MealyOracle<C, D> {
     }
 }
 
+/// An oracle based on a [`MooreMachine`].
 #[derive(Debug, Clone)]
 pub struct MooreOracle<C: Color, D: MooreLike<C>> {
     automaton: D,
@@ -242,6 +261,7 @@ impl<C: Color, D: MooreLike<C>> HasAlphabet for MooreOracle<C, D> {
 }
 
 impl<C: Color, D: MooreLike<C>> MooreOracle<C, D> {
+    /// Creates a new [`MooreOracle`] based on an instance of [`MooreLike`].
     pub fn new(automaton: D) -> Self {
         Self {
             automaton,

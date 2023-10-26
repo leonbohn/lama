@@ -10,7 +10,7 @@ pub use restricted::*;
 mod tests {
     use itertools::Itertools;
 
-    use crate::prelude::*;
+    use crate::{prelude::*, ts::finite::ReachedColor};
 
     #[test]
     fn product() {
@@ -34,10 +34,10 @@ mod tests {
 
         let xxx = dfa.ts_product(dfb);
         if let Some(ReachedState(_q)) = xxx.induced(&"abb", ProductIndex(0, 0)) {}
-        let c = xxx.transform("aa");
+        let ReachedColor(c) = xxx.reached_color(&"aa").unwrap();
 
         let yyy = xxx.clone().map_state_colors(|(a, b)| a || b);
-        let d = yyy.transform("aa");
+        let ReachedColor(d) = yyy.as_dfa().reached_color(&"aa").unwrap();
 
         assert_eq!(c.0 || c.1, d);
         println!("{:?}", xxx.edges_from(xxx.initial()).unwrap().collect_vec());
