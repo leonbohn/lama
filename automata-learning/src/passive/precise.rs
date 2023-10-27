@@ -11,7 +11,9 @@ use super::fwpm::FWPM;
 type ClassId = usize;
 type StateId = usize;
 
-pub const PRECISE_DPA_COLORS: usize = 8;
+/// We use const generics in the definition of the precise DPA. Therefore, it is necessary to bound the
+/// number of colors that can be used. This constant is used as such a bound.
+pub const PRECISE_DPA_COLORS: usize = 5;
 
 /// A PState is a state in the precise DPA. It keeps track of the class in the leading
 /// congruence and for each Mostowski level, it tracks the class and the state in the

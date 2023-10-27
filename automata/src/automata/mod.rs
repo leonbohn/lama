@@ -39,9 +39,11 @@ pub use dfa::{IntoDFA, DFA};
 pub struct WithInitial<Ts: TransitionSystem>(Ts, Ts::StateIndex);
 
 impl<Ts: TransitionSystem> WithInitial<Ts> {
+    /// Gives a reference to the underlying transition system.
     pub fn ts(&self) -> &Ts {
         &self.0
     }
+    /// Returns a mutable reference to the underlying transition system.
     pub fn ts_mut(&mut self) -> &mut Ts {
         &mut self.0
     }
@@ -87,6 +89,8 @@ where
     C: Color,
     Q: Color,
 {
+    /// Takes an alphabet and a color and constructs a [`WithInitial`] instance with the given alphabet, no
+    /// transitions and a single initial state with the given color.
     pub fn with_initial_color(alphabet: A, color: Q) -> Self {
         let mut ts = BTS::new(alphabet);
         let initial = ts.add_state(color);
@@ -185,6 +189,8 @@ impl<Ts: TransitionSystem + HasMutableStates> HasMutableStates for WithInitial<T
     }
 }
 
+/// Type alias for the unit type. Purpose is mainly to be used in Macros, as `()` is more difficult to
+/// handle than a simple alphabetic identifier.
 pub type NoColor = ();
 
 #[allow(missing_docs)]
@@ -197,9 +203,11 @@ macro_rules! impl_automaton_type {
     };
     ($name:ident, $color:ident, $edgecolor:ident) => {
         paste::paste! {
+            /// Type alias to allow conversion of a transition system into an automaton of the type.
             pub type [< Into $name >]<Ts> = $name<<Ts as HasAlphabet>::Alphabet, <Ts as TransitionSystem>::StateColor, <Ts as TransitionSystem>::EdgeColor, Ts>;
         }
 
+        #[allow(missing_docs)]
         #[derive(Clone)]
         pub struct $name<
             A = Simple,
@@ -213,6 +221,7 @@ macro_rules! impl_automaton_type {
         impl<A: Alphabet>
             $name<A, $color, $edgecolor, WithInitial<BTS<A, $color, $edgecolor, usize>>>
         {
+            /// Creates a new automaton from a given alphabet.
             pub fn new(alphabet: A) -> $name<A, $color, $edgecolor, WithInitial<BTS<A, $color, $edgecolor, usize>>> {
                 $name {
                     ts: WithInitial::new(alphabet),
@@ -221,9 +230,11 @@ macro_rules! impl_automaton_type {
             }
         }
         impl<Ts: TransitionSystem> $name<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts> {
+            /// Returns a reference to the underlying transition system.
             pub fn ts(&self) -> &Ts {
                 &self.ts
             }
+            /// Returns a mutable reference to the underlying transition system.
             pub fn ts_mut(&mut self) -> &mut Ts {
                 &mut self.ts
             }
@@ -463,10 +474,12 @@ pub trait DFALike: TransitionSystem<StateColor = bool> + Pointed
 // + Acceptor<SymbolOf<Self>, FiniteLength>
 // + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>
 {
+    /// Consumes and turns `self` into a [`DFA`].
     fn into_dfa(self) -> DFA<Self::Alphabet, Self::EdgeColor, Self> {
         DFA::from(self)
     }
 
+    /// Uses a reference to `self` for creating a [`DFA`].
     fn as_dfa(&self) -> DFA<Self::Alphabet, Self::EdgeColor, &Self> {
         DFA::from(self)
     }
@@ -549,10 +562,12 @@ impl<Ts> DFALike for Ts where
 /// Similar to [`IsDfa`], this trait is supposed to be (automatically) implemented by everything that can be viewed
 /// as a [`crate::DBA`].
 pub trait DBALike: TransitionSystem<EdgeColor = bool> + Pointed {
+    /// Uses a reference to `self` for creating a [`DBA`].
     fn as_dba(&self) -> IntoDBA<&Self> {
         DBA::from(self)
     }
 
+    /// Consumes `self` and returns a [`DBA`].
     fn into_dba(self) -> IntoDBA<Self> {
         DBA::from(self)
     }
@@ -590,10 +605,12 @@ impl<Ts> DBALike for Ts where Ts: TransitionSystem<EdgeColor = bool> + Pointed {
 
 /// Trait that should be implemented by every object that can be viewed as a [`crate::DPA`].
 pub trait DPALike: TransitionSystem<EdgeColor = usize> + Pointed {
+    /// Consumes `self` and returns a [`DPA`] from the transition system underlying `self`.
     fn into_dpa(self) -> IntoDPA<Self> {
         DPA::from(self)
     }
 
+    /// Uses a reference to `self` for creating a [`DPA`] from the underlying transition system.
     fn as_dpa(&self) -> IntoDPA<&Self> {
         DPA::from(self)
     }
@@ -604,14 +621,18 @@ impl<Ts> DPALike for Ts where Ts: TransitionSystem<EdgeColor = usize> + Pointed 
 /// Implemented by objects which can be viewed as a MealyMachine, i.e. a finite transition system
 /// which has outputs of type usize on its edges.
 pub trait MealyLike<C: Color>: TransitionSystem<EdgeColor = C> + Pointed {
+    /// Uses a reference to `self` for obtaining a [`MealyMachine`].
     fn as_mealy(&self) -> MealyMachine<Self::Alphabet, C, &Self> {
         MealyMachine::from(self)
     }
 
+    /// Consumes `self`, returning a [`MealyMachine`] that uses the underlying transition system.
     fn into_mealy(self) -> MealyMachine<Self::Alphabet, C, Self> {
         MealyMachine::from(self)
     }
 
+    /// Attempts to run the given finite word in `self`, returning the coclor of the last transition that
+    /// is taken wrapped in `Some`. If no successful run on `input` is possible, the function returns `None`.
     fn try_mealy_map<W: Word<Symbol = SymbolOf<Self>, Length = FiniteLength>>(
         &self,
         input: W,
@@ -621,6 +642,7 @@ pub trait MealyLike<C: Color>: TransitionSystem<EdgeColor = C> + Pointed {
             .and_then(|p| p.last_transition_color(self))
     }
 
+    /// Returns a vector over all colors that can be emitted.
     fn color_range(&self) -> Vec<Self::EdgeColor> {
         self.reachable_state_indices()
             .flat_map(|o| self.edges_from(o).unwrap().map(|e| IsTransition::color(&e)))
@@ -633,14 +655,18 @@ impl<Ts: TransitionSystem + Pointed + Sized> MealyLike<Ts::EdgeColor> for Ts {}
 /// Implemented by objects that can be viewed as MooreMachines, i.e. finite transition systems
 /// that have usize annotated/outputting states.
 pub trait MooreLike<Q: Color>: TransitionSystem<StateColor = Q> + Pointed {
+    /// Takes a reference to `self` and turns the underlying transition system into a [`MooreMachine`].
     fn as_moore(&self) -> MooreMachine<Self::Alphabet, Q, Self::EdgeColor, &Self> {
         MooreMachine::from(self)
     }
 
+    /// Consumes and thereby turns `self` into a [`MooreMachine`].
     fn into_moore(self) -> MooreMachine<Self::Alphabet, Q, Self::EdgeColor, Self> {
         MooreMachine::from(self)
     }
 
+    /// Runs the given `input` word in self. If the run is successful, the color of the state that it reaches
+    /// is emitted (wrapped in a `Some`). For unsuccessful runs, `None` is returned.
     fn try_moore_map<W: Word<Symbol = SymbolOf<Self>, Length = FiniteLength>>(
         &self,
         input: W,

@@ -28,8 +28,8 @@ pub mod prelude {
         },
         upw,
         word::{Normalized, NormalizedParseError, NormalizedPeriodic, OmegaWord, Word},
-        Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Isomorphic, Length,
-        Pointed, RightCongruence,
+        Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length, Pointed,
+        RightCongruence,
     };
 }
 
@@ -110,24 +110,6 @@ impl<I: Hash + Eq> Partition<I> {
                 .map(|it| it.into_iter().collect::<Set<_>>())
                 .collect(),
         )
-    }
-}
-
-pub trait Isomorphic<T> {
-    fn map_to(&self) -> T;
-    fn inverse_map(b: T) -> Self;
-}
-
-impl Isomorphic<bool> for usize {
-    fn map_to(&self) -> bool {
-        self == &1
-    }
-    fn inverse_map(b: bool) -> usize {
-        if b {
-            1
-        } else {
-            0
-        }
     }
 }
 

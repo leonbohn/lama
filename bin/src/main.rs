@@ -5,7 +5,7 @@ use automata::{
 };
 use automata_learning::passive::{
     sprout::{iteration_consistency_conflicts, prefix_consistency_conflicts, sprout},
-    InfiniteSample,
+    OmegaSample,
 };
 use clap::{command, Arg, ArgAction, Command};
 use tracing::{debug, error, Level};
@@ -88,7 +88,7 @@ fn main() {
                 }
             };
 
-            let output_dot = match InfiniteSample::try_from(sample_lines) {
+            let output_dot = match OmegaSample::try_from(sample_lines) {
                 Ok(sample) => match passive_matches.subcommand() {
                     Some(("rc", _)) => {
                         let conflicts = prefix_consistency_conflicts(sample);

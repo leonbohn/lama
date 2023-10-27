@@ -66,6 +66,13 @@ pub struct LStarTable<A: Alphabet, C: Color, const FOR_MEALY: bool> {
     pub(crate) alphabet: A,
 }
 
+impl<A: Alphabet, C: Color, const FOR_MEALY: bool> HasAlphabet for LStarTable<A, C, FOR_MEALY> {
+    type Alphabet = A;
+    fn alphabet(&self) -> &Self::Alphabet {
+        &self.alphabet
+    }
+}
+
 impl<A: Alphabet, C: Color + Debug + Default> LStarTarget<false> for LStarTable<A, C, false> {
     type Alphabet = A;
 
@@ -147,123 +154,119 @@ impl<A: Alphabet, C: Color + Debug + Default> LStarTarget<false> for LStarTable<
 
         let mut out: MooreMachine<A, C> =
             MooreMachine::new(self.alphabet.clone(), self.rows[0].outputs[0].clone());
-        'outer: loop {
-            let state_mapping: Vec<_> = std::iter::once((0, out.initial()))
-                .chain((1..self.rows.len()).filter_map(|i| {
-                    let row = &self.rows[i];
-                    if row.minimal {
-                        Some((i, out.add_state(row.outputs[0].clone())))
-                    } else {
-                        None
-                    }
-                }))
-                .collect();
-            trace!(
-                "Considering {} base states {{{}}}",
-                state_mapping.len(),
-                state_mapping
-                    .iter()
-                    .map(|(i, _)| format!(
-                        "{} | {}",
-                        self.rows[*i]
-                            .base
-                            .iter()
-                            .map(|sym| format!("{:?}", sym))
-                            .join(""),
-                        self.rows
-                            .iter()
-                            .find_map(|row| if row.base == self.rows[*i].base {
-                                Some(
-                                    row.outputs
-                                        .iter()
-                                        .map(|sym| format!("{:?}", sym))
-                                        .join(", "),
-                                )
-                            } else {
-                                None
-                            })
-                            .unwrap()
-                    ))
-                    .join(", ")
-            );
-            for i in 0..state_mapping.len() {
-                let (i, state) = &state_mapping[i];
-                'transition: for sym in self.alphabet.universe() {
-                    let mut extension: Vec<_> = self.rows[*i]
+        let state_mapping: Vec<_> = std::iter::once((0, out.initial()))
+            .chain((1..self.rows.len()).filter_map(|i| {
+                let row = &self.rows[i];
+                if row.minimal {
+                    Some((i, out.add_state(row.outputs[0].clone())))
+                } else {
+                    None
+                }
+            }))
+            .collect();
+        trace!(
+            "Considering {} base states {{{}}}",
+            state_mapping.len(),
+            state_mapping
+                .iter()
+                .map(|(i, _)| format!(
+                    "{} | {}",
+                    self.rows[*i]
                         .base
                         .iter()
-                        .cloned()
-                        .chain(std::iter::once(*sym))
-                        .collect();
-                    match self
-                        .rows
+                        .map(|sym| format!("{:?}", sym))
+                        .join(""),
+                    self.rows
                         .iter()
-                        .enumerate()
-                        .find(|(idx, r)| r.base() == &extension)
-                    {
-                        None => {
-                            return LStarHypothesisResult::MissingRow(LStarRow::without_outputs(
-                                extension, false,
-                            ));
-                        }
-                        Some((row_index, found_row)) => {
+                        .find_map(|row| if row.base == self.rows[*i].base {
+                            Some(
+                                row.outputs
+                                    .iter()
+                                    .map(|sym| format!("{:?}", sym))
+                                    .join(", "),
+                            )
+                        } else {
+                            None
+                        })
+                        .unwrap()
+                ))
+                .join(", ")
+        );
+        for i in 0..state_mapping.len() {
+            let (i, state) = &state_mapping[i];
+            'transition: for sym in self.alphabet.universe() {
+                let mut extension: Vec<_> = self.rows[*i]
+                    .base
+                    .iter()
+                    .cloned()
+                    .chain(std::iter::once(*sym))
+                    .collect();
+                match self
+                    .rows
+                    .iter()
+                    .enumerate()
+                    .find(|(idx, r)| r.base() == extension)
+                {
+                    None => {
+                        return LStarHypothesisResult::MissingRow(LStarRow::without_outputs(
+                            extension, false,
+                        ));
+                    }
+                    Some((row_index, found_row)) => {
+                        trace!(
+                            "Searching equivalent row for {}|[{}]",
+                            found_row
+                                .base
+                                .iter()
+                                .map(|sym| format!("{:?}", sym))
+                                .join(""),
+                            found_row
+                                .outputs
+                                .iter()
+                                .map(|sym| format!("{:?}", sym))
+                                .join(", ")
+                        );
+                        if let Some(equivalent_row_idx) =
+                            self.find_equivalent_row_index(&found_row.outputs)
+                        {
+                            assert!(equivalent_row_idx < self.rows.len());
+                            let equivalent_row = self.rows[equivalent_row_idx].clone();
                             trace!(
-                                "Searching equivalent row for {}|[{}]",
-                                found_row
+                                "Found equivalent row {}|[{}] with index {equivalent_row_idx}",
+                                equivalent_row
                                     .base
                                     .iter()
                                     .map(|sym| format!("{:?}", sym))
                                     .join(""),
-                                found_row
+                                equivalent_row
                                     .outputs
                                     .iter()
                                     .map(|sym| format!("{:?}", sym))
-                                    .join(", ")
+                                    .join(", "),
                             );
-                            if let Some(equivalent_row_idx) =
-                                self.find_equivalent_row_index(&found_row.outputs)
-                            {
-                                assert!(equivalent_row_idx < self.rows.len());
-                                let equivalent_row = self.rows[equivalent_row_idx].clone();
-                                trace!(
-                                    "Found equivalent row {}|[{}] with index {equivalent_row_idx}",
-                                    equivalent_row
-                                        .base
-                                        .iter()
-                                        .map(|sym| format!("{:?}", sym))
-                                        .join(""),
-                                    equivalent_row
-                                        .outputs
-                                        .iter()
-                                        .map(|sym| format!("{:?}", sym))
-                                        .join(", "),
-                                );
 
-                                let target_state_idx = state_mapping
-                                    .iter()
-                                    .find_map(|(i, j)| {
-                                        if *i == equivalent_row_idx {
-                                            Some(*j)
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                    .expect("We must have a base row available!");
+                            let target_state_idx = state_mapping
+                                .iter()
+                                .find_map(|(i, j)| {
+                                    if *i == equivalent_row_idx {
+                                        Some(*j)
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .expect("We must have a base row available!");
 
-                                out.add_edge(*state, A::expression(*sym), target_state_idx, ());
-                                continue 'transition;
-                            } else {
-                                trace!(
-                                    "No equivalent row exists, promoting {row_index} to a state"
-                                );
-                                return LStarHypothesisResult::PromoteRow(row_index);
-                            }
+                            out.add_edge(*state, A::expression(*sym), target_state_idx, ());
+                            continue 'transition;
+                        } else {
+                            trace!("No equivalent row exists, promoting {row_index} to a state");
+                            return LStarHypothesisResult::PromoteRow(row_index);
                         }
                     }
                 }
             }
-            return LStarHypothesisResult::Success(out);
         }
+        LStarHypothesisResult::Success(out)
     }
 
     fn accept_counterexample<
@@ -443,136 +446,132 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
         );
 
         let mut out: MealyMachine<A> = MealyMachine::new(self.alphabet.clone());
-        'outer: loop {
-            let state_mapping: Vec<_> = std::iter::once((0, out.initial()))
-                .chain((1..self.rows.len()).filter_map(|i| {
-                    let row = &self.rows[i];
-                    if row.minimal {
-                        Some((i, out.add_state(())))
-                    } else {
-                        None
-                    }
-                }))
-                .collect();
-            trace!(
-                "Considering {} base states {{{}}}",
-                state_mapping.len(),
-                state_mapping
-                    .iter()
-                    .map(|(i, _)| format!(
-                        "{} | {}",
-                        self.rows[*i]
-                            .base
-                            .iter()
-                            .map(|sym| format!("{:?}", sym))
-                            .join(""),
-                        self.rows
-                            .iter()
-                            .find_map(|row| if row.base == self.rows[*i].base {
-                                Some(
-                                    row.outputs
-                                        .iter()
-                                        .map(|sym| format!("{:?}", sym))
-                                        .join(", "),
-                                )
-                            } else {
-                                None
-                            })
-                            .unwrap()
-                    ))
-                    .join(", ")
-            );
-            for i in 0..state_mapping.len() {
-                let (i, state) = &state_mapping[i];
-                'transition: for sym in self.alphabet.universe() {
-                    let mut extension: Vec<_> = self.rows[*i]
+        let state_mapping: Vec<_> = std::iter::once((0, out.initial()))
+            .chain((1..self.rows.len()).filter_map(|i| {
+                let row = &self.rows[i];
+                if row.minimal {
+                    Some((i, out.add_state(())))
+                } else {
+                    None
+                }
+            }))
+            .collect();
+        trace!(
+            "Considering {} base states {{{}}}",
+            state_mapping.len(),
+            state_mapping
+                .iter()
+                .map(|(i, _)| format!(
+                    "{} | {}",
+                    self.rows[*i]
                         .base
                         .iter()
-                        .cloned()
-                        .chain(std::iter::once(*sym))
-                        .collect();
-
-                    let symbol_position = self
-                        .experiments
+                        .map(|sym| format!("{:?}", sym))
+                        .join(""),
+                    self.rows
                         .iter()
-                        .position(|e| e.len() == 1 && e[0] == *sym)
-                        .expect("Single symbol experiments must be present!");
-                    let output_color = self.rows[*i].outputs[symbol_position];
+                        .find_map(|row| if row.base == self.rows[*i].base {
+                            Some(
+                                row.outputs
+                                    .iter()
+                                    .map(|sym| format!("{:?}", sym))
+                                    .join(", "),
+                            )
+                        } else {
+                            None
+                        })
+                        .unwrap()
+                ))
+                .join(", ")
+        );
+        for i in 0..state_mapping.len() {
+            let (i, state) = &state_mapping[i];
+            'transition: for sym in self.alphabet.universe() {
+                let mut extension: Vec<_> = self.rows[*i]
+                    .base
+                    .iter()
+                    .cloned()
+                    .chain(std::iter::once(*sym))
+                    .collect();
 
-                    match self
-                        .rows
-                        .iter()
-                        .enumerate()
-                        .find(|(idx, r)| r.base() == &extension)
-                    {
-                        None => {
-                            return LStarHypothesisResult::MissingRow(LStarRow::without_outputs(
-                                extension, false,
-                            ));
-                        }
-                        Some((row_index, found_row)) => {
+                let symbol_position = self
+                    .experiments
+                    .iter()
+                    .position(|e| e.len() == 1 && e[0] == *sym)
+                    .expect("Single symbol experiments must be present!");
+                let output_color = self.rows[*i].outputs[symbol_position];
+
+                match self
+                    .rows
+                    .iter()
+                    .enumerate()
+                    .find(|(idx, r)| r.base() == extension)
+                {
+                    None => {
+                        return LStarHypothesisResult::MissingRow(LStarRow::without_outputs(
+                            extension, false,
+                        ));
+                    }
+                    Some((row_index, found_row)) => {
+                        trace!(
+                            "Searching equivalent row for {}|[{}]",
+                            found_row
+                                .base
+                                .iter()
+                                .map(|sym| format!("{:?}", sym))
+                                .join(""),
+                            found_row
+                                .outputs
+                                .iter()
+                                .map(|sym| format!("{:?}", sym))
+                                .join(", ")
+                        );
+                        if let Some(equivalent_row_idx) =
+                            self.find_equivalent_row_index(&found_row.outputs)
+                        {
+                            assert!(equivalent_row_idx < self.rows.len());
+                            let equivalent_row = self.rows[equivalent_row_idx].clone();
                             trace!(
-                                "Searching equivalent row for {}|[{}]",
-                                found_row
+                                "Found equivalent row {}|[{}] with index {equivalent_row_idx}",
+                                equivalent_row
                                     .base
                                     .iter()
                                     .map(|sym| format!("{:?}", sym))
                                     .join(""),
-                                found_row
+                                equivalent_row
                                     .outputs
                                     .iter()
                                     .map(|sym| format!("{:?}", sym))
-                                    .join(", ")
+                                    .join(", "),
                             );
-                            if let Some(equivalent_row_idx) =
-                                self.find_equivalent_row_index(&found_row.outputs)
-                            {
-                                assert!(equivalent_row_idx < self.rows.len());
-                                let equivalent_row = self.rows[equivalent_row_idx].clone();
-                                trace!(
-                                    "Found equivalent row {}|[{}] with index {equivalent_row_idx}",
-                                    equivalent_row
-                                        .base
-                                        .iter()
-                                        .map(|sym| format!("{:?}", sym))
-                                        .join(""),
-                                    equivalent_row
-                                        .outputs
-                                        .iter()
-                                        .map(|sym| format!("{:?}", sym))
-                                        .join(", "),
-                                );
 
-                                let target_state_idx = state_mapping
-                                    .iter()
-                                    .find_map(|(i, j)| {
-                                        if *i == equivalent_row_idx {
-                                            Some(*j)
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                    .expect("We must have a base row available!");
+                            let target_state_idx = state_mapping
+                                .iter()
+                                .find_map(|(i, j)| {
+                                    if *i == equivalent_row_idx {
+                                        Some(*j)
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .expect("We must have a base row available!");
 
-                                out.add_edge(
-                                    *state,
-                                    A::expression(*sym),
-                                    target_state_idx,
-                                    output_color,
-                                );
-                                continue 'transition;
-                            } else {
-                                trace!(
-                                    "No equivalent row exists, promoting {row_index} to a state"
-                                );
-                                return LStarHypothesisResult::PromoteRow(row_index);
-                            }
+                            out.add_edge(
+                                *state,
+                                A::expression(*sym),
+                                target_state_idx,
+                                output_color,
+                            );
+                            continue 'transition;
+                        } else {
+                            trace!("No equivalent row exists, promoting {row_index} to a state");
+                            return LStarHypothesisResult::PromoteRow(row_index);
                         }
                     }
                 }
             }
-            return LStarHypothesisResult::Success(out);
         }
+        LStarHypothesisResult::Success(out)
     }
 
     fn accept_counterexample<

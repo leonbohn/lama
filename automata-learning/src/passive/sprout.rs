@@ -8,7 +8,7 @@ use itertools::Itertools;
 use tracing::trace;
 
 use crate::{
-    passive::{ClassOmegaSample, FiniteSample, InfiniteSample, Sample, SplitOmegaSample},
+    passive::{ClassOmegaSample, FiniteSample, OmegaSample, Sample, SplitOmegaSample},
     prefixtree::prefix_tree,
 };
 
@@ -251,10 +251,7 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
 
 /// Computes a conflict relation encoding prefix consistency. For more details on how this works, see
 /// Lemma 28 in [this paper](https://arxiv.org/pdf/2302.11043.pdf).
-pub fn prefix_consistency_conflicts<
-    A: Alphabet,
-    S: std::borrow::Borrow<InfiniteSample<A, bool>>,
->(
+pub fn prefix_consistency_conflicts<A: Alphabet, S: std::borrow::Borrow<OmegaSample<A, bool>>>(
     sample: S,
 ) -> ConflictRelation<A> {
     let sample = sample.borrow();
@@ -447,10 +444,10 @@ pub(crate) mod tests {
     use itertools::Itertools;
     use tracing_test::traced_test;
 
-    use crate::passive::{sample::InfiniteSample, sprout::ConflictRelation, Sample};
+    use crate::passive::{sample::OmegaSample, sprout::ConflictRelation, Sample};
 
-    pub fn inf_aba_sample() -> (Simple, InfiniteSample<Simple, bool>) {
-        let Ok(sample) = InfiniteSample::try_from(
+    pub fn inf_aba_sample() -> (Simple, OmegaSample<Simple, bool>) {
+        let Ok(sample) = OmegaSample::try_from(
             r#"omega
             alphabet: a,b
             positive:
@@ -477,8 +474,8 @@ pub(crate) mod tests {
         (sample.alphabet.clone(), sample)
     }
 
-    pub fn testing_larger_forc_sample() -> (Simple, InfiniteSample<Simple, bool>) {
-        let Ok(sample) = InfiniteSample::try_from(
+    pub fn testing_larger_forc_sample() -> (Simple, OmegaSample<Simple, bool>) {
+        let Ok(sample) = OmegaSample::try_from(
             r#"omega
         alphabet: a,b
         positive:
@@ -534,7 +531,7 @@ pub(crate) mod tests {
         (sample.alphabet.clone(), sample)
     }
 
-    fn testing_smaller_forc_smaple() -> (Simple, InfiniteSample<Simple, bool>) {
+    fn testing_smaller_forc_smaple() -> (Simple, OmegaSample<Simple, bool>) {
         let alphabet = alphabet!(simple 'a', 'b', 'c');
         (
             alphabet.clone(),

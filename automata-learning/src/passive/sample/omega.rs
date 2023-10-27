@@ -17,7 +17,7 @@ use crate::passive::{
     ClassOmegaSample, Sample,
 };
 
-use super::{InfiniteSample, SplitOmegaSample};
+use super::{OmegaSample, SplitOmegaSample};
 
 /// Abstracts the types of errors that can occur when parsing an `OmegaSample` from a string.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -51,7 +51,7 @@ impl std::fmt::Display for OmegaSampleParseError {
     }
 }
 
-impl TryFrom<&str> for InfiniteSample<Simple, bool> {
+impl TryFrom<&str> for OmegaSample<Simple, bool> {
     type Error = OmegaSampleParseError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
@@ -59,7 +59,7 @@ impl TryFrom<&str> for InfiniteSample<Simple, bool> {
     }
 }
 
-impl TryFrom<Vec<String>> for InfiniteSample<Simple, bool> {
+impl TryFrom<Vec<String>> for OmegaSample<Simple, bool> {
     type Error = OmegaSampleParseError;
 
     fn try_from(value: Vec<String>) -> Result<Self, Self::Error> {
@@ -132,7 +132,7 @@ impl TryFrom<Vec<String>> for InfiniteSample<Simple, bool> {
     }
 }
 
-impl<A: Alphabet> InfiniteSample<A, bool> {
+impl<A: Alphabet> OmegaSample<A, bool> {
     /// Creates a new `OmegaSample` from an alphabet as well as two iterators, one
     /// over positive words and one over negative words.
     pub fn new_omega_from_pos_neg<
@@ -248,7 +248,7 @@ impl<A: Alphabet> PeriodicOmegaSample<A> {
     }
 }
 
-impl<A: Alphabet, C: Color> InfiniteSample<A, C> {
+impl<A: Alphabet, C: Color> OmegaSample<A, C> {
     /// Create a new sample of infinite words. The alphabet is given as something which implements [`RawSymbols`]. The words
     /// in the sample are given as an iterator yielding (word, color) pairs.
     pub fn new_omega<

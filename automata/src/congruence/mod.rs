@@ -47,6 +47,8 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
         }
     }
 
+    /// Returns an iterator which yields pairs `(c, idx)` consisting of a reference `c` to the class name together
+    /// with the corresponding index of the class.
     pub fn classes(&self) -> impl Iterator<Item = (&Class<A::Symbol>, usize)> + '_ {
         self.ts.indices_with_color().map(|(id, c)| (c.class(), id))
     }

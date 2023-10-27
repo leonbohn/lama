@@ -35,6 +35,7 @@ pub trait Expression<S: Symbol>: Hash + Clone + Debug + Eq + Ord {
     fn matches(&self, symbol: S) -> bool;
 }
 
+/// Type alias that can be used to extract the underlying alphabet of some object implementing [`HasAlphabet`].
 pub type AlphabetOf<A> = <A as HasAlphabet>::Alphabet;
 
 /// An alphabet abstracts a collection of [`Symbol`]s and complex [`Expression`]s over those.

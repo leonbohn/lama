@@ -8,9 +8,14 @@ use impl_tools::autoimpl;
 
 use crate::prelude::*;
 
+/// Abstracts the concept of a (total) morphism, which is in essence simply a map from finite words
+/// over `S` (which in this case is the type of a symbol) to objects of type [`Self::Output`].
 #[autoimpl(for<T: trait + ?Sized> &T, &mut T, Box<T>)]
 pub trait Morphism<S> {
+    /// The type that is output when a finite word consisting of symbols of type `S` is input.
     type Output: Color;
+    /// Apply the morphism to a finite word consisting of objects of type `S`, returning the obtained
+    /// object of type [`Self::Output`].
     fn morph<W: Word<Symbol = S, Length = FiniteLength>>(&self, word: W) -> Self::Output;
 }
 

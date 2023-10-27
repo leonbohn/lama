@@ -95,7 +95,9 @@ impl<'a, Idx: IndexType, E, C: Color> IsTransition<E, Idx, C> for (&'a E, &'a (I
     }
 }
 
+/// Type alias to extract the state color of a [`TransitionSystem`].
 pub type StateColorOf<Ts> = <Ts as TransitionSystem>::StateColor;
+/// Type alias to extract the edge color of a [`TransitionSystem`].
 pub type EdgeColorOf<Ts> = <Ts as TransitionSystem>::EdgeColor;
 
 /// Encapsulates the transition function δ of a (finite) transition system. This is the main trait that

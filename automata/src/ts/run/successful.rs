@@ -19,10 +19,13 @@ pub struct Successful<'a, 'b, R, Ts: TransitionSystem> {
 }
 
 impl<'a, 'b, R, Ts: TransitionSystem> Successful<'a, 'b, R, Ts> {
+    /// Returns a reference to the path underlying the successful run.
     pub fn path(&self) -> &Path<Ts::Alphabet, Ts::StateIndex> {
         &self.path
     }
 
+    /// Returns the loop index of self, if it exists. The loop index is the position to which
+    /// the run "jumps back".
     pub fn loop_index(&self) -> Option<usize> {
         self.loop_index
     }

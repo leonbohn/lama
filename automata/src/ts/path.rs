@@ -74,6 +74,8 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
             .expect("We assume every state to be colored")
     }
 
+    /// Returns the color of the last transition if `self` is viewed as a path in the given `ts`, if it exists.
+    /// If the path is empty or not contiguous in `ts`, `None` is returned.
     pub fn last_transition_color<'a, TS>(&'a self, ts: &'a TS) -> Option<TS::EdgeColor>
     where
         TS: TransitionSystem<Alphabet = A, StateIndex = Idx>,

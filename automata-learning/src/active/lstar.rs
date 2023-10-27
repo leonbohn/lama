@@ -55,6 +55,7 @@ impl<
     > LStar<A, O, LStarTable<A, C, false>, LStarLogbook<false, LStarTable<A, C, false>>, false>
 {
     /// Creates a new L* instance for a Moore machine, which logs the queries.
+    #[allow(clippy::type_complexity)]
     pub fn moore_logged(
         teacher: O,
         alphabet: A,
@@ -79,6 +80,7 @@ impl<A: Alphabet, O: Oracle<MealyMachine<A, usize>, Length = FiniteLength, Outpu
     LStar<A, O, LStarTable<A, usize, true>, LStarLogbook<true, LStarTable<A, usize, true>>, true>
 {
     /// Creates a new L* instance for a Mealy machine, which logs the queries.
+    #[allow(clippy::type_complexity)]
     pub fn mealy_logged(
         teacher: O,
         alphabet: A,

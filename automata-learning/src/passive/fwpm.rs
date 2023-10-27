@@ -1,7 +1,7 @@
 use automata::{
     congruence::FORC,
     prelude::{Indexes, MealyMachine, MooreMachine},
-    Alphabet, Map, RightCongruence,
+    Alphabet, Map, RightCongruence, TransitionSystem,
 };
 use itertools::Itertools;
 
@@ -46,6 +46,7 @@ impl<'a, A: Alphabet> FWPM<'a, A> {
         )
     }
 
+    /// Consumes self and builds a [`PreciseDPA`].
     pub fn into_precise_dpa(self) -> PreciseDPA<A, { super::precise::PRECISE_DPA_COLORS }> {
         self.into()
     }
@@ -59,7 +60,18 @@ impl<'a, A: Alphabet> FWPM<'a, A> {
             .map(|(i, pm)| (pm, *i))
     }
 
+    /// Constructs a new FWPM from a given right congruence and map associating each class of the congruence
+    /// with a priority mapping. Ensures that the each class has a priority mapping.
     pub fn new(leading: &'a RightCongruence<A>, pm: Map<usize, MooreMachine<A, usize>>) -> Self {
+        assert_eq!(
+            leading.size(),
+            pm.len(),
+            "Mismatch in size of congruence and number of priority mappings"
+        );
+        assert!(
+            leading.state_indices().all(|q| pm.contains_key(&q)),
+            "Some classes of leading congruence do not have a priority mapping!"
+        );
         Self { leading, pm }
     }
 }

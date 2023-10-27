@@ -32,8 +32,13 @@ pub struct Sample<A: Alphabet, W: Word + Hash, C: Color = bool> {
     pub words: Map<W, C>,
 }
 
-pub type FiniteSample<A, C> = Sample<A, Vec<<A as Alphabet>::Symbol>, C>;
-pub type InfiniteSample<A, C> = Sample<A, Normalized<<A as Alphabet>::Symbol, InfiniteLength>, C>;
+/// Type alias for samples over the alphabet `A`, containing finite words which are classified with color `C`,
+/// which defaults to `bool`.
+pub type FiniteSample<A, C = bool> = Sample<A, Vec<<A as Alphabet>::Symbol>, C>;
+/// Type alias for samples over alphabet `A` which contain infinite/omega words that are classified with `C`,
+/// which defaults to `bool`.
+pub type OmegaSample<A, C = bool> =
+    Sample<A, Normalized<<A as Alphabet>::Symbol, InfiniteLength>, C>;
 
 impl<A: Alphabet, W: Word> Sample<A, W, bool> {
     /// Gives an iterator over all positive words in the sample.
@@ -48,6 +53,7 @@ impl<A: Alphabet, W: Word> Sample<A, W, bool> {
 }
 
 impl<A: Alphabet, W: Word, C: Color> Sample<A, W, C> {
+    /// Returns a reference to the underlying alphabet.
     pub fn alphabet(&self) -> &A {
         &self.alphabet
     }
@@ -57,6 +63,8 @@ impl<A: Alphabet, W: Word, C: Color> Sample<A, W, C> {
         self.words.keys()
     }
 
+    /// Returns an iterator over all pairs (w, c) of words w with their classification c that
+    /// are present in the sample.
     pub fn entries(&self) -> impl Iterator<Item = (&'_ W, &'_ C)> + '_ {
         self.words.iter()
     }
@@ -118,6 +126,8 @@ where
     }
 }
 
+/// Macro for creating an alphabet. For now, this is limited to creating [`Simple`] alphabets. Invocation is
+/// done as `alphabet!(simple 'a', 'b', 'c')` to create such an alphabet with the symbols 'a', 'b' and 'c'.
 #[macro_export]
 macro_rules! sample {
     ($alph:expr; pos $($pos:expr),+; neg $($neg:expr),+) => {
