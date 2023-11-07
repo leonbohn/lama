@@ -16,6 +16,9 @@ mod forc;
 pub use forc::FORC;
 
 mod transitionprofile;
+pub use transitionprofile::{Accumulates, RunProfile, RunSignature, TransitionMonoid};
+
+mod cayley;
 
 /// A right congruence is an equivalence relation that is compatible with the right concatenation. We
 /// represent these as a transition system, where the states are the equivalence classes and the colors

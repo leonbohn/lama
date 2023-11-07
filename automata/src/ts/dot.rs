@@ -64,7 +64,7 @@ impl DotStateData {
     fn dot_name(&self) -> String {
         match &self.prefix {
             Some(prefix) => format!("\"{prefix}|{}\"", self.name),
-            None => format!("\"{}\"", self.name)
+            None => format!("\"{}\"", self.name),
         }
     }
 
@@ -77,18 +77,16 @@ impl DotStateData {
 impl<Idx: Display> From<(&str, Idx)> for DotStateData {
     fn from((prefix, value): (&str, Idx)) -> Self {
         match prefix.len() {
-            0 => { Self {
+            0 => Self {
                 name: value.to_string(),
                 prefix: None,
                 attributes: vec![],
-            } },
-            _prefix_len => {
-                Self {
-                    name: value.to_string(),
-                    prefix: Some(prefix.to_string()),
-                    attributes: vec![]
-                }
-            }
+            },
+            _prefix_len => Self {
+                name: value.to_string(),
+                prefix: Some(prefix.to_string()),
+                attributes: vec![],
+            },
         }
     }
 }
@@ -265,7 +263,6 @@ pub trait ToDot {
 
         trace!("Outputting dot and rendering to png");
         let dot = self.dot_representation();
-        println!("{dot}");
         render_dot_to_tempfile(dot.as_str())
     }
 

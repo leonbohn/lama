@@ -95,6 +95,20 @@ impl<'a, Idx: IndexType, E, C: Color> IsTransition<E, Idx, C> for (&'a E, &'a (I
     }
 }
 
+impl<'a, Idx: IndexType, E, C: Color> IsTransition<E, Idx, C> for (E, Idx, C) {
+    fn target(&self) -> Idx {
+        self.1
+    }
+
+    fn color(&self) -> C {
+        self.2.clone()
+    }
+
+    fn expression(&self) -> &E {
+        &self.0
+    }
+}
+
 /// Type alias to extract the state color of a [`TransitionSystem`].
 pub type StateColorOf<Ts> = <Ts as TransitionSystem>::StateColor;
 /// Type alias to extract the edge color of a [`TransitionSystem`].
@@ -1322,6 +1336,31 @@ where
             Some(initial)
         } else {
             None
+        }
+    }
+}
+
+pub struct GenericEdgesFrom<'a, Ts: TransitionSystem> {
+    ts: &'a Ts,
+    state: Ts::StateIndex,
+    symbols: <Ts::Alphabet as Alphabet>::Universe<'a>,
+}
+
+impl<'a, Ts: TransitionSystem> Iterator for GenericEdgesFrom<'a, Ts> {
+    type Item = Ts::TransitionRef<'a>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.symbols
+            .next()
+            .and_then(|sym| self.ts.transition(self.state, *sym))
+    }
+}
+
+impl<'a, Ts: TransitionSystem> GenericEdgesFrom<'a, Ts> {
+    pub fn new(ts: &'a Ts, state: Ts::StateIndex) -> Self {
+        Self {
+            ts,
+            state,
+            symbols: ts.alphabet().universe(),
         }
     }
 }
