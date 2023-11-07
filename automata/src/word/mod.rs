@@ -129,6 +129,16 @@ pub trait Word: HasLength + Hash + Eq + PartialEq {
             .map(|p| self.nth(p.position()).unwrap())
             .collect()
     }
+
+    fn display(&self) -> String
+    where
+        Self::Symbol: Display,
+    {
+        self.raw_to_vec()
+            .into_iter()
+            .map(|sym| sym.to_string())
+            .join("")
+    }
 }
 
 /// Stores the actual representation of a [`Word`] as well as [`Length`], which determines the way

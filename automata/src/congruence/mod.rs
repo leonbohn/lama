@@ -15,6 +15,8 @@ pub use class::{Class, ColoredClass};
 mod forc;
 pub use forc::FORC;
 
+mod transitionprofile;
+
 /// A right congruence is an equivalence relation that is compatible with the right concatenation. We
 /// represent these as a transition system, where the states are the equivalence classes and the colors
 /// on edges are `()`.

@@ -637,7 +637,7 @@ pub trait MealyLike<C: Color>: TransitionSystem<EdgeColor = C> + Pointed {
         &self,
         input: W,
     ) -> Option<C> {
-        self.finite_run(self.initial(), &input.finite_to_vec())
+        self.finite_run_from(self.initial(), &input.finite_to_vec())
             .ok()
             .and_then(|p| p.last_transition_color(self))
     }
@@ -671,7 +671,7 @@ pub trait MooreLike<Q: Color>: TransitionSystem<StateColor = Q> + Pointed {
         &self,
         input: W,
     ) -> Option<Q> {
-        self.finite_run(self.initial(), &input.finite_to_vec())
+        self.finite_run_from(self.initial(), &input.finite_to_vec())
             .ok()
             .map(|p| p.reached_state_color(self))
     }

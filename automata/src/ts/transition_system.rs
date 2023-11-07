@@ -315,14 +315,11 @@ pub trait TransitionSystem: HasAlphabet + Sized {
 
     /// Starts a new [`Walker`] that can be used to successively take transitions from `state` on
     /// the letters of `word`.
-    fn walk<'a, 'b, R: Word<Symbol = SymbolOf<Self>>>(
-        &'a self,
-        word: &'b R,
+    fn walk<R: Word<Symbol = SymbolOf<Self>>>(
+        &self,
+        word: R,
         state: Self::StateIndex,
-    ) -> Walker<'a, 'b, Self, R>
-    where
-        Self: Sized,
-    {
+    ) -> Walker<&Self, R> {
         Walker::new(word, self, state)
     }
 
@@ -357,13 +354,30 @@ pub trait TransitionSystem: HasAlphabet + Sized {
             .any(|s| s == state)
     }
 
+    /// Runs the given `word` on the transition system, starting from the initial state. The result is
+    /// - [`Ok`] if the run is successful (i.e. for all symbols of `word` a suitable transition
+    ///  can be taken),
+    /// - [`Err`] if the run is unsuccessful, meaning a symbol is encountered for which no
+    /// transition exists.
+    #[allow(clippy::type_complexity)]
+    fn finite_run<W: Word<Symbol = SymbolOf<Self>, Length = FiniteLength>>(
+        &self,
+        word: W,
+    ) -> Result<Path<Self::Alphabet, Self::StateIndex>, Path<Self::Alphabet, Self::StateIndex>>
+    where
+        Self: Pointed,
+    {
+        let w = word.finite_to_vec();
+        self.finite_run_from(self.initial(), &w)
+    }
+
     /// Runs the given `word` on the transition system, starting from `state`. The result is
     /// - [`Ok`] if the run is successful (i.e. for all symbols of `word` a suitable transition
     ///  can be taken),
     /// - [`Err`] if the run is unsuccessful, meaning a symbol is encountered for which no
     /// transition exists.
     #[allow(clippy::type_complexity)]
-    fn finite_run(
+    fn finite_run_from(
         &self,
         origin: Self::StateIndex,
         word: &[SymbolOf<Self>],
@@ -402,7 +416,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     where
         Self: Pointed + Sized,
     {
-        let mut path = self.finite_run(origin, base)?;
+        let mut path = self.finite_run_from(origin, base)?;
         let mut position = path.len();
         let mut seen = Map::default();
 
@@ -411,7 +425,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
                 Some(p) => {
                     return Ok(path.loop_back_to(p));
                 }
-                None => match self.finite_run(path.reached(), recur) {
+                None => match self.finite_run_from(path.reached(), recur) {
                     Ok(p) => {
                         position += p.len();
                         path.extend_with(p);
@@ -435,14 +449,11 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     /// encountered for which no transition exists, this returns a [`super::run::partial::Partial`] run, which can be used
     /// to obtain the colors of the transitions that were taken before, as well as the state that
     /// the transition system was left from and the remaining suffix.
-    fn run<'a, 'b, R: Word<Symbol = SymbolOf<Self>>>(
-        &'a self,
-        word: &'b R,
+    fn run_from<R: Word<Symbol = SymbolOf<Self>>>(
+        &self,
+        word: R,
         state: Self::StateIndex,
-    ) -> RunResult<'a, 'b, Self, R>
-    where
-        Self: Sized,
-    {
+    ) -> RunResult<&Self, R> {
         self.walk(word, state).result()
     }
 
@@ -450,21 +461,20 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     /// If the run is successful (i.e. for all symbols of `word` a suitable transition can be taken),
     /// this returns whatever is *induced* by the run. For a [`Word`] of finite length, this is
     /// simply
-    fn induced<'a, 'b, R, I>(&'a self, word: &'b R, state: Self::StateIndex) -> Option<I>
+    fn induced<R, I>(&self, word: R, state: Self::StateIndex) -> Option<I>
     where
         I: Induced,
-        Successful<'a, 'b, R, Self>: CanInduce<I>,
-        Self: Sized,
+        for<'a> Successful<R, &'a Self>: CanInduce<I>,
         R: Word<Symbol = SymbolOf<Self>>,
     {
-        self.run(word, state).ok().map(|r| r.induce())
+        self.run_from(word, state).ok().map(|r| r.induce())
     }
 
     /// Returns the color that is reached by running the given `word` on the transition system,
-    fn reached_color<'a, 'b, R>(&'a self, word: &'b R) -> Option<ReachedColor<StateColor<Self>>>
+    fn reached_color<R>(&self, word: R) -> Option<ReachedColor<StateColor<Self>>>
     where
-        Successful<'a, 'b, R, Self>: CanInduce<ReachedColor<StateColor<Self>>>,
-        Self: Sized + Pointed,
+        Successful<R, Self>: CanInduce<ReachedColor<StateColor<Self>>>,
+        Self: Pointed,
         R: Word<Symbol = SymbolOf<Self>>,
     {
         self.induced(word, self.initial())
@@ -478,11 +488,11 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     /// - only one of `left` and `right` has a successful run
     /// - neither `left` nor `right` has a successful run, but they leave the transition system in different
     /// states or with different suffixes.
-    fn can_separate<'a, 'b, 'c, R, RR>(&'a self, left: &'b R, right: &'c RR) -> bool
+    fn can_separate<R, RR>(&self, left: R, right: RR) -> bool
     where
-        Successful<'a, 'b, R, Self>: CanInduce<ReachedState<Self::StateIndex>>,
-        Successful<'a, 'c, RR, Self>: CanInduce<ReachedState<Self::StateIndex>>,
-        Self: Sized + Pointed,
+        Successful<R, Self>: CanInduce<ReachedState<Self::StateIndex>>,
+        Successful<RR, Self>: CanInduce<ReachedState<Self::StateIndex>>,
+        Self: Pointed,
         R: Word<Symbol = SymbolOf<Self>>,
         RR: Word<Symbol = SymbolOf<Self>>,
     {
@@ -496,12 +506,9 @@ pub trait TransitionSystem: HasAlphabet + Sized {
 
     /// Returns the state that is reached by running the given `word` on the transition system,
     /// starting from the initial state. If the run is unsuccessful, `None` is returned.
-    fn reached_state_index<'a, 'b, R>(
-        &'a self,
-        word: &'b R,
-    ) -> Option<ReachedState<Self::StateIndex>>
+    fn reached_state_index<R>(&self, word: R) -> Option<ReachedState<Self::StateIndex>>
     where
-        Successful<'a, 'b, R, Self>: CanInduce<ReachedState<Self::StateIndex>>,
+        Successful<R, Self>: CanInduce<ReachedState<Self::StateIndex>>,
         Self: Pointed,
         R: Word<Symbol = SymbolOf<Self>>,
     {
@@ -523,7 +530,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     where
         Self: Sized,
     {
-        self.finite_run(self.get(origin)?, &word.finite_to_vec())
+        self.finite_run_from(self.get(origin)?, &word.finite_to_vec())
             .ok()
             .map(|p| p.reached())
     }
@@ -1347,7 +1354,7 @@ mod tests {
         let _e3 = ts.add_edge(s1, 'b', s0, 1);
 
         let input = OmegaWord::new(vec!['a', 'b', 'b', 'a'], FiniteLength::new(4));
-        let res = ts.run(&input, s0);
+        let res = ts.run_from(&input, s0);
         assert!(res.is_ok());
 
         let ReachedState(q) = ts.induced(&"ab", s0).unwrap();

@@ -39,7 +39,7 @@ impl<A: Alphabet, Q: Color, C: Color> Morphism<A::Symbol> for MooreMachine<A, Q,
 impl<A: Alphabet, C: Color> Morphism<A::Symbol> for MealyMachine<A, C> {
     type Output = C;
     fn morph<W: Word<Symbol = A::Symbol, Length = FiniteLength>>(&self, word: W) -> C {
-        let Ok(run) = self.run(&word, self.initial()) else {
+        let Ok(run) = self.run_from(&word, self.initial()) else {
             panic!("Only deterministic and complete Mealy Machines are morphisms");
         };
         assert!(

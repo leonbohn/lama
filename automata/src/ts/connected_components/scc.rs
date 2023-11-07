@@ -91,7 +91,7 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         let maximal_word = self.maximal_word()?;
         let SeenColors(colors) = self
             .ts()
-            .run(&maximal_word, *self.first().unwrap())
+            .run_from(&maximal_word, *self.first().unwrap())
             .ok()?
             .induce();
         Some(colors)

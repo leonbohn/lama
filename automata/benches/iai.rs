@@ -63,7 +63,7 @@ fn data() -> (
 fn finite_run_words((automata, words): (&[MooreMachine<Simple, usize>], &[Vec<char>])) {
     for automaton in automata {
         for word in words {
-            if automaton.run(word, automaton.initial()).is_ok() {}
+            if automaton.run_from(word, automaton.initial()).is_ok() {}
         }
     }
 }
@@ -75,7 +75,7 @@ fn iai_runs() {
 fn finite_run_words_new((automata, words): (&[MooreMachine<Simple, usize>], &[Vec<char>])) {
     for automaton in automata {
         for word in words {
-            if automaton.finite_run(automaton.initial(), word).is_ok() {}
+            if automaton.finite_run_from(automaton.initial(), word).is_ok() {}
         }
     }
 }
