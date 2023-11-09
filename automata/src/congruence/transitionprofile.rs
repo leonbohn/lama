@@ -258,8 +258,18 @@ impl<Idx: IndexType, Q: Accumulates, C: Accumulates> RunProfile<Idx, Q, C> {
     pub fn empty<Ts: TransitionSystem<StateIndex = Idx, StateColor = Q::X, EdgeColor = C::X>>(
         ts: Ts,
     ) -> Self {
+        Self::empty_for_states(ts.state_indices().collect(), ts)
+    }
+
+    pub fn empty_for_states<
+        Ts: TransitionSystem<StateIndex = Idx, StateColor = Q::X, EdgeColor = C::X>,
+    >(
+        states: Vec<Idx>,
+        ts: Ts,
+    ) -> Self {
         Self(
-            ts.state_indices()
+            states
+                .into_iter()
                 .sorted()
                 .map(|q| RunSignature::empty_from(q))
                 .collect(),
@@ -359,6 +369,13 @@ where
     pub fn new_reducing(ts: &'a Ts) -> Self {
         Self::build(ts)
     }
+
+    pub fn new_reducing_for_states<I: IntoIterator<Item = Ts::StateIndex>>(
+        ts: &'a Ts,
+        iter: I,
+    ) -> Self {
+        Self::build_for_states(ts, iter)
+    }
 }
 impl<'a, Ts> TransitionMonoid<'a, Ts, Replaces<Ts::StateColor>, Replaces<Ts::EdgeColor>>
 where
@@ -368,6 +385,13 @@ where
 {
     pub fn new_replacing(ts: &'a Ts) -> Self {
         Self::build(ts)
+    }
+
+    pub fn new_replacing_for_states<I: IntoIterator<Item = Ts::StateIndex>>(
+        ts: &'a Ts,
+        iter: I,
+    ) -> Self {
+        Self::build_for_states(ts, iter)
     }
 }
 
@@ -404,9 +428,18 @@ where
     }
 
     fn build(ts: &'a Ts) -> TransitionMonoid<'a, Ts, SA, EA> {
-        let mut tps = vec![(RunProfile::empty(&ts), 0)];
+        Self::build_for_states(ts, ts.state_indices())
+    }
+
+    fn build_for_states<I: IntoIterator<Item = Ts::StateIndex>>(
+        ts: &'a Ts,
+        iter: I,
+    ) -> TransitionMonoid<'a, Ts, SA, EA> {
+        let states = iter.into_iter().collect();
+        let eps_profile = RunProfile::empty_for_states(states, ts);
+        let mut tps = vec![(eps_profile.clone(), 0)];
         let mut strings = vec![(vec![], ProfileEntry::Profile(0))];
-        let mut queue = VecDeque::from_iter([(vec![], RunProfile::empty(&ts))]);
+        let mut queue = VecDeque::from_iter([(vec![], eps_profile)]);
 
         while let Some((word, profile)) = queue.pop_front() {
             for (profile_extension, sym) in profile.all_extensions(ts) {
@@ -461,6 +494,20 @@ impl Show for bool {
     }
 }
 
+pub type ReplacingMonoid<'a, Ts> = TransitionMonoid<
+    'a,
+    Ts,
+    Replaces<<Ts as TransitionSystem>::StateColor>,
+    Replaces<<Ts as TransitionSystem>::EdgeColor>,
+>;
+
+pub type ReducingMonoid<'a, Ts> = TransitionMonoid<
+    'a,
+    Ts,
+    Reduces<<Ts as TransitionSystem>::StateColor>,
+    Reduces<<Ts as TransitionSystem>::EdgeColor>,
+>;
+
 impl<'a, Ts, SA, EA> Display for TransitionMonoid<'a, Ts, SA, EA>
 where
     Ts: TransitionSystem,
@@ -474,10 +521,6 @@ where
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use owo_colors::OwoColorize;
         let mut b = tabled::builder::Builder::default();
-        b.set_header(
-            std::iter::once("word".to_string())
-                .chain(self.ts.state_indices().map(|id| id.to_string())),
-        );
         println!("{:?}", self.tps.len());
         for (word, entry) in &self.strings {
             let mut row = vec![word.display()];
@@ -486,10 +529,6 @@ where
                 ProfileEntry::Redirect(redirect) => redirect,
             };
 
-            println!(
-                "Getting ID {profile_idx} for {:?} of word {:?}",
-                entry, word
-            );
             let (profile, _) = self.tps.get(*profile_idx).expect("Must exist!");
             row.extend(profile.iter().map(|tp| {
                 format!(
@@ -510,7 +549,7 @@ where
 mod tests {
     use std::fmt::Debug;
 
-    use crate::tests::wiki_dfa;
+    use crate::{congruence::transitionprofile::ReducingMonoid, tests::wiki_dfa, TransitionSystem};
 
     use super::TransitionMonoid;
 
@@ -518,7 +557,11 @@ mod tests {
     fn tp_from_ts() {
         let dfa = wiki_dfa();
 
-        let tps = TransitionMonoid::new_reducing(&dfa);
-        println!("{}", tps)
+        let tps = ReducingMonoid::build(&dfa);
+        println!("{}", tps);
+
+        let reduced_tps =
+            ReducingMonoid::build_for_states(&dfa, dfa.state_indices().filter(|i| i % 2 == 0));
+        print!("{}", reduced_tps);
     }
 }
