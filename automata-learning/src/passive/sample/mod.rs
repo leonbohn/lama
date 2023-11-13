@@ -37,8 +37,7 @@ pub struct Sample<A: Alphabet, W: Word + Hash, C: Color = bool> {
 pub type FiniteSample<A, C = bool> = Sample<A, Vec<<A as Alphabet>::Symbol>, C>;
 /// Type alias for samples over alphabet `A` which contain infinite/omega words that are classified with `C`,
 /// which defaults to `bool`.
-pub type OmegaSample<A, C = bool> =
-    Sample<A, Normalized<<A as Alphabet>::Symbol, InfiniteLength>, C>;
+pub type OmegaSample<A, C = bool> = Sample<A, Reduced<<A as Alphabet>::Symbol, InfiniteLength>, C>;
 
 impl<A: Alphabet, W: Word> Sample<A, W, bool> {
     /// Gives an iterator over all positive words in the sample.
@@ -131,20 +130,20 @@ where
 #[macro_export]
 macro_rules! sample {
     ($alph:expr; pos $($pos:expr),+; neg $($neg:expr),+) => {
-        $crate::passive::Sample::new_omega($alph, [$($pos),+].into_iter().map(|p| ($crate::passive::Normalized::try_from(p).unwrap(), true)).chain([$($neg),+].into_iter().map(|n| ($crate::passive::Normalized::try_from(n).unwrap(), false))).collect::<automata::Map<_, bool>>())
+        $crate::passive::Sample::new_omega($alph, [$($pos),+].into_iter().map(|p| ($crate::passive::Reduced::try_from(p).unwrap(), true)).chain([$($neg),+].into_iter().map(|n| ($crate::passive::Reduced::try_from(n).unwrap(), false))).collect::<automata::Map<_, bool>>())
     };
 }
 
 #[cfg(test)]
 mod tests {
-    use automata::{npw, nupw, prelude::*, ts::finite::ReachedColor};
+    use automata::{prelude::*, rpw, rupw, ts::finite::ReachedColor};
     use itertools::Itertools;
     use tracing::info;
     use tracing_test::traced_test;
 
     use crate::passive::Sample;
 
-    use super::Normalized;
+    use super::Reduced;
 
     #[test]
     fn parse_sample() {
@@ -168,7 +167,7 @@ mod tests {
         assert_eq!(sample.alphabet, alphabet!(simple 'a', 'b'));
         assert_eq!(sample.positive_size(), 4);
         assert_eq!(sample.negative_size(), 3);
-        assert_eq!(sample.classify(&nupw!("ab")), Some(false));
+        assert_eq!(sample.classify(&rupw!("ab")), Some(false));
     }
 
     #[test]
@@ -177,15 +176,15 @@ mod tests {
         // represents congruence e ~ b ~ aa ~\~ a ~ ab
         let sample = Sample::new_omega_from_pos_neg(
             alphabet,
-            [nupw!("ab", "b"), nupw!("a", "b"), nupw!("bbbbbb")],
-            [nupw!("aa")],
+            [rupw!("ab", "b"), rupw!("a", "b"), rupw!("bbbbbb")],
+            [rupw!("aa")],
         );
         let periodic_sample = sample.to_periodic_sample();
         assert_eq!(periodic_sample.positive_size(), 1);
         assert_eq!(periodic_sample.negative_size(), 1);
-        assert!(periodic_sample.contains(npw!("b")));
-        assert!(periodic_sample.contains(npw!("a")));
-        assert_eq!(periodic_sample.classify(npw!("bb")), Some(true));
+        assert!(periodic_sample.contains(rpw!("b")));
+        assert!(periodic_sample.contains(rpw!("a")));
+        assert_eq!(periodic_sample.classify(rpw!("bb")), Some(true));
     }
 
     #[test]
@@ -207,7 +206,7 @@ mod tests {
         let split = sample.split(&cong);
 
         for w in ["b"] {
-            assert!(split.get(0).unwrap().contains(&nupw!(w)))
+            assert!(split.get(0).unwrap().contains(&rupw!(w)))
         }
 
         println!("{:?}", split.get(0).unwrap());
@@ -216,17 +215,17 @@ mod tests {
 
     #[test]
     fn omega_prefix_tree() {
-        let mut w = nupw!("aba", "b");
+        let mut w = rupw!("aba", "b");
         let x = w.pop_front();
 
         let words = vec![
-            nupw!("aba", "b"),
-            nupw!("a"),
-            nupw!("ab"),
-            nupw!("bba"),
-            nupw!("b", "a"),
-            nupw!("b"),
-            nupw!("aa", "b"),
+            rupw!("aba", "b"),
+            rupw!("a"),
+            rupw!("ab"),
+            rupw!("bba"),
+            rupw!("b", "a"),
+            rupw!("b"),
+            rupw!("aa", "b"),
         ];
 
         let time_start = std::time::Instant::now();

@@ -180,9 +180,7 @@ impl<'a, Ts: PredecessorIterable + 'a, F> RestrictedEdgesToIter<'a, Ts, F> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        alphabet, prelude::DFALike, ts::Sproutable, Acceptor, Pointed, TransitionSystem, DFA,
-    };
+    use crate::{alphabet, prelude::DFALike, ts::Sproutable, Pointed, TransitionSystem, DFA};
 
     #[test]
     fn restrict_ts_by_state_index() {
@@ -197,9 +195,10 @@ mod tests {
         dfa.add_edge(q1, 'b', q1, ());
         dfa.add_edge(q2, 'a', q0, ());
         dfa.add_edge(q2, 'b', q2, ());
-        assert!(dfa.accepts("aa"));
+        todo!()
+        // assert!(dfa.accepts("aa"));
 
-        let restricted = dfa.restrict_state_indices(|idx| idx != q2);
-        assert!(!restricted.into_dfa().accepts("aa"));
+        //     let restricted = dfa.restrict_state_indices(|idx| idx != q2);
+        //     assert!(!restricted.into_dfa().accepts("aa"));
     }
 }

@@ -434,7 +434,7 @@ pub(crate) mod tests {
         alphabet,
         alphabet::Simple,
         congruence::FORC,
-        nupw,
+        rupw,
         ts::{
             finite::{ReachedColor, ReachedState},
             Sproutable, ToDot,
@@ -538,18 +538,18 @@ pub(crate) mod tests {
             Sample::new_omega_from_pos_neg(
                 alphabet,
                 [
-                    nupw!("a"),
-                    nupw!("baa"),
-                    nupw!("aca"),
-                    nupw!("caab"),
-                    nupw!("abca"),
+                    rupw!("a"),
+                    rupw!("baa"),
+                    rupw!("aca"),
+                    rupw!("caab"),
+                    rupw!("abca"),
                 ],
                 [
-                    nupw!("b"),
-                    nupw!("c"),
-                    nupw!("ab"),
-                    nupw!("ac"),
-                    nupw!("abc"),
+                    rupw!("b"),
+                    rupw!("c"),
+                    rupw!("ab"),
+                    rupw!("ac"),
+                    rupw!("abc"),
                 ],
             ),
         )

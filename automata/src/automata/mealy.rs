@@ -340,23 +340,4 @@ macro_rules! impl_mealy_automaton {
 }
 
 impl_mealy_automaton!(DBA, bool);
-
-impl<D: DBALike> Acceptor<SymbolOf<D>, InfiniteLength> for DBA<D::Alphabet, D::StateColor, D> {
-    fn accepts<W>(&self, word: W) -> bool
-    where
-        W: Word<Length = InfiniteLength, Symbol = SymbolOf<D>>,
-    {
-        todo!()
-    }
-}
-
 impl_mealy_automaton!(DPA, usize);
-
-impl<D: DPALike> Acceptor<SymbolOf<D>, InfiniteLength> for DPA<D::Alphabet, D::StateColor, D> {
-    fn accepts<W>(&self, word: W) -> bool
-    where
-        W: Word<Length = InfiniteLength, Symbol = SymbolOf<D>>,
-    {
-        todo!()
-    }
-}

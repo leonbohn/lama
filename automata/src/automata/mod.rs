@@ -20,8 +20,8 @@ use crate::{
         EdgeColor, HasMutableStates, HasStates, IndexType, Pointed, Quotient, Sproutable,
         StateColor, TransitionSystem, BTS,
     },
-    word::{Normalized, OmegaWord},
-    Color, FiniteLength, InfiniteLength, Length, Word,
+    word::{OmegaWord, Reduced},
+    Color, FiniteLength, InfiniteLength, Length,
 };
 
 #[macro_use]
@@ -379,24 +379,6 @@ macro_rules! impl_automaton_type {
 impl_automaton_type!(StateBasedDBA, onstates bool);
 impl_automaton_type!(StateBasedDPA, onstates usize);
 
-/// Implementors of this trait are acceptors of sequences of symbols `S` with length `K`
-#[autoimpl( for<T: trait> &T, &mut T)]
-pub trait Acceptor<S, K> {
-    /// Returns true if and only if `self` accepts the given `word`.
-    fn accepts<W>(&self, word: W) -> bool
-    where
-        W: Word<Length = K, Symbol = S>;
-
-    /// Verifies that the acceptor is consistent with the given iterator of words and their acceptance.
-    fn consistent_with<W, I>(&self, iter: I) -> bool
-    where
-        W: Word<Length = K, Symbol = S>,
-        I: IntoIterator<Item = (W, bool)>,
-    {
-        iter.into_iter().all(|(w, b)| self.accepts(w) == b)
-    }
-}
-
 /// Helper trait to convert from boolean to usize. Normally, a `true` value corresponds to `1`, while
 /// a `false` value corresponds to `0`. This does not really work well with min-even parity conditions
 /// so this helper trait is introduced.
@@ -574,22 +556,22 @@ pub trait DBALike: TransitionSystem<EdgeColor = bool> + Pointed {
 
     /// Tries to identify a word which is accepted by `self`. If such a word exists, it returns it and otherwise
     /// the function gives back `None`.
-    fn dba_give_word(&self) -> Option<OmegaWord<SymbolOf<Self>, InfiniteLength>> {
+    fn dba_give_word(&self) -> Option<Reduced<SymbolOf<Self>>> {
         for good_scc in self
             .sccs()
             .iter()
             .filter(|scc| self.is_reachable(*scc.first().unwrap()))
         {
             if let Some(full_word) = good_scc.maximal_word() {
-                let InfinityColors(colors) = self
-                    .induced(&full_word, self.initial())
-                    .expect("word is valid");
-                if colors.contains(&true) {
-                    let base = self
-                        .word_from_to(self.initial(), *good_scc.first().unwrap())
-                        .expect("we know this is reachable");
-                    return Some(OmegaWord::from_parts(base, full_word));
-                }
+                todo!()
+                // let InfinityColors(colors) = self
+                //     .induced(&full_word, self.initial())
+                //     .expect("word is valid");
+                // if colors.contains(&true) {
+                //     let base = self
+                //         .word_from_to(self.initial(), *good_scc.first().unwrap())
+                //         .expect("we know this is reachable");
+                //     return Some(OmegaWord::from_parts(base, full_word));
             }
         }
         None
@@ -631,15 +613,10 @@ pub trait MealyLike<C: Color>: TransitionSystem<EdgeColor = C> + Pointed {
         MealyMachine::from(self)
     }
 
-    /// Attempts to run the given finite word in `self`, returning the coclor of the last transition that
+    /// Attempts to run the given finite word in `self`, returning the color of the last transition that
     /// is taken wrapped in `Some`. If no successful run on `input` is possible, the function returns `None`.
-    fn try_mealy_map<W: Word<Symbol = SymbolOf<Self>, Length = FiniteLength>>(
-        &self,
-        input: W,
-    ) -> Option<C> {
-        self.finite_run_from(self.initial(), &input.finite_to_vec())
-            .ok()
-            .and_then(|p| p.last_transition_color(self))
+    fn try_mealy_map<W: FiniteWord<SymbolOf<Self>>>(&self, input: W) -> Option<C> {
+        todo!()
     }
 
     /// Returns a vector over all colors that can be emitted.
@@ -667,13 +644,11 @@ pub trait MooreLike<Q: Color>: TransitionSystem<StateColor = Q> + Pointed {
 
     /// Runs the given `input` word in self. If the run is successful, the color of the state that it reaches
     /// is emitted (wrapped in a `Some`). For unsuccessful runs, `None` is returned.
-    fn try_moore_map<W: Word<Symbol = SymbolOf<Self>, Length = FiniteLength>>(
-        &self,
-        input: W,
-    ) -> Option<Q> {
-        self.finite_run_from(self.initial(), &input.finite_to_vec())
-            .ok()
-            .map(|p| p.reached_state_color(self))
+    fn try_moore_map<W: FiniteWord<SymbolOf<Self>>>(&self, input: W) -> Option<Q> {
+        todo!()
+        // self.finite_run_from(self.initial(), &input.finite_to_vec())
+        //     .ok()
+        //     .map(|p| p.reached_state_color(self))
     }
 
     /// Obtains a vec containing the possible colors emitted by `self` (without duplicates).
@@ -711,7 +686,7 @@ impl<Ts: TransitionSystem + Pointed> MooreLike<Ts::StateColor> for Ts {}
 
 #[cfg(test)]
 mod tests {
-    use super::{Acceptor, DFALike, MooreLike, WithInitial};
+    use super::{DFALike, MooreLike, WithInitial};
     use crate::{automata::NoColor, prelude::*, ts::BTS};
 
     #[test]
@@ -734,10 +709,11 @@ mod tests {
         let dfa2 = &dfas[2];
         let dfa0 = &dfas[0];
 
-        assert!(dfa0.accepts(&""));
-        assert!(dfa0.accepts(&"b"));
-        assert!(!dfa2.accepts(&"b"));
-        assert!(dfa2.accepts(&"ba"));
+        todo!()
+        // assert!(dfa0.accepts(&""));
+        // assert!(dfa0.accepts(&"b"));
+        // assert!(!dfa2.accepts(&"b"));
+        // assert!(dfa2.accepts(&"ba"));
     }
 
     #[test]
@@ -750,15 +726,16 @@ mod tests {
         let _e1 = dba.add_edge(q0, 'b', q0, false);
         let _e2 = dba.add_edge(q1, 'a', q1, true);
         let _e3 = dba.add_edge(q1, 'b', q0, false);
-        assert!(dba.accepts(OmegaWord::new("abb", InfiniteLength(3, 0))));
-        assert!(!dba.accepts(OmegaWord::new("b", InfiniteLength(1, 0))));
-        assert!(dba.accepts(upw!("a")));
-        assert!(!dba.accepts(upw!("b")));
+        todo!()
+        // assert!(dba.accepts(OmegaWord::new("abb", InfiniteLength(3, 0))));
+        // assert!(!dba.accepts(OmegaWord::new("b", InfiniteLength(1, 0))));
+        // assert!(dba.accepts(upw!("a")));
+        // assert!(!dba.accepts(upw!("b")));
 
-        assert!(!dba.dba_is_empty());
-        println!("{:?}", dba.dba_give_word());
+        // assert!(!dba.dba_is_empty());
+        // println!("{:?}", dba.dba_give_word());
 
-        println!("{:?}", &dba);
+        // println!("{:?}", &dba);
     }
 
     #[test]
@@ -777,19 +754,20 @@ mod tests {
 
         let _dfb = dfa.clone();
 
-        assert!(dfa.accepts("ababab"));
-        assert!(!dfa.accepts("a"));
+        todo!()
+        // assert!(dfa.accepts("ababab"));
+        // assert!(!dfa.accepts("a"));
 
-        let notdfa = (&dfa).negation().into_dfa();
-        assert!(!notdfa.accepts("ababab"));
-        assert!(notdfa.accepts("a"));
+        // let notdfa = (&dfa).negation().into_dfa();
+        // assert!(!notdfa.accepts("ababab"));
+        // assert!(notdfa.accepts("a"));
 
-        let intersection = (&dfa).intersection(&notdfa).into_dfa();
-        assert!(!intersection.accepts("ababab"));
-        assert!(!intersection.accepts("a"));
+        // let intersection = (&dfa).intersection(&notdfa).into_dfa();
+        // assert!(!intersection.accepts("ababab"));
+        // assert!(!intersection.accepts("a"));
 
-        let union = (&dfa).union(&notdfa).into_dfa();
-        assert!(union.accepts("ababab"));
-        assert!(union.accepts("a"));
+        // let union = (&dfa).union(&notdfa).into_dfa();
+        // assert!(union.accepts("ababab"));
+        // assert!(union.accepts("a"));
     }
 }

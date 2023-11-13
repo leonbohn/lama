@@ -89,12 +89,13 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
     pub fn colors(&self) -> Option<Vec<Ts::StateColor>> {
         debug_assert!(!self.is_empty());
         let maximal_word = self.maximal_word()?;
-        let SeenColors(colors) = self
-            .ts()
-            .run_from(&maximal_word, *self.first().unwrap())
-            .ok()?
-            .induce();
-        Some(colors)
+        todo!()
+        // let SeenColors(colors) = self
+        //     .ts()
+        //     .finite_run_from(*self.first().unwrap(), &maximal_word)
+        //     .ok()?
+        //     .induce();
+        // Some(colors)
     }
 
     /// Attempts to compute a maximal word (i.e. a word visiting all states in the scc). If such a

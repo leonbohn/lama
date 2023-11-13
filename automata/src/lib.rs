@@ -11,12 +11,11 @@ pub mod prelude {
         alphabet,
         alphabet::{AlphabetOf, Expression, ExpressionOf, HasAlphabet, Simple, Symbol, SymbolOf},
         automata::{
-            Acceptor, DBALike, DFALike, DPALike, IntoMealyMachine, IntoMooreMachine, MealyLike,
-            MealyMachine, MooreLike, MooreMachine, NoColor, StateBasedDBA, StateBasedDPA,
-            WithInitial, DBA, DFA, DPA,
+            DBALike, DFALike, DPALike, IntoMealyMachine, IntoMooreMachine, MealyLike, MealyMachine,
+            MooreLike, MooreMachine, NoColor, StateBasedDBA, StateBasedDPA, WithInitial, DBA, DFA,
+            DPA,
         },
         mapping::Morphism,
-        nupw,
         ts::{
             dag::Dag,
             finite::ReachedState,
@@ -27,9 +26,9 @@ pub mod prelude {
             HasStates, IndexType, Sproutable, StateColor, ToDot, TransitionSystem, BTS,
         },
         upw,
-        word::{Normalized, NormalizedParseError, NormalizedPeriodic, OmegaWord, Word},
+        word::{FiniteWord, OmegaWord, Reduced, ReducedParseError},
         Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length, Pointed,
-        RightCongruence,
+        RightCongruence, Show,
     };
 }
 
@@ -54,7 +53,7 @@ pub use ts::{Pointed, TransitionSystem};
 /// Defines automata and common types of combinations of transition system with acceptance condition.
 #[allow(clippy::upper_case_acronyms)]
 pub mod automata;
-use automata::{Acceptor, MealyMachine, MooreMachine, DBA, DFA, DPA};
+use automata::{MealyMachine, MooreMachine, DBA, DFA, DPA};
 
 /// Defines congruence relations and congruence classes.
 pub mod congruence;
@@ -63,7 +62,6 @@ pub use congruence::{Class, RightCongruence};
 /// Module that contains definitions for dealing with words.
 #[macro_use]
 pub mod word;
-pub use word::Word;
 
 /// Module that contains definitions for dealing with mappings.
 pub mod mapping;
@@ -87,6 +85,32 @@ impl<T: Eq + Ord + Clone + Hash> Color for T {}
 pub type Set<S> = fxhash::FxHashSet<S>;
 /// Type alias for maps, we use this to hide which type of `HashMap` we are actually using.
 pub type Map<K, V> = fxhash::FxHashMap<K, V>;
+
+pub trait Show {
+    fn show(&self) -> String;
+}
+
+impl Show for usize {
+    fn show(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl Show for () {
+    fn show(&self) -> String {
+        "-".into()
+    }
+}
+
+impl Show for bool {
+    fn show(&self) -> String {
+        match self {
+            true => "+",
+            false => "-",
+        }
+        .to_string()
+    }
+}
 
 /// A partition is a different view on a congruence relation, by grouping elements of
 /// type `I` into their respective classes under the relation.

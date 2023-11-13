@@ -4,7 +4,7 @@ use crate::{
     alphabet::{ExpressionOf, SymbolOf},
     length::RawPosition,
     ts::{EdgeColor, Path},
-    Length, Word,
+    Length,
 };
 
 use crate::ts::{IsTransition, TransitionSystem};

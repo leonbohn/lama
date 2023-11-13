@@ -18,7 +18,7 @@ pub fn actively_exchanged_words_dfa<D: DFALike>(dfa: D) -> DFASample<D> {
 
 type MealySample<D> = Sample<
     <D as HasAlphabet>::Alphabet,
-    Normalized<SymbolOf<D>, InfiniteLength>,
+    Reduced<SymbolOf<D>, InfiniteLength>,
     <D as TransitionSystem>::EdgeColor,
 >;
 

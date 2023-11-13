@@ -87,7 +87,7 @@ pub fn dpa_rpni<A: Alphabet>(sample: &OmegaSample<A, bool>) -> DPA<A> {
 
 #[cfg(test)]
 mod tests {
-    use automata::{nupw, prelude::*};
+    use automata::{prelude::*, rupw};
 
     use super::{sample, OmegaSample};
 
@@ -97,10 +97,10 @@ mod tests {
         let sample = sample! {alphabet; pos "a", "aab", "aaab", "bbaa", "aca", "caa", "abca", "baac"; neg "c", "b", "bc", "abc", "cba", "ac", "ba"};
         let dpa = super::infer_precise_dpa(&sample).into_dpa();
         assert!(dpa.consistent_with([
-            (nupw!("a"), true),
-            (nupw!("baa"), true),
-            (nupw!("cabaca"), false),
-            (nupw!("baacbacbac"), true)
+            (rupw!("a"), true),
+            (rupw!("baa"), true),
+            (rupw!("cabaca"), false),
+            (rupw!("baacbacbac"), true)
         ]));
     }
 }

@@ -3,22 +3,14 @@ use std::{
     hash::Hash,
 };
 
-use crate::Map;
+use crate::{Map, Show};
 
 /// A symbol of an alphabet, which is also the type of the symbols in a word. We consider different types
 /// of alphabets:
 /// - [`Simple`] alphabets, which are just a set of symbols.
 /// - [`Propositional`] alphabets, where a symbol is a valuation of all propositional variables.
-pub trait Symbol: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash {
-    /// We do not want to force symbols to implement `Display` so we use this method for turning a single
-    /// symbol into a `String`.
-    fn show(&self) -> String;
-}
-impl<S: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash + Display> Symbol for S {
-    fn show(&self) -> String {
-        self.to_string()
-    }
-}
+pub trait Symbol: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash + Show {}
+impl<S: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash + Show> Symbol for S {}
 
 /// An expression is used to label edges of a [`crate::ts::TransitionSystem`]. For [`Simple`]
 /// alphabets, an expression is simply a single symbol, whereas for a [`Propositional`] alphabet, an expression
@@ -163,6 +155,11 @@ impl Alphabet for Empty {
     }
 }
 
+impl Show for Empty {
+    fn show(&self) -> String {
+        todo!()
+    }
+}
 impl Expression<Empty> for Empty {
     type SymbolsIter = std::iter::Empty<Empty>;
 
@@ -206,6 +203,11 @@ impl Simple {
     }
 }
 
+impl Show for char {
+    fn show(&self) -> String {
+        self.to_string()
+    }
+}
 impl Expression<char> for char {
     type SymbolsIter = std::iter::Once<char>;
     fn symbols(&self) -> Self::SymbolsIter {

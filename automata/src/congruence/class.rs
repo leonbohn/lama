@@ -3,7 +3,8 @@ use itertools::Itertools;
 use crate::{
     alphabet::{Symbol, SymbolOf},
     ts::transition_system::Indexes,
-    Alphabet, Color, FiniteLength, HasLength, RightCongruence, TransitionSystem, Word,
+    word::{FiniteWord, LinearWord},
+    Alphabet, Color, FiniteLength, HasLength, RightCongruence, TransitionSystem,
 };
 
 /// Represents a congruence class, which is in essence simply a non-empty sequence of symbols
@@ -83,11 +84,32 @@ impl<S> HasLength for Class<S> {
         FiniteLength(self.0.len())
     }
 }
-impl<S: Symbol> Word for Class<S> {
-    type Symbol = S;
 
-    fn nth(&self, position: usize) -> Option<Self::Symbol> {
-        self.get(position).cloned()
+impl<S: Symbol> LinearWord<S> for Class<S> {
+    fn nth(&self, position: usize) -> Option<S> {
+        self.0.get(position).cloned()
+    }
+
+    fn representation_vec(&self) -> Vec<S> {
+        self.0.clone()
+    }
+
+    fn representation_length(&self) -> usize {
+        self.0.len()
+    }
+}
+impl<S: Symbol> FiniteWord<S> for Class<S> {
+    type Symbols<'this> = std::iter::Cloned<std::slice::Iter<'this, S>>
+    where
+        Self: 'this,
+        S: 'this;
+
+    fn symbols(&self) -> Self::Symbols<'_> {
+        self.0.iter().cloned()
+    }
+
+    fn len(&self) -> usize {
+        self.0.len()
     }
 }
 

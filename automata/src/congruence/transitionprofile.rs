@@ -468,32 +468,6 @@ where
     }
 }
 
-trait Show {
-    fn show(&self) -> String;
-}
-
-impl Show for usize {
-    fn show(&self) -> String {
-        self.to_string()
-    }
-}
-
-impl Show for () {
-    fn show(&self) -> String {
-        "-".into()
-    }
-}
-
-impl Show for bool {
-    fn show(&self) -> String {
-        match self {
-            true => "+",
-            false => "-",
-        }
-        .to_string()
-    }
-}
-
 pub type ReplacingMonoid<'a, Ts> = TransitionMonoid<
     'a,
     Ts,
@@ -523,7 +497,7 @@ where
         let mut b = tabled::builder::Builder::default();
         println!("{:?}", self.tps.len());
         for (word, entry) in &self.strings {
-            let mut row = vec![word.display()];
+            let mut row = vec![word.symbols().map(|s| s.show()).join("")];
             let profile_idx = match entry {
                 ProfileEntry::Profile(profile) => profile,
                 ProfileEntry::Redirect(redirect) => redirect,

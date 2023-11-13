@@ -1,4 +1,4 @@
-use automata::{automata::MooreLike, prelude::*, ts::operations::MapStateColor};
+use automata::{automata::MooreLike, prelude::*, ts::operations::MapStateColor, word::LinearWord};
 
 use crate::passive::Sample;
 
@@ -10,15 +10,14 @@ use crate::passive::Sample;
 /// non-empty finite words a value of type `Output`. This means we can learn a Mealy machine by using priorities as
 /// the `Output` type, but it also enables us to learn a regular language/deterministic finite automaton by using
 /// `bool` as the `Output` type.
-pub trait Oracle<H: HasAlphabet> {
+pub trait LStarOracle<H: HasAlphabet> {
     /// The length type of the words that this oracle can handle.
     type Length: Length;
     /// The output type, for a DFA that would be a boolean, but a Mealy Machine might output a priority instead.
     type Output: Color;
 
     /// Query the desired output for the given word.
-    fn output<W: Word<Symbol = SymbolOf<H>, Length = Self::Length>>(&self, word: W)
-        -> Self::Output;
+    fn output<W: FiniteWord<SymbolOf<H>>>(&self, word: W) -> Self::Output;
 
     /// Test the given hypothesis for equivalence, returning `Ok(())` if it is equivalent and `Err((word, color))` otherwise.
     /// In the latter case, `word` is a counterexample from the symmetric difference of the target and the hypothesis,
@@ -31,19 +30,19 @@ pub trait Oracle<H: HasAlphabet> {
 /// default color. Equivalence queries are perfomed by checking if the hypothesis produces the same output as the
 /// sample for all words in the sample.
 #[derive(Debug, Clone)]
-pub struct SampleOracle<A: Alphabet, W: Word, C: Color> {
+pub struct SampleOracle<A: Alphabet, W: LinearWord<A::Symbol>, C: Color> {
     sample: Sample<A, W, C>,
     default: C,
 }
 
-impl<A: Alphabet, W: Word, C: Color> SampleOracle<A, W, C> {
+impl<A: Alphabet, W: LinearWord<A::Symbol>, C: Color> SampleOracle<A, W, C> {
     /// Returns a reference to the underlying alphabet, as provided by [`Sample::alphabet()`].
     pub fn alphabet(&self) -> &A {
         self.sample.alphabet()
     }
 }
 
-impl<A: Alphabet, C: Color> Oracle<MooreMachine<A, C>> for SampleOracle<A, Vec<A::Symbol>, C> {
+impl<A: Alphabet, C: Color> LStarOracle<MooreMachine<A, C>> for SampleOracle<A, Vec<A::Symbol>, C> {
     type Length = FiniteLength;
 
     type Output = C;
@@ -77,7 +76,7 @@ impl<A: Alphabet, C: Color> Oracle<MooreMachine<A, C>> for SampleOracle<A, Vec<A
     }
 }
 
-impl<A: Alphabet, C: Color> Oracle<MealyMachine<A, C>> for SampleOracle<A, Vec<A::Symbol>, C> {
+impl<A: Alphabet, C: Color> LStarOracle<MealyMachine<A, C>> for SampleOracle<A, Vec<A::Symbol>, C> {
     type Length = FiniteLength;
     type Output = C;
     fn output<W: Word<Symbol = SymbolOf<MealyMachine<A, C>>, Length = Self::Length>>(
@@ -151,7 +150,7 @@ impl<D: DFALike> HasAlphabet for DFAOracle<D> {
     }
 }
 
-impl<D: DFALike> Oracle<MooreMachine<D::Alphabet, bool>> for DFAOracle<D> {
+impl<D: DFALike> LStarOracle<MooreMachine<D::Alphabet, bool>> for DFAOracle<D> {
     type Length = FiniteLength;
 
     type Output = bool;
@@ -185,7 +184,7 @@ pub struct MealyOracle<C: Color, D: MealyLike<C>> {
     _color: std::marker::PhantomData<C>,
 }
 
-impl<C: Color, D: MealyLike<C>> Oracle<MealyMachine<D::Alphabet, C>> for MealyOracle<C, D> {
+impl<C: Color, D: MealyLike<C>> LStarOracle<MealyMachine<D::Alphabet, C>> for MealyOracle<C, D> {
     type Length = FiniteLength;
 
     type Output = C;
@@ -231,7 +230,7 @@ pub struct MooreOracle<C: Color, D: MooreLike<C>> {
     _color: std::marker::PhantomData<C>,
 }
 
-impl<C: Color, D: MooreLike<C>> Oracle<MooreMachine<D::Alphabet, C>> for MooreOracle<C, D> {
+impl<C: Color, D: MooreLike<C>> LStarOracle<MooreMachine<D::Alphabet, C>> for MooreOracle<C, D> {
     type Length = FiniteLength;
 
     type Output = C;

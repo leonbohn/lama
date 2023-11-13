@@ -6,7 +6,7 @@ use tracing::trace;
 
 use crate::active::logging::LStarQuery;
 
-use super::{logging::LStarLogger, oracle::Oracle};
+use super::{logging::LStarLogger, oracle::LStarOracle};
 
 pub type LStarExample<A, Q> = (Vec<<A as Alphabet>::Symbol>, Q);
 pub type LStarExampleFor<Cong> = (Vec<SymbolOf<Cong>>, StateColorOf<Cong>);
@@ -36,7 +36,7 @@ pub trait LStarTarget<const FOR_MEALY: bool>: Sized + std::fmt::Debug {
         + Clone;
     fn hypothesis(&self) -> LStarHypothesisResult<FOR_MEALY, Self>;
     fn accept_counterexample<
-        O: Oracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>,
+        O: LStarOracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>,
     >(
         &mut self,
         hypothesis: &Self::Hypothesis,
@@ -47,7 +47,7 @@ pub trait LStarTarget<const FOR_MEALY: bool>: Sized + std::fmt::Debug {
         alphabet: Self::Alphabet,
         experiments: Vec<Vec<<Self::Alphabet as Alphabet>::Symbol>>,
     ) -> Self;
-    fn fill_rows<O: Oracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>>(
+    fn fill_rows<O: LStarOracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>>(
         &mut self,
         oracle: &O,
     ) -> Vec<LStarQuery<FOR_MEALY, Self>>;
@@ -270,7 +270,7 @@ impl<A: Alphabet, C: Color + Debug + Default> LStarTarget<false> for LStarTable<
     }
 
     fn accept_counterexample<
-        O: Oracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>,
+        O: LStarOracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>,
     >(
         &mut self,
         hypothesis: &Self::Hypothesis,
@@ -343,7 +343,7 @@ impl<A: Alphabet, C: Color + Debug + Default> LStarTarget<false> for LStarTable<
         }
     }
 
-    fn fill_rows<O: Oracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>>(
+    fn fill_rows<O: LStarOracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>>(
         &mut self,
         oracle: &O,
     ) -> Vec<LStarQuery<false, Self>> {
@@ -575,7 +575,7 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
     }
 
     fn accept_counterexample<
-        O: Oracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>,
+        O: LStarOracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>,
     >(
         &mut self,
         hypothesis: &Self::Hypothesis,
@@ -646,7 +646,7 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
         }
     }
 
-    fn fill_rows<O: Oracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>>(
+    fn fill_rows<O: LStarOracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>>(
         &mut self,
         oracle: &O,
     ) -> Vec<LStarQuery<true, Self>> {

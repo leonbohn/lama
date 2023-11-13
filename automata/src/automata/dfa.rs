@@ -9,12 +9,3 @@ impl_moore_automaton! {
     /// reading the input is `true`.
     DFA, bool
 }
-
-impl<D: DFALike> Acceptor<SymbolOf<D>, FiniteLength> for DFA<D::Alphabet, D::EdgeColor, D> {
-    fn accepts<W>(&self, word: W) -> bool
-    where
-        W: Word<Length = FiniteLength, Symbol = SymbolOf<D>>,
-    {
-        self.reached_color(&word) == Some(ReachedColor(true))
-    }
-}

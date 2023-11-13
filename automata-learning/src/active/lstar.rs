@@ -6,7 +6,7 @@ use tracing::trace;
 
 use super::{
     logging::{LStarLogbook, LStarLogger, LStarQuery},
-    oracle::Oracle,
+    oracle::LStarOracle,
     table::{
         LStarExample, LStarExampleFor, LStarExperiments, LStarRow, LStarRows, LStarTable,
         LStarTarget,
@@ -36,7 +36,7 @@ pub struct LStar<
 impl<
         A: Alphabet,
         C: Color + Debug + Default,
-        O: Oracle<MooreMachine<A, C>, Length = FiniteLength, Output = C>,
+        O: LStarOracle<MooreMachine<A, C>, Length = FiniteLength, Output = C>,
     > LStar<A, O, LStarTable<A, C, false>, (), false>
 {
     /// Creates a new L* instance for a Moore machine, which does not log the queries.
@@ -51,7 +51,7 @@ impl<
 impl<
         A: Alphabet,
         C: Color + Debug + Default,
-        O: Oracle<MooreMachine<A, C>, Length = FiniteLength, Output = C>,
+        O: LStarOracle<MooreMachine<A, C>, Length = FiniteLength, Output = C>,
     > LStar<A, O, LStarTable<A, C, false>, LStarLogbook<false, LStarTable<A, C, false>>, false>
 {
     /// Creates a new L* instance for a Moore machine, which logs the queries.
@@ -64,8 +64,10 @@ impl<
         LStar::new(teacher, alphabet)
     }
 }
-impl<A: Alphabet, O: Oracle<MealyMachine<A, usize>, Length = FiniteLength, Output = usize>>
-    LStar<A, O, LStarTable<A, usize, true>, (), true>
+impl<
+        A: Alphabet,
+        O: LStarOracle<MealyMachine<A, usize>, Length = FiniteLength, Output = usize>,
+    > LStar<A, O, LStarTable<A, usize, true>, (), true>
 {
     /// Creates a new L* instance for a Mealy machine, which does not log the queries.
     pub fn mealy_unlogged(
@@ -76,7 +78,10 @@ impl<A: Alphabet, O: Oracle<MealyMachine<A, usize>, Length = FiniteLength, Outpu
     }
 }
 
-impl<A: Alphabet, O: Oracle<MealyMachine<A, usize>, Length = FiniteLength, Output = usize>>
+impl<
+        A: Alphabet,
+        O: LStarOracle<MealyMachine<A, usize>, Length = FiniteLength, Output = usize>,
+    >
     LStar<A, O, LStarTable<A, usize, true>, LStarLogbook<true, LStarTable<A, usize, true>>, true>
 {
     /// Creates a new L* instance for a Mealy machine, which logs the queries.
@@ -93,7 +98,7 @@ impl<A: Alphabet, O: Oracle<MealyMachine<A, usize>, Length = FiniteLength, Outpu
 impl<
         A: Alphabet,
         T: LStarTarget<FOR_MEALY, Alphabet = A>,
-        O: Oracle<T::Hypothesis, Length = FiniteLength, Output = T::Output>,
+        O: LStarOracle<T::Hypothesis, Length = FiniteLength, Output = T::Output>,
         L: LStarLogger<FOR_MEALY, T>,
         const FOR_MEALY: bool,
     > LStar<A, O, T, L, FOR_MEALY>
@@ -184,7 +189,7 @@ mod tests {
         active::{
             logging::LStarLogbook,
             oracle,
-            oracle::{DFAOracle, Oracle},
+            oracle::{DFAOracle, LStarOracle},
         },
         passive::FiniteSample,
     };
@@ -200,15 +205,10 @@ mod tests {
         }
     }
 
-    impl Oracle<MooreMachine<Simple, bool>> for ModkAmodlB {
+    impl LStarOracle<MooreMachine<Simple, bool>> for ModkAmodlB {
         type Output = bool;
 
-        fn output<
-            W: automata::Word<Symbol = automata::alphabet::SymbolOf<Self>, Length = Self::Length>,
-        >(
-            &self,
-            word: W,
-        ) -> Self::Output {
+        fn output<W: FiniteWord<SymbolOf<Self>>>(&self, word: W) -> Self::Output {
             let (count_a, count_b) =
                 word.finite_to_vec()
                     .into_iter()
@@ -224,7 +224,7 @@ mod tests {
         fn equivalence(
             &self,
             hypothesis: &MooreMachine<Simple, bool>,
-        ) -> Result<(), (Vec<automata::alphabet::SymbolOf<Self>>, Self::Output)> {
+        ) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)> {
             for word in ["aa", "bb", "bab", "aba", "abba", "bbab", "", "b", "a"] {
                 let output = self.output(&word);
                 if output
@@ -250,23 +250,18 @@ mod tests {
     }
 
     #[cfg(test)]
-    impl Oracle<MooreMachine<Simple, usize>> for WordLenModk {
+    impl LStarOracle<MooreMachine<Simple, usize>> for WordLenModk {
         type Output = usize;
         type Length = FiniteLength;
 
-        fn output<
-            W: automata::Word<Length = Self::Length, Symbol = automata::alphabet::SymbolOf<Self>>,
-        >(
-            &self,
-            word: W,
-        ) -> Self::Output {
+        fn output<W: FiniteWord<SymbolOf<Self>>>(&self, word: W) -> Self::Output {
             word.length().0 % self.1
         }
 
         fn equivalence(
             &self,
             hypothesis: &MooreMachine<Simple, usize>,
-        ) -> Result<(), (Vec<automata::alphabet::SymbolOf<Self>>, Self::Output)> {
+        ) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)> {
             for word in [
                 "aa", "bb", "bab", "bbabba", "aba", "abba", "bbab", "", "b", "a",
             ] {
