@@ -1,5 +1,7 @@
 use crate::prelude::*;
 
+use super::acceptor::OmegaWordAcceptor;
+
 impl_mealy_automaton!(DBA, bool);
 
 /// Similar to [`IsDfa`], this trait is supposed to be (automatically) implemented by everything that can be viewed
@@ -21,13 +23,22 @@ pub trait DBALike: TransitionSystem<EdgeColor = bool> + Pointed {
         for good_scc in self
             .sccs()
             .iter()
-            .filter(|scc| self.is_reachable(*scc.first().unwrap()))
+            .filter(|scc| !scc.is_empty() && self.is_reachable(*scc.first().unwrap()))
         {
             if let Some(full_word) = good_scc.maximal_word() {
-                todo!()
                 // let InfinityColors(colors) = self
                 //     .induced(&full_word, self.initial())
                 //     .expect("word is valid");
+                if let Some(infset) =
+                    self.visited_edge_colors_from(&full_word, *good_scc.first().unwrap())
+                {
+                    if infset.iter().any(|b| *b) {
+                        let spoke = self
+                            .word_from_to(self.initial(), *good_scc.first().unwrap())
+                            .expect("We know this is reachable!");
+                        return Some(Reduced::ultimately_periodic(spoke, full_word));
+                    }
+                }
                 // if colors.contains(&true) {
                 //     let base = self
                 //         .word_from_to(self.initial(), *good_scc.first().unwrap())
@@ -45,3 +56,11 @@ pub trait DBALike: TransitionSystem<EdgeColor = bool> + Pointed {
 }
 
 impl<Ts> DBALike for Ts where Ts: TransitionSystem<EdgeColor = bool> + Pointed {}
+
+impl<A: Alphabet> OmegaWordAcceptor<A::Symbol> for DBA<A> {
+    fn accepts_omega<W: OmegaWord<A::Symbol>>(&self, word: W) -> bool {
+        self.infinity_set(word)
+            .map(|set| set.contains(&true))
+            .unwrap_or(false)
+    }
+}

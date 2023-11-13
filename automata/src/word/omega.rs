@@ -1,6 +1,9 @@
-use impl_tools::autoimpl;
+use std::fmt::Debug;
 
-use crate::prelude::Symbol;
+use impl_tools::autoimpl;
+use itertools::Itertools;
+
+use crate::{prelude::Symbol, Alphabet, Show};
 
 use super::{FiniteWord, LinearWord};
 
@@ -236,6 +239,37 @@ impl std::fmt::Display for ReducedParseError {
             ReducedParseError::EmptyLoop => write!(f, "Looping part of word is empty"),
             ReducedParseError::TooManyCommas => write!(f, "Too many commas in the word"),
         }
+    }
+}
+
+impl<S: Show> Debug for Reduced<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.loop_index == 0 {
+            write!(f, "({})𝜔", self.word.iter().map(|sym| sym.show()).join(""))
+        } else {
+            write!(
+                f,
+                "{}, ({})𝜔",
+                self.word[..self.loop_index]
+                    .iter()
+                    .map(|sym| sym.show())
+                    .join(""),
+                self.word[self.loop_index..]
+                    .iter()
+                    .map(|sym| sym.show())
+                    .join("")
+            )
+        }
+    }
+}
+
+impl<S: Show> Debug for Periodic<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "({})𝜔",
+            self.representation.iter().map(|sym| sym.show()).join("")
+        )
     }
 }
 

@@ -4,7 +4,7 @@ use crate::{
     congruence::ColoredClass,
     prelude::{Expression, Symbol},
     word::{FiniteWord, OmegaWord},
-    Alphabet, Class, Color, FiniteLength, Map, Partition, Pointed, RightCongruence,
+    Alphabet, Class, Color, FiniteLength, Map, Partition, Pointed, RightCongruence, Set,
 };
 
 use super::{
@@ -390,7 +390,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     {
         let mut current = origin
             .to_index(self)
-            .expect("Can only start at state that exists!");
+            .expect("run must start in state that exists");
         let mut path = Path::empty(current);
         for symbol in word.symbols() {
             if let Some(o) = path.extend_in(&self, symbol) {
@@ -402,6 +402,127 @@ pub trait TransitionSystem: HasAlphabet + Sized {
         Ok(path)
     }
 
+    fn recurrent_state_indices_from<W: OmegaWord<SymbolOf<Self>>, Idx: Indexes<Self>>(
+        &self,
+        word: W,
+        origin: Idx,
+    ) -> Option<Set<Self::StateIndex>> {
+        self.omega_run_from(word, origin)
+            .ok()
+            .map(|p| p.recurrent_state_indices())
+    }
+
+    fn recurrent_state_indices<W: OmegaWord<SymbolOf<Self>>>(
+        &self,
+        word: W,
+    ) -> Option<Set<Self::StateIndex>>
+    where
+        Self: Pointed,
+    {
+        self.recurrent_state_indices_from(word, self.initial())
+    }
+
+    fn recurrent_state_colors_from<W: OmegaWord<SymbolOf<Self>>, Idx: Indexes<Self>>(
+        &self,
+        word: W,
+        origin: Idx,
+    ) -> Option<Set<Self::StateColor>> {
+        self.omega_run_from(word, origin)
+            .ok()
+            .map(|p| p.recurrent_state_colors(self))
+    }
+
+    fn recurrent_state_colors<W: OmegaWord<SymbolOf<Self>>>(
+        &self,
+        word: W,
+    ) -> Option<Set<Self::StateColor>>
+    where
+        Self: Pointed,
+    {
+        self.recurrent_state_colors_from(word, self.initial())
+    }
+
+    fn infinity_set_from<W, Idx>(&self, word: W, origin: Idx) -> Option<Set<Self::EdgeColor>>
+    where
+        W: OmegaWord<SymbolOf<Self>>,
+        Idx: Indexes<Self>,
+    {
+        self.omega_run_from(word, origin)
+            .ok()
+            .map(|p| p.infinity_set(self))
+    }
+
+    fn infinity_set<W>(&self, word: W) -> Option<Set<Self::EdgeColor>>
+    where
+        W: OmegaWord<SymbolOf<Self>>,
+        Self: Pointed,
+    {
+        self.infinity_set_from(word, self.initial())
+    }
+
+    // Todo: once RTTIT is stabilized (1.72), we should return an iterator.
+    fn visited_state_sequence_from<W, Idx>(
+        &self,
+        word: W,
+        origin: Idx,
+    ) -> Option<Vec<Self::StateIndex>>
+    where
+        W: FiniteWord<SymbolOf<Self>>,
+        Idx: Indexes<Self>,
+    {
+        self.finite_run_from(word, origin)
+            .ok()
+            .map(|p| p.state_sequence().collect())
+    }
+
+    fn visited_state_sequence<W>(&self, word: W) -> Option<Vec<Self::StateIndex>>
+    where
+        W: FiniteWord<SymbolOf<Self>>,
+        Self: Pointed,
+    {
+        self.visited_state_sequence_from(word, self.initial())
+    }
+
+    fn visited_state_colors_from<W, Idx>(
+        &self,
+        word: W,
+        origin: Idx,
+    ) -> Option<Vec<Self::StateColor>>
+    where
+        W: FiniteWord<SymbolOf<Self>>,
+        Idx: Indexes<Self>,
+    {
+        self.finite_run_from(word, origin)
+            .ok()
+            .map(|p| p.state_colors(self).collect())
+    }
+
+    fn visited_state_colors<W>(&self, word: W) -> Option<Vec<Self::StateColor>>
+    where
+        W: FiniteWord<SymbolOf<Self>>,
+        Self: Pointed,
+    {
+        self.visited_state_colors_from(word, self.initial())
+    }
+
+    fn visited_edge_colors_from<W, Idx>(&self, word: W, origin: Idx) -> Option<Vec<Self::EdgeColor>>
+    where
+        W: FiniteWord<SymbolOf<Self>>,
+        Idx: Indexes<Self>,
+    {
+        self.finite_run_from(word, origin)
+            .ok()
+            .map(|p| p.edge_colors(self).collect())
+    }
+
+    fn visited_edge_colors<W>(&self, word: W) -> Option<Vec<Self::EdgeColor>>
+    where
+        W: FiniteWord<SymbolOf<Self>>,
+        Self: Pointed,
+    {
+        self.visited_edge_colors_from(word, self.initial())
+    }
+
     /// Checks whether `self` is complete, meaning every state has a transition for every symbol
     /// of the alphabet.
     fn is_complete(&self) -> bool {
@@ -410,16 +531,34 @@ pub trait TransitionSystem: HasAlphabet + Sized {
             .all(|(q, a)| self.transition(q, *a).is_some())
     }
 
-    /// Runs the given `word` on the transition system, starting from `state`.
+    /// Runs the given `word` on the transition system, starting in the initial state.
     #[allow(clippy::type_complexity)]
-    fn omega_run<W: OmegaWord<SymbolOf<Self>>>(
+    fn omega_run<W>(
         &self,
-        origin: Self::StateIndex,
         word: W,
     ) -> Result<Lasso<Self::Alphabet, Self::StateIndex>, Path<Self::Alphabet, Self::StateIndex>>
     where
-        Self: Pointed + Sized,
+        W: OmegaWord<SymbolOf<Self>>,
+        Self: Pointed,
     {
+        self.omega_run_from(word, self.initial())
+    }
+
+    /// Runs the given `word` on the transition system, starting from `state`.
+    #[allow(clippy::type_complexity)]
+    fn omega_run_from<W, Idx>(
+        &self,
+        word: W,
+        origin: Idx,
+    ) -> Result<Lasso<Self::Alphabet, Self::StateIndex>, Path<Self::Alphabet, Self::StateIndex>>
+    where
+        Idx: Indexes<Self>,
+        W: OmegaWord<SymbolOf<Self>>,
+    {
+        assert!(!word.cycle().is_empty(), "word must be infinite");
+        let origin = origin
+            .to_index(self)
+            .expect("run must start in state that exists");
         let mut path = self.finite_run_from(word.spoke(), origin)?;
         let mut position = path.len();
         let mut seen = Map::default();

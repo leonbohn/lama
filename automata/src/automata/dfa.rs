@@ -22,8 +22,11 @@ impl_moore_automaton! {
     DFA, bool
 }
 
-impl<A: Alphabet> FiniteWordAcceptor<A::Symbol> for DFA<A> {
-    fn accepts_finite<W: FiniteWord<A::Symbol>>(&self, word: W) -> bool {
+impl<Ts> FiniteWordAcceptor<SymbolOf<Self>> for DFA<Ts::Alphabet, Ts::EdgeColor, Ts>
+where
+    Ts: DFALike,
+{
+    fn accepts_finite<W: FiniteWord<SymbolOf<Self>>>(&self, word: W) -> bool {
         self.reached_color(word).unwrap_or(false)
     }
 }

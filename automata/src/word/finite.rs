@@ -44,7 +44,7 @@ impl LinearWord<char> for str {
     }
 
     fn representation_length(&self) -> usize {
-        todo!()
+        self.len()
     }
 }
 impl FiniteWord<char> for str {
@@ -65,25 +65,29 @@ impl LinearWord<char> for String {
     }
 
     fn representation_vec(&self) -> Vec<char> {
-        todo!()
+        self.chars().collect()
     }
 
     fn representation_length(&self) -> usize {
-        todo!()
+        self.len()
     }
 }
 
 impl<S: Symbol> LinearWord<S> for Vec<S> {
     fn nth(&self, position: usize) -> Option<S> {
-        todo!()
+        if position < self.len() {
+            Some(self[position])
+        } else {
+            None
+        }
     }
 
     fn representation_vec(&self) -> Vec<S> {
-        todo!()
+        self.clone()
     }
 
     fn representation_length(&self) -> usize {
-        todo!()
+        self.len()
     }
 }
 impl<S: Symbol> FiniteWord<S> for Vec<S> {
@@ -92,21 +96,25 @@ impl<S: Symbol> FiniteWord<S> for Vec<S> {
         Self: 'this;
 
     fn symbols(&self) -> Self::Symbols<'_> {
-        todo!()
+        self.iter().cloned()
     }
 }
 
 impl<S: Symbol> LinearWord<S> for [S] {
     fn nth(&self, position: usize) -> Option<S> {
-        todo!()
+        if position < self.len() {
+            Some(self[position])
+        } else {
+            None
+        }
     }
 
     fn representation_vec(&self) -> Vec<S> {
-        todo!()
+        self.to_vec()
     }
 
     fn representation_length(&self) -> usize {
-        todo!()
+        self.len()
     }
 }
 impl<S: Symbol> FiniteWord<S> for [S] {
@@ -115,6 +123,6 @@ impl<S: Symbol> FiniteWord<S> for [S] {
         Self: 'this;
 
     fn symbols(&self) -> Self::Symbols<'_> {
-        todo!()
+        self.iter().cloned()
     }
 }

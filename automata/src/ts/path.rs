@@ -173,4 +173,19 @@ impl<A: Alphabet, Idx> Lasso<A, Idx> {
     {
         self.cycle.edge_colors(&ts).collect()
     }
+
+    pub fn recurrent_state_indices(self) -> Set<Idx>
+    where
+        Idx: IndexType,
+    {
+        self.cycle.state_sequence().collect()
+    }
+
+    pub fn recurrent_state_colors<Ts>(self, ts: &Ts) -> Set<Ts::StateColor>
+    where
+        Ts: TransitionSystem<Alphabet = A, StateIndex = Idx>,
+        Idx: IndexType,
+    {
+        self.cycle.state_colors(ts).collect()
+    }
 }

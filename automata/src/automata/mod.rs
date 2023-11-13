@@ -280,7 +280,10 @@ impl<'a, Ts: TransitionSystem<StateColor = bool>> Iterator for StatesWithColor<'
 mod tests {
     use super::{DFALike, MooreLike, WithInitial};
     use crate::{
-        automata::{acceptor::FiniteWordAcceptor, NoColor},
+        automata::{
+            acceptor::{FiniteWordAcceptor, OmegaWordAcceptor},
+            NoColor,
+        },
         prelude::*,
         ts::BTS,
     };
@@ -322,16 +325,15 @@ mod tests {
         let _e1 = dba.add_edge(q0, 'b', q0, false);
         let _e2 = dba.add_edge(q1, 'a', q1, true);
         let _e3 = dba.add_edge(q1, 'b', q0, false);
-        todo!()
-        // assert!(dba.accepts(OmegaWord::new("abb", InfiniteLength(3, 0))));
-        // assert!(!dba.accepts(OmegaWord::new("b", InfiniteLength(1, 0))));
-        // assert!(dba.accepts(upw!("a")));
-        // assert!(!dba.accepts(upw!("b")));
+        assert!(dba.accepts_omega(Reduced::periodic("abb")));
+        assert!(!dba.accepts_omega(Reduced::periodic("b")));
+        assert!(dba.accepts_omega(upw!("a")));
+        assert!(!dba.accepts_omega(upw!("b")));
 
-        // assert!(!dba.dba_is_empty());
-        // println!("{:?}", dba.dba_give_word());
+        assert!(!dba.dba_is_empty());
+        println!("{:?}", dba.dba_give_word());
 
-        // println!("{:?}", &dba);
+        println!("{:?}", &dba);
     }
 
     #[test]
@@ -350,20 +352,19 @@ mod tests {
 
         let _dfb = dfa.clone();
 
-        todo!()
-        // assert!(dfa.accepts("ababab"));
-        // assert!(!dfa.accepts("a"));
+        assert!(dfa.accepts_finite("ababab"));
+        assert!(!dfa.accepts_finite("a"));
 
-        // let notdfa = (&dfa).negation().into_dfa();
-        // assert!(!notdfa.accepts("ababab"));
-        // assert!(notdfa.accepts("a"));
+        let notdfa = (&dfa).negation().into_dfa();
+        assert!(!notdfa.accepts_finite("ababab"));
+        assert!(notdfa.accepts_finite("a"));
 
-        // let intersection = (&dfa).intersection(&notdfa).into_dfa();
-        // assert!(!intersection.accepts("ababab"));
-        // assert!(!intersection.accepts("a"));
+        let intersection = (&dfa).intersection(&notdfa).into_dfa();
+        assert!(!intersection.accepts_finite("ababab"));
+        assert!(!intersection.accepts_finite("a"));
 
-        // let union = (&dfa).union(&notdfa).into_dfa();
-        // assert!(union.accepts("ababab"));
-        // assert!(union.accepts("a"));
+        let union = (&dfa).union(&notdfa).into_dfa();
+        assert!(union.accepts_finite("ababab"));
+        assert!(union.accepts_finite("a"));
     }
 }
