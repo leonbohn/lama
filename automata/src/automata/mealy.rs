@@ -183,7 +183,7 @@ macro_rules! impl_mealy_automaton {
             Ts = WithInitial<BTS<A, Q, $color, usize>>,
         > {
             ts: Ts,
-            _alphabet: PhantomData<(A, Q, $color)>,
+            _alphabet: std::marker::PhantomData<(A, Q, $color)>,
         }
         impl<A: Alphabet, Q: Color + Default>
             $name<A, Q, WithInitial<BTS<A, Q, $color, usize>>>
@@ -193,7 +193,7 @@ macro_rules! impl_mealy_automaton {
                 ts.set_initial_color(initial_state_color);
                 $name {
                     ts,
-                    _alphabet: PhantomData,
+                    _alphabet: std::marker::PhantomData,
                 }
             }
         }
@@ -211,7 +211,7 @@ macro_rules! impl_mealy_automaton {
             fn from(ts: Ts) -> Self {
                 Self {
                     ts,
-                    _alphabet: PhantomData,
+                    _alphabet: std::marker::PhantomData,
                 }
             }
         }
@@ -226,11 +226,14 @@ macro_rules! impl_mealy_automaton {
         }
         impl<Ts: Pointed> std::fmt::Debug for $name<Ts::Alphabet,  Ts::StateColor, Ts> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                use itertools::Itertools;
+                use crate::prelude::IsTransition;
                 writeln!(
                     f,
-                    "Initial state {} with states {}",
+                    "Initial state {} with states {} and transitions\n{}",
                     self.ts().initial(),
-                    self.ts().state_indices().map(|i| format!("{i}")).join(", ")
+                    self.ts().state_indices().map(|i| format!("{i}")).join(", "),
+                    self.ts().state_indices().map(|i| self.edges_from(i).unwrap().map(|e| format!("{} --{:?}--> {}", i, e.expression(), e.target())).join("\n")).join("\n")
                 )
             }
         }
@@ -267,7 +270,7 @@ macro_rules! impl_mealy_automaton {
             fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
                 Self {
                     ts: Ts::new_for_alphabet(alphabet),
-                    _alphabet: PhantomData,
+                    _alphabet: std::marker::PhantomData,
                 }
             }
             fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
@@ -339,5 +342,31 @@ macro_rules! impl_mealy_automaton {
     };
 }
 
-impl_mealy_automaton!(DBA, bool);
-impl_mealy_automaton!(DPA, usize);
+/// Implemented by objects which can be viewed as a MealyMachine, i.e. a finite transition system
+/// which has outputs of type usize on its edges.
+pub trait MealyLike<C: Color>: TransitionSystem<EdgeColor = C> + Pointed {
+    /// Uses a reference to `self` for obtaining a [`MealyMachine`].
+    fn as_mealy(&self) -> MealyMachine<Self::Alphabet, C, &Self> {
+        MealyMachine::from(self)
+    }
+
+    /// Consumes `self`, returning a [`MealyMachine`] that uses the underlying transition system.
+    fn into_mealy(self) -> MealyMachine<Self::Alphabet, C, Self> {
+        MealyMachine::from(self)
+    }
+
+    /// Attempts to run the given finite word in `self`, returning the color of the last transition that
+    /// is taken wrapped in `Some`. If no successful run on `input` is possible, the function returns `None`.
+    fn try_mealy_map<W: FiniteWord<SymbolOf<Self>>>(&self, input: W) -> Option<C> {
+        todo!()
+    }
+
+    /// Returns a vector over all colors that can be emitted.
+    fn color_range(&self) -> Vec<Self::EdgeColor> {
+        self.reachable_state_indices()
+            .flat_map(|o| self.edges_from(o).unwrap().map(|e| IsTransition::color(&e)))
+            .unique()
+            .collect()
+    }
+}
+impl<Ts: TransitionSystem + Pointed + Sized> MealyLike<Ts::EdgeColor> for Ts {}

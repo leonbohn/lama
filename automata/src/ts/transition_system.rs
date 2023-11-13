@@ -2,7 +2,7 @@ use crate::{
     alphabet::{ExpressionOf, HasAlphabet, SymbolOf},
     automata::WithInitial,
     congruence::ColoredClass,
-    prelude::Expression,
+    prelude::{Expression, Symbol},
     word::{FiniteWord, OmegaWord},
     Alphabet, Class, Color, FiniteLength, Map, Partition, Pointed, RightCongruence,
 };
@@ -369,7 +369,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     where
         Self: Pointed,
     {
-        self.finite_run_from(self.initial(), word)
+        self.finite_run_from(word, self.initial())
     }
 
     /// Runs the given `word` on the transition system, starting from `state`. The result is
@@ -378,15 +378,19 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     /// - [`Err`] if the run is unsuccessful, meaning a symbol is encountered for which no
     /// transition exists.
     #[allow(clippy::type_complexity)]
-    fn finite_run_from<W: FiniteWord<SymbolOf<Self>>>(
+    fn finite_run_from<W, Idx>(
         &self,
-        origin: Self::StateIndex,
         word: W,
+        origin: Idx,
     ) -> Result<Path<Self::Alphabet, Self::StateIndex>, Path<Self::Alphabet, Self::StateIndex>>
     where
         Self: Sized,
+        W: FiniteWord<SymbolOf<Self>>,
+        Idx: Indexes<Self>,
     {
-        let mut current = origin;
+        let mut current = origin
+            .to_index(self)
+            .expect("Can only start at state that exists!");
         let mut path = Path::empty(current);
         for symbol in word.symbols() {
             if let Some(o) = path.extend_in(&self, symbol) {
@@ -416,7 +420,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     where
         Self: Pointed + Sized,
     {
-        let mut path = self.finite_run_from(origin, word.spoke())?;
+        let mut path = self.finite_run_from(word.spoke(), origin)?;
         let mut position = path.len();
         let mut seen = Map::default();
 
@@ -425,7 +429,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
                 Some(p) => {
                     return Ok(path.loop_back_to(p));
                 }
-                None => match self.finite_run_from(path.reached(), word.cycle()) {
+                None => match self.finite_run_from(word.cycle(), path.reached()) {
                     Ok(p) => {
                         position += p.len();
                         path.extend_with(p);
@@ -439,6 +443,24 @@ pub trait TransitionSystem: HasAlphabet + Sized {
         }
 
         unreachable!()
+    }
+
+    fn reached_color_from<W, Idx>(&self, word: W, from: Idx) -> Option<Self::StateColor>
+    where
+        W: FiniteWord<SymbolOf<Self>>,
+        Idx: Indexes<Self>,
+    {
+        self.finite_run_from(word, from)
+            .ok()
+            .map(|p| p.reached_state_color(self))
+    }
+
+    fn reached_color<W>(&self, word: W) -> Option<Self::StateColor>
+    where
+        W: FiniteWord<SymbolOf<Self>>,
+        Self: Pointed,
+    {
+        self.reached_color_from(word, self.initial())
     }
 
     /// Returns the state that is reached by running the given `word` on the transition system,

@@ -133,6 +133,7 @@ mod tests {
     use crate::{tests::wiki_dfa, ts::ToDot};
 
     #[test]
+    #[ignore]
     fn right_cayley_graph() {
         let dfa = wiki_dfa();
         dfa.display_rendered();

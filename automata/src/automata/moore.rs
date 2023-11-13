@@ -3,8 +3,6 @@ use std::fmt::Debug;
 
 use crate::prelude::*;
 
-use super::MooreLike;
-
 /// A Moore machine is a transition system where each state has an output. Thus, the output
 /// of running a Moore machine on a word produces a sequence of outputs, one for each state
 /// that is visited. For a word of length `n`, there are `n+1` outputs, note in particular
@@ -263,14 +261,20 @@ macro_rules! impl_moore_automaton {
                 self.ts().predecessors(state)
             }
         }
-        impl<Ts: Pointed> std::fmt::Debug for $name<Ts::Alphabet,  Ts::EdgeColor, Ts> {
+        impl<Ts: Pointed> std::fmt::Debug for $name<Ts::Alphabet,  Ts::EdgeColor, Ts> where Ts::StateColor: std::fmt::Display {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 use itertools::Itertools;
+                use crate::prelude::IsTransition;
                 writeln!(
                     f,
-                    "Initial state {} with states {}",
+                    "Initial state {} with states {} and transitions\n{}",
                     self.ts().initial(),
-                    self.ts().state_indices().map(|i| format!("{i}")).join(", ")
+                    self.ts().state_indices().map(|i| if let Some(state_color) = self.ts().state_color(i) {
+                        format!("{i}|{state_color}")
+                    } else {
+                        format!("{i}")
+                    }).join(", "),
+                    self.ts().state_indices().map(|i| self.edges_from(i).unwrap().map(|e| format!("{} --{:?}--> {}", i, e.expression(), e.target())).join(", ")).join("\n")
                 )
             }
         }
@@ -378,3 +382,59 @@ macro_rules! impl_moore_automaton {
         }
     };
 }
+
+/// Implemented by objects that can be viewed as MooreMachines, i.e. finite transition systems
+/// that have usize annotated/outputting states.
+pub trait MooreLike<Q: Color>: TransitionSystem<StateColor = Q> + Pointed {
+    /// Takes a reference to `self` and turns the underlying transition system into a [`MooreMachine`].
+    fn as_moore(&self) -> MooreMachine<Self::Alphabet, Q, Self::EdgeColor, &Self> {
+        MooreMachine::from(self)
+    }
+
+    /// Consumes and thereby turns `self` into a [`MooreMachine`].
+    fn into_moore(self) -> MooreMachine<Self::Alphabet, Q, Self::EdgeColor, Self> {
+        MooreMachine::from(self)
+    }
+
+    /// Runs the given `input` word in self. If the run is successful, the color of the state that it reaches
+    /// is emitted (wrapped in a `Some`). For unsuccessful runs, `None` is returned.
+    fn try_moore_map<W: FiniteWord<SymbolOf<Self>>>(&self, input: W) -> Option<Q> {
+        todo!()
+        // self.finite_run_from(self.initial(), &input.finite_to_vec())
+        //     .ok()
+        //     .map(|p| p.reached_state_color(self))
+    }
+
+    /// Obtains a vec containing the possible colors emitted by `self` (without duplicates).
+    fn color_range(&self) -> Vec<Self::StateColor> {
+        self.reachable_state_indices()
+            .map(|o| {
+                self.state_color(o)
+                    .expect("We know it is reachable and it must be colored")
+            })
+            .unique()
+            .collect()
+    }
+
+    /// Decomposes `self` into a sequence of DFAs, where the i-th DFA accepts all words which
+    /// produce a color less than or equal to i.
+    fn decompose_dfa(&self) -> Vec<DFA<Self::Alphabet>> {
+        self.color_range()
+            .into_iter()
+            .sorted()
+            .rev()
+            .map(|i| self.color_or_below_dfa(i))
+            .collect()
+    }
+
+    /// Builds a DFA that accepts all words which emit a color less than or equal to `color`.
+    fn color_or_below_dfa(&self, color: Q) -> DFA<Self::Alphabet> {
+        self.map_state_colors(|o| o <= color)
+            .erase_edge_colors()
+            .minimize()
+            .erase_edge_colors()
+            .map_state_colors(|o| o.contains(&true))
+            .collect_with_initial()
+    }
+}
+impl<Ts: TransitionSystem + Pointed> MooreLike<Ts::StateColor> for Ts {}
