@@ -19,7 +19,7 @@ impl<A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>> for Clas
         ts: &RightCongruence<A, Q, C>,
     ) -> Option<<RightCongruence<A, Q, C> as TransitionSystem>::StateIndex> {
         ts.class_to_index(self)
-            .or(ts.reached_state_index(self).map(|x| *x))
+            .or(ts.reached_state_index(self).map(|x| x))
     }
 }
 impl<'a, A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>>
@@ -89,14 +89,6 @@ impl<S: Symbol> LinearWord<S> for Class<S> {
     fn nth(&self, position: usize) -> Option<S> {
         self.0.get(position).cloned()
     }
-
-    fn representation_vec(&self) -> Vec<S> {
-        self.0.clone()
-    }
-
-    fn representation_length(&self) -> usize {
-        self.0.len()
-    }
 }
 impl<S: Symbol> FiniteWord<S> for Class<S> {
     type Symbols<'this> = std::iter::Cloned<std::slice::Iter<'this, S>>
@@ -106,6 +98,10 @@ impl<S: Symbol> FiniteWord<S> for Class<S> {
 
     fn symbols(&self) -> Self::Symbols<'_> {
         self.0.iter().cloned()
+    }
+
+    fn to_vec(&self) -> Vec<S> {
+        self.0.clone()
     }
 
     fn len(&self) -> usize {

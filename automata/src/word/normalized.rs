@@ -4,6 +4,8 @@ use itertools::Itertools;
 
 use crate::prelude::*;
 
+use super::LinearWord;
+
 #[derive(Clone)]
 pub struct Normalized<S: Symbol> {
     upw: Reduced<S>,
@@ -23,16 +25,20 @@ impl<S: Symbol> Normalized<S> {
 
     pub fn base_iter(&self) -> impl Iterator<Item = S> + '_ {
         self.upw.spoke().symbols().chain(
-            std::iter::repeat(self.upw.cycle())
-                .take(self.pre_loop_count)
-                .flat_map(|cycle| cycle.symbols()),
+            self.upw
+                .cycle()
+                .symbols()
+                .cycle()
+                .take(self.upw.cycle_length() * self.pre_loop_count),
         )
     }
 
     pub fn rec_iter(&self) -> impl Iterator<Item = S> + '_ {
-        std::iter::repeat(self.upw.cycle())
-            .take(self.loop_size)
-            .flat_map(|cycle| cycle.symbols())
+        self.upw
+            .cycle()
+            .symbols()
+            .cycle()
+            .take(self.upw.cycle_length() * self.loop_size)
     }
 }
 

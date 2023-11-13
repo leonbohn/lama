@@ -46,7 +46,7 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
     /// class is u, then it should be that uu ~ u.
     pub fn is_idempotent<I: Indexes<Self>>(&self, elem: I) -> bool {
         if let Some(q) = self.get(elem) {
-            self.reached_state_index_from(q, self.state_color(q).unwrap().class()) == Some(q)
+            self.reached_state_index_from(self.state_color(q).unwrap().class(), q) == Some(q)
         } else {
             false
         }

@@ -238,7 +238,7 @@ mod tests {
         for (access, mr) in [("aaaa", "aaa"), ("baaa", "ba"), ("bbbbbbbbbb", "bbb")] {
             let expected_state_name = mr.chars().collect_vec().into();
             assert_eq!(
-                cong.reached_color(&access),
+                cong.reached_state_color(&access),
                 Some(ReachedColor(expected_state_name))
             );
         }

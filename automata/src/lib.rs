@@ -11,9 +11,10 @@ pub mod prelude {
         alphabet,
         alphabet::{AlphabetOf, Expression, ExpressionOf, HasAlphabet, Simple, Symbol, SymbolOf},
         automata::{
-            DBALike, DFALike, DPALike, IntoMealyMachine, IntoMooreMachine, MealyLike, MealyMachine,
-            MooreLike, MooreMachine, NoColor, StateBasedDBA, StateBasedDPA, WithInitial, DBA, DFA,
-            DPA,
+            DBALike, DFALike, DPALike, FiniteWordAcceptor, FiniteWordTransformer, IntoMealyMachine,
+            IntoMooreMachine, MealyLike, MealyMachine, MooreLike, MooreMachine, NoColor,
+            OmegaWordAcceptor, OmegaWordTransformer, StateBasedDBA, StateBasedDPA, WithInitial,
+            DBA, DFA, DPA,
         },
         mapping::Morphism,
         ts::{

@@ -636,8 +636,8 @@ pub(crate) mod tests {
         assert_eq!(cong.size(), expected_cong.size());
         for word in ["aba", "abbabb", "baabaaba", "bababaaba", "b", "a", ""] {
             assert_eq!(
-                cong.reached_color(&word),
-                expected_cong.reached_color(&word)
+                cong.reached_state_color(&word),
+                expected_cong.reached_state_color(&word)
             )
         }
     }

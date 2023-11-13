@@ -26,21 +26,17 @@ mod tests {
         let mut dfb = crate::DFA::new(Simple::new(['a', 'b']));
         let s0 = dfb.initial();
         dfb.set_initial_color(true);
-        let s1 = dfb.add_state(false);
+        let s1 = dfb.add_state(true);
         let _e0 = dfb.add_edge(s0, 'a', s1, ());
         let _e1 = dfb.add_edge(s0, 'b', s0, ());
         let _e2 = dfb.add_edge(s1, 'a', s1, ());
         let _e3 = dfb.add_edge(s1, 'b', s0, ());
 
         let xxx = dfa.ts_product(dfb);
-        todo!()
-        // if let Some(ReachedState(_q)) = xxx.induced(&"abb", ProductIndex(0, 0)) {}
-        // let ReachedColor(c) = xxx.reached_color(&"aa").unwrap();
+        assert_eq!(xxx.reached_state_index("abb"), Some(ProductIndex(0, 0)));
+        assert_eq!(xxx.reached_state_color("aa"), Some((false, true)));
 
-        // let yyy = xxx.clone().map_state_colors(|(a, b)| a || b);
-        // let ReachedColor(d) = yyy.as_dfa().reached_color(&"aa").unwrap();
-
-        // assert_eq!(c.0 || c.1, d);
-        // println!("{:?}", xxx.edges_from(xxx.initial()).unwrap().collect_vec());
+        let yyy = xxx.clone().map_state_colors(|(a, b)| a || b).into_dfa();
+        assert_eq!(yyy.reached_state_color("aa"), Some(true));
     }
 }

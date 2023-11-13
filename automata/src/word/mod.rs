@@ -67,9 +67,44 @@ pub trait LinearWord<S>: Hash + Eq {
     {
         subword::Offset::new(self, offset)
     }
+}
 
-    fn representation_vec(&self) -> Vec<S>;
-    fn representation_length(&self) -> usize;
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct ConsumingInfixIterator<'a, S: Symbol, W: LinearWord<S>> {
+    word: &'a W,
+    start: usize,
+    end: usize,
+    _marker: std::marker::PhantomData<S>,
+}
+
+impl<'a, S: Symbol, W: LinearWord<S>> LinearWord<S> for ConsumingInfixIterator<'a, S, W> {
+    fn nth(&self, position: usize) -> Option<S> {
+        todo!()
+    }
+}
+
+impl<'a, S: Symbol, W: LinearWord<S>> Iterator for ConsumingInfixIterator<'a, S, W> {
+    type Item = S;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.start < self.end {
+            let out = self.word.nth(self.start);
+            self.start += 1;
+            out
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a, S: Symbol, W: LinearWord<S>> ConsumingInfixIterator<'a, S, W> {
+    pub fn new(word: &'a W, start: usize, end: usize) -> Self {
+        Self {
+            word,
+            start,
+            end,
+            _marker: std::marker::PhantomData,
+        }
+    }
 }
 
 /// This macro can be used to create a [`OmegaWord`] object from some representation, it is mainly interesting

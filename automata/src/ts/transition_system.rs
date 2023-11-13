@@ -584,7 +584,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
         unreachable!()
     }
 
-    fn reached_color_from<W, Idx>(&self, word: W, from: Idx) -> Option<Self::StateColor>
+    fn reached_state_color_from<W, Idx>(&self, word: W, from: Idx) -> Option<Self::StateColor>
     where
         W: FiniteWord<SymbolOf<Self>>,
         Idx: Indexes<Self>,
@@ -594,35 +594,35 @@ pub trait TransitionSystem: HasAlphabet + Sized {
             .map(|p| p.reached_state_color(self))
     }
 
-    fn reached_color<W>(&self, word: W) -> Option<Self::StateColor>
+    fn reached_state_color<W>(&self, word: W) -> Option<Self::StateColor>
     where
         W: FiniteWord<SymbolOf<Self>>,
         Self: Pointed,
     {
-        self.reached_color_from(word, self.initial())
+        self.reached_state_color_from(word, self.initial())
     }
 
     /// Returns the state that is reached by running the given `word` on the transition system,
     /// starting from the initial state. If the run is unsuccessful, `None` is returned.
-    fn reached_state_index<W>(&self, word: W) -> Option<ReachedState<Self::StateIndex>>
+    fn reached_state_index<W>(&self, word: W) -> Option<Self::StateIndex>
     where
         Self: Pointed,
         W: FiniteWord<SymbolOf<Self>>,
     {
-        todo!()
+        self.reached_state_index_from(word, self.initial())
     }
 
     /// Tries to run the given `word` starting in the state indexed by `origin`. If
     /// no state is indexed, then `None` is immediately returned. Otherwise, the
     /// word is run and the index of the reached state is returned. If the run is
     /// unsuccessful, the function returns `None`.
-    fn reached_state_index_from<I, W>(&self, origin: I, word: W) -> Option<Self::StateIndex>
+    fn reached_state_index_from<I, W>(&self, word: W, origin: I) -> Option<Self::StateIndex>
     where
         Self: Sized,
         I: Indexes<Self>,
         W: FiniteWord<SymbolOf<Self>>,
     {
-        todo!()
+        self.finite_run_from(word, origin).ok().map(|p| p.reached())
     }
 
     /// Returns an iterator over the minimal representative (i.e. length-lexicographically minimal
@@ -1467,13 +1467,9 @@ mod tests {
         let _e2 = ts.add_edge(s1, 'a', s1, 0);
         let _e3 = ts.add_edge(s1, 'b', s0, 1);
 
-        todo!()
-        // let input = OmegaWord::new(vec!['a', 'b', 'b', 'a'], FiniteLength::new(4));
-        //     let res = ts.run_from(&input, s0);
-        //     assert!(res.is_ok());
-
-        //     let ReachedState(q) = ts.induced(&"ab", s0).unwrap();
-        //     assert_eq!(q, s0);
-        //     let ReachedColor(_c) = ts.induced(&input, s0).unwrap();
+        let ts = ts.with_initial(s0);
+        assert!(ts.finite_run("abba").is_ok());
+        assert_eq!(ts.reached_state_index("ab"), Some(s0));
+        assert_eq!(ts.reached_state_index("bbb"), Some(s0));
     }
 }

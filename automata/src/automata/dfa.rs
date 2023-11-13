@@ -27,7 +27,7 @@ where
     Ts: DFALike,
 {
     fn accepts_finite<W: FiniteWord<SymbolOf<Self>>>(&self, word: W) -> bool {
-        self.reached_color(word).unwrap_or(false)
+        self.reached_state_color(word).unwrap_or(false)
     }
 }
 

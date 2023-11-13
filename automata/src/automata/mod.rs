@@ -42,6 +42,9 @@ mod dba;
 pub use dba::{DBALike, IntoDBA, DBA};
 
 mod acceptor;
+pub use acceptor::{
+    FiniteWordAcceptor, FiniteWordTransformer, OmegaWordAcceptor, OmegaWordTransformer,
+};
 
 mod with_initial;
 pub use with_initial::WithInitial;

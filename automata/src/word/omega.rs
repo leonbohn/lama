@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, marker::PhantomData};
 
 use impl_tools::autoimpl;
 use itertools::Itertools;
@@ -7,7 +7,6 @@ use crate::{prelude::Symbol, Alphabet, Show};
 
 use super::{FiniteWord, LinearWord};
 
-#[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
 pub trait OmegaWord<S>: LinearWord<S> {
     type Spoke<'this>: FiniteWord<S>
     where
@@ -16,16 +15,21 @@ pub trait OmegaWord<S>: LinearWord<S> {
     where
         Self: 'this;
 
-    fn normalized(&self) -> Reduced<S> {
-        Reduced::new(self.representation_vec(), self.loop_index())
+    fn normalized(&self) -> Reduced<S>
+    where
+        S: Symbol,
+    {
+        Reduced::ultimately_periodic(self.spoke(), self.cycle())
     }
 
     fn spoke(&self) -> Self::Spoke<'_>;
     fn cycle(&self) -> Self::Cycle<'_>;
 
-    fn loop_index(&self) -> usize;
+    fn loop_index(&self) -> usize {
+        self.spoke().len()
+    }
     fn cycle_length(&self) -> usize {
-        self.representation_length() - self.loop_index()
+        self.cycle().len()
     }
 }
 
@@ -55,7 +59,7 @@ pub struct Periodic<S> {
 
 impl<S: Symbol> Periodic<S> {
     pub fn new<W: FiniteWord<S>>(word: W) -> Self {
-        let mut representation = word.representation_vec();
+        let mut representation = word.to_vec();
         deduplicate_inplace(&mut representation);
         Self { representation }
     }
@@ -63,14 +67,6 @@ impl<S: Symbol> Periodic<S> {
 
 impl<S: Symbol> LinearWord<S> for Periodic<S> {
     fn nth(&self, position: usize) -> Option<S> {
-        todo!()
-    }
-
-    fn representation_vec(&self) -> Vec<S> {
-        todo!()
-    }
-
-    fn representation_length(&self) -> usize {
         todo!()
     }
 }
@@ -112,14 +108,6 @@ impl<S: Symbol> LinearWord<S> for Reduced<S> {
             self.word.nth(position)
         }
     }
-
-    fn representation_vec(&self) -> Vec<S> {
-        self.word.clone()
-    }
-
-    fn representation_length(&self) -> usize {
-        self.word.len()
-    }
 }
 impl<S: Symbol> OmegaWord<S> for Reduced<S> {
     fn loop_index(&self) -> usize {
@@ -131,7 +119,7 @@ impl<S: Symbol> OmegaWord<S> for Reduced<S> {
     type Cycle<'this> = &'this [S] where Self:'this;
 
     fn spoke(&self) -> Self::Spoke<'_> {
-        &[]
+        self.word[..self.loop_index].as_ref()
     }
 
     fn cycle(&self) -> Self::Cycle<'_> {
@@ -139,16 +127,9 @@ impl<S: Symbol> OmegaWord<S> for Reduced<S> {
     }
 }
 
-impl<S> Reduced<S> {
-    /// Creates a new reduced word from the given word and length.
-    pub fn new(word: Vec<S>, loop_index: usize) -> Self {
-        Self { word, loop_index }
-    }
-}
-
 impl<S: Symbol> Reduced<S> {
     pub fn periodic<W: FiniteWord<S>>(representation: W) -> Self {
-        let representation = deduplicate(representation.representation_vec());
+        let representation = deduplicate(representation.to_vec());
         Self {
             word: representation,
             loop_index: 0,
@@ -165,17 +146,18 @@ impl<S: Symbol> Reduced<S> {
         let roll_in = (0..spoke.len())
             .take_while(|i| spoke.nth_back(*i) == cycle.nth_back(*i % cycle.len()))
             .max()
+            .map(|x| x + 1)
             .unwrap_or(0);
 
-        let mut loop_representation = cycle.representation_vec();
+        let mut loop_representation = cycle.to_vec();
         loop_representation.rotate_right(roll_in % cycle.len());
         deduplicate_inplace(&mut loop_representation);
 
-        let mut representation = spoke.representation_vec();
-        representation.truncate(spoke.len().saturating_sub(roll_in).saturating_sub(1));
+        let mut representation = spoke.to_vec();
+        representation.truncate(spoke.len().saturating_sub(roll_in));
         let loop_index = representation.len();
 
-        representation.extend(deduplicate(cycle.representation_vec()));
+        representation.extend(deduplicate(cycle.to_vec()));
         Self {
             word: representation,
             loop_index,
@@ -218,6 +200,60 @@ impl TryFrom<&str> for Reduced<char> {
                 }
             }
         }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Epsilon();
+
+impl<S: Symbol> LinearWord<S> for Epsilon {
+    fn nth(&self, position: usize) -> Option<S> {
+        None
+    }
+}
+
+impl<S: Symbol> FiniteWord<S> for Epsilon {
+    type Symbols<'this> = std::iter::Empty<S>
+    where
+        Self: 'this;
+
+    fn symbols(&self) -> Self::Symbols<'_> {
+        std::iter::empty()
+    }
+
+    fn to_vec(&self) -> Vec<S> {
+        vec![]
+    }
+
+    fn len(&self) -> usize {
+        0
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Repeating<W>(pub W);
+
+impl<S: Symbol, W: FiniteWord<S>> LinearWord<S> for Repeating<W> {
+    fn nth(&self, position: usize) -> Option<S> {
+        self.0.nth(position % self.0.len())
+    }
+}
+
+impl<S: Symbol, W: FiniteWord<S>> OmegaWord<S> for Repeating<W> {
+    type Spoke<'this> = Epsilon
+    where
+        Self: 'this;
+
+    type Cycle<'this> = &'this W
+    where
+        Self: 'this;
+
+    fn spoke(&self) -> Self::Spoke<'_> {
+        Epsilon()
+    }
+
+    fn cycle(&self) -> Self::Cycle<'_> {
+        &self.0
     }
 }
 
