@@ -76,6 +76,10 @@ pub trait DFALike: TransitionSystem<StateColor = bool> + Pointed
         DFA::from(self)
     }
 
+    fn collect_dfa(self) -> DFA<Self::Alphabet> {
+        DFA::from(self.erase_edge_colors().collect_initialized())
+    }
+
     /// Uses a reference to `self` for creating a [`DFA`].
     fn as_dfa(&self) -> DFA<Self::Alphabet, Self::EdgeColor, &Self> {
         DFA::from(self)

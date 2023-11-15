@@ -1,4 +1,4 @@
-use automata::{automata::MooreLike, prelude::*, ts::operations::MapStateColor, word::LinearWord};
+use automata::{prelude::*, ts::operations::MapStateColor, word::LinearWord};
 
 use crate::passive::Sample;
 
@@ -47,10 +47,7 @@ impl<A: Alphabet, C: Color> LStarOracle<MooreMachine<A, C>> for SampleOracle<A, 
 
     type Output = C;
 
-    fn output<V: Word<Symbol = SymbolOf<MooreMachine<A, C>>, Length = Self::Length>>(
-        &self,
-        word: V,
-    ) -> Self::Output {
+    fn output<V: FiniteWord<SymbolOf<MooreMachine<A, C>>>>(&self, word: V) -> Self::Output {
         self.sample
             .entries()
             .find_map(|(w, c)| {
@@ -79,10 +76,7 @@ impl<A: Alphabet, C: Color> LStarOracle<MooreMachine<A, C>> for SampleOracle<A, 
 impl<A: Alphabet, C: Color> LStarOracle<MealyMachine<A, C>> for SampleOracle<A, Vec<A::Symbol>, C> {
     type Length = FiniteLength;
     type Output = C;
-    fn output<W: Word<Symbol = SymbolOf<MealyMachine<A, C>>, Length = Self::Length>>(
-        &self,
-        word: W,
-    ) -> Self::Output {
+    fn output<W: FiniteWord<SymbolOf<MealyMachine<A, C>>>>(&self, word: W) -> Self::Output {
         self.sample
             .entries()
             .find_map(|(w, c)| {
@@ -111,13 +105,15 @@ impl<A: Alphabet, C: Color> LStarOracle<MealyMachine<A, C>> for SampleOracle<A, 
     }
 }
 
-impl<A: Alphabet, W: Word, C: Color> From<(Sample<A, W, C>, C)> for SampleOracle<A, W, C> {
+impl<A: Alphabet, W: FiniteWord<A::Symbol>, C: Color> From<(Sample<A, W, C>, C)>
+    for SampleOracle<A, W, C>
+{
     fn from((value, default): (Sample<A, W, C>, C)) -> Self {
         Self::new(value, default)
     }
 }
 
-impl<A: Alphabet, W: Word, C: Color> SampleOracle<A, W, C> {
+impl<A: Alphabet, W: FiniteWord<A::Symbol>, C: Color> SampleOracle<A, W, C> {
     /// Creates a new instance of a [`SampleOracle`] with the given sample and default color.
     pub fn new(sample: Sample<A, W, C>, default: C) -> Self {
         Self { sample, default }
@@ -150,15 +146,12 @@ impl<D: DFALike> HasAlphabet for DFAOracle<D> {
     }
 }
 
-impl<D: DFALike> LStarOracle<MooreMachine<D::Alphabet, bool>> for DFAOracle<D> {
+impl<D: DFALike> LStarOracle<DFA<D::Alphabet>> for DFAOracle<D> {
     type Length = FiniteLength;
 
     type Output = bool;
 
-    fn output<W: Word<Symbol = SymbolOf<Self>, Length = Self::Length>>(
-        &self,
-        word: W,
-    ) -> Self::Output {
+    fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> Self::Output {
         (&self.automaton).into_dfa().accepts(word)
     }
 
@@ -189,10 +182,7 @@ impl<C: Color, D: MealyLike<C>> LStarOracle<MealyMachine<D::Alphabet, C>> for Me
 
     type Output = C;
 
-    fn output<W: Word<Symbol = SymbolOf<Self>, Length = Self::Length>>(
-        &self,
-        word: W,
-    ) -> Self::Output {
+    fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> Self::Output {
         self.automaton
             .try_mealy_map(word)
             .expect("The oracle must be total!")
@@ -235,10 +225,7 @@ impl<C: Color, D: MooreLike<C>> LStarOracle<MooreMachine<D::Alphabet, C>> for Mo
 
     type Output = C;
 
-    fn output<W: Word<Symbol = SymbolOf<Self>, Length = Self::Length>>(
-        &self,
-        word: W,
-    ) -> Self::Output {
+    fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> Self::Output {
         self.automaton
             .try_moore_map(word)
             .expect("The oracle must be total!")

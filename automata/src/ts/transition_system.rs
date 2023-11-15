@@ -822,6 +822,16 @@ pub trait TransitionSystem: HasAlphabet + Sized {
         ts
     }
 
+    fn collect_initialized(
+        self,
+    ) -> WithInitial<BTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>
+    where
+        Self: Pointed,
+        Self::StateColor: Default,
+    {
+        self.collect_with_initial()
+    }
+
     /// Collects `self` into a new transition system of type `Ts` with the same alphabet, state indices
     /// and edge colors.
     fn collect<

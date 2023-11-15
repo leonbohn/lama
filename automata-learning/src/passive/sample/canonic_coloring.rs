@@ -1,4 +1,4 @@
-use automata::{alphabet::Simple, Alphabet, RightCongruence, TransitionSystem, Word};
+use automata::prelude::*;
 
 use crate::{
     priority_mapping::{ClassifiesIdempotents, PriorityMapping},

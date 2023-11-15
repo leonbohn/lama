@@ -2,7 +2,7 @@ use impl_tools::autoimpl;
 
 use crate::prelude::Symbol;
 
-use super::{omega::Reduced, Concat, LinearWord};
+use super::{omega::Reduced, Concat, LinearWord, Periodic};
 
 pub trait FiniteWord<S>: LinearWord<S> {
     type Symbols<'this>: Iterator<Item = S>
@@ -27,13 +27,11 @@ pub trait FiniteWord<S>: LinearWord<S> {
 
     fn to_vec(&self) -> Vec<S>;
 
-    /// Constructs a [`NormalizedPeriodic`] object, which is the normalized periodic word that is
-    /// represented by iterating `self` over and over again.
-    fn omega_power(&self) -> Reduced<S>
+    fn omega_power(&self) -> Periodic<S>
     where
         S: Symbol,
     {
-        Reduced::periodic(self)
+        Periodic::new(self)
     }
 
     fn len(&self) -> usize;

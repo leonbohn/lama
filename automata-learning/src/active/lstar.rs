@@ -209,14 +209,11 @@ mod tests {
         type Output = bool;
 
         fn output<W: FiniteWord<SymbolOf<Self>>>(&self, word: W) -> Self::Output {
-            let (count_a, count_b) =
-                word.finite_to_vec()
-                    .into_iter()
-                    .fold((0, 0), |(a, b), c| match c {
-                        'a' => (a + 1, b),
-                        'b' => (a, b + 1),
-                        _ => unreachable!(),
-                    });
+            let (count_a, count_b) = word.symbols().fold((0, 0), |(a, b), c| match c {
+                'a' => (a + 1, b),
+                'b' => (a, b + 1),
+                _ => unreachable!(),
+            });
 
             count_a % 2 == 0 && count_b % 2 == 0
         }
@@ -255,7 +252,7 @@ mod tests {
         type Length = FiniteLength;
 
         fn output<W: FiniteWord<SymbolOf<Self>>>(&self, word: W) -> Self::Output {
-            word.length().0 % self.1
+            word.len() % self.1
         }
 
         fn equivalence(
@@ -265,7 +262,6 @@ mod tests {
             for word in [
                 "aa", "bb", "bab", "bbabba", "aba", "abba", "bbab", "", "b", "a",
             ] {
-                let word = OmegaWord::new_reverse_args(FiniteLength(word.len()), word);
                 let output = self.output(&word);
                 if output != hypothesis.try_moore_map(&word).unwrap() {
                     return Err((word.to_vec(), output));
@@ -330,7 +326,7 @@ mod tests {
     #[test]
     fn lstar_for_dfa() {
         let target = test_dfa();
-        let oracle = DFAOracle::new(&target);
+        let oracle = DFAOracle::new(target);
 
         let mut lstar = super::LStar::moore_unlogged(oracle, target.alphabet().clone());
 

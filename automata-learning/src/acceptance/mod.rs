@@ -1,5 +1,3 @@
-use automata::Word;
-
 /// Represents an error that can occur when trying to infer an acceptance condition.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum AcceptanceError<'s, S, W> {

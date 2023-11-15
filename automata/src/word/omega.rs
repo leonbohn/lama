@@ -57,6 +57,36 @@ pub struct Periodic<S> {
     representation: Vec<S>,
 }
 
+impl<S: Symbol> TryFrom<Reduced<S>> for Periodic<S> {
+    type Error = ();
+    fn try_from(value: Reduced<S>) -> Result<Self, Self::Error> {
+        if value.loop_index() > 0 {
+            Err(())
+        } else {
+            Ok(Self {
+                representation: value.word,
+            })
+        }
+    }
+}
+
+impl<S: Symbol> From<Periodic<S>> for Reduced<S> {
+    fn from(value: Periodic<S>) -> Self {
+        Self::periodic(value.representation)
+    }
+}
+impl<S: Symbol> From<&Periodic<S>> for Reduced<S> {
+    fn from(value: &Periodic<S>) -> Self {
+        Self::periodic(value.representation.clone())
+    }
+}
+
+impl<S: Symbol> From<&Reduced<S>> for Reduced<S> {
+    fn from(value: &Reduced<S>) -> Self {
+        Self::ultimately_periodic(value.spoke(), value.cycle())
+    }
+}
+
 impl<S: Symbol> Periodic<S> {
     pub fn new<W: FiniteWord<S>>(word: W) -> Self {
         let mut representation = word.to_vec();

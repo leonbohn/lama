@@ -19,7 +19,7 @@ mod finite;
 pub use finite::FiniteWord;
 
 mod omega;
-pub use omega::{OmegaWord, Reduced, ReducedParseError};
+pub use omega::{OmegaWord, Periodic, Reduced, ReducedParseError};
 use tracing::subscriber::SetGlobalDefaultError;
 
 use self::subword::Infix;
@@ -54,7 +54,7 @@ pub trait LinearWord<S>: Hash + Eq {
     /// Removes the first symbol of `self` and returns it together with the remaining suffix.
     fn pop_first(&self) -> (S, subword::Offset<'_, S, Self>)
     where
-        Self: Sized + HasLength<Length = InfiniteLength>,
+        Self: Sized,
     {
         let first = self.first().unwrap();
         (first, self.offset(1))

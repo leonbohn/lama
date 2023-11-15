@@ -33,11 +33,11 @@ impl<A: Alphabet> ConsistencyCheck<A> for FiniteSample<A, bool> {
     fn consistent(&self, cong: &RightCongruence<A>) -> bool {
         let positive_indices: Set<_> = self
             .positive_words()
-            .filter_map(|w| cong.reached_state_index(w).map(|q| q.0))
+            .filter_map(|w| cong.reached_state_index(w).map(|q| q))
             .collect();
         let negative_indices: Set<_> = self
             .negative_words()
-            .filter_map(|w| cong.reached_state_index(w).map(|q| q.0))
+            .filter_map(|w| cong.reached_state_index(w).map(|q| q))
             .collect();
         positive_indices.is_disjoint(&negative_indices)
     }
@@ -434,7 +434,7 @@ pub(crate) mod tests {
         alphabet,
         alphabet::Simple,
         congruence::FORC,
-        rupw,
+        prelude::*,
         ts::{
             finite::{ReachedColor, ReachedState},
             Sproutable, ToDot,
@@ -538,19 +538,13 @@ pub(crate) mod tests {
             Sample::new_omega_from_pos_neg(
                 alphabet,
                 [
-                    rupw!("a"),
-                    rupw!("baa"),
-                    rupw!("aca"),
-                    rupw!("caab"),
-                    rupw!("abca"),
+                    upw!("a"),
+                    upw!("baa"),
+                    upw!("aca"),
+                    upw!("caab"),
+                    upw!("abca"),
                 ],
-                [
-                    rupw!("b"),
-                    rupw!("c"),
-                    rupw!("ab"),
-                    rupw!("ac"),
-                    rupw!("abc"),
-                ],
+                [upw!("b"), upw!("c"), upw!("ab"), upw!("ac"), upw!("abc")],
             ),
         )
     }
@@ -614,11 +608,11 @@ pub(crate) mod tests {
         let sample = Sample::new_omega(
             alphabet.clone(),
             vec![
-                (("b", 0), true),
-                (("abab", 3), true),
-                (("abbab", 4), true),
-                (("ab", 1), false),
-                (("a", 0), false),
+                (upw!("b"), true),
+                (upw!("abab"), true),
+                (upw!("abbab"), true),
+                (upw!("ab"), false),
+                (upw!("a"), false),
             ],
         );
         let mut expected_cong = RightCongruence::new(alphabet!(simple 'a', 'b'));
@@ -645,7 +639,10 @@ pub(crate) mod tests {
     #[test]
     fn prefix_consistency_sprout_one() {
         let alphabet = alphabet!(simple 'a', 'b');
-        let sample = Sample::new_omega(alphabet.clone(), vec![(("a", 0), false), (("b", 0), true)]);
+        let sample = Sample::new_omega(
+            alphabet.clone(),
+            vec![(upw!("a"), false), (upw!("b"), true)],
+        );
         let conflicts = super::prefix_consistency_conflicts(sample);
         let cong = super::sprout(conflicts, vec![], true);
 
@@ -659,17 +656,17 @@ pub(crate) mod tests {
         let sample = Sample::new_omega(
             alphabet.clone(),
             vec![
-                (("aac", 2), true),
-                (("ab", 1), true),
-                (("aab", 2), true),
-                (("abaac", 4), true),
-                (("abbaac", 5), true),
-                (("abc", 2), false),
-                (("c", 0), false),
-                (("ac", 1), false),
-                (("b", 0), false),
-                (("abac", 3), false),
-                (("abbc", 3), false),
+                (upw!("aac"), true),
+                (upw!("ab"), true),
+                (upw!("aab"), true),
+                (upw!("abaac"), true),
+                (upw!("abbaac"), true),
+                (upw!("abc"), false),
+                (upw!("c"), false),
+                (upw!("ac"), false),
+                (upw!("b"), false),
+                (upw!("abac"), false),
+                (upw!("abbc"), false),
             ],
         );
 

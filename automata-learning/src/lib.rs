@@ -12,7 +12,7 @@ pub mod acceptance;
 /// right congruence relation from a consistency function.
 // pub mod glerc;
 mod priority_mapping;
-use automata::Word;
+use automata::prelude::*;
 pub use priority_mapping::{AnnotatedCongruence, Annotation};
 
 /// Deals with active learning algorithms such as L*.

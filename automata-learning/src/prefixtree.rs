@@ -8,15 +8,11 @@ use tracing::trace;
 
 use automata::word::Reduced;
 
-pub fn prefix_tree<
-    A: Alphabet,
-    W: Into<Reduced<A::Symbol, InfiniteLength>>,
-    I: IntoIterator<Item = W>,
->(
+pub fn prefix_tree<A: Alphabet, W: Into<Reduced<A::Symbol>>, I: IntoIterator<Item = W>>(
     alphabet: A,
     words: I,
 ) -> RightCongruence<A> {
-    let words: Vec<Reduced<_, _>> = words.into_iter().map(|word| word.into()).collect_vec();
+    let words: Vec<Reduced<_>> = words.into_iter().map(|word| word.into()).collect_vec();
     debug_assert!(words.iter().all(|word| !word.raw_word().is_empty()));
     fn build_accepting_loop<A: Alphabet>(
         tree: &mut RightCongruence<A>,

@@ -32,7 +32,6 @@ pub fn dfa_rpni<A: Alphabet>(sample: &FiniteSample<A, bool>) -> DFA<A> {
         .map(|w| {
             cong.reached_state_index(w)
                 .expect("Every positive word must induce a successful run!")
-                .0
         })
         .collect();
     (&cong)
@@ -87,7 +86,7 @@ pub fn dpa_rpni<A: Alphabet>(sample: &OmegaSample<A, bool>) -> DPA<A> {
 
 #[cfg(test)]
 mod tests {
-    use automata::{prelude::*, rupw};
+    use automata::prelude::*;
 
     use super::{sample, OmegaSample};
 
@@ -96,11 +95,12 @@ mod tests {
         let alphabet = alphabet!(simple 'a', 'b', 'c');
         let sample = sample! {alphabet; pos "a", "aab", "aaab", "bbaa", "aca", "caa", "abca", "baac"; neg "c", "b", "bc", "abc", "cba", "ac", "ba"};
         let dpa = super::infer_precise_dpa(&sample).into_dpa();
-        assert!(dpa.consistent_with([
-            (rupw!("a"), true),
-            (rupw!("baa"), true),
-            (rupw!("cabaca"), false),
-            (rupw!("baacbacbac"), true)
-        ]));
+        todo!()
+        // assert!(dpa.consistent_with([
+        //     (upw!("a"), true),
+        //     (upw!("baa"), true),
+        //     (upw!("cabaca"), false),
+        //     (upw!("baacbacbac"), true)
+        // ]));
     }
 }
