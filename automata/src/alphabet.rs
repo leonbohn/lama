@@ -1,9 +1,10 @@
 use std::{
+    collections::VecDeque,
     fmt::{Debug, Display},
     hash::Hash,
 };
 
-use crate::{Map, Show};
+use crate::{word::FiniteWord, Map, Show};
 
 /// A symbol of an alphabet, which is also the type of the symbols in a word. We consider different types
 /// of alphabets:
@@ -15,7 +16,7 @@ impl<S: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash + Show> Symbol f
 /// An expression is used to label edges of a [`crate::ts::TransitionSystem`]. For [`Simple`]
 /// alphabets, an expression is simply a single symbol, whereas for a [`Propositional`] alphabet, an expression
 /// is a propositional formula over the atomic propositions. See [`Propositional`] for more details.
-pub trait Expression<S: Symbol>: Hash + Clone + Debug + Eq + Ord {
+pub trait Expression<S: Symbol>: Hash + Clone + Debug + Eq + Ord + Show {
     /// Type of iterator over the concrete symbols matched by this expression.
     type SymbolsIter: Iterator<Item = S>;
     /// Returns an iterator over the [`Symbol`]s that match this expression.
@@ -308,5 +309,104 @@ impl<S: Symbol + Expression<S>, const N: usize> Alphabet for Fixed<S, N> {
 
     fn expression(symbol: Self::Symbol) -> Self::Expression {
         symbol
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, PartialOrd, Ord)]
+pub struct InvertibleChar(char, bool);
+
+impl InvertibleChar {
+    pub fn mul(&self, word: &mut VecDeque<char>) {
+        if self.1 {
+            word.push_front(self.0)
+        } else {
+            word.push_back(self.0)
+        }
+    }
+
+    pub fn is_inverted(&self) -> bool {
+        self.1
+    }
+}
+
+impl Expression<InvertibleChar> for InvertibleChar {
+    type SymbolsIter = std::iter::Once<InvertibleChar>;
+
+    fn symbols(&self) -> Self::SymbolsIter {
+        std::iter::once(*self)
+    }
+
+    fn matches(&self, symbol: InvertibleChar) -> bool {
+        *self == symbol
+    }
+}
+
+impl Show for InvertibleChar {
+    fn show(&self) -> String {
+        format!("{}{}", self.0, if self.1 { "\u{0303}" } else { "" })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Directional(Vec<InvertibleChar>);
+
+impl Directional {
+    pub fn from_iter<I: IntoIterator<Item = char>>(iter: I) -> Self {
+        let mut v = vec![];
+        for sym in iter {
+            v.push(InvertibleChar(sym, false));
+            v.push(InvertibleChar(sym, true));
+        }
+        Self(v)
+    }
+    pub fn from_alphabet<A: std::borrow::Borrow<Simple>>(alphabet: A) -> Self {
+        Self::from_iter(alphabet.borrow().universe().cloned())
+    }
+}
+
+impl Alphabet for Directional {
+    type Symbol = InvertibleChar;
+
+    type Expression = InvertibleChar;
+
+    fn search_edge<X>(
+        map: &Map<Self::Expression, X>,
+        sym: Self::Symbol,
+    ) -> Option<(&Self::Expression, &X)> {
+        todo!()
+    }
+
+    type Universe<'this> = std::slice::Iter<'this, InvertibleChar>
+    where
+        Self: 'this;
+
+    fn universe(&self) -> Self::Universe<'_> {
+        self.0.iter()
+    }
+
+    fn contains(&self, symbol: Self::Symbol) -> bool {
+        self.0.contains(&symbol)
+    }
+
+    fn matches(&self, expression: &Self::Expression, symbol: Self::Symbol) -> bool {
+        *expression == symbol
+    }
+
+    fn expression(symbol: Self::Symbol) -> Self::Expression {
+        symbol
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Directional, Simple};
+    use crate::Alphabet;
+    use itertools::Itertools;
+
+    #[test]
+    fn bialphabet() {
+        let alph = Simple::from_iter(['a', 'b', 'c']);
+        let bi = Directional::from_alphabet(alph);
+        println!("{:?}", bi.universe().collect_vec())
     }
 }

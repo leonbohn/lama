@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use impl_tools::autoimpl;
 
 use crate::prelude::Symbol;
@@ -18,6 +20,13 @@ pub trait FiniteWord<S>: LinearWord<S> {
         Concat(self, suffix)
     }
 
+    fn equals<W: FiniteWord<S>>(&self, other: W) -> bool
+    where
+        S: Eq,
+    {
+        self.len() == other.len() && self.symbols().zip(other.symbols()).all(|(a, b)| a == b)
+    }
+
     fn prepend<W: FiniteWord<S>>(self, prefix: W) -> Concat<W, Self>
     where
         Self: Sized,
@@ -25,7 +34,13 @@ pub trait FiniteWord<S>: LinearWord<S> {
         Concat(prefix, self)
     }
 
-    fn to_vec(&self) -> Vec<S>;
+    fn to_vec(&self) -> Vec<S> {
+        self.symbols().collect()
+    }
+
+    fn to_deque(&self) -> VecDeque<S> {
+        VecDeque::from(self.to_vec())
+    }
 
     fn omega_power(&self) -> Periodic<S>
     where
@@ -34,7 +49,9 @@ pub trait FiniteWord<S>: LinearWord<S> {
         Periodic::new(self)
     }
 
-    fn len(&self) -> usize;
+    fn len(&self) -> usize {
+        self.symbols().count()
+    }
 
     fn nth_back(&self, pos: usize) -> Option<S> {
         self.nth(self.len() - pos - 1)
@@ -57,6 +74,26 @@ impl<S: Symbol, Fw: FiniteWord<S> + ?Sized> FiniteWord<S> for &Fw {
     }
     fn to_vec(&self) -> Vec<S> {
         (*self).to_vec()
+    }
+}
+
+impl<S: Symbol> LinearWord<S> for VecDeque<S> {
+    fn nth(&self, position: usize) -> Option<S> {
+        if position < self.len() {
+            Some(self[position])
+        } else {
+            None
+        }
+    }
+}
+
+impl<S: Symbol> FiniteWord<S> for VecDeque<S> {
+    type Symbols<'this> = std::iter::Cloned<std::collections::vec_deque::Iter<'this, S>>
+    where
+        Self: 'this;
+
+    fn symbols(&self) -> Self::Symbols<'_> {
+        self.iter().cloned()
     }
 }
 

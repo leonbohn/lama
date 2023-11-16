@@ -415,8 +415,8 @@ where
             .map(|(word, profile)| (word.as_slice(), profile.into()))
     }
 
-    pub fn profile_for(&self, word: &[SymbolOf<Ts>]) -> Option<usize> {
-        let (tp, pe) = self.strings.iter().find(|(p, e)| p == word)?;
+    pub fn profile_for<W: FiniteWord<SymbolOf<Ts>>>(&self, word: W) -> Option<usize> {
+        let (tp, pe) = self.strings.iter().find(|(p, e)| p.equals(&word))?;
         match pe {
             ProfileEntry::Profile(p) => Some(*p),
             ProfileEntry::Redirect(r) => Some(*r),

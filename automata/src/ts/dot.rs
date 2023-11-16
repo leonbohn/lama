@@ -1,12 +1,13 @@
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug, Display, Write};
 
 use itertools::Itertools;
 
 use crate::{
+    alphabet::{Directional, InvertibleChar},
     automata::WithInitial,
     congruence::{ColoredClass, FORC},
-    prelude::{Symbol, SymbolOf},
-    Alphabet, Class, Color, Map, Pointed, RightCongruence, TransitionSystem,
+    prelude::{Simple, Symbol, SymbolOf},
+    Alphabet, Class, Color, Map, Pointed, RightCongruence, Show, TransitionSystem,
 };
 
 use super::{
@@ -130,6 +131,34 @@ impl<S: Symbol + Display, C: Color + DotStateColorize> DotStateColorize
     }
 }
 
+pub trait MightDecorateDotTransition {
+    fn dot_transition_attribute(&self, statement: String) -> String;
+}
+
+impl MightDecorateDotTransition for char {
+    fn dot_transition_attribute(&self, statement: String) -> String {
+        statement
+    }
+}
+
+impl MightDecorateDotTransition for InvertibleChar {
+    fn dot_transition_attribute(&self, statement: String) -> String {
+        let mut s = statement;
+        if self.is_inverted() {
+            s.push_str(",color=red");
+        } else {
+            s.push_str(",color=blue");
+        }
+        s
+    }
+}
+
+/// Implemented for all types that can be used to draw a transition between two nodes in the DOT format.
+pub trait DotTransition {
+    /// Returns the actual DOT statement of the transition.
+    fn dot_transition_statement(&self) -> String;
+}
+
 /// Stores all necessary information for producing a DOT statement, which draws a singular
 /// transition between two nodes.
 pub struct DotTransitionInfo<C: Color, A: Alphabet> {
@@ -139,21 +168,21 @@ pub struct DotTransitionInfo<C: Color, A: Alphabet> {
     expression: A::Expression,
 }
 
-/// Implemented for all types that can be used to draw a transition between two nodes in the DOT format.
-pub trait DotTransition {
-    /// Returns the actual DOT statement of the transition.
-    fn dot_statement(&self) -> String;
-}
-
 impl<A> DotTransition for DotTransitionInfo<usize, A>
 where
     A: Alphabet,
-    A::Expression: Display,
+    A::Expression: MightDecorateDotTransition,
 {
-    fn dot_statement(&self) -> String {
+    fn dot_transition_statement(&self) -> String {
         format!(
-            "{} -> {} [label=\"{}:{}\"]",
-            self.source_name, self.target_name, self.expression, self.color
+            "{} -> {} [{}]",
+            self.source_name,
+            self.target_name,
+            self.expression.dot_transition_attribute(format!(
+                "label=\"{}:{}\"",
+                self.expression.show(),
+                self.color
+            ))
         )
     }
 }
@@ -161,12 +190,15 @@ where
 impl<A> DotTransition for DotTransitionInfo<(), A>
 where
     A: Alphabet,
-    A::Expression: Display,
+    A::Expression: MightDecorateDotTransition,
 {
-    fn dot_statement(&self) -> String {
+    fn dot_transition_statement(&self) -> String {
         format!(
-            "{} -> {} [label={}]",
-            self.source_name, self.target_name, self.expression,
+            "{} -> {} [{}]",
+            self.source_name,
+            self.target_name,
+            self.expression
+                .dot_transition_attribute(format!("label=\"{}\"", self.expression.show(),))
         )
     }
 }
@@ -263,6 +295,7 @@ pub trait ToDot {
 
         trace!("Outputting dot and rendering to png");
         let dot = self.dot_representation();
+        trace!("Generated dot\n{}", dot);
         render_dot_to_tempfile(dot.as_str())
     }
 
@@ -317,7 +350,7 @@ where
                         color: e.color(),
                         expression: e.expression().clone(),
                     };
-                    lines.push(info.dot_statement());
+                    lines.push(info.dot_transition_statement());
                 }
             }
         }
