@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 type Automata = Vec<MooreMachine<Simple, usize>>;
 type Words = Vec<Vec<char>>;
-type Loops = Vec<Reduced<char, InfiniteLength>>;
+type Loops = Vec<Reduced<char>>;
 lazy_static::lazy_static! {
 static ref DATA: (
     Automata,
@@ -19,7 +19,7 @@ const RANDOM: [usize; 3] = [3, 2, 7];
 fn data() -> (
     Vec<MooreMachine<Simple, usize>>,
     Vec<Vec<char>>,
-    Vec<Reduced<char, InfiniteLength>>,
+    Vec<Reduced<char>>,
 ) {
     let random_automata = random_automata(&RANDOM);
     let words = vec![
@@ -30,7 +30,7 @@ fn data() -> (
     let mut random_loops = Vec::new();
     for (i, n) in [2usize, 0, 4].into_iter().enumerate() {
         let word = words.get(i).unwrap();
-        random_loops.push(Reduced::new_omega(word, InfiniteLength(word.len(), n)))
+        random_loops.push(Reduced::ultimately_periodic(&word[..n], &word[n..]));
     }
     (random_automata, words, random_loops)
 }
