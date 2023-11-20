@@ -6,7 +6,7 @@ use crate::{
     alphabet::{HasAlphabet, Simple, Symbol},
     prelude::DFALike,
     ts::{transition_system::Indexes, Sproutable, BTS},
-    Alphabet, Color, FiniteLength, HasLength, Map, Pointed, TransitionSystem, DFA,
+    Alphabet, Color, FiniteLength, HasLength, Map, Pointed, Show, TransitionSystem, DFA,
 };
 
 mod class;
@@ -28,7 +28,13 @@ pub struct RightCongruence<A: Alphabet, Q = (), C: Color = ()> {
     ts: BTS<A, ColoredClass<A::Symbol, Q>, C>,
 }
 
-impl<A: Alphabet, Q: Color + Debug, C: Color + Debug> Debug for RightCongruence<A, Q, C> {
+impl<S: Symbol + Show, Q: Show> Show for ColoredClass<S, Q> {
+    fn show(&self) -> String {
+        format!("{} | {}", self.class.show(), self.color.show())
+    }
+}
+
+impl<A: Alphabet, Q: Color + Show, C: Color + Show> Debug for RightCongruence<A, Q, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "RightCongruence\n{:?}", self.ts)
     }
@@ -91,6 +97,10 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
         self.ts
             .indices_with_color()
             .find_map(|(id, c)| if c.class() == class { Some(id) } else { None })
+    }
+
+    pub fn class_name<Idx: Indexes<Self>>(&self, index: Idx) -> Option<ColoredClass<A::Symbol, Q>> {
+        self.ts().state_color(index.to_index(self)?)
     }
 
     /// Computes a DFA that accepts precisely those finite words which loop on the given `class`. Formally,

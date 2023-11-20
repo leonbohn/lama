@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use automata::{
     congruence::FORC,
     prelude::{Indexes, MealyMachine, MooreMachine},
@@ -11,7 +13,7 @@ use super::precise::PreciseDPA;
 /// congruence ~ and for each class of ~, a mapping that associates finite words with integers.
 /// We asssume that these mappings are weak in the sense that for every word `w` and every prefix
 /// `u` of `w`, the value assigned to `u` is greater or equal to the one that is assigned to `w`.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct FWPM<'a, A: Alphabet> {
     leading: &'a RightCongruence<A>,
     pm: Map<usize, MooreMachine<A, usize>>,
@@ -73,5 +75,21 @@ impl<'a, A: Alphabet> FWPM<'a, A> {
             "Some classes of leading congruence do not have a priority mapping!"
         );
         Self { leading, pm }
+    }
+}
+
+impl<'a, A: Alphabet> Debug for FWPM<'a, A> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "FWPM with Leading\n{:?}", self.leading())?;
+        for class_id in self.leading().state_indices() {
+            let class_name = self.leading().class_name(class_id).unwrap();
+            write!(
+                f,
+                "Priority mapping {class_id} for class {:?}\n{:?}",
+                class_name,
+                self.pm.get(&class_id).unwrap()
+            )?;
+        }
+        Ok(())
     }
 }

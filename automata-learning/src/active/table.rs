@@ -31,9 +31,7 @@ impl<const FOR_MEALY: bool, T: LStarTarget<FOR_MEALY>> LStarHypothesisResult<FOR
 pub trait LStarTarget<const FOR_MEALY: bool>: Sized + std::fmt::Debug {
     type Alphabet: Alphabet;
     type Output: Color + Debug;
-    type Hypothesis: Congruence<Alphabet = Self::Alphabet>
-        + Morphism<<Self::Alphabet as Alphabet>::Symbol, Output = Self::Output>
-        + Clone;
+    type Hypothesis: Congruence<Alphabet = Self::Alphabet> + Clone;
     fn hypothesis(&self) -> LStarHypothesisResult<FOR_MEALY, Self>;
     fn accept_counterexample<
         O: LStarOracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>,
@@ -278,7 +276,7 @@ impl<A: Alphabet, C: Color + Debug + Default> LStarTarget<false> for LStarTable<
         oracle: &O,
     ) -> Vec<LStarQuery<false, Self>> {
         debug_assert!(
-            hypothesis.morph(&counterexample) != expected_color,
+            hypothesis.reached_state_color(&counterexample).as_ref() != Some(&expected_color),
             "This is not a real counterexample"
         );
         debug_assert!(
@@ -301,15 +299,12 @@ impl<A: Alphabet, C: Color + Debug + Default> LStarTarget<false> for LStarTable<
 
             if next_color != previous_color {
                 // this is the breakpoint
-                let experiment = suffix.finite_to_vec();
+                let experiment = suffix.to_vec();
 
                 for row_index in 0..self.rows.len() {
                     let word = (&self.rows[row_index].base).append(&experiment);
                     let output = oracle.output(&word);
-                    queries.push(LStarQuery::Membership((
-                        word.finite_to_vec(),
-                        output.clone(),
-                    )));
+                    queries.push(LStarQuery::Membership((word.to_vec(), output.clone())));
                 }
 
                 trace!(
@@ -356,10 +351,7 @@ impl<A: Alphabet, C: Color + Debug + Default> LStarTarget<false> for LStarTable<
                 let word = (&row.base).append(&self.experiments[i]);
                 let output = oracle.output(&word);
                 trace!("Obtained output {:?} for word {:?}", output, word);
-                queries.push(LStarQuery::Membership((
-                    word.finite_to_vec(),
-                    output.clone(),
-                )));
+                queries.push(LStarQuery::Membership((word.to_vec(), output.clone())));
                 row.outputs.push(output);
             }
         }
@@ -432,7 +424,7 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
 
     fn hypothesis(&self) -> LStarHypothesisResult<true, Self> {
         trace!(
-            "Computing Moore hypothesis with experiments {{{}}}",
+            "Computing Mealy hypothesis with experiments {{{}}}",
             self.experiments
                 .iter()
                 .map(|experiment| experiment.iter().map(|sym| format!("{:?}", sym)).join(""))
@@ -583,7 +575,7 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
         oracle: &O,
     ) -> Vec<LStarQuery<true, Self>> {
         debug_assert!(
-            hypothesis.morph(&counterexample) != expected_color,
+            hypothesis.last_edge_color(&counterexample) != Some(expected_color),
             "This is not a real counterexample"
         );
         debug_assert!(
@@ -607,12 +599,12 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
 
             if next_color != previous_color {
                 // this is the breakpoint
-                let experiment = suffix.finite_to_vec();
+                let experiment = suffix.to_vec();
 
                 for row_index in 0..self.rows.len() {
                     let word = (&self.rows[row_index].base).append(&experiment);
                     let output = oracle.output(&word);
-                    queries.push(LStarQuery::Membership((word.finite_to_vec(), output)));
+                    queries.push(LStarQuery::Membership((word.to_vec(), output)));
                 }
 
                 trace!(
@@ -659,7 +651,7 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
                 let word = (&row.base).append(&self.experiments[i]);
                 let output = oracle.output(&word);
                 trace!("Obtained output {:?} for word {:?}", output, word);
-                queries.push(LStarQuery::Membership((word.finite_to_vec(), output)));
+                queries.push(LStarQuery::Membership((word.to_vec(), output)));
                 row.outputs.push(output);
             }
         }

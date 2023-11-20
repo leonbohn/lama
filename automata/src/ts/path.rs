@@ -15,13 +15,18 @@ pub struct Path<A: Alphabet, Idx> {
     transitions: Vec<(Idx, A::Expression)>,
 }
 
-impl<A: Alphabet, Idx> Path<A, Idx> {
+impl<A: Alphabet, Idx: IndexType> Path<A, Idx> {
     /// Returns the index of the state that is reached by the path.
-    pub fn reached(&self) -> Idx
-    where
-        Idx: IndexType,
-    {
+    pub fn reached(&self) -> Idx {
         self.end
+    }
+
+    pub fn origin(&self) -> Idx {
+        if self.transitions.len() > 0 {
+            self.transitions[0].0
+        } else {
+            self.end
+        }
     }
 
     /// Returns true if the path is empty/trivial, meaning it consists of only one state.
@@ -136,7 +141,9 @@ impl<A: Alphabet, Idx> Path<A, Idx> {
 
     /// Extends self with the given `other` path.
     pub fn extend_with(&mut self, other: Path<A, Idx>) {
+        assert_eq!(self.reached(), other.origin(), "Start and end must match!");
         self.transitions.extend(other.transitions);
+        self.end = other.end;
     }
 
     /// Returns an iterator over the indices of the states visited by the path.

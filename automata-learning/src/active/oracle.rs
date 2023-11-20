@@ -51,7 +51,7 @@ impl<A: Alphabet, C: Color> LStarOracle<MooreMachine<A, C>> for SampleOracle<A, 
         self.sample
             .entries()
             .find_map(|(w, c)| {
-                if w == &word.finite_to_vec() {
+                if w == &word.to_vec() {
                     Some(c.clone())
                 } else {
                     None
@@ -65,8 +65,8 @@ impl<A: Alphabet, C: Color> LStarOracle<MooreMachine<A, C>> for SampleOracle<A, 
         hypothesis: &MooreMachine<A, C>,
     ) -> Result<(), (Vec<SymbolOf<MooreMachine<A, C>>>, Self::Output)> {
         for (w, c) in self.sample.entries() {
-            if hypothesis.morph(w) != *c {
-                return Err((w.finite_to_vec(), c.clone()));
+            if hypothesis.reached_state_color(w).as_ref() != Some(c) {
+                return Err((w.to_vec(), c.clone()));
             }
         }
         Ok(())
@@ -80,7 +80,7 @@ impl<A: Alphabet, C: Color> LStarOracle<MealyMachine<A, C>> for SampleOracle<A, 
         self.sample
             .entries()
             .find_map(|(w, c)| {
-                if w == &word.finite_to_vec() {
+                if w == &word.to_vec() {
                     Some(c.clone())
                 } else {
                     None
@@ -93,8 +93,8 @@ impl<A: Alphabet, C: Color> LStarOracle<MealyMachine<A, C>> for SampleOracle<A, 
         hypothesis: &MealyMachine<A, C>,
     ) -> Result<(), (Vec<SymbolOf<MealyMachine<A, C>>>, Self::Output)> {
         let Some(cex) = self.sample.entries().find_map(|(w, c)| {
-            if hypothesis.morph(w) != *c {
-                Some((w.finite_to_vec(), c.clone()))
+            if hypothesis.last_edge_color(w).as_ref() != Some(c) {
+                Some((w.to_vec(), c.clone()))
             } else {
                 None
             }
@@ -146,13 +146,13 @@ impl<D: DFALike> HasAlphabet for DFAOracle<D> {
     }
 }
 
-impl<D: DFALike> LStarOracle<DFA<D::Alphabet>> for DFAOracle<D> {
+impl<D: DFALike> LStarOracle<MooreMachine<D::Alphabet, bool>> for DFAOracle<D> {
     type Length = FiniteLength;
 
     type Output = bool;
 
     fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> Self::Output {
-        (&self.automaton).into_dfa().accepts(word)
+        (&self.automaton).into_dfa().accepts_finite(word)
     }
 
     fn equivalence(
@@ -162,7 +162,7 @@ impl<D: DFALike> LStarOracle<DFA<D::Alphabet>> for DFAOracle<D> {
         let dfa = (&self.negated).intersection(&hypothesis).into_dfa();
         match dfa.dfa_give_word() {
             Some(w) => {
-                let should_be_accepted = (&self.automaton).into_dfa().accepts(&w);
+                let should_be_accepted = (&self.automaton).into_dfa().accepts_finite(&w);
                 Err((w, should_be_accepted))
             }
             None => Ok(()),

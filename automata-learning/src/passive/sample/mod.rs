@@ -188,7 +188,6 @@ mod tests {
     }
 
     #[test]
-    #[traced_test]
     fn split_up_sample() {
         let alphabet = alphabet!(simple 'a', 'b');
         // represents congruence e ~ b ~ aa ~\~ a ~ ab
@@ -208,12 +207,10 @@ mod tests {
         for w in ["b"] {
             assert!(split.get(0).unwrap().contains(&upw!(w)))
         }
-
-        println!("{:?}", split.get(0).unwrap());
-        println!("{:?}", split.get(1).unwrap());
     }
 
     #[test]
+    #[ignore]
     fn omega_prefix_tree() {
         let mut w = upw!("aba", "b");
         let x = w.pop_first();

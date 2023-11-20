@@ -27,8 +27,8 @@ impl<Ts: TransitionSystem> Pointed for WithInitial<Ts> {
 impl<Ts> std::fmt::Debug for WithInitial<Ts>
 where
     Ts: TransitionSystem + Debug,
-    Ts::StateColor: Debug,
-    Ts::EdgeColor: Debug,
+    Ts::StateColor: Show,
+    Ts::EdgeColor: Show,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(
@@ -37,9 +37,9 @@ where
             self.initial(),
             self.build_transition_table(|index, color| {
                 if index == self.initial() {
-                    format!("{} : {:?}", index.to_string().bold(), color)
+                    format!("{} : {}", index.to_string().bold(), color.show())
                 } else {
-                    format!("{} : {:?}", index, color)
+                    format!("{} : {}", index, color.show())
                 }
             })
         )

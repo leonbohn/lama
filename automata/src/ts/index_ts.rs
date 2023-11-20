@@ -2,7 +2,7 @@ use itertools::Itertools;
 
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
-    Color, Map, Set,
+    Color, Map, Set, Show,
 };
 
 use super::{
@@ -104,15 +104,15 @@ pub struct BTS<A: Alphabet, Q, C: Color, Idx: IndexType = usize> {
 impl<A, C, Q, Idx> std::fmt::Debug for BTS<A, Q, C, Idx>
 where
     A: Alphabet,
-    C: Color + std::fmt::Debug,
-    Q: Color + std::fmt::Debug,
+    C: Color + Show,
+    Q: Color + Show,
     Idx: IndexType,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(
             f,
             "{}",
-            self.build_transition_table(|idx, c| format!("{} : {:?}", idx, c))
+            self.build_transition_table(|idx, c| format!("{} : {}", idx, c.show()))
         )
     }
 }

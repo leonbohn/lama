@@ -290,7 +290,7 @@ pub trait ToDot {
     /// Similar to the [`Self::render()`] method, but returns a [`tempfile::TempPath`] instead
     /// of a buffer of bytes.
     #[cfg(feature = "graphviz")]
-    fn render_tempfile(&self) -> Result<tempfile::TempPath, std::io::Error> {
+    fn render_tempfile(&self) -> Result<tempfile::NamedTempFile, std::io::Error> {
         use tracing::trace;
 
         trace!("Outputting dot and rendering to png");
@@ -493,7 +493,7 @@ pub fn display_dot(dot: &str) -> Result<(), std::io::Error> {
 }
 
 #[cfg(feature = "graphviz")]
-fn render_dot_to_tempfile(dot: &str) -> Result<tempfile::TempPath, std::io::Error> {
+fn render_dot_to_tempfile(dot: &str) -> Result<tempfile::NamedTempFile, std::io::Error> {
     use std::io::{Read, Write};
 
     let mut tempfile = tempfile::NamedTempFile::new()?;
@@ -501,12 +501,11 @@ fn render_dot_to_tempfile(dot: &str) -> Result<tempfile::TempPath, std::io::Erro
     let tempfile_name = tempfile.path();
 
     let image_tempfile = tempfile::Builder::new().suffix(".png").tempfile()?;
-    let image_tempfile_name = image_tempfile.into_temp_path();
 
     let mut child = std::process::Command::new("dot")
         .arg("-Tpng")
         .arg("-o")
-        .arg(&image_tempfile_name)
+        .arg(image_tempfile.path())
         .arg(tempfile_name)
         .spawn()?;
 
@@ -522,31 +521,41 @@ fn render_dot_to_tempfile(dot: &str) -> Result<tempfile::TempPath, std::io::Erro
                 }),
         ))
     } else {
-        Ok(image_tempfile_name)
+        Ok(image_tempfile)
     }
 }
 
+#[cfg(target_os = "linux")]
+fn start_linux(file: tempfile::NamedTempFile) {
+    if let Ok(fork::Fork::Child) = fork::daemon(false, false) {
+        assert!(std::fs::File::open(file.path()).is_ok());
+        let f = file;
+        std::process::Command::new("eog")
+            .arg(f.path())
+            .spawn()
+            .unwrap()
+            .wait()
+            .unwrap();
+    };
+    std::thread::sleep(std::time::Duration::from_secs(60));
+}
+
 #[cfg(feature = "graphviz")]
-fn display_png(rendered_path: tempfile::TempPath) -> Result<(), std::io::Error> {
+fn display_png(rendered_path: tempfile::NamedTempFile) -> Result<(), std::io::Error> {
     #[cfg(target_os = "linux")]
-    std::process::Command::new("eog")
-        .arg(&rendered_path)
-        .spawn()?
-        .wait()?;
+    start_linux(rendered_path);
     #[cfg(target_os = "macos")]
     std::process::Command::new("qlmanage")
         .arg("-p")
         .arg(&rendered_path)
-        .spawn()?
-        .wait()?;
+        .spawn()?;
     #[cfg(target_os = "windows")]
     std::process::Command::new("cmd")
         .arg("/c")
         .arg(format!("start {}", rendered_path.display()))
-        .spawn()?
-        .wait()?;
+        .spawn()?;
     #[cfg(target_os = "windows")]
-    std::thread::sleep(std::time::Duration::from_secs(1));
+    std::thread::sleep(std::time::Duration::from_secs(2));
     Ok(())
 }
 
@@ -600,7 +609,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+    // #[ignore]
     fn dot_render_and_display() {
         let alphabet = alphabet!(simple 'a', 'b');
         let mut cong = RightCongruence::new(alphabet);

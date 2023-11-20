@@ -1,10 +1,14 @@
+use std::fmt::Debug;
+
 use automata::{
     automata::{MealyLike, MooreLike},
+    congruence::ColoredClass,
     prelude::{Expression, HasAlphabet, IsTransition, DFA},
     ts::{reachable::ReachableStateIndices, Sproutable},
-    Alphabet, Map, Pointed, RightCongruence, TransitionSystem,
+    Alphabet, Map, Pointed, RightCongruence, Show, TransitionSystem,
 };
 use itertools::Itertools;
+use tracing::trace;
 
 use super::fwpm::FWPM;
 
@@ -91,7 +95,7 @@ impl<const N: usize> PState<N> {
 
 /// The precise DPA is a construction for going from a specifically colored FORC to a deterministic
 /// parity automaton. It is described (https://arxiv.org/pdf/2302.11043.pdf)[here, below Lemma 15].
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct PreciseDPA<A: Alphabet, const N: usize = 8> {
     states: Vec<PState<N>>,
     cong: RightCongruence<A>,
@@ -254,6 +258,10 @@ impl<A: Alphabet, const N: usize> PreciseDPA<A, N> {
         }
     }
 
+    pub fn dfas_level(&self, level: usize) -> impl Iterator<Item = (usize, &'_ DFA<A>)> + '_ {
+        self.dfas.iter().map(move |dfa| &dfa[level]).enumerate()
+    }
+
     /// Returns a reference to the leading congruence.
     pub fn cong(&self) -> &RightCongruence<A> {
         &self.cong
@@ -269,6 +277,7 @@ impl<A: Alphabet, const N: usize> PreciseDPA<A, N> {
     /// Given a [`PState`] and a symbol, returns the index of the least accepting DFA (which is
     /// the priority of the corresponding edge) and the successor [`PState`].
     pub fn take_precise_transition(&self, q: &PState<N>, a: A::Symbol) -> (usize, PState<N>) {
+        trace!("Taking precise transition from {} on {}", q, a.show());
         let d = self
             .cong()
             .successor_index(q.class(), a)
@@ -294,23 +303,41 @@ impl<A: Alphabet, const N: usize> PreciseDPA<A, N> {
             .position(|(_, _, b)| *b)
             .expect("The last DFA must be accepting!");
 
-        (
-            least_accepting,
-            PState::from_iters(
-                d,
-                progress
-                    .iter()
-                    .enumerate()
-                    .map(|(i, (c, p, b))| if i < least_accepting { *c } else { d }),
-                progress.iter().enumerate().map(|(i, (c, p, b))| {
-                    if i < least_accepting {
-                        *p
-                    } else {
-                        self.dfas[d][i].initial()
-                    }
-                }),
-            ),
-        )
+        let reached_pstate = PState::from_iters(
+            d,
+            progress
+                .iter()
+                .enumerate()
+                .map(|(i, (c, p, b))| if i < least_accepting { *c } else { d }),
+            progress.iter().enumerate().map(|(i, (c, p, b))| {
+                if i < least_accepting {
+                    *p
+                } else {
+                    self.dfas[d][i].initial()
+                }
+            }),
+        );
+
+        trace!("Reaches state {reached_pstate}, outputs {least_accepting}");
+
+        (least_accepting, reached_pstate)
+    }
+}
+
+impl<A: Alphabet, const N: usize> Debug for PreciseDPA<A, N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Leading congruence\n{:?}", self.cong())?;
+        for i in 0..N {
+            for (c, dfa) in self.dfas_level(i) {
+                let class_name = self.cong.class_name(c).unwrap();
+                write!(
+                    f,
+                    "Progress congruence level {i} for class {}\n{:?}",
+                    class_name, dfa
+                )?;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -421,5 +448,6 @@ mod tests {
         println!("{:?} -c:{}-> {:?}", q, t.color, t.target);
 
         let trim: DPA = dpa.trim_collect();
+        trim.display_rendered();
     }
 }

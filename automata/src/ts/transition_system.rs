@@ -4,7 +4,7 @@ use crate::{
     congruence::ColoredClass,
     prelude::{Expression, Symbol},
     word::{FiniteWord, OmegaWord},
-    Alphabet, Class, Color, FiniteLength, Map, Partition, Pointed, RightCongruence, Set,
+    Alphabet, Class, Color, FiniteLength, Map, Partition, Pointed, RightCongruence, Set, Show,
 };
 
 use super::{
@@ -50,7 +50,6 @@ impl<Ts: TransitionSystem> Indexes<Ts> for Ts::StateIndex {
         Some(*self)
     }
 }
-
 /// This trait is implemented for references to transitions, so that they can be used in
 /// generic contexts. It is automatically implemented for (mutable) references.
 #[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
@@ -523,6 +522,24 @@ pub trait TransitionSystem: HasAlphabet + Sized {
         self.visited_edge_colors_from(word, self.initial())
     }
 
+    fn last_edge_color_from<W, Idx>(&self, word: W, origin: Idx) -> Option<Self::EdgeColor>
+    where
+        Idx: Indexes<Self>,
+        W: FiniteWord<SymbolOf<Self>>,
+    {
+        self.finite_run_from(word, origin.to_index(self)?)
+            .ok()
+            .and_then(|p| p.last_transition_color(self))
+    }
+
+    fn last_edge_color<W>(&self, word: W) -> Option<Self::EdgeColor>
+    where
+        W: FiniteWord<SymbolOf<Self>>,
+        Self: Pointed,
+    {
+        self.last_edge_color_from(word, self.initial())
+    }
+
     /// Checks whether `self` is complete, meaning every state has a transition for every symbol
     /// of the alphabet.
     fn is_complete(&self) -> bool {
@@ -685,7 +702,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     fn build_transition_table<SD>(&self, state_decorator: SD) -> String
     where
         SD: Fn(Self::StateIndex, StateColor<Self>) -> String,
-        Self::EdgeColor: std::fmt::Debug,
+        Self::EdgeColor: Show,
     {
         let mut builder = tabled::builder::Builder::default();
         builder.set_header(
@@ -703,7 +720,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
             )];
             for &sym in self.alphabet().universe() {
                 if let Some(edge) = self.transition(id, sym) {
-                    row.push(format!("{} : {:?}", edge.target(), edge.color()));
+                    row.push(format!("{} : {}", edge.target(), edge.color().show()));
                 } else {
                     row.push("-".to_string());
                 }

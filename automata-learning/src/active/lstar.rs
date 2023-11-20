@@ -326,7 +326,7 @@ mod tests {
     #[test]
     fn lstar_for_dfa() {
         let target = test_dfa();
-        let oracle = DFAOracle::new(target);
+        let oracle = DFAOracle::new(&target);
 
         let mut lstar = super::LStar::moore_unlogged(oracle, target.alphabet().clone());
 

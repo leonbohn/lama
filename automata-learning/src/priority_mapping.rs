@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use impl_tools::autoimpl;
 use owo_colors::OwoColorize;
 
@@ -20,6 +22,20 @@ pub type PriorityMapping<A = Simple> = RightCongruence<A, (), usize>;
 pub struct Annotation {
     pub(super) idempotent: bool,
     pub(super) good: Option<bool>,
+}
+
+impl Show for Annotation {
+    fn show(&self) -> String {
+        if !self.idempotent {
+            "#".into()
+        } else {
+            match self.good {
+                Some(true) => "+".into(),
+                Some(false) => "-".into(),
+                None => "o".into(),
+            }
+        }
+    }
 }
 
 impl DotStateColorize for Annotation {
@@ -58,7 +74,7 @@ impl Annotation {
 
 /// This a simple newtype wrapper around a congruence, which has no edge colors and uses
 /// [`Annotation`]s as state colors.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct AnnotatedCongruence<A: Alphabet = Simple>(RightCongruence<A, Annotation, ()>);
 
 #[autoimpl(for<T: trait + ?Sized> &T)]
@@ -66,11 +82,16 @@ pub trait ClassifiesIdempotents<A: Alphabet> {
     fn classify(&self, class: &Class<A::Symbol>) -> Option<bool>;
 }
 
+impl<A: Alphabet> Debug for AnnotatedCongruence<A> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.0)
+    }
+}
+
 impl<A> ToDot for AnnotatedCongruence<A>
 where
     A: Alphabet,
-    A::Symbol: std::fmt::Display,
-    A::Expression: std::fmt::Display,
+    RightCongruence<A, Annotation, ()>: ToDot,
 {
     fn dot_representation(&self) -> String {
         format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""))
@@ -89,7 +110,7 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
     /// Computes the canonic coloring on a given annotated congruence. This makes use
     /// of the dag of strongly connected components of the congruence. For more information
     /// on how the computation is done exactly, see [Section 5, Step 2](https://arxiv.org/pdf/2302.11043.pdf).
-    pub fn canonic_coloring(&self) -> impl MooreLike<usize, Alphabet = A> + Clone + '_ {
+    pub fn canonic_coloring(&self) -> MooreMachine<A, usize> {
         // we first need to decompose into sccs and mark them with the color of the
         // idempotent that it contains.
         let tjdag = self.0.tarjan_dag();
@@ -129,12 +150,15 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
             *dag.color_mut(t).expect("This node exists") = Ok(i + offset);
         }
 
-        (&self.0).erase_edge_colors().map_state_colors(move |q| {
-            let scc = tjdag.get(q).expect("Must be in an SCC");
-            let info = dag.color(scc).expect("Must have worked on that SCC");
+        (&self.0)
+            .erase_edge_colors()
+            .map_state_colors(move |q| {
+                let scc = tjdag.get(q).expect("Must be in an SCC");
+                let info = dag.color(scc).expect("Must have worked on that SCC");
 
-            info.expect("Every SCC must have a color")
-        })
+                info.expect("Every SCC must have a color")
+            })
+            .collect_with_initial()
     }
 
     /// Takes a reference to a right congruence and a function that classifies idempotents

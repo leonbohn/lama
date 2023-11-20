@@ -1,7 +1,8 @@
 use std::collections::VecDeque;
 
 use automata::{
-    ts::Sproutable, Alphabet, HasLength, InfiniteLength, Map, Pointed, RightCongruence, Set,
+    ts::Sproutable, word::OmegaWord, Alphabet, HasLength, InfiniteLength, Map, Pointed,
+    RightCongruence, Set,
 };
 use itertools::Itertools;
 use tracing::trace;
@@ -44,8 +45,8 @@ pub fn prefix_tree<A: Alphabet, W: Into<Reduced<A::Symbol>>, I: IntoIterator<Ite
     while let Some((state, access, words)) = queue.pop_front() {
         debug_assert!(!words.is_empty());
         debug_assert!(words.iter().all(|word| !word.raw_word().is_empty()));
-        if words.len() == 1 && words[0].length().loop_index() == 0 {
-            build_accepting_loop(&mut tree, state, access, words[0].repeating_segment());
+        if words.len() == 1 && words[0].loop_index() == 0 {
+            build_accepting_loop(&mut tree, state, access, words[0].cycle());
         } else {
             let mut map: Map<_, Set<_>> = Map::default();
             for mut word in words {

@@ -33,6 +33,24 @@ pub trait OmegaWord<S>: LinearWord<S> {
     }
 }
 
+impl<S: Symbol, W: OmegaWord<S>> OmegaWord<S> for &W {
+    type Spoke<'this> = W::Spoke<'this>
+    where
+        Self: 'this;
+
+    type Cycle<'this> = W::Cycle<'this>
+    where
+        Self: 'this;
+
+    fn spoke(&self) -> Self::Spoke<'_> {
+        W::spoke(self)
+    }
+
+    fn cycle(&self) -> Self::Cycle<'_> {
+        W::cycle(self)
+    }
+}
+
 fn deduplicate_inplace<S: Eq>(input: &mut Vec<S>) {
     assert!(!input.is_empty());
 
@@ -163,6 +181,21 @@ impl<S: Symbol> Reduced<S> {
         Self {
             word: representation,
             loop_index: 0,
+        }
+    }
+
+    pub fn pop_front(&mut self) -> S {
+        assert!(self.loop_index < self.word.len());
+        if self.loop_index() > 0 {
+            let mut it = self.word.iter().cloned();
+            let out = it.next().expect("infinite word!");
+            self.word = it.collect();
+            self.loop_index -= 1;
+            out
+        } else {
+            let out = self.cycle().first().unwrap().clone();
+            self.word.rotate_left(1);
+            out
         }
     }
 

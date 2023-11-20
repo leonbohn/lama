@@ -4,13 +4,19 @@ use crate::{
     alphabet::{Symbol, SymbolOf},
     ts::transition_system::Indexes,
     word::{FiniteWord, LinearWord},
-    Alphabet, Color, FiniteLength, HasLength, RightCongruence, TransitionSystem,
+    Alphabet, Color, FiniteLength, HasLength, RightCongruence, Show, TransitionSystem,
 };
 
 /// Represents a congruence class, which is in essence simply a non-empty sequence of symbols
 /// for the underlying alphabet.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Class<S>(pub Vec<S>);
+
+impl<S: Show> Show for Class<S> {
+    fn show(&self) -> String {
+        format!("[{}]", self.0.iter().map(|s| s.show()).join(""))
+    }
+}
 
 impl<A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>> for Class<A::Symbol> {
     #[inline(always)]
@@ -164,8 +170,8 @@ impl<S: Ord> PartialOrd for Class<S> {
 /// A colored class is a [`Class`] which additionally has an associated color.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct ColoredClass<S: Symbol, Q = ()> {
-    class: Class<S>,
-    color: Q,
+    pub(crate) class: Class<S>,
+    pub(crate) color: Q,
 }
 
 impl<A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>>

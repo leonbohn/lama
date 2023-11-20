@@ -1,4 +1,8 @@
-use crate::{ts::transition_system::Indexes, Alphabet, Class, Color, Map, RightCongruence};
+use std::fmt::Debug;
+
+use owo_colors::OwoColorize;
+
+use crate::{ts::transition_system::Indexes, Alphabet, Class, Color, Map, RightCongruence, Show};
 
 /// A family of right congruences (FORC) consists of a *leading* right congruence and for each
 /// class of this congruence a *progress* right congruence.
@@ -42,6 +46,10 @@ impl<A: Alphabet, Q: Color, C: Color> FORC<A, Q, C> {
         self.progress.get(&idx)
     }
 
+    pub fn prc_iter(&self) -> impl Iterator<Item = (&'_ usize, &'_ RightCongruence<A, Q, C>)> + '_ {
+        self.progress.iter()
+    }
+
     /// Creates a new FORC from the given leading congruence and progress congruences.
     pub fn from_iter<I: IntoIterator<Item = (usize, RightCongruence<A, Q, C>)>>(
         leading: RightCongruence<A>,
@@ -51,5 +59,22 @@ impl<A: Alphabet, Q: Color, C: Color> FORC<A, Q, C> {
             leading,
             progress: progress.into_iter().collect(),
         }
+    }
+}
+
+impl<A: Alphabet, Q: Color + Show, C: Color + Show> std::fmt::Debug for FORC<A, Q, C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}\n{:?}", "LEADING".bold(), self.leading())?;
+        for (c, rc) in self.prc_iter() {
+            let class_name = self.leading.class_name(*c).unwrap();
+            write!(
+                f,
+                "{} \"{}\"\n{:?}",
+                "PRC FOR CLASS ".bold(),
+                &class_name,
+                rc
+            )?;
+        }
+        Ok(())
     }
 }

@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use owo_colors::OwoColorize;
 use std::fmt::Debug;
 
 use crate::prelude::*;
@@ -196,7 +197,7 @@ impl<Ts: TransitionSystem + Debug> std::fmt::Debug
     for MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        write!(f, "{}\n{:?}", "Moore Machine".italic(), self.ts())
     }
 }
 
@@ -399,10 +400,7 @@ pub trait MooreLike<Q: Color>: TransitionSystem<StateColor = Q> + Pointed {
     /// Runs the given `input` word in self. If the run is successful, the color of the state that it reaches
     /// is emitted (wrapped in a `Some`). For unsuccessful runs, `None` is returned.
     fn try_moore_map<W: FiniteWord<SymbolOf<Self>>>(&self, input: W) -> Option<Q> {
-        todo!()
-        // self.finite_run_from(self.initial(), &input.finite_to_vec())
-        //     .ok()
-        //     .map(|p| p.reached_state_color(self))
+        self.reached_state_color(input)
     }
 
     /// Obtains a vec containing the possible colors emitted by `self` (without duplicates).
@@ -422,7 +420,6 @@ pub trait MooreLike<Q: Color>: TransitionSystem<StateColor = Q> + Pointed {
         self.color_range()
             .into_iter()
             .sorted()
-            .rev()
             .map(|i| self.color_or_below_dfa(i))
             .collect()
     }

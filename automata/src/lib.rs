@@ -27,7 +27,7 @@ pub mod prelude {
             HasStates, IndexType, Sproutable, StateColor, ToDot, TransitionSystem, BTS,
         },
         upw,
-        word::{FiniteWord, OmegaWord, Periodic, Reduced, ReducedParseError},
+        word::{FiniteWord, LinearWord, OmegaWord, Periodic, Reduced, ReducedParseError},
         Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length, Pointed,
         RightCongruence, Show,
     };
