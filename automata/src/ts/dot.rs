@@ -287,25 +287,12 @@ pub trait ToDot {
         }
     }
 
-    /// Similar to the [`Self::render()`] method, but returns a [`tempfile::TempPath`] instead
-    /// of a buffer of bytes.
-    #[cfg(feature = "graphviz")]
-    fn render_tempfile(&self) -> Result<tempfile::NamedTempFile, std::io::Error> {
-        use tracing::trace;
-
-        trace!("Outputting dot and rendering to png");
-        let dot = self.dot_representation();
-        trace!("Generated dot\n{}", dot);
-        render_dot_to_tempfile(dot.as_str())
-    }
-
     /// First creates a rendered PNG using [`Self::render_tempfile()`], after which the rendered
     /// image is displayed using a locally installed image viewer (`eog` on linux, `qlmanage`
     /// i.e. quicklook on macos and nothing yet on windows).
     #[cfg(feature = "graphviz")]
     fn display_rendered(&self) -> Result<(), std::io::Error> {
-        let rendered_path = self.render_tempfile()?;
-        display_png(rendered_path)
+        display_png(self.render()?)
     }
 }
 
@@ -493,8 +480,11 @@ pub fn display_dot(dot: &str) -> Result<(), std::io::Error> {
 }
 
 #[cfg(feature = "graphviz")]
-fn render_dot_to_tempfile(dot: &str) -> Result<tempfile::NamedTempFile, std::io::Error> {
-    use std::io::{Read, Write};
+fn render_dot_to_tempfile(dot: &str) -> Result<Vec<u8>, std::io::Error> {
+    use std::{
+        io::{Read, Write},
+        process::Stdio,
+    };
 
     let mut tempfile = tempfile::NamedTempFile::new()?;
     tempfile.write_all(dot.as_bytes())?;
@@ -503,47 +493,48 @@ fn render_dot_to_tempfile(dot: &str) -> Result<tempfile::NamedTempFile, std::io:
     let image_tempfile = tempfile::Builder::new().suffix(".png").tempfile()?;
 
     let mut child = std::process::Command::new("dot")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
         .arg("-Tpng")
-        .arg("-o")
-        .arg(image_tempfile.path())
-        .arg(tempfile_name)
         .spawn()?;
 
-    if !child.wait()?.success() {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            child
-                .stdout
-                .map_or("Error in dot...".to_string(), |mut err| {
-                    let mut buf = String::new();
-                    err.read_to_string(&mut buf);
-                    buf
-                }),
-        ))
-    } else {
-        Ok(image_tempfile)
+    let mut stdin = child.stdin.take().expect("Could not get handle to stdin");
+    stdin.write_all(dot.as_bytes())?;
+
+    match child.wait_with_output() {
+        Ok(res) => {
+            if res.status.success() {
+                Ok(res.stdout)
+            } else {
+                let stderr_output =
+                    String::from_utf8(res.stderr).expect("could not parse stderr of dot");
+                tracing::error!("Could not render, dot reported\n{}", &stderr_output);
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    stderr_output,
+                ))
+            }
+        }
+        Err(e) => todo!(),
     }
 }
 
 #[cfg(target_os = "linux")]
-fn start_linux(file: tempfile::NamedTempFile) {
+fn start_linux(contents: Vec<u8>) {
     use std::{
         io::{Read, Stdin, Write},
         process::Stdio,
     };
 
-    let mut c = vec![];
-    let mut f = std::fs::File::open(file.path()).expect("Could not open temporary file");
-    f.read_to_end(&mut c);
-
-    let f = file;
     let mut child = std::process::Command::new("display")
         .stdin(Stdio::piped())
         .spawn()
         .unwrap();
     let mut stdin = child.stdin.take().expect("Could not take stdin");
     std::thread::spawn(move || {
-        stdin.write_all(&c).expect("Could not write file to stdin");
+        stdin
+            .write_all(&contents)
+            .expect("Could not write file to stdin");
     });
 }
 
@@ -570,10 +561,9 @@ fn start_macos(contents: Vec<u8>) {
 }
 
 #[cfg(feature = "graphviz")]
-fn display_png(rendered_path: tempfile::NamedTempFile) -> Result<(), std::io::Error> {
-    let contents = std::fs::read(rendered_path.path()).expect("Could not read temporary file");
+fn display_png(contents: Vec<u8>) -> Result<(), std::io::Error> {
     #[cfg(target_os = "linux")]
-    start_linux(rendered_path);
+    start_linux(contents);
     #[cfg(target_os = "macos")]
     start_macos(contents);
     #[cfg(target_os = "windows")]
