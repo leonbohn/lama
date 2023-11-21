@@ -547,15 +547,35 @@ fn start_linux(file: tempfile::NamedTempFile) {
     });
 }
 
+#[cfg(target_os = "macos")]
+fn start_macos(contents: Vec<u8>) {
+    use std::{
+        io::{Read, Stdin, Write},
+        process::Stdio,
+    };
+
+    let mut child = std::process::Command::new("open")
+        .arg("-a")
+        .arg("Preview.app")
+        .arg("-f")
+        .stdin(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().expect("Could not take stdin");
+    std::thread::spawn(move || {
+        stdin
+            .write_all(&contents)
+            .expect("Could not write file to stdin");
+    });
+}
+
 #[cfg(feature = "graphviz")]
 fn display_png(rendered_path: tempfile::NamedTempFile) -> Result<(), std::io::Error> {
+    let contents = std::fs::read(rendered_path.path()).expect("Could not read temporary file");
     #[cfg(target_os = "linux")]
     start_linux(rendered_path);
     #[cfg(target_os = "macos")]
-    std::process::Command::new("qlmanage")
-        .arg("-p")
-        .arg(&rendered_path)
-        .spawn()?;
+    start_macos(contents);
     #[cfg(target_os = "windows")]
     std::process::Command::new("cmd")
         .arg("/c")
