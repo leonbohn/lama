@@ -527,17 +527,24 @@ fn render_dot_to_tempfile(dot: &str) -> Result<tempfile::NamedTempFile, std::io:
 
 #[cfg(target_os = "linux")]
 fn start_linux(file: tempfile::NamedTempFile) {
-    if let Ok(fork::Fork::Child) = fork::daemon(false, false) {
-        assert!(std::fs::File::open(file.path()).is_ok());
-        let f = file;
-        std::process::Command::new("eog")
-            .arg(f.path())
-            .spawn()
-            .unwrap()
-            .wait()
-            .unwrap();
+    use std::{
+        io::{Read, Stdin, Write},
+        process::Stdio,
     };
-    std::thread::sleep(std::time::Duration::from_secs(60));
+
+    let mut c = vec![];
+    let mut f = std::fs::File::open(file.path()).expect("Could not open temporary file");
+    f.read_to_end(&mut c);
+
+    let f = file;
+    let mut child = std::process::Command::new("display")
+        .stdin(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().expect("Could not take stdin");
+    std::thread::spawn(move || {
+        stdin.write_all(&c).expect("Could not write file to stdin");
+    });
 }
 
 #[cfg(feature = "graphviz")]
