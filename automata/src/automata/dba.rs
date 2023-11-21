@@ -6,7 +6,7 @@ impl_mealy_automaton!(DBA, bool);
 
 /// Similar to [`IsDfa`], this trait is supposed to be (automatically) implemented by everything that can be viewed
 /// as a [`crate::DBA`].
-pub trait DBALike: TransitionSystem<EdgeColor = bool> + Pointed {
+pub trait DBALike: Deterministic<EdgeColor = bool> + Pointed {
     /// Uses a reference to `self` for creating a [`DBA`].
     fn as_dba(&self) -> IntoDBA<&Self> {
         DBA::from(self)
@@ -55,7 +55,7 @@ pub trait DBALike: TransitionSystem<EdgeColor = bool> + Pointed {
     }
 }
 
-impl<Ts> DBALike for Ts where Ts: TransitionSystem<EdgeColor = bool> + Pointed {}
+impl<Ts> DBALike for Ts where Ts: Deterministic<EdgeColor = bool> + Pointed {}
 
 impl<A: Alphabet> OmegaWordAcceptor<A::Symbol> for DBA<A> {
     fn accepts_omega<W: OmegaWord<A::Symbol>>(&self, word: W) -> bool {

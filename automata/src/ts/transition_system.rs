@@ -18,7 +18,7 @@ use super::{
     predecessors::PredecessorIterable,
     reachable::{MinimalRepresentatives, ReachableStateIndices, ReachableStates},
     run::successful::Successful,
-    Quotient,
+    Deterministic, Quotient,
 };
 
 use super::{
@@ -139,7 +139,6 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     type EdgesFromIter<'this>: Iterator<Item = Self::TransitionRef<'this>>
     where
         Self: 'this;
-
     /// Type of the iterator over the state indices.
     type StateIndices<'this>: Iterator<Item = Self::StateIndex>
     where
@@ -147,6 +146,47 @@ pub trait TransitionSystem: HasAlphabet + Sized {
 
     /// Returns an iterator over the state indices of `self`.
     fn state_indices(&self) -> Self::StateIndices<'_>;
+
+    /// Returns an iterator over the transitions that start in the given `state`. If the state does
+    /// not exist, `None` is returned.
+    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>>;
+
+    fn has_transition(
+        &self,
+        source: Self::StateIndex,
+        sym: SymbolOf<Self>,
+        target: Self::StateIndex,
+    ) -> bool {
+        self.transitions_from(source)
+            .find(|(p, a, _, q)| p == &source && q == &target && a == &sym)
+            .is_some()
+    }
+
+    fn transitions_from<Idx: Indexes<Self>>(&self, state: Idx) -> TransitionsFrom<'_, Self> {
+        TransitionsFrom::new(
+            self,
+            state
+                .to_index(self)
+                .expect("Should only be called for states that exist!"),
+        )
+    }
+
+    /// Returns the color of the given `state`, if it exists. Otherwise, `None` is returned.
+    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor>;
+
+    /// Attempts to find a word which leads from the state `from` to state `to`. If no such
+    /// word exists, `None` is returned.
+    fn word_from_to(
+        &self,
+        from: Self::StateIndex,
+        to: Self::StateIndex,
+    ) -> Option<Vec<SymbolOf<Self>>>
+    where
+        Self: Sized,
+    {
+        self.minimal_representatives_from(from)
+            .find_map(|(word, state)| if state == to { Some(word) } else { None })
+    }
 
     /// Gives the size of `self`, which is obtained simply by counting the number of elements yielded by [`Self::states()`].
     fn size(&self) -> usize {
@@ -180,37 +220,6 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     {
         elem.to_index(self)
     }
-
-    /// For a given `state` and `symbol`, returns the transition that is taken, if it exists.
-    fn transition<Idx: Indexes<Self>>(
-        &self,
-        state: Idx,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>>;
-
-    /// Returns the color of an edge starting in the given `state` and labeled with the given
-    /// `expression`, if it exists. Otherwise, `None` is returned.
-    fn edge_color(
-        &self,
-        state: Self::StateIndex,
-        expression: &ExpressionOf<Self>,
-    ) -> Option<EdgeColor<Self>> {
-        let symbols = expression.symbols().collect::<Vec<_>>();
-        assert_eq!(
-            symbols.len(),
-            1,
-            "Only works for alphabets where expressions and symbols coincide"
-        );
-        let sym = symbols.first().unwrap();
-        Some(self.transition(state, *sym)?.color())
-    }
-
-    /// Returns an iterator over the transitions that start in the given `state`. If the state does
-    /// not exist, `None` is returned.
-    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>>;
-
-    /// Returns the color of the given `state`, if it exists. Otherwise, `None` is returned.
-    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor>;
 
     /// Returns a [`WithInitial`] wrapper around `self`, which designates the given `initial` state.
     /// Note that this function does not (yet) ensure that the index actually exists!
@@ -314,30 +323,6 @@ pub trait TransitionSystem: HasAlphabet + Sized {
         TarjanDAG::from(tarjan_scc(self))
     }
 
-    /// Returns just the [`Self::StateIndex`] of the successor that is reached on the given `symbol`
-    /// from `state`. If no suitable transition exists, `None` is returned.
-    fn successor_index(
-        &self,
-        state: Self::StateIndex,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::StateIndex> {
-        self.transition(state, symbol).map(|t| t.target())
-    }
-
-    /// Attempts to find a word which leads from the state `from` to state `to`. If no such
-    /// word exists, `None` is returned.
-    fn word_from_to(
-        &self,
-        from: Self::StateIndex,
-        to: Self::StateIndex,
-    ) -> Option<Vec<SymbolOf<Self>>>
-    where
-        Self: Sized,
-    {
-        self.minimal_representatives_from(from)
-            .find_map(|(word, state)| if state == to { Some(word) } else { None })
-    }
-
     /// Returns `true` iff the given state is reachable from the initial state.
     fn is_reachable(&self, state: Self::StateIndex) -> bool
     where
@@ -353,293 +338,6 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     {
         self.reachable_state_indices_from(origin)
             .any(|s| s == state)
-    }
-
-    /// Runs the given `word` on the transition system, starting from the initial state. The result is
-    /// - [`Ok`] if the run is successful (i.e. for all symbols of `word` a suitable transition
-    ///  can be taken),
-    /// - [`Err`] if the run is unsuccessful, meaning a symbol is encountered for which no
-    /// transition exists.
-    #[allow(clippy::type_complexity)]
-    fn finite_run<W: FiniteWord<SymbolOf<Self>>>(
-        &self,
-        word: W,
-    ) -> Result<Path<Self::Alphabet, Self::StateIndex>, Path<Self::Alphabet, Self::StateIndex>>
-    where
-        Self: Pointed,
-    {
-        self.finite_run_from(word, self.initial())
-    }
-
-    /// Runs the given `word` on the transition system, starting from `state`. The result is
-    /// - [`Ok`] if the run is successful (i.e. for all symbols of `word` a suitable transition
-    ///  can be taken),
-    /// - [`Err`] if the run is unsuccessful, meaning a symbol is encountered for which no
-    /// transition exists.
-    #[allow(clippy::type_complexity)]
-    fn finite_run_from<W, Idx>(
-        &self,
-        word: W,
-        origin: Idx,
-    ) -> Result<Path<Self::Alphabet, Self::StateIndex>, Path<Self::Alphabet, Self::StateIndex>>
-    where
-        Self: Sized,
-        W: FiniteWord<SymbolOf<Self>>,
-        Idx: Indexes<Self>,
-    {
-        let mut current = origin
-            .to_index(self)
-            .expect("run must start in state that exists");
-        let mut path = Path::empty(current);
-        for symbol in word.symbols() {
-            if let Some(o) = path.extend_in(&self, symbol) {
-                current = o.target();
-            } else {
-                return Err(path);
-            }
-        }
-        Ok(path)
-    }
-
-    fn recurrent_state_indices_from<W: OmegaWord<SymbolOf<Self>>, Idx: Indexes<Self>>(
-        &self,
-        word: W,
-        origin: Idx,
-    ) -> Option<Set<Self::StateIndex>> {
-        self.omega_run_from(word, origin)
-            .ok()
-            .map(|p| p.recurrent_state_indices())
-    }
-
-    fn recurrent_state_indices<W: OmegaWord<SymbolOf<Self>>>(
-        &self,
-        word: W,
-    ) -> Option<Set<Self::StateIndex>>
-    where
-        Self: Pointed,
-    {
-        self.recurrent_state_indices_from(word, self.initial())
-    }
-
-    fn recurrent_state_colors_from<W: OmegaWord<SymbolOf<Self>>, Idx: Indexes<Self>>(
-        &self,
-        word: W,
-        origin: Idx,
-    ) -> Option<Set<Self::StateColor>> {
-        self.omega_run_from(word, origin)
-            .ok()
-            .map(|p| p.recurrent_state_colors(self))
-    }
-
-    fn recurrent_state_colors<W: OmegaWord<SymbolOf<Self>>>(
-        &self,
-        word: W,
-    ) -> Option<Set<Self::StateColor>>
-    where
-        Self: Pointed,
-    {
-        self.recurrent_state_colors_from(word, self.initial())
-    }
-
-    fn infinity_set_from<W, Idx>(&self, word: W, origin: Idx) -> Option<Set<Self::EdgeColor>>
-    where
-        W: OmegaWord<SymbolOf<Self>>,
-        Idx: Indexes<Self>,
-    {
-        self.omega_run_from(word, origin)
-            .ok()
-            .map(|p| p.infinity_set(self))
-    }
-
-    fn infinity_set<W>(&self, word: W) -> Option<Set<Self::EdgeColor>>
-    where
-        W: OmegaWord<SymbolOf<Self>>,
-        Self: Pointed,
-    {
-        self.infinity_set_from(word, self.initial())
-    }
-
-    // Todo: once RTTIT is stabilized (1.72), we should return an iterator.
-    fn visited_state_sequence_from<W, Idx>(
-        &self,
-        word: W,
-        origin: Idx,
-    ) -> Option<Vec<Self::StateIndex>>
-    where
-        W: FiniteWord<SymbolOf<Self>>,
-        Idx: Indexes<Self>,
-    {
-        self.finite_run_from(word, origin)
-            .ok()
-            .map(|p| p.state_sequence().collect())
-    }
-
-    fn visited_state_sequence<W>(&self, word: W) -> Option<Vec<Self::StateIndex>>
-    where
-        W: FiniteWord<SymbolOf<Self>>,
-        Self: Pointed,
-    {
-        self.visited_state_sequence_from(word, self.initial())
-    }
-
-    fn visited_state_colors_from<W, Idx>(
-        &self,
-        word: W,
-        origin: Idx,
-    ) -> Option<Vec<Self::StateColor>>
-    where
-        W: FiniteWord<SymbolOf<Self>>,
-        Idx: Indexes<Self>,
-    {
-        self.finite_run_from(word, origin)
-            .ok()
-            .map(|p| p.state_colors(self).collect())
-    }
-
-    fn visited_state_colors<W>(&self, word: W) -> Option<Vec<Self::StateColor>>
-    where
-        W: FiniteWord<SymbolOf<Self>>,
-        Self: Pointed,
-    {
-        self.visited_state_colors_from(word, self.initial())
-    }
-
-    fn visited_edge_colors_from<W, Idx>(&self, word: W, origin: Idx) -> Option<Vec<Self::EdgeColor>>
-    where
-        W: FiniteWord<SymbolOf<Self>>,
-        Idx: Indexes<Self>,
-    {
-        self.finite_run_from(word, origin)
-            .ok()
-            .map(|p| p.edge_colors(self).collect())
-    }
-
-    fn visited_edge_colors<W>(&self, word: W) -> Option<Vec<Self::EdgeColor>>
-    where
-        W: FiniteWord<SymbolOf<Self>>,
-        Self: Pointed,
-    {
-        self.visited_edge_colors_from(word, self.initial())
-    }
-
-    fn last_edge_color_from<W, Idx>(&self, word: W, origin: Idx) -> Option<Self::EdgeColor>
-    where
-        Idx: Indexes<Self>,
-        W: FiniteWord<SymbolOf<Self>>,
-    {
-        self.finite_run_from(word, origin.to_index(self)?)
-            .ok()
-            .and_then(|p| p.last_transition_color(self))
-    }
-
-    fn last_edge_color<W>(&self, word: W) -> Option<Self::EdgeColor>
-    where
-        W: FiniteWord<SymbolOf<Self>>,
-        Self: Pointed,
-    {
-        self.last_edge_color_from(word, self.initial())
-    }
-
-    /// Checks whether `self` is complete, meaning every state has a transition for every symbol
-    /// of the alphabet.
-    fn is_complete(&self) -> bool {
-        self.state_indices()
-            .cartesian_product(self.alphabet().universe())
-            .all(|(q, a)| self.transition(q, *a).is_some())
-    }
-
-    /// Runs the given `word` on the transition system, starting in the initial state.
-    #[allow(clippy::type_complexity)]
-    fn omega_run<W>(
-        &self,
-        word: W,
-    ) -> Result<Lasso<Self::Alphabet, Self::StateIndex>, Path<Self::Alphabet, Self::StateIndex>>
-    where
-        W: OmegaWord<SymbolOf<Self>>,
-        Self: Pointed,
-    {
-        self.omega_run_from(word, self.initial())
-    }
-
-    /// Runs the given `word` on the transition system, starting from `state`.
-    #[allow(clippy::type_complexity)]
-    fn omega_run_from<W, Idx>(
-        &self,
-        word: W,
-        origin: Idx,
-    ) -> Result<Lasso<Self::Alphabet, Self::StateIndex>, Path<Self::Alphabet, Self::StateIndex>>
-    where
-        Idx: Indexes<Self>,
-        W: OmegaWord<SymbolOf<Self>>,
-    {
-        assert!(!word.cycle().is_empty(), "word must be infinite");
-        let origin = origin
-            .to_index(self)
-            .expect("run must start in state that exists");
-        let mut path = self.finite_run_from(word.spoke(), origin)?;
-        let mut position = path.len();
-        let mut seen = Map::default();
-
-        loop {
-            match seen.insert(path.reached(), position) {
-                Some(p) => {
-                    return Ok(path.loop_back_to(p));
-                }
-                None => match self.finite_run_from(word.cycle(), path.reached()) {
-                    Ok(p) => {
-                        position += p.len();
-                        path.extend_with(p);
-                    }
-                    Err(p) => {
-                        path.extend_with(p);
-                        return Err(path);
-                    }
-                },
-            }
-        }
-
-        unreachable!()
-    }
-
-    fn reached_state_color_from<W, Idx>(&self, word: W, from: Idx) -> Option<Self::StateColor>
-    where
-        W: FiniteWord<SymbolOf<Self>>,
-        Idx: Indexes<Self>,
-    {
-        self.finite_run_from(word, from)
-            .ok()
-            .map(|p| p.reached_state_color(self))
-    }
-
-    fn reached_state_color<W>(&self, word: W) -> Option<Self::StateColor>
-    where
-        W: FiniteWord<SymbolOf<Self>>,
-        Self: Pointed,
-    {
-        self.reached_state_color_from(word, self.initial())
-    }
-
-    /// Returns the state that is reached by running the given `word` on the transition system,
-    /// starting from the initial state. If the run is unsuccessful, `None` is returned.
-    fn reached_state_index<W>(&self, word: W) -> Option<Self::StateIndex>
-    where
-        Self: Pointed,
-        W: FiniteWord<SymbolOf<Self>>,
-    {
-        self.reached_state_index_from(word, self.initial())
-    }
-
-    /// Tries to run the given `word` starting in the state indexed by `origin`. If
-    /// no state is indexed, then `None` is immediately returned. Otherwise, the
-    /// word is run and the index of the reached state is returned. If the run is
-    /// unsuccessful, the function returns `None`.
-    fn reached_state_index_from<I, W>(&self, word: W, origin: I) -> Option<Self::StateIndex>
-    where
-        Self: Sized,
-        I: Indexes<Self>,
-        W: FiniteWord<SymbolOf<Self>>,
-    {
-        self.finite_run_from(word, origin).ok().map(|p| p.reached())
     }
 
     /// Returns an iterator over the minimal representative (i.e. length-lexicographically minimal
@@ -698,225 +396,6 @@ pub trait TransitionSystem: HasAlphabet + Sized {
         ReachableStates::new(self, state.to_index(self).unwrap())
     }
 
-    /// Returns a string representation of the transition table of the transition system.
-    fn build_transition_table<SD>(&self, state_decorator: SD) -> String
-    where
-        SD: Fn(Self::StateIndex, StateColor<Self>) -> String,
-        Self::EdgeColor: Show,
-    {
-        let mut builder = tabled::builder::Builder::default();
-        builder.set_header(
-            std::iter::once("State".to_string())
-                .chain(self.alphabet().universe().map(|s| format!("{:?}", s))),
-        );
-        for id in self.state_indices().sorted() {
-            let mut row = vec![format!(
-                "{}",
-                state_decorator(
-                    id,
-                    self.state_color(id)
-                        .expect("Every state should be colored!")
-                )
-            )];
-            for &sym in self.alphabet().universe() {
-                if let Some(edge) = self.transition(id, sym) {
-                    row.push(format!("{} : {}", edge.target(), edge.color().show()));
-                } else {
-                    row.push("-".to_string());
-                }
-            }
-            builder.push_record(row);
-        }
-
-        builder
-            .build()
-            .with(tabled::settings::Style::rounded())
-            .to_string()
-    }
-
-    /// Collects `self` into a new [`BTS`] with the same alphabet, state colors and edge colors.
-    fn collect_ts(&self) -> BTS<Self::Alphabet, Self::StateColor, Self::EdgeColor> {
-        use crate::ts::Sproutable;
-        let mut ts = BTS::new_for_alphabet(self.alphabet().clone());
-        let mut map = std::collections::HashMap::new();
-        for index in self.state_indices() {
-            map.insert(
-                index,
-                ts.add_state(
-                    self.state_color(index)
-                        .expect("We assume each state to be colored!"),
-                ),
-            );
-        }
-        for index in self.state_indices() {
-            for sym in self.alphabet().universe() {
-                if let Some(edge) = self.transition(index, *sym) {
-                    ts.add_edge(
-                        *map.get(&index).unwrap(),
-                        <Self::Alphabet as Alphabet>::expression(*sym),
-                        *map.get(&edge.target()).unwrap(),
-                        edge.color().clone(),
-                    );
-                }
-            }
-        }
-        ts
-    }
-
-    /// Variant of [`Self::collect()`] which also considers the initial state.
-    fn collect_with_initial<
-        Ts: TransitionSystem<
-                StateColor = Self::StateColor,
-                EdgeColor = Self::EdgeColor,
-                Alphabet = Self::Alphabet,
-            > + super::Sproutable
-            + Pointed,
-    >(
-        &self,
-    ) -> Ts
-    where
-        Self: Pointed,
-    {
-        let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
-        ts.set_initial_color(self.initial_color());
-
-        let (l, r) = self.state_indices().filter(|o| o != &self.initial()).tee();
-        let map: Map<Self::StateIndex, Ts::StateIndex> = l
-            .zip(ts.extend_states(r.map(|q| self.state_color(q).unwrap())))
-            .chain(std::iter::once((self.initial(), ts.initial())))
-            .collect();
-        for index in self.state_indices() {
-            let q = *map.get(&index).unwrap();
-            self.edges_from(index).unwrap().for_each(|tt| {
-                ts.add_edge(
-                    q,
-                    tt.expression().clone(),
-                    *map.get(&tt.target()).unwrap(),
-                    tt.color(),
-                );
-            });
-        }
-        ts
-    }
-
-    /// Collects into a transition system of type `Ts`, but only considers states that
-    /// are reachable from the initial state. Naturally, this means that `self` must
-    /// be a pointed transition system.
-    fn trim_collect<
-        Ts: TransitionSystem<
-                StateColor = Self::StateColor,
-                EdgeColor = Self::EdgeColor,
-                Alphabet = Self::Alphabet,
-            > + super::Sproutable
-            + Pointed,
-    >(
-        &self,
-    ) -> Ts
-    where
-        Self: Pointed,
-    {
-        let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
-        ts.set_initial_color(self.initial_color());
-
-        let (l, r) = self
-            .reachable_state_indices()
-            .filter(|i| i != &self.initial())
-            .tee();
-        let map: Map<Self::StateIndex, Ts::StateIndex> = l
-            .zip(ts.extend_states(r.map(|q| self.state_color(q).unwrap())))
-            .chain(std::iter::once((self.initial(), ts.initial())))
-            .collect();
-        for (index, q) in map.iter() {
-            self.edges_from(*index).unwrap().for_each(|tt| {
-                ts.add_edge(
-                    *q,
-                    tt.expression().clone(),
-                    *map.get(&tt.target()).unwrap(),
-                    tt.color(),
-                );
-            });
-        }
-        ts
-    }
-
-    fn collect_initialized(
-        self,
-    ) -> WithInitial<BTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>
-    where
-        Self: Pointed,
-        Self::StateColor: Default,
-    {
-        self.collect_with_initial()
-    }
-
-    /// Collects `self` into a new transition system of type `Ts` with the same alphabet, state indices
-    /// and edge colors.
-    fn collect<
-        Ts: TransitionSystem<
-                StateColor = Self::StateColor,
-                EdgeColor = Self::EdgeColor,
-                Alphabet = Self::Alphabet,
-            > + super::Sproutable,
-    >(
-        &self,
-    ) -> Ts {
-        let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
-
-        let (l, r) = self.state_indices().tee();
-        let map: Map<_, _> = l
-            .zip(ts.extend_states(r.map(|q| self.state_color(q).unwrap())))
-            .collect();
-        for index in self.state_indices() {
-            let q = *map.get(&index).unwrap();
-            self.edges_from(index).unwrap().for_each(|tt| {
-                ts.add_edge(
-                    q,
-                    tt.expression().clone(),
-                    *map.get(&tt.target()).unwrap(),
-                    tt.color(),
-                );
-            });
-        }
-        ts
-    }
-
-    /// Collects `self` into a new transition system of type `Ts` with the same alphabet, state indices
-    /// and edge colors.
-    fn collect_old<
-        Ts: TransitionSystem<
-                StateColor = Self::StateColor,
-                EdgeColor = Self::EdgeColor,
-                Alphabet = Self::Alphabet,
-            > + super::Sproutable,
-    >(
-        &self,
-    ) -> Ts {
-        let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
-        let mut map = std::collections::HashMap::new();
-        for index in self.state_indices() {
-            map.insert(
-                index,
-                ts.add_state(
-                    self.state_color(index)
-                        .expect("Every state should be colored!"),
-                ),
-            );
-        }
-        for index in self.state_indices() {
-            for sym in self.alphabet().universe() {
-                if let Some(edge) = self.transition(index, *sym) {
-                    ts.add_edge(
-                        *map.get(&index).unwrap(),
-                        <Self::Alphabet as Alphabet>::expression(*sym),
-                        *map.get(&edge.target()).unwrap(),
-                        edge.color().clone(),
-                    );
-                }
-            }
-        }
-        ts
-    }
-
     /// Returns an option containing the index of the initial state, if it exists.
     /// This is a somewhat hacky way of dealing with the fact that we cannot express
     /// negative trait bounds. In particular, we cannot express that a transition system
@@ -926,6 +405,73 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     /// since the provided default implementation assumes that the no initial state exists.
     fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
         None
+    }
+}
+
+pub struct TransitionsFrom<'a, D: TransitionSystem + 'a> {
+    edges: Option<D::EdgesFromIter<'a>>,
+    target: Option<D::StateIndex>,
+    color: Option<D::EdgeColor>,
+    source: Option<D::StateIndex>,
+    expression:
+        Option<<<D::Alphabet as Alphabet>::Expression as Expression<SymbolOf<D>>>::SymbolsIter>,
+}
+
+impl<'a, D: TransitionSystem + 'a> Iterator for TransitionsFrom<'a, D> {
+    type Item = (D::StateIndex, SymbolOf<D>, D::EdgeColor, D::StateIndex);
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(sym) = self.expression.as_mut().and_then(|mut it| it.next()) {
+            Some((
+                self.source.unwrap(),
+                sym,
+                self.color.clone().unwrap(),
+                self.target.unwrap(),
+            ))
+        } else {
+            if let Some(edge) = self.edges.as_mut().and_then(|mut it| it.next()) {
+                self.expression = Some(edge.expression().symbols());
+                self.target = Some(edge.target());
+                self.color = Some(edge.color());
+                self.next()
+            } else {
+                None
+            }
+        }
+    }
+}
+
+impl<'a, D: TransitionSystem + 'a> TransitionsFrom<'a, D> {
+    pub fn new(det: &'a D, state: D::StateIndex) -> Self {
+        let Some(mut edges) = det.edges_from(state) else {
+            return Self {
+                edges: None,
+                expression: None,
+                color: None,
+                target: None,
+                source: Some(state),
+            };
+        };
+
+        let Some(edge) = edges.next() else {
+            return Self {
+                edges: Some(edges),
+                expression: None,
+                color: None,
+                source: Some(state),
+                target: None,
+            };
+        };
+
+        let target = Some(edge.target());
+        let color = Some(edge.color());
+        let expression = Some(edge.expression().symbols());
+        Self {
+            edges: Some(edges),
+            target,
+            color,
+            expression,
+            source: Some(state),
+        }
     }
 }
 
@@ -1011,24 +557,8 @@ macro_rules! impl_ts_by_passthrough_on_wrapper {
                 self.ts().state_indices()
             }
 
-            fn transition<Idx: Indexes<Self>>(
-                &self,
-                state: Idx,
-                symbol: SymbolOf<Self>,
-            ) -> Option<Self::TransitionRef<'_>> {
-                self.ts().transition(state.to_index(self)?, symbol)
-            }
-
             fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
                 self.ts().state_color(state)
-            }
-
-            fn edge_color(
-                &self,
-                state: Self::StateIndex,
-                expression: &ExpressionOf<Self>,
-            ) -> Option<EdgeColor<Self>> {
-                self.ts().edge_color(state, expression)
             }
 
             fn edges_from<Idx: Indexes<Self>>(
@@ -1040,6 +570,23 @@ macro_rules! impl_ts_by_passthrough_on_wrapper {
 
             fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
                 self.ts().maybe_initial_state()
+            }
+        }
+        impl<D: Deterministic> Deterministic for $basetype<D> {
+            fn transition<Idx: Indexes<Self>>(
+                &self,
+                state: Idx,
+                symbol: SymbolOf<Self>,
+            ) -> Option<Self::TransitionRef<'_>> {
+                self.ts().transition(state.to_index(self)?, symbol)
+            }
+
+            fn edge_color(
+                &self,
+                state: Self::StateIndex,
+                expression: &ExpressionOf<Self>,
+            ) -> Option<EdgeColor<Self>> {
+                self.ts().edge_color(state, expression)
             }
         }
     };
@@ -1059,24 +606,8 @@ impl<Ts: TransitionSystem> TransitionSystem for &Ts {
         Ts::state_indices(self)
     }
 
-    fn transition<Idx: Indexes<Self>>(
-        &self,
-        state: Idx,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        Ts::transition(self, state.to_index(self)?, symbol)
-    }
-
     fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
         Ts::state_color(self, state)
-    }
-
-    fn edge_color(
-        &self,
-        state: Self::StateIndex,
-        expression: &ExpressionOf<Self>,
-    ) -> Option<EdgeColor<Self>> {
-        Ts::edge_color(self, state, expression)
     }
 
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
@@ -1087,6 +618,7 @@ impl<Ts: TransitionSystem> TransitionSystem for &Ts {
         Ts::maybe_initial_state(self)
     }
 }
+
 impl<Ts: TransitionSystem> TransitionSystem for &mut Ts {
     type StateIndex = Ts::StateIndex;
     type EdgeColor = Ts::EdgeColor;
@@ -1099,24 +631,8 @@ impl<Ts: TransitionSystem> TransitionSystem for &mut Ts {
         Ts::state_indices(self)
     }
 
-    fn transition<Idx: Indexes<Self>>(
-        &self,
-        state: Idx,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        Ts::transition(self, state.to_index(self)?, symbol)
-    }
-
     fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
         Ts::state_color(self, state)
-    }
-
-    fn edge_color(
-        &self,
-        state: Self::StateIndex,
-        expression: &ExpressionOf<Self>,
-    ) -> Option<EdgeColor<Self>> {
-        Ts::edge_color(self, state, expression)
     }
 
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
@@ -1146,22 +662,6 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for RightCongruence<A, Q,
         self.ts().state_color(state)
     }
 
-    fn edge_color(
-        &self,
-        state: Self::StateIndex,
-        expression: &crate::alphabet::ExpressionOf<Self>,
-    ) -> Option<crate::ts::EdgeColor<Self>> {
-        self.ts().edge_color(state, expression)
-    }
-
-    fn transition<Idx: Indexes<Self>>(
-        &self,
-        state: Idx,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        self.ts().transition(state.to_index(self)?, symbol)
-    }
-
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
         self.ts().edges_from(state.to_index(self)?)
     }
@@ -1186,26 +686,6 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A
 
     fn state_color(&self, index: Idx) -> Option<StateColor<Self>> {
         self.raw_state_map().get(&index).map(|s| s.color().clone())
-    }
-
-    fn edge_color(
-        &self,
-        state: Self::StateIndex,
-        expression: &crate::alphabet::ExpressionOf<Self>,
-    ) -> Option<EdgeColor<Self>> {
-        self.raw_state_map()
-            .get(&state)
-            .and_then(|o| o.edge_map().get(expression).map(|(_, c)| c.clone()))
-    }
-
-    fn transition<X: Indexes<Self>>(
-        &self,
-        state: X,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        self.raw_state_map()
-            .get(&state.to_index(self)?)
-            .and_then(|o| A::search_edge(o.edge_map(), symbol))
     }
 
     fn edges_from<X: Indexes<Self>>(&self, state: X) -> Option<Self::EdgesFromIter<'_>> {
@@ -1239,33 +719,6 @@ where
         let left = self.0.state_color(l)?;
         let right = self.1.state_color(r)?;
         Some((left, right))
-    }
-
-    fn edge_color(
-        &self,
-        state: Self::StateIndex,
-        expression: &ExpressionOf<Self>,
-    ) -> Option<EdgeColor<Self>> {
-        let ProductIndex(l, r) = state;
-        let left = self.0.edge_color(l, expression)?;
-        let right = self.1.edge_color(r, expression)?;
-        Some((left, right))
-    }
-
-    fn transition<Idx: Indexes<Self>>(
-        &self,
-        state: Idx,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        let ProductIndex(l, r) = state.to_index(self)?;
-
-        let ll = self.0.transition(l, symbol)?;
-        let rr = self.1.transition(r, symbol)?;
-        Some(ProductTransition::new(
-            ll.expression().clone(),
-            ProductIndex(ll.target(), rr.target()),
-            (ll.color(), rr.color()),
-        ))
     }
 
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
@@ -1302,22 +755,6 @@ where
         Some((self.f())(color))
     }
 
-    fn edge_color(
-        &self,
-        state: Self::StateIndex,
-        expression: &ExpressionOf<Self>,
-    ) -> Option<EdgeColor<Self>> {
-        self.ts().edge_color(state, expression)
-    }
-
-    fn transition<Idx: Indexes<Self>>(
-        &self,
-        state: Idx,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        self.ts().transition(state.to_index(self)?, symbol)
-    }
-
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
         self.ts().edges_from(state.to_index(self)?)
     }
@@ -1348,27 +785,6 @@ where
 
     fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
         self.ts().state_color(state)
-    }
-
-    fn edge_color(
-        &self,
-        state: Self::StateIndex,
-        expression: &ExpressionOf<Self>,
-    ) -> Option<EdgeColor<Self>> {
-        self.ts()
-            .edge_color(state, expression)
-            .map(|c| (self.f())(c))
-    }
-
-    fn transition<Idx: Indexes<Self>>(
-        &self,
-        state: Idx,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        Some(MappedTransition::new(
-            self.ts().transition(state.to_index(self)?, symbol)?,
-            self.f(),
-        ))
     }
 
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
@@ -1403,27 +819,6 @@ where
         self.ts().state_color(state)
     }
 
-    fn edge_color(
-        &self,
-        state: Self::StateIndex,
-        expression: &crate::alphabet::ExpressionOf<Self>,
-    ) -> Option<crate::ts::EdgeColor<Self>> {
-        self.ts()
-            .edge_color(state, expression)
-            .filter(|_| (self.filter()).is_unmasked(state))
-    }
-
-    fn transition<Idx: Indexes<Self>>(
-        &self,
-        state: Idx,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        let q = state.to_index(self)?;
-        self.ts()
-            .transition(q, symbol)
-            .filter(|t| self.filter().is_unmasked(q) && self.filter().is_unmasked(t.target()))
-    }
-
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
         if !(self.filter()).is_unmasked(state.to_index(self)?) {
             return None;
@@ -1443,13 +838,13 @@ where
     }
 }
 
-pub struct GenericEdgesFrom<'a, Ts: TransitionSystem> {
+pub struct DeterministicEdgesFrom<'a, Ts: TransitionSystem> {
     ts: &'a Ts,
     state: Ts::StateIndex,
     symbols: <Ts::Alphabet as Alphabet>::Universe<'a>,
 }
 
-impl<'a, Ts: TransitionSystem> Iterator for GenericEdgesFrom<'a, Ts> {
+impl<'a, Ts: Deterministic> Iterator for DeterministicEdgesFrom<'a, Ts> {
     type Item = Ts::TransitionRef<'a>;
     fn next(&mut self) -> Option<Self::Item> {
         self.symbols
@@ -1458,7 +853,7 @@ impl<'a, Ts: TransitionSystem> Iterator for GenericEdgesFrom<'a, Ts> {
     }
 }
 
-impl<'a, Ts: TransitionSystem> GenericEdgesFrom<'a, Ts> {
+impl<'a, Ts: TransitionSystem> DeterministicEdgesFrom<'a, Ts> {
     pub fn new(ts: &'a Ts, state: Ts::StateIndex) -> Self {
         Self {
             ts,
@@ -1475,13 +870,20 @@ mod tests {
     use super::TransitionSystem;
     use crate::{
         alphabet,
+        tests::wiki_dfa,
         ts::{
             finite::{ReachedColor, ReachedState},
             index_ts::MealyTS,
-            Sproutable,
+            Deterministic, Sproutable,
         },
         FiniteLength,
     };
+
+    #[test]
+    fn transitions_from() {
+        let dfa = wiki_dfa();
+        assert_eq!(dfa.transitions_from(0).count(), 2);
+    }
 
     #[test]
     #[traced_test]

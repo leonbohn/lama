@@ -4,7 +4,7 @@ use automata::{
     automata::{MealyLike, MooreLike},
     congruence::ColoredClass,
     prelude::{Expression, HasAlphabet, IsTransition, DFA},
-    ts::{reachable::ReachableStateIndices, Sproutable},
+    ts::{reachable::ReachableStateIndices, Deterministic, Sproutable},
     Alphabet, Map, Pointed, RightCongruence, Show, TransitionSystem,
 };
 use itertools::Itertools;
@@ -209,6 +209,15 @@ impl<A: Alphabet, const N: usize> TransitionSystem for PreciseDPA<A, N> {
         Some(())
     }
 
+    fn edges_from<Idx: automata::prelude::Indexes<Self>>(
+        &self,
+        state: Idx,
+    ) -> Option<Self::EdgesFromIter<'_>> {
+        Some(PreciseDPAEdgesFrom::new(self, state.to_index(self)?))
+    }
+}
+
+impl<A: Alphabet, const N: usize> Deterministic for PreciseDPA<A, N> {
     fn transition<Idx: automata::prelude::Indexes<Self>>(
         &self,
         state: Idx,
@@ -223,13 +232,6 @@ impl<A: Alphabet, const N: usize> TransitionSystem for PreciseDPA<A, N> {
             p,
             i,
         ))
-    }
-
-    fn edges_from<Idx: automata::prelude::Indexes<Self>>(
-        &self,
-        state: Idx,
-    ) -> Option<Self::EdgesFromIter<'_>> {
-        Some(PreciseDPAEdgesFrom::new(self, state.to_index(self)?))
     }
 }
 
@@ -448,6 +450,6 @@ mod tests {
         println!("{:?} -c:{}-> {:?}", q, t.color, t.target);
 
         let trim: DPA = dpa.trim_collect();
-        trim.display_rendered();
+        // trim.display_rendered();
     }
 }

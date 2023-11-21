@@ -26,7 +26,7 @@ impl<Ts: TransitionSystem> Pointed for WithInitial<Ts> {
 
 impl<Ts> std::fmt::Debug for WithInitial<Ts>
 where
-    Ts: TransitionSystem + Debug,
+    Ts: Deterministic + Debug,
     Ts::StateColor: Show,
     Ts::EdgeColor: Show,
 {

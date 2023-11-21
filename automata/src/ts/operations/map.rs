@@ -128,6 +128,17 @@ pub struct MappedEdge<Idx, T, F, C> {
     _old_color: PhantomData<C>,
 }
 
+impl<Idx, T, F, C> MappedEdge<Idx, T, F, C> {
+    pub fn new(transition: T, from: Idx, f: F) -> Self {
+        Self {
+            transition,
+            from,
+            f,
+            _old_color: PhantomData,
+        }
+    }
+}
+
 impl<Idx, E, C, D, F, T> IsTransition<E, Idx, D> for MappedEdge<Idx, T, F, C>
 where
     Idx: IndexType,
@@ -180,29 +191,8 @@ where
         self.ts().state_indices()
     }
 
-    fn edge_color(
-        &self,
-        state: Self::StateIndex,
-        expression: &crate::alphabet::ExpressionOf<Self>,
-    ) -> Option<crate::ts::EdgeColor<Self>> {
-        todo!()
-    }
-
     fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
         self.ts().state_color(state)
-    }
-
-    fn transition<Idx: crate::ts::transition_system::Indexes<Self>>(
-        &self,
-        state: Idx,
-        symbol: crate::prelude::SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        Some(MappedEdge {
-            transition: self.ts().transition(state.to_index(self)?, symbol)?,
-            from: state.to_index(self)?,
-            f: self.f(),
-            _old_color: PhantomData,
-        })
     }
 
     fn edges_from<Idx: crate::ts::transition_system::Indexes<Self>>(

@@ -1,6 +1,6 @@
 //! Library for working with finite automata in Rust.
 //!
-#![warn(missing_docs)]
+#![allow(missing_docs)]
 #![allow(unused)]
 #![allow(clippy::pedantic)]
 
@@ -23,14 +23,17 @@ pub mod prelude {
             operations::{Product, ProductIndex},
             predecessors::{IsPreTransition, PredecessorIterable},
             transition_system::{EdgeColorOf, Indexes, IsTransition, StateColorOf},
-            Congruence, EdgeColor, GenericEdgesFrom, HasColor, HasColorMut, HasMutableStates,
-            HasStates, IndexType, Sproutable, StateColor, ToDot, TransitionSystem, BTS,
+            Congruence, Deterministic, DeterministicEdgesFrom, EdgeColor, HasColor, HasColorMut,
+            HasMutableStates, HasStates, IndexType, Sproutable, StateColor, ToDot,
+            TransitionSystem, BTS,
         },
         upw,
         word::{FiniteWord, LinearWord, OmegaWord, Periodic, Reduced, ReducedParseError},
         Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length, Pointed,
         RightCongruence, Show,
     };
+    #[cfg(test)]
+    pub use pretty_assertions::{assert_eq, assert_ne};
 }
 
 /// Module that contains definitions for dealing with alphabets.

@@ -75,20 +75,22 @@ impl<Ts: TransitionSystem> TransitionSystem
         self.ts().state_indices()
     }
 
-    fn transition<Idx: Indexes<Self>>(
-        &self,
-        state: Idx,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        self.ts().transition(state.to_index(self)?, symbol)
-    }
-
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
         self.ts().edges_from(state.to_index(self)?)
     }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
         self.ts().state_color(state)
+    }
+}
+
+impl<D: Deterministic> Deterministic for MooreMachine<D::Alphabet, D::StateColor, D::EdgeColor, D> {
+    fn transition<Idx: Indexes<Self>>(
+        &self,
+        state: Idx,
+        symbol: SymbolOf<Self>,
+    ) -> Option<Self::TransitionRef<'_>> {
+        self.ts().transition(state.to_index(self)?, symbol)
     }
 }
 
@@ -345,26 +347,9 @@ macro_rules! impl_moore_automaton {
                 self.ts().state_indices()
             }
 
-            fn transition<Idx: $crate::prelude::Indexes<Self>>(
-                &self,
-                state: Idx,
-                symbol: SymbolOf<Self>,
-            ) -> Option<Self::TransitionRef<'_>> {
-                self.ts().transition(state.to_index(self)?, symbol)
-            }
-
             fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
                 self.ts().state_color(state)
             }
-
-            fn edge_color(
-                &self,
-                state: Self::StateIndex,
-                expression: &ExpressionOf<Self>,
-            ) -> Option<EdgeColor<Self>> {
-                self.ts().edge_color(state, expression)
-            }
-
             fn edges_from<Idx: $crate::prelude::Indexes<Self>>(
                 &self,
                 state: Idx,
@@ -376,6 +361,24 @@ macro_rules! impl_moore_automaton {
                 self.ts().maybe_initial_state()
             }
         }
+        impl<D: Deterministic> Deterministic for $name<D::Alphabet, D::EdgeColor, D> {
+            fn transition<Idx: $crate::prelude::Indexes<Self>>(
+                &self,
+                state: Idx,
+                symbol: SymbolOf<Self>,
+            ) -> Option<Self::TransitionRef<'_>> {
+                self.ts().transition(state.to_index(self)?, symbol)
+            }
+
+            fn edge_color(
+                &self,
+                state: Self::StateIndex,
+                expression: &ExpressionOf<Self>,
+            ) -> Option<EdgeColor<Self>> {
+                self.ts().edge_color(state, expression)
+            }
+
+        }
         impl<Ts: Pointed> Pointed for $name<Ts::Alphabet, Ts::EdgeColor, Ts> {
             fn initial(&self) -> Self::StateIndex {
                 self.ts().initial()
@@ -386,7 +389,7 @@ macro_rules! impl_moore_automaton {
 
 /// Implemented by objects that can be viewed as MooreMachines, i.e. finite transition systems
 /// that have usize annotated/outputting states.
-pub trait MooreLike<Q: Color>: TransitionSystem<StateColor = Q> + Pointed {
+pub trait MooreLike<Q: Color>: Deterministic<StateColor = Q> + Pointed {
     /// Takes a reference to `self` and turns the underlying transition system into a [`MooreMachine`].
     fn as_moore(&self) -> MooreMachine<Self::Alphabet, Q, Self::EdgeColor, &Self> {
         MooreMachine::from(self)
@@ -434,4 +437,4 @@ pub trait MooreLike<Q: Color>: TransitionSystem<StateColor = Q> + Pointed {
             .collect_with_initial()
     }
 }
-impl<Ts: TransitionSystem + Pointed> MooreLike<Ts::StateColor> for Ts {}
+impl<Ts: Deterministic + Pointed> MooreLike<Ts::StateColor> for Ts {}

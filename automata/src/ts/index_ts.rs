@@ -2,6 +2,7 @@ use itertools::Itertools;
 
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
+    ts::Deterministic,
     Color, Map, Set, Show,
 };
 
@@ -343,7 +344,10 @@ where
 mod tests {
     use crate::{
         alphabet,
-        ts::{index_ts::MealyTS, transition_system::IsTransition, Sproutable, TransitionSystem},
+        ts::{
+            index_ts::MealyTS, transition_system::IsTransition, Deterministic, Sproutable,
+            TransitionSystem,
+        },
     };
 
     #[test]

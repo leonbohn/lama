@@ -1,6 +1,6 @@
 use crate::{alphabet::Alphabet, Set};
 
-use super::{transition_system::IsTransition, IndexType, TransitionSystem};
+use super::{transition_system::IsTransition, Deterministic, IndexType, TransitionSystem};
 
 /// Represents a path through a transition system. Note, that the path itself is decoupled from the
 /// transition system, which allows to use it for multiple transition systems. In particular, it is possible
@@ -59,7 +59,7 @@ impl<A: Alphabet, Idx: IndexType> Path<A, Idx> {
     /// Returns an iterator over all colors which appear on an edge taken by the path.
     pub fn edge_colors<'a, TS>(&'a self, ts: &'a TS) -> impl Iterator<Item = TS::EdgeColor> + 'a
     where
-        TS: TransitionSystem<Alphabet = A, StateIndex = Idx>,
+        TS: Deterministic<Alphabet = A, StateIndex = Idx>,
         Idx: IndexType,
         TS::EdgeColor: Clone,
     {
@@ -71,7 +71,7 @@ impl<A: Alphabet, Idx: IndexType> Path<A, Idx> {
     /// Returns the color of the state that is reached by the path.
     pub fn reached_state_color<'a, TS>(&'a self, ts: &'a TS) -> TS::StateColor
     where
-        TS: TransitionSystem<Alphabet = A, StateIndex = Idx>,
+        TS: Deterministic<Alphabet = A, StateIndex = Idx>,
         Idx: IndexType,
         TS::StateColor: Clone,
     {
@@ -83,7 +83,7 @@ impl<A: Alphabet, Idx: IndexType> Path<A, Idx> {
     /// If the path is empty or not contiguous in `ts`, `None` is returned.
     pub fn last_transition_color<'a, TS>(&'a self, ts: &'a TS) -> Option<TS::EdgeColor>
     where
-        TS: TransitionSystem<Alphabet = A, StateIndex = Idx>,
+        TS: Deterministic<Alphabet = A, StateIndex = Idx>,
         Idx: IndexType,
         TS::EdgeColor: Clone,
     {
@@ -95,7 +95,7 @@ impl<A: Alphabet, Idx: IndexType> Path<A, Idx> {
     /// Gives an iterator over all colors of the states visited by the path.
     pub fn state_colors<'a, TS>(&'a self, ts: &'a TS) -> impl Iterator<Item = TS::StateColor> + 'a
     where
-        TS: TransitionSystem<Alphabet = A, StateIndex = Idx>,
+        TS: Deterministic<Alphabet = A, StateIndex = Idx>,
         Idx: IndexType,
         TS::StateColor: Clone,
     {
@@ -130,7 +130,7 @@ impl<A: Alphabet, Idx: IndexType> Path<A, Idx> {
     ) -> Option<Ts::TransitionRef<'a>>
     where
         Idx: IndexType,
-        Ts: TransitionSystem<Alphabet = A, StateIndex = Idx>,
+        Ts: Deterministic<Alphabet = A, StateIndex = Idx>,
     {
         let transition = ts.transition(self.end, symbol)?;
         self.transitions
@@ -175,7 +175,7 @@ impl<A: Alphabet, Idx> Lasso<A, Idx> {
     /// that is visited infinitely often.
     pub fn infinity_set<Ts>(self, ts: Ts) -> Set<Ts::EdgeColor>
     where
-        Ts: TransitionSystem<Alphabet = A, StateIndex = Idx>,
+        Ts: Deterministic<Alphabet = A, StateIndex = Idx>,
         Idx: IndexType,
     {
         self.cycle.edge_colors(&ts).collect()
@@ -190,7 +190,7 @@ impl<A: Alphabet, Idx> Lasso<A, Idx> {
 
     pub fn recurrent_state_colors<Ts>(self, ts: &Ts) -> Set<Ts::StateColor>
     where
-        Ts: TransitionSystem<Alphabet = A, StateIndex = Idx>,
+        Ts: Deterministic<Alphabet = A, StateIndex = Idx>,
         Idx: IndexType,
     {
         self.cycle.state_colors(ts).collect()

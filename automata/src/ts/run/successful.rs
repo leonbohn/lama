@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use crate::ts::{
     finite::{InfinityColors, ReachedColor, ReachedState, SeenColors, TransitionColorSequence},
     infinite::InfinityStateColors,
-    CanInduce, Path,
+    CanInduce, Deterministic, Path,
 };
 
 use crate::ts::TransitionSystem;
@@ -33,7 +33,7 @@ impl<R, Ts: TransitionSystem> Successful<R, Ts> {
 
 impl<R, Ts> CanInduce<SeenColors<Ts::StateColor>> for Successful<R, Ts>
 where
-    Ts: TransitionSystem,
+    Ts: Deterministic,
     Ts::StateColor: Clone,
 {
     fn induce(&self) -> SeenColors<Ts::StateColor> {
@@ -43,7 +43,7 @@ where
 
 impl<R, Ts> CanInduce<InfinityColors<Ts::EdgeColor>> for Successful<R, Ts>
 where
-    Ts: TransitionSystem,
+    Ts: Deterministic,
     Ts::StateColor: Clone,
 {
     fn induce(&self) -> InfinityColors<Ts::EdgeColor> {
@@ -53,7 +53,7 @@ where
 
 impl<R, Ts> CanInduce<InfinityStateColors<Ts::StateColor>> for Successful<R, Ts>
 where
-    Ts: TransitionSystem,
+    Ts: Deterministic,
     Ts::StateColor: Clone,
 {
     fn induce(&self) -> InfinityStateColors<Ts::StateColor> {
@@ -69,7 +69,7 @@ where
 
 impl<R, Ts> CanInduce<ReachedColor<Ts::StateColor>> for Successful<R, Ts>
 where
-    Ts: TransitionSystem,
+    Ts: Deterministic,
     Ts::StateColor: Clone,
 {
     fn induce(&self) -> ReachedColor<Ts::StateColor> {
@@ -77,15 +77,13 @@ where
     }
 }
 
-impl<R, Ts: TransitionSystem> CanInduce<ReachedState<Ts::StateIndex>> for Successful<R, Ts> {
+impl<R, Ts: Deterministic> CanInduce<ReachedState<Ts::StateIndex>> for Successful<R, Ts> {
     fn induce(&self) -> ReachedState<Ts::StateIndex> {
         ReachedState(self.path.reached())
     }
 }
 
-impl<R, Ts: TransitionSystem> CanInduce<TransitionColorSequence<Ts::EdgeColor>>
-    for Successful<R, Ts>
-{
+impl<R, Ts: Deterministic> CanInduce<TransitionColorSequence<Ts::EdgeColor>> for Successful<R, Ts> {
     fn induce(&self) -> TransitionColorSequence<Ts::EdgeColor> {
         TransitionColorSequence(self.path.edge_colors(&self.ts).collect())
     }

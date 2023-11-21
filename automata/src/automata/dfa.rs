@@ -67,7 +67,7 @@ impl ReducesTo<bool> for BTreeSet<usize> {
 type DfaProductReduced<L, R> = MapStateColor<MatchingProduct<L, R>, fn((bool, bool)) -> bool>;
 
 /// This trait is (automatically) implemented by everything which can be viewed as a [`DFA`].
-pub trait DFALike: TransitionSystem<StateColor = bool> + Pointed
+pub trait DFALike: Deterministic<StateColor = bool> + Pointed
 // + Acceptor<SymbolOf<Self>, FiniteLength>
 // + Transformer<SymbolOf<Self>, FiniteLength, Output = bool>
 {
@@ -154,4 +154,4 @@ pub trait DFALike: TransitionSystem<StateColor = bool> + Pointed
     }
 }
 
-impl<Ts> DFALike for Ts where Ts: TransitionSystem<StateColor = bool> + Pointed + Sized {}
+impl<Ts> DFALike for Ts where Ts: Deterministic<StateColor = bool> + Pointed + Sized {}

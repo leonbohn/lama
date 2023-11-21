@@ -1,5 +1,5 @@
 //! A library for learning automata from data.
-#![warn(missing_docs)]
+#![allow(missing_docs)]
 #![allow(unused)]
 
 /// Contains passive learners such as RPNI, DBAInf and DPAInf.

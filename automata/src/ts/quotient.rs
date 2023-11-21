@@ -3,7 +3,7 @@ use crate::{
     Alphabet, Partition, Pointed, Set, TransitionSystem,
 };
 
-use super::transition_system::IsTransition;
+use super::{transition_system::IsTransition, Deterministic};
 
 /// A quotient takes a transition system and merges states which are in the same
 /// congruence class of some [`Partition`]. We assume that the [`Partition`] is
@@ -22,7 +22,7 @@ pub struct Quotient<Ts: TransitionSystem> {
     partition: Partition<Ts::StateIndex>,
 }
 
-impl<Ts: TransitionSystem + Pointed> Pointed for Quotient<Ts> {
+impl<Ts: Deterministic + Pointed> Pointed for Quotient<Ts> {
     fn initial(&self) -> Self::StateIndex {
         self.find_id_by_state(self.ts.initial())
             .expect("Initial class must exist")
@@ -111,7 +111,7 @@ pub struct QuotientEdgesFrom<'a, Ts: TransitionSystem, I> {
 
 impl<'a, Ts, I> Iterator for QuotientEdgesFrom<'a, Ts, I>
 where
-    Ts: TransitionSystem,
+    Ts: Deterministic,
     I: Iterator<Item = &'a SymbolOf<Ts>>,
 {
     type Item = QuotientTransition<usize, ExpressionOf<Ts>, Ts::EdgeColor>;
@@ -132,7 +132,7 @@ impl<'a, Ts: TransitionSystem, I> QuotientEdgesFrom<'a, Ts, I> {
     }
 }
 
-impl<Ts: TransitionSystem> TransitionSystem for Quotient<Ts> {
+impl<Ts: Deterministic> TransitionSystem for Quotient<Ts> {
     type StateIndex = usize;
 
     type StateColor = Vec<Ts::StateColor>;
@@ -157,6 +157,22 @@ impl<Ts: TransitionSystem> TransitionSystem for Quotient<Ts> {
         it.map(|o| self.ts.state_color(o)).collect()
     }
 
+    fn edges_from<Idx: super::transition_system::Indexes<Self>>(
+        &self,
+        state: Idx,
+    ) -> Option<Self::EdgesFromIter<'_>> {
+        if self.partition.len() <= state.to_index(self)? {
+            None
+        } else {
+            Some(QuotientEdgesFrom::new(
+                self,
+                self.alphabet().universe(),
+                state.to_index(self)?,
+            ))
+        }
+    }
+}
+impl<D: Deterministic> Deterministic for Quotient<D> {
     fn transition<Idx: super::transition_system::Indexes<Self>>(
         &self,
         state: Idx,
@@ -179,25 +195,10 @@ impl<Ts: TransitionSystem> TransitionSystem for Quotient<Ts> {
             "More than one quotient class reached, partition was faulty"
         );
         Some(QuotientTransition {
-            expression: <Ts::Alphabet as Alphabet>::expression(symbol),
+            expression: <D::Alphabet as Alphabet>::expression(symbol),
             colors,
             target: states.into_iter().next().unwrap(),
         })
-    }
-
-    fn edges_from<Idx: super::transition_system::Indexes<Self>>(
-        &self,
-        state: Idx,
-    ) -> Option<Self::EdgesFromIter<'_>> {
-        if self.partition.len() <= state.to_index(self)? {
-            None
-        } else {
-            Some(QuotientEdgesFrom::new(
-                self,
-                self.alphabet().universe(),
-                state.to_index(self)?,
-            ))
-        }
     }
 }
 
@@ -211,7 +212,11 @@ impl<Ts: TransitionSystem> HasAlphabet for Quotient<Ts> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{tests::wiki_dfa, ts::ToDot, Partition, RightCongruence, TransitionSystem};
+    use crate::{
+        tests::wiki_dfa,
+        ts::{Deterministic, ToDot},
+        Partition, RightCongruence, TransitionSystem,
+    };
 
     #[test]
     fn quotient_test() {

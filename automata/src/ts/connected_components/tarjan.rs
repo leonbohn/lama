@@ -52,17 +52,15 @@ impl<Idx: IndexType> Tarjan<Idx> {
         );
         self.index += 1;
 
-        for &sym in ts.alphabet().universe() {
-            if let Some(w) = ts.successor_index(v, sym) {
-                if self.data.get(&w).and_then(|data| data.rootindex).is_none() {
-                    self.visit(ts, w, f);
-                }
-                let w_index = self.data.get(&w).unwrap().rootindex;
-                let v_mut = self.data.get_mut(&v).unwrap();
-                if w_index < v_mut.rootindex {
-                    v_mut.rootindex = w_index;
-                    node_v_is_root = false;
-                }
+        for (_, a, _, q) in ts.transitions_from(v) {
+            if self.data.get(&q).and_then(|data| data.rootindex).is_none() {
+                self.visit(ts, q, f);
+            }
+            let w_index = self.data.get(&q).unwrap().rootindex;
+            let v_mut = self.data.get_mut(&v).unwrap();
+            if w_index < v_mut.rootindex {
+                v_mut.rootindex = w_index;
+                node_v_is_root = false;
             }
         }
 

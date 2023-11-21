@@ -197,24 +197,8 @@ macro_rules! impl_automaton_type {
                 self.ts().state_indices()
             }
 
-            fn transition<Idx: $crate::prelude::Indexes<Self>>(
-                &self,
-                state: Idx,
-                symbol: SymbolOf<Self>,
-            ) -> Option<Self::TransitionRef<'_>> {
-                self.ts().transition(state.to_index(self)?, symbol)
-            }
-
             fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
                 self.ts().state_color(state)
-            }
-
-            fn edge_color(
-                &self,
-                state: Self::StateIndex,
-                expression: &ExpressionOf<Self>,
-            ) -> Option<EdgeColor<Self>> {
-                self.ts().edge_color(state, expression)
             }
 
             fn edges_from<Idx: $crate::prelude::Indexes<Self>>(
@@ -226,6 +210,24 @@ macro_rules! impl_automaton_type {
 
             fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
                 self.ts().maybe_initial_state()
+            }
+        }
+
+        impl<Ts: Deterministic> Deterministic for $name<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts> {
+            fn transition<Idx: $crate::prelude::Indexes<Self>>(
+                &self,
+                state: Idx,
+                symbol: SymbolOf<Self>,
+            ) -> Option<Self::TransitionRef<'_>> {
+                self.ts().transition(state.to_index(self)?, symbol)
+            }
+
+            fn edge_color(
+                &self,
+                state: Self::StateIndex,
+                expression: &ExpressionOf<Self>,
+            ) -> Option<EdgeColor<Self>> {
+                self.ts().edge_color(state, expression)
             }
         }
         impl<Ts: Pointed> Pointed for $name<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts> {
@@ -290,6 +292,7 @@ mod tests {
         prelude::*,
         ts::BTS,
     };
+    use pretty_assertions::{assert_eq, assert_ne};
 
     #[test]
     fn mealy_color_or_below() {
@@ -312,10 +315,10 @@ mod tests {
         let dfa0 = &dfas[0];
 
         println!("{:?}", dfa0);
-        assert!(dfa0.accepts_finite(&""));
-        assert!(dfa0.accepts_finite(&"b"));
-        assert!(!dfa2.accepts_finite(&"b"));
-        assert!(dfa2.accepts_finite(&"ba"));
+        assert!(dfa2.accepts_finite(&""));
+        assert!(dfa2.accepts_finite(&"b"));
+        assert!(!dfa0.accepts_finite(&"b"));
+        assert!(dfa0.accepts_finite(&"ba"));
     }
 
     #[test]

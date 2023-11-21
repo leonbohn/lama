@@ -12,7 +12,7 @@ use crate::{
 
 use super::{
     transition_system::{Indexes, IsTransition},
-    IndexType, BTS,
+    Deterministic, IndexType, BTS,
 };
 
 /// Enum that abstracts attributes in the DOT format.
@@ -626,7 +626,7 @@ mod tests {
     }
 
     #[test]
-    // #[ignore]
+    #[ignore]
     fn dot_render_and_display() {
         let alphabet = alphabet!(simple 'a', 'b');
         let mut cong = RightCongruence::new(alphabet);

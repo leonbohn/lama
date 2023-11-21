@@ -217,7 +217,7 @@ impl<Idx: IndexType, Q: Accumulates, C: Accumulates> RunSignature<Idx, Q, C> {
     }
     pub fn extend_in<Ts>(&self, ts: &Ts, symbol: SymbolOf<Ts>) -> Result<Self, ()>
     where
-        Ts: TransitionSystem<StateIndex = Idx, StateColor = Q::X, EdgeColor = C::X>,
+        Ts: Deterministic<StateIndex = Idx, StateColor = Q::X, EdgeColor = C::X>,
     {
         match ts.transition(self.0, symbol) {
             Some(tt) => {
@@ -234,7 +234,7 @@ impl<Idx: IndexType, Q: Accumulates, C: Accumulates> RunSignature<Idx, Q, C> {
     }
     pub fn all_extensions<
         'a,
-        Ts: TransitionSystem<StateIndex = Idx, StateColor = Q::X, EdgeColor = C::X>,
+        Ts: Deterministic<StateIndex = Idx, StateColor = Q::X, EdgeColor = C::X>,
     >(
         &'a self,
         ts: &'a Ts,
@@ -278,7 +278,7 @@ impl<Idx: IndexType, Q: Accumulates, C: Accumulates> RunProfile<Idx, Q, C> {
 
     pub fn extend_in<Ts>(&self, ts: &Ts, sym: SymbolOf<Ts>) -> Self
     where
-        Ts: TransitionSystem<StateIndex = Idx, StateColor = Q::X, EdgeColor = C::X>,
+        Ts: Deterministic<StateIndex = Idx, StateColor = Q::X, EdgeColor = C::X>,
     {
         Self(
             self.0
@@ -293,7 +293,7 @@ impl<Idx: IndexType, Q: Accumulates, C: Accumulates> RunProfile<Idx, Q, C> {
 
     pub fn all_extensions<
         'a,
-        Ts: TransitionSystem<StateIndex = Idx, StateColor = Q::X, EdgeColor = C::X>,
+        Ts: Deterministic<StateIndex = Idx, StateColor = Q::X, EdgeColor = C::X>,
     >(
         &'a self,
         ts: &'a Ts,
@@ -362,7 +362,7 @@ pub struct TransitionMonoid<
 
 impl<'a, Ts> TransitionMonoid<'a, Ts, Reduces<Ts::StateColor>, Reduces<Ts::EdgeColor>>
 where
-    Ts: TransitionSystem + Pointed,
+    Ts: Deterministic + Pointed,
     Reduces<Ts::EdgeColor>: Accumulates<X = Ts::EdgeColor>,
     Reduces<Ts::StateColor>: Accumulates<X = Ts::StateColor>,
 {
@@ -379,7 +379,7 @@ where
 }
 impl<'a, Ts> TransitionMonoid<'a, Ts, Replaces<Ts::StateColor>, Replaces<Ts::EdgeColor>>
 where
-    Ts: TransitionSystem + Pointed,
+    Ts: Deterministic + Pointed,
     Replaces<Ts::EdgeColor>: Accumulates<X = Ts::EdgeColor>,
     Replaces<Ts::StateColor>: Accumulates<X = Ts::StateColor>,
 {
@@ -398,7 +398,7 @@ where
 impl<'a, Ts, SA: Accumulates<X = Ts::StateColor>, EA: Accumulates<X = Ts::EdgeColor>>
     TransitionMonoid<'a, Ts, SA, EA>
 where
-    Ts: TransitionSystem + Pointed,
+    Ts: Deterministic + Pointed,
 {
     pub fn get_profile(
         &self,

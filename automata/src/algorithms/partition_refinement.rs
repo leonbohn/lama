@@ -1,10 +1,6 @@
 use std::hash::Hash;
 
-use crate::{
-    prelude::{DFALike, DFA},
-    ts::transition_system::IsTransition,
-    Alphabet, Map, Partition, Set,
-};
+use crate::{prelude::*, ts::transition_system::IsTransition, Alphabet, Map, Partition, Set};
 
 pub fn partition_refinement<D: DFALike>(dfa: D) -> Partition<D::StateIndex> {
     let accepting = dfa.accepting_states().collect::<Set<_>>();
@@ -59,6 +55,7 @@ mod tests {
     use crate::{alphabet::Fixed, prelude::*, tests::wiki_dfa, Partition};
 
     use super::partition_refinement;
+    use pretty_assertions::{assert_eq, assert_ne};
 
     #[test]
     fn partition_refinement_wiki() {

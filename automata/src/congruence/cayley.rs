@@ -41,7 +41,7 @@ impl<
 impl<'a, Ts, SA: Accumulates<X = Ts::StateColor>, EA: Accumulates<X = Ts::EdgeColor>>
     TransitionSystem for Cayley<'a, Ts, SA, EA>
 where
-    Ts: TransitionSystem<Alphabet = Simple> + Pointed,
+    Ts: Deterministic<Alphabet = Simple> + Pointed,
 {
     type StateIndex = usize;
 
@@ -53,12 +53,26 @@ where
 
     type StateIndices<'this> = std::ops::Range<usize> where Self: 'this;
 
-    type EdgesFromIter<'this> = GenericEdgesFrom<'this, Self> where Self: 'this;
+    type EdgesFromIter<'this> = DeterministicEdgesFrom<'this, Self> where Self: 'this;
 
     fn state_indices(&self) -> Self::StateIndices<'_> {
         self.monoid().profile_indices()
     }
 
+    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
+        Some(DeterministicEdgesFrom::new(self, state.to_index(self)?))
+    }
+
+    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
+        self.monoid().get_profile(state).map(|p| p.0.clone())
+    }
+}
+
+impl<'a, Ts, SA: Accumulates<X = Ts::StateColor>, EA: Accumulates<X = Ts::EdgeColor>> Deterministic
+    for Cayley<'a, Ts, SA, EA>
+where
+    Ts: Deterministic<Alphabet = Simple> + Pointed,
+{
     fn transition<Idx: Indexes<Self>>(
         &self,
         state: Idx,
@@ -70,14 +84,6 @@ where
         symbol.mul(&mut word);
         let tp = self.monoid().profile_for(&word)?;
         Some((symbol, tp, ()))
-    }
-
-    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
-        Some(GenericEdgesFrom::new(self, state.to_index(self)?))
-    }
-
-    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
-        self.monoid().get_profile(state).map(|p| p.0.clone())
     }
 }
 
@@ -96,7 +102,7 @@ impl<
 
 impl<'a, Ts> Cayley<'a, Ts, Reduces<Ts::StateColor>, Reduces<Ts::EdgeColor>>
 where
-    Ts: TransitionSystem<Alphabet = Simple> + Pointed,
+    Ts: Deterministic<Alphabet = Simple> + Pointed,
     Reduces<Ts::EdgeColor>: Accumulates<X = Ts::EdgeColor>,
     Reduces<Ts::StateColor>: Accumulates<X = Ts::StateColor>,
 {
@@ -110,7 +116,7 @@ where
 }
 impl<'a, Ts> Cayley<'a, Ts, Replaces<Ts::StateColor>, Replaces<Ts::EdgeColor>>
 where
-    Ts: TransitionSystem<Alphabet = Simple> + Pointed,
+    Ts: Deterministic<Alphabet = Simple> + Pointed,
     Replaces<Ts::EdgeColor>: Accumulates<X = Ts::EdgeColor>,
     Replaces<Ts::StateColor>: Accumulates<X = Ts::StateColor>,
 {
@@ -171,7 +177,7 @@ impl<
 impl<'a, Ts, SA: Accumulates<X = Ts::StateColor>, EA: Accumulates<X = Ts::EdgeColor>>
     TransitionSystem for RightCayley<'a, Ts, SA, EA>
 where
-    Ts: TransitionSystem + Pointed,
+    Ts: Deterministic + Pointed,
 {
     type StateIndex = usize;
 
@@ -183,12 +189,25 @@ where
 
     type StateIndices<'this> = std::ops::Range<usize> where Self: 'this;
 
-    type EdgesFromIter<'this> = GenericEdgesFrom<'this, Self> where Self: 'this;
+    type EdgesFromIter<'this> = DeterministicEdgesFrom<'this, Self> where Self: 'this;
 
     fn state_indices(&self) -> Self::StateIndices<'_> {
         self.monoid().profile_indices()
     }
+    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
+        Some(DeterministicEdgesFrom::new(self, state.to_index(self)?))
+    }
 
+    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
+        self.monoid().get_profile(state).map(|p| p.0.clone())
+    }
+}
+
+impl<'a, Ts, SA: Accumulates<X = Ts::StateColor>, EA: Accumulates<X = Ts::EdgeColor>> Deterministic
+    for RightCayley<'a, Ts, SA, EA>
+where
+    Ts: Deterministic + Pointed,
+{
     fn transition<Idx: Indexes<Self>>(
         &self,
         state: Idx,
@@ -200,14 +219,6 @@ where
         word.push(symbol);
         let tp = self.monoid().profile_for(&word)?;
         Some((<Ts::Alphabet as Alphabet>::expression(symbol), tp, ()))
-    }
-
-    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
-        Some(GenericEdgesFrom::new(self, state.to_index(self)?))
-    }
-
-    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
-        self.monoid().get_profile(state).map(|p| p.0.clone())
     }
 }
 
@@ -226,7 +237,7 @@ impl<
 
 impl<'a, Ts> RightCayley<'a, Ts, Reduces<Ts::StateColor>, Reduces<Ts::EdgeColor>>
 where
-    Ts: TransitionSystem + Pointed,
+    Ts: Deterministic + Pointed,
     Reduces<Ts::EdgeColor>: Accumulates<X = Ts::EdgeColor>,
     Reduces<Ts::StateColor>: Accumulates<X = Ts::StateColor>,
 {
@@ -239,7 +250,7 @@ where
 }
 impl<'a, Ts> RightCayley<'a, Ts, Replaces<Ts::StateColor>, Replaces<Ts::EdgeColor>>
 where
-    Ts: TransitionSystem + Pointed,
+    Ts: Deterministic + Pointed,
     Replaces<Ts::EdgeColor>: Accumulates<X = Ts::EdgeColor>,
     Replaces<Ts::StateColor>: Accumulates<X = Ts::StateColor>,
 {
@@ -273,10 +284,7 @@ mod tests {
     #[traced_test]
     fn right_cayley_graph() {
         let dfa = wiki_dfa();
-        dfa.display_rendered();
         let accumulating_cayley = super::Cayley::new_reducing(&dfa);
-        accumulating_cayley.display_rendered();
         let replacing_cayley = super::Cayley::new_replacing(&dfa);
-        replacing_cayley.display_rendered();
     }
 }

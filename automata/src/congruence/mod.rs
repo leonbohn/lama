@@ -5,7 +5,7 @@ use itertools::Itertools;
 use crate::{
     alphabet::{HasAlphabet, Simple, Symbol},
     prelude::DFALike,
-    ts::{transition_system::Indexes, Sproutable, BTS},
+    ts::{transition_system::Indexes, Deterministic, Sproutable, BTS},
     Alphabet, Color, FiniteLength, HasLength, Map, Pointed, Show, TransitionSystem, DFA,
 };
 

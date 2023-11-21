@@ -47,20 +47,22 @@ impl<Ts: TransitionSystem> TransitionSystem for MealyMachine<Ts::Alphabet, Ts::E
         self.ts().state_indices()
     }
 
-    fn transition<Idx: Indexes<Self>>(
-        &self,
-        state: Idx,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        self.ts().transition(state.to_index(self)?, symbol)
-    }
-
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
         self.ts().edges_from(state.to_index(self)?)
     }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
         self.ts().state_color(state.to_index(self)?)
+    }
+}
+
+impl<D: Deterministic> Deterministic for MealyMachine<D::Alphabet, D::EdgeColor, D> {
+    fn transition<Idx: Indexes<Self>>(
+        &self,
+        state: Idx,
+        symbol: SymbolOf<Self>,
+    ) -> Option<Self::TransitionRef<'_>> {
+        self.ts().transition(state.to_index(self)?, symbol)
     }
 }
 
@@ -303,25 +305,10 @@ macro_rules! impl_mealy_automaton {
                 self.ts().state_indices()
             }
 
-            fn transition<Idx: $crate::prelude::Indexes<Self>>(
-                &self,
-                state: Idx,
-                symbol: SymbolOf<Self>,
-            ) -> Option<Self::TransitionRef<'_>> {
-                self.ts().transition(state.to_index(self)?, symbol)
-            }
-
             fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
                 self.ts().state_color(state)
             }
 
-            fn edge_color(
-                &self,
-                state: Self::StateIndex,
-                expression: &ExpressionOf<Self>,
-            ) -> Option<EdgeColor<Self>> {
-                self.ts().edge_color(state, expression)
-            }
 
             fn edges_from<Idx: $crate::prelude::Indexes<Self>>(
                 &self,
@@ -337,6 +324,23 @@ macro_rules! impl_mealy_automaton {
         impl<Ts: Pointed> Pointed for $name<Ts::Alphabet, Ts::StateColor, Ts> {
             fn initial(&self) -> Self::StateIndex {
                 self.ts().initial()
+            }
+        }
+        impl<Ts: Deterministic> Deterministic for $name<Ts::Alphabet, Ts::StateColor, Ts> {
+            fn transition<Idx: $crate::prelude::Indexes<Self>>(
+                &self,
+                state: Idx,
+                symbol: SymbolOf<Self>,
+            ) -> Option<Self::TransitionRef<'_>> {
+                self.ts().transition(state.to_index(self)?, symbol)
+            }
+
+            fn edge_color(
+                &self,
+                state: Self::StateIndex,
+                expression: &ExpressionOf<Self>,
+            ) -> Option<EdgeColor<Self>> {
+                self.ts().edge_color(state, expression)
             }
         }
     };
