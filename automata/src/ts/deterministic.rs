@@ -307,7 +307,6 @@ pub trait Deterministic: TransitionSystem {
     fn build_transition_table<SD>(&self, state_decorator: SD) -> String
     where
         SD: Fn(Self::StateIndex, StateColor<Self>) -> String,
-        Self::EdgeColor: Show,
     {
         let mut builder = tabled::builder::Builder::default();
         builder.set_header(
@@ -448,41 +447,30 @@ pub trait Deterministic: TransitionSystem {
     /// Collects into a transition system of type `Ts`, but only considers states that
     /// are reachable from the initial state. Naturally, this means that `self` must
     /// be a pointed transition system.
-    fn trim_collect<
-        Ts: TransitionSystem<
-                StateColor = Self::StateColor,
-                EdgeColor = Self::EdgeColor,
-                Alphabet = Self::Alphabet,
-            > + super::Sproutable
-            + Pointed,
-    >(
-        &self,
-    ) -> Ts
+    fn trim_collect(&self) -> WithInitial<BTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>
     where
         Self: Pointed,
     {
-        let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
-        ts.set_initial_color(self.initial_color());
-
-        let (l, r) = self
-            .reachable_state_indices()
-            .filter(|i| i != &self.initial())
-            .tee();
-        let map: Map<Self::StateIndex, Ts::StateIndex> = l
-            .zip(ts.extend_states(r.map(|q| self.state_color(q).unwrap())))
-            .chain(std::iter::once((self.initial(), ts.initial())))
-            .collect();
-        for (index, q) in map.iter() {
-            self.edges_from(*index).unwrap().for_each(|tt| {
-                ts.add_edge(
-                    *q,
-                    tt.expression().clone(),
-                    *map.get(&tt.target()).unwrap(),
-                    tt.color(),
-                );
-            });
+        let mut ts = BTS::new_for_alphabet(self.alphabet().clone());
+        let mut map = Map::default();
+        let reachable = self.reachable_state_indices().collect_vec();
+        for idx in &reachable {
+            map.insert(
+                idx,
+                ts.add_state(self.state_color(*idx).expect("State must exist")),
+            );
         }
-        ts
+        for idx in &reachable {
+            for edge in self.edges_from(*idx).unwrap() {
+                ts.add_edge(
+                    *map.get(idx).unwrap(),
+                    edge.expression().clone(),
+                    *map.get(&edge.target()).unwrap(),
+                    edge.color(),
+                );
+            }
+        }
+        ts.with_initial(*map.get(&self.initial()).unwrap())
     }
 
     fn collect_initialized(

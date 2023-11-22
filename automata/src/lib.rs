@@ -40,6 +40,7 @@ pub mod prelude {
 pub mod alphabet;
 pub use alphabet::Alphabet;
 use impl_tools::autoimpl;
+use itertools::Itertools;
 
 /// Defines lengths of finite and infinite words.
 pub mod length;
@@ -73,7 +74,7 @@ pub mod mapping;
 mod algorithms;
 
 /// A color is simply a type that can be used to color states or transitions.
-pub trait Color: Clone + Eq + Ord + Hash {
+pub trait Color: Clone + Eq + Ord + Hash + Show {
     /// Reduces a sequence of colors (of type `Self`) to a single color of type `Self`.
     fn reduce<I: IntoIterator<Item = Self>>(iter: I) -> Self
     where
@@ -83,7 +84,7 @@ pub trait Color: Clone + Eq + Ord + Hash {
     }
 }
 
-impl<T: Eq + Ord + Clone + Hash> Color for T {}
+impl<T: Eq + Ord + Clone + Hash + Show> Color for T {}
 
 /// Type alias for sets, we use this to hide which type of `HashSet` we are actually using.
 pub type Set<S> = fxhash::FxHashSet<S>;
@@ -92,17 +93,67 @@ pub type Map<K, V> = fxhash::FxHashMap<K, V>;
 
 pub trait Show {
     fn show(&self) -> String;
+    fn show_collection<'a, I>(iter: I) -> String
+    where
+        Self: 'a,
+        I: IntoIterator<Item = &'a Self>,
+        I::IntoIter: DoubleEndedIterator;
 }
 
 impl Show for usize {
     fn show(&self) -> String {
         self.to_string()
     }
+    fn show_collection<'a, I: IntoIterator<Item = &'a Self>>(iter: I) -> String
+    where
+        Self: 'a,
+        I::IntoIter: DoubleEndedIterator,
+    {
+        format!(
+            "[{}]",
+            itertools::Itertools::join(&mut iter.into_iter().map(|x| x.show()), ", ")
+        )
+    }
 }
 
 impl Show for () {
     fn show(&self) -> String {
         "-".into()
+    }
+    fn show_collection<'a, I: IntoIterator<Item = &'a Self>>(_iter: I) -> String
+    where
+        Self: 'a,
+        I::IntoIter: DoubleEndedIterator,
+    {
+        "-".to_string()
+    }
+}
+
+impl<S: Show> Show for Vec<S> {
+    fn show(&self) -> String {
+        S::show_collection(self.iter())
+    }
+
+    fn show_collection<'a, I: IntoIterator<Item = &'a Self>>(iter: I) -> String
+    where
+        Self: 'a,
+        I::IntoIter: DoubleEndedIterator,
+    {
+        unimplemented!()
+    }
+}
+
+impl<S: Show, T: Show> Show for (S, T) {
+    fn show(&self) -> String {
+        format!("({}, {})", self.0.show(), self.1.show())
+    }
+
+    fn show_collection<'a, I: IntoIterator<Item = &'a Self>>(iter: I) -> String
+    where
+        Self: 'a,
+        I::IntoIter: DoubleEndedIterator,
+    {
+        todo!()
     }
 }
 
@@ -113,6 +164,14 @@ impl Show for bool {
             false => "-",
         }
         .to_string()
+    }
+
+    fn show_collection<'a, I: IntoIterator<Item = &'a Self>>(iter: I) -> String
+    where
+        Self: 'a,
+        I::IntoIter: DoubleEndedIterator,
+    {
+        format!("{{{}}}", iter.into_iter().map(Show::show).join(", "))
     }
 }
 

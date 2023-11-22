@@ -36,6 +36,15 @@ impl Show for Annotation {
             }
         }
     }
+
+    fn show_collection<'a, I>(iter: I) -> String
+    where
+        Self: 'a,
+        I: IntoIterator<Item = &'a Self>,
+        I::IntoIter: DoubleEndedIterator,
+    {
+        todo!()
+    }
 }
 
 impl DotStateColorize for Annotation {

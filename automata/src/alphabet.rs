@@ -4,6 +4,8 @@ use std::{
     hash::Hash,
 };
 
+use itertools::Itertools;
+
 use crate::{word::FiniteWord, Map, Show};
 
 /// A symbol of an alphabet, which is also the type of the symbols in a word. We consider different types
@@ -160,6 +162,13 @@ impl Show for Empty {
     fn show(&self) -> String {
         todo!()
     }
+
+    fn show_collection<'a, I: IntoIterator<Item = &'a Self>>(iter: I) -> String
+    where
+        Self: 'a,
+    {
+        todo!()
+    }
 }
 impl Expression<Empty> for Empty {
     type SymbolsIter = std::iter::Empty<Empty>;
@@ -190,7 +199,7 @@ impl From<Vec<char>> for Simple {
 
 impl FromIterator<char> for Simple {
     fn from_iter<T: IntoIterator<Item = char>>(iter: T) -> Self {
-        Self(iter.into_iter().collect())
+        Self(iter.into_iter().unique().collect())
     }
 }
 
@@ -207,6 +216,16 @@ impl Simple {
 impl Show for char {
     fn show(&self) -> String {
         self.to_string()
+    }
+
+    fn show_collection<'a, I: IntoIterator<Item = &'a Self>>(iter: I) -> String
+    where
+        Self: 'a,
+    {
+        format!(
+            "\"{}\"",
+            iter.into_iter().map(|sym| sym.to_string()).join("")
+        )
     }
 }
 impl Expression<char> for char {
@@ -344,6 +363,14 @@ impl Expression<InvertibleChar> for InvertibleChar {
 impl Show for InvertibleChar {
     fn show(&self) -> String {
         format!("{}{}", self.0, if self.1 { "\u{0303}" } else { "" })
+    }
+
+    fn show_collection<'a, I: IntoIterator<Item = &'a Self>>(iter: I) -> String
+    where
+        Self: 'a,
+        I::IntoIter: DoubleEndedIterator,
+    {
+        format!("'{}'", iter.into_iter().rev().map(|c| c.show()).join(""))
     }
 }
 

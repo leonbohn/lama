@@ -2,7 +2,7 @@ use crate::{
     alphabet::{ExpressionOf, HasAlphabet, SymbolOf},
     automata::WithInitial,
     congruence::ColoredClass,
-    prelude::{Expression, Symbol},
+    prelude::{Expression, Simple, Symbol},
     word::{FiniteWord, OmegaWord},
     Alphabet, Class, Color, FiniteLength, Map, Partition, Pointed, RightCongruence, Set, Show,
 };
@@ -13,7 +13,7 @@ use super::{
     operations::{
         MapEdgeColor, MapStateColor, MappedEdgesFromIter, MappedTransition, MatchingProduct,
         ProductEdgesFrom, ProductIndex, ProductStatesIter, ProductTransition, RestrictByStateIndex,
-        RestrictedEdgesFromIter, StateIndexFilter,
+        RestrictedEdgesFromIter, StateIndexFilter, SubsetConstruction,
     },
     predecessors::PredecessorIterable,
     reachable::{MinimalRepresentatives, ReachableStateIndices, ReachableStates},
@@ -85,6 +85,19 @@ impl<'a, Idx: IndexType, E, C: Color> IsTransition<E, Idx, C> for (&'a E, &'a (I
 
     fn color(&self) -> C {
         self.1 .1.clone()
+    }
+
+    fn expression(&self) -> &E {
+        self.0
+    }
+}
+impl<'a, Idx: IndexType, E, C: Color> IsTransition<E, Idx, C> for (&'a E, Idx, &'a C) {
+    fn target(&self) -> Idx {
+        self.1
+    }
+
+    fn color(&self) -> C {
+        self.2.clone()
     }
 
     fn expression(&self) -> &E {
@@ -169,6 +182,21 @@ pub trait TransitionSystem: HasAlphabet + Sized {
                 .to_index(self)
                 .expect("Should only be called for states that exist!"),
         )
+    }
+
+    fn subset_construction_from<I: IntoIterator<Item = Self::StateIndex>>(
+        self,
+        states: I,
+    ) -> SubsetConstruction<Self> {
+        SubsetConstruction::new(self, states)
+    }
+
+    fn subset_construction(self) -> SubsetConstruction<Self>
+    where
+        Self: Pointed,
+    {
+        let initial = self.initial();
+        SubsetConstruction::new_from(self, initial)
     }
 
     /// Returns the color of the given `state`, if it exists. Otherwise, `None` is returned.
@@ -862,7 +890,6 @@ impl<'a, Ts: TransitionSystem> DeterministicEdgesFrom<'a, Ts> {
         }
     }
 }
-
 #[cfg(test)]
 mod tests {
     use tracing_test::traced_test;

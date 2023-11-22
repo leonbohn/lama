@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{prelude::*, ts::IntoInitialBTS};
 
 use super::acceptor::OmegaWordAcceptor;
 
@@ -14,6 +14,10 @@ pub trait DPALike: Deterministic<EdgeColor = usize> + Pointed {
     /// Uses a reference to `self` for creating a [`DPA`] from the underlying transition system.
     fn as_dpa(&self) -> IntoDPA<&Self> {
         DPA::from(self)
+    }
+
+    fn collect_dpa(self) -> IntoDPA<IntoInitialBTS<Self>> {
+        DPA::from(self.trim_collect())
     }
 }
 

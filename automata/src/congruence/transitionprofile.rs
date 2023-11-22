@@ -254,6 +254,28 @@ impl<Idx, Q, C> RunProfile<Idx, Q, C> {
     }
 }
 
+impl<Idx: IndexType, Q: Accumulates, C: Accumulates> Show for RunProfile<Idx, Q, C> {
+    fn show(&self) -> String {
+        let mut out = String::new();
+        for (i, rs) in self.0.iter().enumerate() {
+            out.push_str(&format!(
+                "{i} -{}|{}-> {}",
+                rs.sc().show(),
+                rs.ec().show(),
+                rs.state()
+            ))
+        }
+        out
+    }
+
+    fn show_collection<'a, I: IntoIterator<Item = &'a Self>>(iter: I) -> String
+    where
+        Self: 'a,
+    {
+        todo!()
+    }
+}
+
 impl<Idx: IndexType, Q: Accumulates, C: Accumulates> RunProfile<Idx, Q, C> {
     pub fn empty<Ts: TransitionSystem<StateIndex = Idx, StateColor = Q::X, EdgeColor = C::X>>(
         ts: Ts,

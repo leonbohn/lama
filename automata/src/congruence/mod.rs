@@ -32,6 +32,15 @@ impl<S: Symbol + Show, Q: Show> Show for ColoredClass<S, Q> {
     fn show(&self) -> String {
         format!("{} | {}", self.class.show(), self.color.show())
     }
+
+    fn show_collection<'a, I>(iter: I) -> String
+    where
+        Self: 'a,
+        I: IntoIterator<Item = &'a Self>,
+        I::IntoIter: DoubleEndedIterator,
+    {
+        todo!()
+    }
 }
 
 impl<A: Alphabet, Q: Color + Show, C: Color + Show> Debug for RightCongruence<A, Q, C> {

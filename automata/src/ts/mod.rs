@@ -13,7 +13,7 @@ pub mod operations;
 use crate::{Class, Color, Map, RightCongruence};
 
 mod index_ts;
-pub use index_ts::BTS;
+pub use index_ts::{IntoBTS, IntoInitialBTS, BTS};
 
 /// Contains implementations and definitions for dealing with paths through a transition system.
 pub mod path;
@@ -24,6 +24,8 @@ pub use sproutable::Sproutable;
 
 mod deterministic;
 pub use deterministic::Deterministic;
+
+mod nondeterministic;
 
 mod induces;
 pub use induces::{finite, infinite, CanInduce, Induced};

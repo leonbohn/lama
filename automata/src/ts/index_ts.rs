@@ -2,6 +2,7 @@ use itertools::Itertools;
 
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
+    prelude::WithInitial,
     ts::Deterministic,
     Color, Map, Set, Show,
 };
@@ -101,6 +102,20 @@ pub struct BTS<A: Alphabet, Q, C: Color, Idx: IndexType = usize> {
     alphabet: A,
     pub(crate) states: Map<Idx, BTState<A, Q, C, Idx>>,
 }
+
+pub type IntoBTS<Ts> = BTS<
+    <Ts as HasAlphabet>::Alphabet,
+    <Ts as TransitionSystem>::StateColor,
+    <Ts as TransitionSystem>::EdgeColor,
+>;
+
+pub type IntoInitialBTS<Ts> = WithInitial<
+    BTS<
+        <Ts as HasAlphabet>::Alphabet,
+        <Ts as TransitionSystem>::StateColor,
+        <Ts as TransitionSystem>::EdgeColor,
+    >,
+>;
 
 impl<A, C, Q, Idx> std::fmt::Debug for BTS<A, Q, C, Idx>
 where

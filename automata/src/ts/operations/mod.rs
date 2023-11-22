@@ -1,10 +1,14 @@
 mod map;
-mod product;
-mod restricted;
-
 pub use map::*;
+
+mod product;
 pub use product::*;
+
+mod restricted;
 pub use restricted::*;
+
+mod subset;
+pub use subset::SubsetConstruction;
 
 #[cfg(test)]
 mod tests {

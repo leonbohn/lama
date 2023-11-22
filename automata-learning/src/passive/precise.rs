@@ -449,7 +449,7 @@ mod tests {
         let t = dpa.transition(q, 'c').unwrap();
         println!("{:?} -c:{}-> {:?}", q, t.color, t.target);
 
-        let trim: DPA = dpa.trim_collect();
+        let trim: DPA = dpa.collect_dpa();
         // trim.display_rendered();
     }
 }

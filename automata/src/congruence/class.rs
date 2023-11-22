@@ -16,6 +16,15 @@ impl<S: Show> Show for Class<S> {
     fn show(&self) -> String {
         format!("[{}]", self.0.iter().map(|s| s.show()).join(""))
     }
+
+    fn show_collection<'a, I>(iter: I) -> String
+    where
+        Self: 'a,
+        I: IntoIterator<Item = &'a Self>,
+        I::IntoIter: DoubleEndedIterator,
+    {
+        todo!()
+    }
 }
 
 impl<A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>> for Class<A::Symbol> {
