@@ -1,14 +1,187 @@
+use std::collections::BTreeMap;
+
 use crate::prelude::*;
+use itertools::Itertools;
+#[cfg(test)]
+use pretty_assertions::assert_eq;
+
+#[derive(Clone, Eq, PartialEq)]
+pub struct NTState<Q> {
+    pub(super) color: Q,
+    pub(super) first_edge: Option<usize>,
+}
+
+impl<Q> NTState<Q> {
+    pub fn new(color: Q) -> Self {
+        Self {
+            color,
+            first_edge: None,
+        }
+    }
+}
+
+#[derive(Clone, Eq, PartialEq)]
+pub struct NTEdge<E, C> {
+    pub(super) prev: Option<usize>,
+    pub(super) source: usize,
+    pub(super) target: usize,
+    pub(super) color: C,
+    pub(super) expression: E,
+    pub(super) next: Option<usize>,
+}
+
+impl<E, C> NTEdge<E, C> {
+    pub fn new(source: usize, expression: E, color: C, target: usize) -> Self {
+        Self {
+            prev: None,
+            source,
+            target,
+            color,
+            expression,
+            next: None,
+        }
+    }
+}
+
+impl<E, C: Color> IsTransition<E, usize, C> for NTEdge<E, C> {
+    fn target(&self) -> usize {
+        self.target
+    }
+
+    fn color(&self) -> C {
+        self.color.clone()
+    }
+
+    fn expression(&self) -> &E {
+        &self.expression
+    }
+}
+
+impl<E, C: Color> IsPreTransition<usize, E, C> for NTEdge<E, C> {
+    fn source(&self) -> usize {
+        self.source
+    }
+
+    fn color(&self) -> C {
+        self.color.clone()
+    }
+
+    fn expression(&self) -> &E {
+        &self.expression
+    }
+}
 
 #[derive(Clone)]
 pub struct NTS<A: Alphabet, Q, C> {
     alphabet: A,
-    adjacency: Vec<(Q, Vec<(A::Expression, usize, C)>)>,
+    states: Vec<NTState<Q>>,
+    edges: Vec<NTEdge<A::Expression, C>>,
+}
+
+impl<A: Alphabet, Q: Color, C: Color> Sproutable for NTS<A, Q, C> {
+    fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
+        Self {
+            alphabet,
+            states: vec![],
+            edges: vec![],
+        }
+    }
+
+    fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
+        let id = self.states.len();
+        let state = NTState::new(color.into());
+        self.states.push(state);
+        id
+    }
+
+    type ExtendStateIndexIter = std::ops::Range<usize>;
+
+    fn extend_states<I: IntoIterator<Item = StateColor<Self>>>(
+        &mut self,
+        iter: I,
+    ) -> Self::ExtendStateIndexIter {
+        let i = self.states.len();
+        for state in iter.into_iter() {
+            self.add_state(state);
+        }
+        i..self.states.len()
+    }
+
+    fn set_state_color<X: Into<StateColor<Self>>>(&mut self, index: Self::StateIndex, color: X) {
+        assert!(index < self.states.len());
+        self.states[index].color = color.into();
+    }
+
+    fn add_edge<X, Y>(
+        &mut self,
+        from: X,
+        on: <Self::Alphabet as Alphabet>::Expression,
+        to: Y,
+        color: EdgeColor<Self>,
+    ) -> Option<(Self::StateIndex, Self::EdgeColor)>
+    where
+        X: Into<Self::StateIndex>,
+        Y: Into<Self::StateIndex>,
+    {
+        let source = from.into();
+        let target = to.into();
+
+        let mut edge = NTEdge::new(source, on, color, target);
+        let edge_id = self.edges.len();
+
+        if let Some(last_edge_id) = self.last_edge(source) {
+            assert!(last_edge_id < self.edges.len());
+            assert!(self.edges[last_edge_id].next.is_none());
+            self.edges[last_edge_id].next = Some(edge_id);
+            edge.prev = Some(last_edge_id);
+        } else {
+            assert!(self.states[source].first_edge.is_none());
+            self.states[source].first_edge = Some(edge_id);
+        }
+        self.edges.push(edge);
+        None
+    }
+
+    fn remove_edge(
+        &mut self,
+        from: Self::StateIndex,
+        on: <Self::Alphabet as Alphabet>::Expression,
+    ) -> bool {
+        unimplemented!()
+    }
 }
 
 impl<Q, C> NTS<Simple, Q, C> {
     pub fn builder() -> NTSBuilder<Q, C> {
         NTSBuilder::new()
+    }
+}
+
+impl<A: Alphabet, Q: Color, C: Color> NTS<A, Q, C> {
+    fn first_edge(&self, idx: usize) -> Option<usize> {
+        assert!(idx < self.states.len(), "State {idx} does not exist");
+        self.states[idx].first_edge
+    }
+
+    fn last_edge(&self, idx: usize) -> Option<usize> {
+        assert!(
+            idx < self.states.len(),
+            "State {idx} does not exist, have {} states",
+            self.states.len()
+        );
+
+        let mut current = self.states[idx].first_edge?;
+        loop {
+            assert!(
+                current < self.edges.len(),
+                "Edge with id {current} does not exist"
+            );
+            if let Some(x) = self.edges[current].next {
+                current = x;
+            } else {
+                return Some(current);
+            }
+        }
     }
 }
 
@@ -19,6 +192,28 @@ impl<A: Alphabet, Q, C> HasAlphabet for NTS<A, Q, C> {
     }
 }
 
+pub struct NTSEdgesFromIter<'a, E, C> {
+    edges: &'a [NTEdge<E, C>],
+    current: Option<usize>,
+}
+
+impl<'a, E, C> Iterator for NTSEdgesFromIter<'a, E, C> {
+    type Item = &'a NTEdge<E, C>;
+    fn next(&mut self) -> Option<Self::Item> {
+        let idx = self.current?;
+        assert!(idx < self.edges.len());
+        let e = &self.edges[idx];
+        self.current = e.next;
+        Some(e)
+    }
+}
+
+impl<'a, E, C> NTSEdgesFromIter<'a, E, C> {
+    pub fn new(edges: &'a [NTEdge<E, C>], current: Option<usize>) -> Self {
+        Self { edges, current }
+    }
+}
+
 impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for NTS<A, Q, C> {
     type StateIndex = usize;
 
@@ -26,11 +221,11 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for NTS<A, Q, C> {
 
     type EdgeColor = C;
 
-    type TransitionRef<'this> = &'this (A::Expression, usize, Self::EdgeColor)
+    type TransitionRef<'this> = &'this NTEdge<A::Expression, C>
     where
         Self: 'this;
 
-    type EdgesFromIter<'this> = std::slice::Iter<'this, (A::Expression, usize, C)>
+    type EdgesFromIter<'this> = NTSEdgesFromIter<'this, A::Expression, C>
     where
         Self: 'this;
 
@@ -39,15 +234,55 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for NTS<A, Q, C> {
         Self: 'this;
 
     fn state_indices(&self) -> Self::StateIndices<'_> {
-        (0..self.adjacency.len())
+        0..self.states.len()
     }
 
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
-        Some(self.adjacency.get(state.to_index(self)?)?.1.iter())
+        Some(NTSEdgesFromIter::new(
+            &self.edges,
+            Some(state.to_index(self)?),
+        ))
     }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
-        Some(self.adjacency.get(state.to_index(self)?)?.0.clone())
+        assert!(state < self.states.len());
+        self.states.get(state).map(|x| x.color.clone())
+    }
+}
+
+pub struct NTSEdgesTo<'a, E, C> {
+    edges: std::slice::Iter<'a, NTEdge<E, C>>,
+    target: usize,
+}
+
+impl<'a, E, C> Iterator for NTSEdgesTo<'a, E, C> {
+    type Item = &'a NTEdge<E, C>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.edges.find(|e| e.target == self.target)
+    }
+}
+
+impl<'a, E, C> NTSEdgesTo<'a, E, C> {
+    pub fn new(edges: std::slice::Iter<'a, NTEdge<E, C>>, target: usize) -> Self {
+        Self { edges, target }
+    }
+}
+
+impl<A: Alphabet, Q: Color, C: Color> PredecessorIterable for NTS<A, Q, C> {
+    type PreTransitionRef<'this> = &'this NTEdge<A::Expression, C>
+    where
+        Self: 'this;
+
+    type EdgesToIter<'this> = NTSEdgesTo<'this, A::Expression, C>
+    where
+        Self: 'this;
+
+    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
+        if state < self.states.len() {
+            Some(NTSEdgesTo::new(self.edges.iter(), state))
+        } else {
+            None
+        }
     }
 }
 
@@ -88,51 +323,36 @@ impl<Q, C> NTSBuilder<Q, C> {
         C: Color,
     {
         let alphabet = Simple::from_iter(self.edges.iter().map(|(_, a, _, _)| a.clone()));
-        let num_states = *self
+        let num_states = self
             .edges
             .iter()
-            .map(|(q, _, _, p)| std::cmp::max(q, p))
-            .max()
-            .expect("At least one state must exist");
+            .flat_map(|(q, _, _, p)| [*p, *q])
+            .unique()
+            .count();
         assert!(
             initial < num_states,
             "Cannot use state as initial which does not exist"
         );
-        let mut adjacency = Vec::with_capacity(num_states);
-        for outer_source in 0..=num_states {
-            let color = self
-                .colors
-                .iter()
-                .find_map(|(p, c)| {
-                    if p == &outer_source {
-                        Some(c.clone())
-                    } else {
-                        None
-                    }
-                })
-                .unwrap_or_else(|| {
-                    self.default
-                        .clone()
-                        .expect("Default must be known if no color is provided")
-                });
-            let edges = self
-                .edges
-                .iter()
-                .filter_map(|(source, a, c, q)| {
-                    if source == &outer_source {
-                        Some((*a, *q, c.clone()))
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            adjacency.push((color, edges));
-        }
+        let mut ts = NTS::new_for_alphabet(alphabet);
+        let colors_it = (0..num_states).map(|x| {
+            if let Some(color) =
+                self.colors
+                    .iter()
+                    .find_map(|(q, c)| if *q == x { Some(c.clone()) } else { None })
+            {
+                color
+            } else {
+                self.default
+                    .clone()
+                    .expect("Default is needed as some states have no color")
+            }
+        });
+        let created_states_number = ts.extend_states(colors_it).count();
+        assert_eq!(created_states_number, num_states);
 
-        let nts = NTS {
-            alphabet,
-            adjacency,
-        };
-        nts.with_initial(initial)
+        for (p, a, c, q) in self.edges {
+            ts.add_edge(p, a, q, c);
+        }
+        ts.with_initial(initial)
     }
 }

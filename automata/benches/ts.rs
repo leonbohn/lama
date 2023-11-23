@@ -10,6 +10,7 @@ static ref DATA: (
     Automata,
     Words,
     Loops,
+    Vec<WithInitial<NTS<Simple, (), ()>>>
     ) = data();
 }
 const BENCH_SIZE: usize = 3;
@@ -20,6 +21,7 @@ fn data() -> (
     Vec<MooreMachine<Simple, usize>>,
     Vec<Vec<char>>,
     Vec<Reduced<char>>,
+    Vec<WithInitial<NTS<Simple, (), ()>>>,
 ) {
     let random_automata = random_automata(&RANDOM);
     let words = vec![
@@ -32,7 +34,8 @@ fn data() -> (
         let word = words.get(i).unwrap();
         random_loops.push(Reduced::ultimately_periodic(&word[..n], &word[n..]));
     }
-    (random_automata, words, random_loops)
+    let random_nts = random_nts(10);
+    (random_automata, words, random_loops, random_nts)
 }
 fn pseudorandom_sprout(states: usize, n: usize) -> MooreMachine<Simple, usize> {
     let alphabet = alphabet!(simple 'a', 'b', 'c', 'd');
@@ -61,6 +64,39 @@ fn random_automata(rand: &[usize]) -> Vec<MooreMachine<Simple, usize>> {
     automata
 }
 
+fn random_dts(
+    n: usize,
+) -> (
+    WithInitial<BTS<Simple, (), ()>>,
+    WithInitial<NTS<Simple, (), ()>>,
+) {
+    let mut ts = BTS::new(Simple::from_iter(['a', 'b']));
+    for _ in 0..n {
+        ts.add_state(());
+    }
+    for i in 0..n {
+        ts.add_edge(i, 'a', (i + 1) % n, ());
+        ts.add_edge(i, 'b', (i + 2) % n, ());
+    }
+    let dts = ts.with_initial(0);
+
+    let it = (0..n).flat_map(|i| [(i, 'a', (), (i + 1) % n), (i, 'b', (), (i + 2) % n)]);
+    let nts = NTS::builder().default_color(()).extend(it).with_initial(0);
+
+    (dts, nts)
+}
+
+fn random_nts(n: usize) -> Vec<WithInitial<NTS<Simple, (), ()>>> {
+    let it = (0..50).flat_map(|i| {
+        [
+            (i, 'a', (), (i + 17) * n % 50),
+            (i, 'a', (), (i + 13) * n % 50),
+            (i, 'b', (), i * n * n % 50),
+        ]
+    });
+    vec![NTS::builder().default_color(()).extend(it).with_initial(0)]
+}
+
 fn scc_decomposition(aut: &[MooreMachine<Simple, usize>]) {
     for automaton in aut {
         automaton.tarjan_dag();
@@ -75,12 +111,58 @@ fn predecessor_computation(aut: &[MooreMachine<Simple, usize>]) {
     }
 }
 
+fn bts_predecessors(bts: WithInitial<BTS<Simple, (), ()>>) {
+    for x in bts.state_indices() {
+        let _ = bts.predecessors(x).unwrap().count();
+    }
+}
+
+fn nts_predecessors(bts: WithInitial<NTS<Simple, (), ()>>) {
+    for x in bts.state_indices() {
+        let _ = bts.predecessors(x).unwrap().count();
+    }
+}
+
+fn powerset(aut: &[WithInitial<NTS<Simple, (), ()>>]) {
+    for a in aut {
+        let det = a.subset_construction();
+        let _ = det.size();
+        // assert!(det.size() >= a.size());
+    }
+}
+
+fn bts_reachable(dts: WithInitial<BTS<Simple, (), ()>>) {
+    let x = dts.reachable_state_indices().count();
+    let _ = x % 3;
+}
+fn nts_reachable(nts: WithInitial<NTS<Simple, (), ()>>) {
+    let y = nts.reachable_state_indices().count();
+    let _ = y % 2;
+}
+
 fn benchings(c: &mut Criterion) {
+    const STATES: usize = 2000;
+    c.bench_function("BTS reachable states", |b| {
+        b.iter(|| bts_reachable(random_dts(STATES).0))
+    });
+    c.bench_function("NTS reachable states", |b| {
+        b.iter(|| nts_reachable(random_dts(STATES).1))
+    });
+    c.bench_function("BTS predecessors", |b| {
+        b.iter(|| bts_predecessors(random_dts(STATES).0))
+    });
+    c.bench_function("NTS predecessors", |b| {
+        b.iter(|| nts_predecessors(random_dts(STATES).1))
+    });
+
     c.bench_function("tarjan_tree", |b| {
         b.iter(|| scc_decomposition(black_box(&DATA.0)))
     });
     c.bench_function("Predecessors", |b| {
         b.iter(|| predecessor_computation(black_box(&DATA.0)))
+    });
+    c.bench_function("Subset construction", |b| {
+        b.iter(|| powerset(black_box(&DATA.3)))
     });
 }
 

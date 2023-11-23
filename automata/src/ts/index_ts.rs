@@ -261,7 +261,9 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
         let target = to.into();
         assert!(
             self.contains_state(source) && self.contains_state(target),
-            "Source or target vertex does not exist in the graph."
+            "Source {} or target {} vertex does not exist in the graph.",
+            source,
+            target
         );
         self.states
             .get_mut(&target)

@@ -113,6 +113,13 @@ impl<A: Alphabet, Idx: IndexType> Path<A, Idx> {
         }
     }
 
+    pub fn with_capacity(state: Idx, capacity: usize) -> Self {
+        Self {
+            end: state,
+            transitions: Vec::with_capacity(capacity),
+        }
+    }
+
     /// Creates a new path with the given `state` as origin and the given `transitions`.
     pub fn new(state: Idx, transitions: Vec<(Idx, A::Expression)>) -> Self {
         Self {

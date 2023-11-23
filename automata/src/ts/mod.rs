@@ -26,6 +26,7 @@ mod deterministic;
 pub use deterministic::Deterministic;
 
 mod nondeterministic;
+pub use nondeterministic::{NTSBuilder, NTS};
 
 mod induces;
 pub use induces::{finite, infinite, CanInduce, Induced};

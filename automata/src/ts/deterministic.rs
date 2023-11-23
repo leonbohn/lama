@@ -48,13 +48,9 @@ pub trait Deterministic: TransitionSystem {
         expression: &ExpressionOf<Self>,
     ) -> Option<EdgeColor<Self>> {
         // TODO: this is horrible!
-        let symbols = expression.symbols().collect::<Vec<_>>();
-        assert_eq!(
-            symbols.len(),
-            1,
-            "Only works for alphabets where expressions and symbols coincide"
-        );
-        let sym = symbols.first().unwrap();
+        let mut symbols = expression.symbols();
+        let sym = symbols.next().unwrap();
+        assert_eq!(symbols.next(), None);
         Some(self.transition(state, sym)?.color())
     }
 
@@ -93,7 +89,7 @@ pub trait Deterministic: TransitionSystem {
         let mut current = origin
             .to_index(self)
             .expect("run must start in state that exists");
-        let mut path = Path::empty(current);
+        let mut path = Path::with_capacity(current, word.len());
         for symbol in word.symbols() {
             if let Some(o) = path.extend_in(&self, symbol) {
                 current = o.target();
