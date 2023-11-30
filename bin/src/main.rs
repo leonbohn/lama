@@ -1,5 +1,7 @@
 use automata::{
+    automata::DeterministicOmegaAutomaton,
     congruence::FORC,
+    hoa::HoaAlphabet,
     ts::{dot::display_dot, ToDot},
     Map, TransitionSystem,
 };
@@ -8,7 +10,12 @@ use automata_learning::passive::{
     OmegaSample,
 };
 use clap::{command, Arg, ArgAction, Command};
+use io::to_file_or_stdout;
 use tracing::{debug, error, Level};
+
+use crate::io::from_file_or_stdin;
+
+mod io;
 
 fn conflicts_arg() -> Arg {
     Arg::new("conflicts")
@@ -54,6 +61,10 @@ fn main() {
                         .about("Infer a family of right congruences (FORC) from the sample"),
                 ),
         )
+        .subcommand(
+            Command::new("nop")
+                .arg(Arg::new("input").short('i').long("input"))
+        )
         .subcommand_required(true)
         .get_matches();
 
@@ -72,6 +83,22 @@ fn main() {
     tracing::subscriber::set_global_default(subscriber).unwrap();
 
     match matches.subcommand() {
+        Some(("nop", nop_matches)) => {
+            debug!("No input files specified, using stdin");
+            let hoa = from_file_or_stdin(nop_matches.get_one("input"));
+            let parsed_auts = automata::hoa::hoa_to_ts(&hoa);
+            let mut auts = vec![];
+            for nondet_aut in &parsed_auts {
+                if let Some(aut) = nondet_aut.to_deterministic() {
+                    tracing::debug!("Parsed HOA automaton with {} states", aut.size());
+                    auts.push(aut);
+                } else {
+                    tracing::error!("Input is not deterministic!");
+                }
+            }
+            println!("Successfully parsed {} HOA automata", auts.len());
+        }
+
         Some(("passive", passive_matches)) => {
             let sample_lines: Vec<String> = match passive_matches.get_one::<String>("input") {
                 None => {
@@ -175,17 +202,8 @@ fn main() {
                     }
                 };
             }
-
-            match passive_matches.get_one::<String>("output") {
-                None => {
-                    debug!("No output file specified, using stdout");
-                    println!("{}", output_dot);
-                }
-                Some(file_name) => {
-                    debug!("Output file name specified: {:?}", file_name);
-                    std::fs::write(file_name, output_dot).unwrap();
-                }
-            }
+            to_file_or_stdout(passive_matches.get_one("output"), &output_dot)
+                .expect("Could not write output!");
         }
         _ => unreachable!(),
     };

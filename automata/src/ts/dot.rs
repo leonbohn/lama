@@ -438,7 +438,7 @@ where
         ));
 
         for state in self.leading.state_indices() {
-            for &sym in self.leading.alphabet().universe() {
+            for sym in self.leading.alphabet().universe() {
                 if let Some(edge) = self.leading.transition(state, sym) {
                     let _source_prc = self
                         .prc(

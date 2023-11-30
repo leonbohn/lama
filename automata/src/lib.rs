@@ -25,7 +25,7 @@ pub mod prelude {
             transition_system::{EdgeColorOf, Indexes, IsTransition, StateColorOf},
             Congruence, Deterministic, DeterministicEdgesFrom, EdgeColor, HasColor, HasColorMut,
             HasMutableStates, HasStates, IndexType, NTSBuilder, Sproutable, StateColor, ToDot,
-            TransitionSystem, BTS, NTS,
+            TransitionSystem, BTS, DTS, NTS,
         },
         upw,
         word::{FiniteWord, LinearWord, OmegaWord, Periodic, Reduced, ReducedParseError},
@@ -73,6 +73,9 @@ pub mod mapping;
 
 mod algorithms;
 
+#[feature(hoa)]
+pub mod hoa;
+
 /// A color is simply a type that can be used to color states or transitions.
 pub trait Color: Clone + Eq + Ord + Hash + Show {
     /// Reduces a sequence of colors (of type `Self`) to a single color of type `Self`.
@@ -98,6 +101,24 @@ pub trait Show {
         Self: 'a,
         I: IntoIterator<Item = &'a Self>,
         I::IntoIter: DoubleEndedIterator;
+}
+
+impl Show for Option<usize> {
+    fn show(&self) -> String {
+        match self {
+            None => "".to_string(),
+            Some(x) => x.show(),
+        }
+    }
+
+    fn show_collection<'a, I>(iter: I) -> String
+    where
+        Self: 'a,
+        I: IntoIterator<Item = &'a Self>,
+        I::IntoIter: DoubleEndedIterator,
+    {
+        usize::show_collection(iter.into_iter().filter_map(|x| x.as_ref()))
+    }
 }
 
 impl Show for usize {

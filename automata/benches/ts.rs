@@ -1,4 +1,4 @@
-use automata::prelude::*;
+use automata::{prelude::*, ts::DTS};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use itertools::Itertools;
 
@@ -69,6 +69,7 @@ fn random_dts(
 ) -> (
     WithInitial<BTS<Simple, (), ()>>,
     WithInitial<NTS<Simple, (), ()>>,
+    WithInitial<DTS<Simple, (), ()>>,
 ) {
     let mut ts = BTS::new(Simple::from_iter(['a', 'b']));
     for _ in 0..n {
@@ -78,12 +79,14 @@ fn random_dts(
         ts.add_edge(i, 'a', (i + 1) % n, ());
         ts.add_edge(i, 'b', (i + 2) % n, ());
     }
-    let dts = ts.with_initial(0);
+    let bts = ts.with_initial(0);
 
     let it = (0..n).flat_map(|i| [(i, 'a', (), (i + 1) % n), (i, 'b', (), (i + 2) % n)]);
-    let nts = NTS::builder().default_color(()).extend(it).with_initial(0);
+    let nts = NTS::builder().default_color(()).extend(it).collect();
 
-    (dts, nts)
+    let dts: DTS<_, _, _> = nts.clone().try_into().unwrap();
+
+    (bts, nts.with_initial(0), dts.with_initial(0))
 }
 
 fn random_nts(n: usize) -> Vec<WithInitial<NTS<Simple, (), ()>>> {
@@ -94,7 +97,11 @@ fn random_nts(n: usize) -> Vec<WithInitial<NTS<Simple, (), ()>>> {
             (i, 'b', (), i * n * n % 50),
         ]
     });
-    vec![NTS::builder().default_color(()).extend(it).with_initial(0)]
+    vec![NTS::builder()
+        .default_color(())
+        .extend(it)
+        .collect()
+        .with_initial(0)]
 }
 
 fn scc_decomposition(aut: &[MooreMachine<Simple, usize>]) {
@@ -139,6 +146,10 @@ fn nts_reachable(nts: WithInitial<NTS<Simple, (), ()>>) {
     let y = nts.reachable_state_indices().count();
     let _ = y % 2;
 }
+fn dts_reachable(nts: WithInitial<DTS<Simple, (), ()>>) {
+    let y = nts.reachable_state_indices().count();
+    let _ = y % 2;
+}
 
 fn benchings(c: &mut Criterion) {
     const STATES: usize = 2000;
@@ -147,6 +158,9 @@ fn benchings(c: &mut Criterion) {
     });
     c.bench_function("NTS reachable states", |b| {
         b.iter(|| nts_reachable(random_dts(STATES).1))
+    });
+    c.bench_function("DTS reachable states", |b| {
+        b.iter(|| dts_reachable(random_dts(STATES).2))
     });
     c.bench_function("BTS predecessors", |b| {
         b.iter(|| bts_predecessors(random_dts(STATES).0))

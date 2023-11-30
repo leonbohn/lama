@@ -12,6 +12,11 @@ impl<Ts: TransitionSystem> WithInitial<Ts> {
     pub fn ts(&self) -> &Ts {
         &self.0
     }
+
+    pub fn into_parts(self) -> (Ts, Ts::StateIndex) {
+        (self.0, self.1)
+    }
+
     /// Returns a mutable reference to the underlying transition system.
     pub fn ts_mut(&mut self) -> &mut Ts {
         &mut self.0

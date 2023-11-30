@@ -128,7 +128,7 @@ impl<A: Alphabet, C: Color + Debug + Default> LStarTarget<false> for LStarTable<
         self.rows[row_index].minimal = true;
         for sym in self.alphabet.universe() {
             let mut extension: Vec<_> = self.rows[row_index].base.clone();
-            extension.push(*sym);
+            extension.push(sym);
             if !self.rows.iter().any(|row| row.base == extension) {
                 self.rows.push(LStarRow::without_outputs(extension, false));
             }
@@ -197,7 +197,7 @@ impl<A: Alphabet, C: Color + Debug + Default> LStarTarget<false> for LStarTable<
                     .base
                     .iter()
                     .cloned()
-                    .chain(std::iter::once(*sym))
+                    .chain(std::iter::once(sym))
                     .collect();
                 match self
                     .rows
@@ -254,7 +254,7 @@ impl<A: Alphabet, C: Color + Debug + Default> LStarTarget<false> for LStarTable<
                                 })
                                 .expect("We must have a base row available!");
 
-                            out.add_edge(*state, A::expression(*sym), target_state_idx, ());
+                            out.add_edge(*state, A::expression(sym), target_state_idx, ());
                             continue 'transition;
                         } else {
                             trace!("No equivalent row exists, promoting {row_index} to a state");
@@ -415,7 +415,7 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
         self.rows[row_index].minimal = true;
         for sym in self.alphabet.universe() {
             let mut extension: Vec<_> = self.rows[row_index].base.clone();
-            extension.push(*sym);
+            extension.push(sym);
             if !self.rows.iter().any(|row| row.base == extension) {
                 self.rows.push(LStarRow::without_outputs(extension, false));
             }
@@ -483,13 +483,13 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
                     .base
                     .iter()
                     .cloned()
-                    .chain(std::iter::once(*sym))
+                    .chain(std::iter::once(sym))
                     .collect();
 
                 let symbol_position = self
                     .experiments
                     .iter()
-                    .position(|e| e.len() == 1 && e[0] == *sym)
+                    .position(|e| e.len() == 1 && e[0] == sym)
                     .expect("Single symbol experiments must be present!");
                 let output_color = self.rows[*i].outputs[symbol_position];
 
@@ -550,7 +550,7 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
 
                             out.add_edge(
                                 *state,
-                                A::expression(*sym),
+                                A::expression(sym),
                                 target_state_idx,
                                 output_color,
                             );

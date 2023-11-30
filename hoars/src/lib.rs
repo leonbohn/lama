@@ -4,13 +4,39 @@ mod body;
 mod display;
 mod format;
 mod header;
-mod label_expression;
 mod lexer;
 mod value;
 
+use biodivine_lib_bdd::{Bdd, BddVariable, BddVariableSet};
 use std::fmt::Display;
 
-pub use label_expression::LabelExpression;
+pub type LabelExpression = Bdd;
+
+pub const MAX_APS: usize = 8;
+
+fn build_bdd_vars(alphabet: &BddVariableSet) -> [BddVariable; MAX_APS] {
+    let x = alphabet.variables();
+    [x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]]
+}
+
+lazy_static::lazy_static! {
+    pub static ref ALPHABET: BddVariableSet = BddVariableSet::new_anonymous(8);
+    pub static ref VARS: [BddVariable; MAX_APS] = build_bdd_vars(&ALPHABET);
+}
+
+pub fn parse_hoa_automata(input: &str) -> Vec<HoaAutomaton> {
+    let mut out = Vec::new();
+    for hoa_aut in input.split_inclusive("--END--") {
+        if !hoa_aut.contains("--BODY--") {
+            continue;
+        }
+        match hoa_aut.try_into() {
+            Ok(aut) => out.push(aut),
+            Err(e) => println!("Error when parsing automaton: {}", e),
+        }
+    }
+    out
+}
 
 use ariadne::{Color, Fmt, ReportKind, Source};
 
@@ -23,7 +49,7 @@ pub use format::{
     AcceptanceCondition, AcceptanceInfo, AcceptanceName, AcceptanceSignature, AliasName, Property,
 };
 
-pub use body::{Body, Edge, HoaSymbol, Label, State};
+pub use body::{Body, Edge, Label, State};
 pub use header::{Header, HeaderItem};
 
 use itertools::Itertools;
@@ -31,12 +57,6 @@ use lexer::Token;
 
 /// The type of identifier used for states.
 pub type Id = u32;
-
-/// Represents a trigger as it is encoded in a HOA automaton.
-pub type HoaTrigger = (Id, HoaSymbol);
-
-/// Represents a transition as it is encoded in a HOA automaton.
-pub type HoaTransition = (Id, HoaSymbol, Id);
 
 /// Represents the different types of error that can be encountered when parsing a [`HoaAutomaton`].
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -53,6 +73,8 @@ pub enum FromHoaError {
     LexerError(String),
     /// Parser encountered an error, contains detailed report.
     ParserError(String),
+    /// Abort token was encountered.
+    Abort,
 }
 
 impl Display for FromHoaError {
@@ -68,6 +90,7 @@ impl Display for FromHoaError {
             FromHoaError::ParseAcceptanceCondition(message) => {
                 write!(f, "Could not parse acceptance condition: {}", message)
             }
+            FromHoaError::Abort => write!(f, "Abort token encountered"),
             FromHoaError::LexerError(rep) => write!(f, "Lexer error: {}", rep),
             FromHoaError::ParserError(rep) => write!(f, "Parser error: {}", rep),
         }
@@ -129,7 +152,7 @@ impl HoaAutomaton {
     /// automaton.
     pub fn from_parts(header: Header, body: Body) -> Self {
         let mut out = Self { header, body };
-        out.unalias();
+        out.body.sort_by(|x, y| x.0.cmp(&y.0));
         out
     }
 
@@ -263,18 +286,6 @@ impl HoaAutomaton {
         })
     }
 
-    /// Performs an unaliasing, which replaces each occurrence of an
-    /// alias in a label expression with the corresponding label
-    /// as given by the [aliases](HoaAutomaton::aliases) mapping.
-    pub fn unalias(&mut self) {
-        let aliases = self.aliases();
-        for state in self.body.iter_mut() {
-            for edge in state.edges_mut() {
-                edge.label_mut().unalias(&aliases);
-            }
-        }
-    }
-
     /// Adds a header item to the automaton.
     pub fn add_header_item(&mut self, item: HeaderItem) {
         self.header.push(item);
@@ -287,7 +298,11 @@ impl TryFrom<&str> for HoaAutomaton {
     type Error = FromHoaError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
+        if value.contains("--ABORT--") {
+            return Err(FromHoaError::Abort);
+        }
         let input = value;
+        let start = std::time::Instant::now();
         let tokens = lexer::tokenizer()
             .parse(input)
             .map_err(|error_list| {
@@ -297,9 +312,11 @@ impl TryFrom<&str> for HoaAutomaton {
                 )
             })
             .map_err(FromHoaError::LexerError)?;
+        tracing::debug!("Tokenization took {}ms", start.elapsed().as_millis());
 
         let length = input.chars().count();
-        HoaAutomaton::parser()
+        let start = std::time::Instant::now();
+        let out = HoaAutomaton::parser()
             .parse(Stream::from_iter(length..length + 1, tokens.into_iter()))
             .map_err(|error_list| {
                 build_error_report(
@@ -307,7 +324,9 @@ impl TryFrom<&str> for HoaAutomaton {
                     error_list.into_iter().map(|err| err.map(|c| c.to_string())),
                 )
             })
-            .map_err(FromHoaError::ParserError)
+            .map_err(FromHoaError::ParserError);
+        tracing::debug!("Actual parsing took {}ms", start.elapsed().as_millis());
+        out
     }
 }
 
@@ -401,7 +420,7 @@ mod tests {
         body::{Edge, State},
         header::Header,
         AcceptanceAtom, AcceptanceCondition, AcceptanceName, AcceptanceSignature, Body, HeaderItem,
-        HoaAutomaton, Label, LabelExpression, StateConjunction,
+        HoaAutomaton, Label, LabelExpression, StateConjunction, ALPHABET, VARS,
     };
 
     #[test]
@@ -444,12 +463,12 @@ mod tests {
             None,
             vec![
                 Edge::from_parts(
-                    Label(LabelExpression::Integer(0)),
+                    Label(ALPHABET.mk_var(VARS[0])),
                     StateConjunction(vec![1]),
                     AcceptanceSignature(vec![0]),
                 ),
                 Edge::from_parts(
-                    Label(LabelExpression::Not(Box::new(LabelExpression::Integer(0)))),
+                    Label(ALPHABET.mk_var(VARS[0]).not()),
                     StateConjunction(vec![2]),
                     AcceptanceSignature(vec![0]),
                 ),
@@ -460,12 +479,12 @@ mod tests {
             None,
             vec![
                 Edge::from_parts(
-                    Label(LabelExpression::Integer(0)),
+                    Label(ALPHABET.mk_var(VARS[0])),
                     StateConjunction(vec![1]),
                     AcceptanceSignature(vec![]),
                 ),
                 Edge::from_parts(
-                    Label(LabelExpression::Not(Box::new(LabelExpression::Integer(0)))),
+                    Label(ALPHABET.mk_var(VARS[0]).not()),
                     StateConjunction(vec![2]),
                     AcceptanceSignature(vec![]),
                 ),
@@ -476,12 +495,12 @@ mod tests {
             None,
             vec![
                 Edge::from_parts(
-                    Label(LabelExpression::Integer(0)),
+                    Label(ALPHABET.mk_var(VARS[0])),
                     StateConjunction(vec![1]),
                     AcceptanceSignature(vec![]),
                 ),
                 Edge::from_parts(
-                    Label(LabelExpression::Not(Box::new(LabelExpression::Integer(0)))),
+                    Label(ALPHABET.mk_var(VARS[0]).not()),
                     StateConjunction(vec![2]),
                     AcceptanceSignature(vec![]),
                 ),

@@ -64,7 +64,7 @@ pub trait Sproutable: TransitionSystem {
     fn complete_with_sink(&mut self, sink_color: Self::StateColor) -> Self::StateIndex {
         let _sink = self.add_state(sink_color.clone());
 
-        let _universe = self.alphabet().universe().cloned().collect_vec();
+        let _universe = self.alphabet().universe().collect_vec();
 
         todo!()
     }

@@ -25,8 +25,11 @@ pub use sproutable::Sproutable;
 mod deterministic;
 pub use deterministic::Deterministic;
 
-mod nondeterministic;
-pub use nondeterministic::{NTSBuilder, NTS};
+mod nts;
+pub use nts::{NTSBuilder, NTS};
+
+mod dts;
+pub use dts::DTS;
 
 mod induces;
 pub use induces::{finite, infinite, CanInduce, Induced};

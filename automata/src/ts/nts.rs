@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::prelude::*;
+use crate::{prelude::*, Set};
 use itertools::Itertools;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
@@ -158,6 +158,20 @@ impl<Q, C> NTS<Simple, Q, C> {
 }
 
 impl<A: Alphabet, Q: Color, C: Color> NTS<A, Q, C> {
+    pub fn is_deterministic(&self) -> bool {
+        for state in self.state_indices() {
+            let mut symbols = Set::default();
+            for edge in self.edges_from(state).unwrap() {
+                for sym in IsTransition::expression(edge).symbols() {
+                    if !symbols.insert(sym) {
+                        return false;
+                    }
+                }
+            }
+        }
+        true
+    }
+
     fn first_edge(&self, idx: usize) -> Option<usize> {
         assert!(idx < self.states.len(), "State {idx} does not exist");
         self.states[idx].first_edge
@@ -240,7 +254,7 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for NTS<A, Q, C> {
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
         Some(NTSEdgesFromIter::new(
             &self.edges,
-            Some(state.to_index(self)?),
+            self.first_edge(state.to_index(self)?),
         ))
     }
 
@@ -317,7 +331,7 @@ impl<Q, C> NTSBuilder<Q, C> {
         self
     }
 
-    pub fn with_initial(mut self, initial: usize) -> WithInitial<NTS<Simple, Q, C>>
+    pub fn collect(mut self) -> NTS<Simple, Q, C>
     where
         Q: Color,
         C: Color,
@@ -329,10 +343,6 @@ impl<Q, C> NTSBuilder<Q, C> {
             .flat_map(|(q, _, _, p)| [*p, *q])
             .unique()
             .count();
-        assert!(
-            initial < num_states,
-            "Cannot use state as initial which does not exist"
-        );
         let mut ts = NTS::new_for_alphabet(alphabet);
         let colors_it = (0..num_states).map(|x| {
             if let Some(color) =
@@ -353,6 +363,6 @@ impl<Q, C> NTSBuilder<Q, C> {
         for (p, a, c, q) in self.edges {
             ts.add_edge(p, a, q, c);
         }
-        ts.with_initial(initial)
+        ts
     }
 }

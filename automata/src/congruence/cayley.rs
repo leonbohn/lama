@@ -123,7 +123,7 @@ where
     pub fn new_replacing(ts: &'a Ts) -> Self {
         Cayley {
             ts,
-            alphabet: Directional::from_iter(ts.alphabet().universe().cloned()),
+            alphabet: Directional::from_iter(ts.alphabet().universe()),
             m: TransitionMonoid::new_replacing(ts),
         }
     }
@@ -139,7 +139,7 @@ where
     pub fn from(ts: &'a Ts, m: TransitionMonoid<'a, Ts, SA, EA>) -> Self {
         Self {
             ts,
-            alphabet: Directional::from_iter(ts.alphabet().universe().cloned()),
+            alphabet: Directional::from_iter(ts.alphabet().universe()),
             m,
         }
     }

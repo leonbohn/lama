@@ -109,7 +109,7 @@ impl<
         } else {
             either::Either::Left(std::iter::once(vec![]))
         }
-        .chain(alphabet.universe().map(|sym| vec![*sym]))
+        .chain(alphabet.universe().map(|sym| vec![sym]))
         .collect_vec();
 
         let mut logger = L::create();

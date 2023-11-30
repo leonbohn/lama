@@ -208,6 +208,12 @@ pub enum AcceptanceName {
     None,
 }
 
+impl AcceptanceName {
+    pub fn is_parity(&self) -> bool {
+        matches!(self, AcceptanceName::Parity)
+    }
+}
+
 impl TryFrom<String> for AcceptanceName {
     type Error = String;
 

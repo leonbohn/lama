@@ -59,7 +59,7 @@ pub fn prefix_tree<A: Alphabet, W: Into<Reduced<A::Symbol>>, I: IntoIterator<Ite
                 map.entry(sym).or_default().insert(word);
             }
 
-            for &sym in alphabet.universe() {
+            for sym in alphabet.universe() {
                 if let Some(new_words) = map.remove(&sym) {
                     debug_assert!(!new_words.is_empty());
                     let new_access = access

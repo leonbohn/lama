@@ -242,9 +242,16 @@ pub trait Deterministic: TransitionSystem {
     /// Checks whether `self` is complete, meaning every state has a transition for every symbol
     /// of the alphabet.
     fn is_complete(&self) -> bool {
-        self.state_indices()
-            .cartesian_product(self.alphabet().universe())
-            .all(|(q, a)| self.transition(q, *a).is_some())
+        for q in self.state_indices() {
+            if !self
+                .alphabet()
+                .universe()
+                .all(|sym| self.transition(q, sym).is_some())
+            {
+                return false;
+            }
+        }
+        true
     }
     /// Runs the given `word` on the transition system, starting in the initial state.
     #[allow(clippy::type_complexity)]
@@ -318,7 +325,7 @@ pub trait Deterministic: TransitionSystem {
                         .expect("Every state should be colored!")
                 )
             )];
-            for &sym in self.alphabet().universe() {
+            for sym in self.alphabet().universe() {
                 if let Some(edge) = self.transition(id, sym) {
                     row.push(format!("{} : {}", edge.target(), edge.color().show()));
                 } else {
@@ -391,10 +398,10 @@ pub trait Deterministic: TransitionSystem {
         }
         for index in self.state_indices() {
             for sym in self.alphabet().universe() {
-                if let Some(edge) = self.transition(index, *sym) {
+                if let Some(edge) = self.transition(index, sym) {
                     ts.add_edge(
                         *map.get(&index).unwrap(),
-                        <Self::Alphabet as Alphabet>::expression(*sym),
+                        <Self::Alphabet as Alphabet>::expression(sym),
                         *map.get(&edge.target()).unwrap(),
                         edge.color().clone(),
                     );
@@ -534,10 +541,10 @@ pub trait Deterministic: TransitionSystem {
         }
         for index in self.state_indices() {
             for sym in self.alphabet().universe() {
-                if let Some(edge) = self.transition(index, *sym) {
+                if let Some(edge) = self.transition(index, sym) {
                     ts.add_edge(
                         *map.get(&index).unwrap(),
-                        <Self::Alphabet as Alphabet>::expression(*sym),
+                        <Self::Alphabet as Alphabet>::expression(sym),
                         *map.get(&edge.target()).unwrap(),
                         edge.color().clone(),
                     );

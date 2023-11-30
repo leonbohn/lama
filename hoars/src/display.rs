@@ -132,19 +132,6 @@ impl Display for AliasName {
     }
 }
 
-impl Display for LabelExpression {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LabelExpression::Boolean(val) => write!(f, "{}", val),
-            LabelExpression::Integer(val) => write!(f, "{}", val),
-            LabelExpression::Alias(val) => write!(f, "{}", val),
-            LabelExpression::Not(val) => write!(f, "!{}", val),
-            LabelExpression::And(lhs, rhs) => write!(f, "({} & {})", lhs, rhs),
-            LabelExpression::Or(lhs, rhs) => write!(f, "({} | {})", lhs, rhs),
-        }
-    }
-}
-
 impl Display for StateConjunction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0.iter().map(|s| s.to_string()).join(" & "))

@@ -189,7 +189,7 @@ impl<Ts: TransitionSystem> SubsetConstruction<Ts> {
 mod tests {
     use crate::{
         prelude::WithInitial,
-        ts::{nondeterministic::NTS, Deterministic, BTS},
+        ts::{Deterministic, BTS, NTS},
         TransitionSystem,
     };
 
@@ -204,6 +204,7 @@ mod tests {
                 (1, 'b', (), 1),
                 (1, 'a', (), 0),
             ])
+            .collect()
             .with_initial(0);
 
         let dts = nts.subset_construction();

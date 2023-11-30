@@ -162,7 +162,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
 
     /// Returns an iterator over the transitions that start in the given `state`. If the state does
     /// not exist, `None` is returned.
-    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>>;
+    fn edges_from<'a, Idx: Indexes<Self>>(&'a self, state: Idx) -> Option<Self::EdgesFromIter<'_>>;
 
     fn has_transition(
         &self,
@@ -437,56 +437,50 @@ pub trait TransitionSystem: HasAlphabet + Sized {
 }
 
 pub struct TransitionsFrom<'a, D: TransitionSystem + 'a> {
-    edges: Option<D::EdgesFromIter<'a>>,
+    edges: D::EdgesFromIter<'a>,
     target: Option<D::StateIndex>,
     color: Option<D::EdgeColor>,
-    source: Option<D::StateIndex>,
-    expression:
-        Option<<<D::Alphabet as Alphabet>::Expression as Expression<SymbolOf<D>>>::SymbolsIter>,
+    source: D::StateIndex,
+    symbols: Vec<SymbolOf<D>>,
+    pos: usize,
 }
 
 impl<'a, D: TransitionSystem + 'a> Iterator for TransitionsFrom<'a, D> {
     type Item = (D::StateIndex, SymbolOf<D>, D::EdgeColor, D::StateIndex);
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(sym) = self.expression.as_mut().and_then(|mut it| it.next()) {
-            Some((
-                self.source.unwrap(),
-                sym,
-                self.color.clone().unwrap(),
-                self.target.unwrap(),
-            ))
-        } else {
-            if let Some(edge) = self.edges.as_mut().and_then(|mut it| it.next()) {
-                self.expression = Some(edge.expression().symbols());
-                self.target = Some(edge.target());
-                self.color = Some(edge.color());
-                self.next()
-            } else {
-                None
+        if let (Some(color), Some(target)) = (&self.color, &self.target) {
+            if self.pos < self.symbols.len() {
+                let out = self.symbols[self.pos];
+                self.pos += 1;
+                return Some((self.source, out, color.clone(), *target));
             }
         }
+        if let Some(edge) = self.edges.next() {
+            self.color = Some(edge.color());
+            self.target = Some(edge.target());
+            self.symbols = edge.expression().symbols().collect();
+            return self.next();
+        }
+        None
     }
 }
 
 impl<'a, D: TransitionSystem + 'a> TransitionsFrom<'a, D> {
     pub fn new(det: &'a D, state: D::StateIndex) -> Self {
         let Some(mut edges) = det.edges_from(state) else {
-            return Self {
-                edges: None,
-                expression: None,
-                color: None,
-                target: None,
-                source: Some(state),
-            };
+            panic!(
+                "We should at least get an iterator. Probably the state {state} does not exist."
+            );
         };
 
         let Some(edge) = edges.next() else {
             return Self {
-                edges: Some(edges),
-                expression: None,
                 color: None,
-                source: Some(state),
+                source: state,
                 target: None,
+                edges,
+                symbols: vec![],
+                pos: 0,
             };
         };
 
@@ -494,11 +488,12 @@ impl<'a, D: TransitionSystem + 'a> TransitionsFrom<'a, D> {
         let color = Some(edge.color());
         let expression = Some(edge.expression().symbols());
         Self {
-            edges: Some(edges),
+            edges,
             target,
             color,
-            expression,
-            source: Some(state),
+            source: state,
+            symbols: edge.expression().symbols().collect(),
+            pos: 0,
         }
     }
 }
@@ -877,7 +872,7 @@ impl<'a, Ts: Deterministic> Iterator for DeterministicEdgesFrom<'a, Ts> {
     fn next(&mut self) -> Option<Self::Item> {
         self.symbols
             .next()
-            .and_then(|sym| self.ts.transition(self.state, *sym))
+            .and_then(|sym| self.ts.transition(self.state, sym))
     }
 }
 

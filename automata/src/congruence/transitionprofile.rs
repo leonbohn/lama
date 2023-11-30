@@ -241,7 +241,7 @@ impl<Idx: IndexType, Q: Accumulates, C: Accumulates> RunSignature<Idx, Q, C> {
     ) -> impl Iterator<Item = (SymbolOf<Ts>, Self)> + 'a {
         ts.alphabet()
             .universe()
-            .filter_map(|sym| self.extend_in(ts, *sym).ok().map(|x| (*sym, x)))
+            .filter_map(|sym| self.extend_in(ts, sym).ok().map(|x| (sym, x)))
     }
 }
 
@@ -322,7 +322,7 @@ impl<Idx: IndexType, Q: Accumulates, C: Accumulates> RunProfile<Idx, Q, C> {
     ) -> impl Iterator<Item = (Self, SymbolOf<Ts>)> + 'a {
         ts.alphabet()
             .universe()
-            .map(|sym| (self.extend_in(ts, *sym), *sym))
+            .map(|sym| (self.extend_in(ts, sym), sym))
     }
 }
 

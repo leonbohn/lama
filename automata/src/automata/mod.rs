@@ -41,6 +41,11 @@ pub use dpa::{DPALike, IntoDPA, DPA};
 mod dba;
 pub use dba::{DBALike, IntoDBA, DBA};
 
+mod omega;
+pub use omega::{
+    AcceptanceMask, DeterministicOmegaAutomaton, OmegaAcceptanceCondition, OmegaAutomaton,
+};
+
 mod acceptor;
 pub use acceptor::{
     FiniteWordAcceptor, FiniteWordTransformer, OmegaWordAcceptor, OmegaWordTransformer,

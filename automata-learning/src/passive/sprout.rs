@@ -368,7 +368,7 @@ where
         .universe()
         .map(|sym| (initial, sym))
         .collect();
-    'outer: while let Some((source, &sym)) = queue.pop_front() {
+    'outer: while let Some((source, sym)) = queue.pop_front() {
         trace!(
             "Trying to add transition from {} on {}",
             cong.state_color(source)

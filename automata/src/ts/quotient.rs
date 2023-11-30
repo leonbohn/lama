@@ -112,13 +112,13 @@ pub struct QuotientEdgesFrom<'a, Ts: TransitionSystem, I> {
 impl<'a, Ts, I> Iterator for QuotientEdgesFrom<'a, Ts, I>
 where
     Ts: Deterministic,
-    I: Iterator<Item = &'a SymbolOf<Ts>>,
+    I: Iterator<Item = SymbolOf<Ts>>,
 {
     type Item = QuotientTransition<usize, ExpressionOf<Ts>, Ts::EdgeColor>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let sym = self.it.next()?;
-        self.quot.transition(self.class, *sym)
+        self.quot.transition(self.class, sym)
     }
 }
 

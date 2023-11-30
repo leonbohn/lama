@@ -161,8 +161,8 @@ impl<'a, A: Alphabet, const N: usize> Iterator for PreciseDPAEdgesFrom<'a, A, N>
 
     fn next(&mut self) -> Option<Self::Item> {
         self.it.next().map(|o| {
-            let (i, q) = self.dpa.take_precise_transition(&self.state, *o);
-            PreciseDPATransition::new(self.dpa, self.state, A::expression(*o), q, i)
+            let (i, q) = self.dpa.take_precise_transition(&self.state, o);
+            PreciseDPATransition::new(self.dpa, self.state, A::expression(o), q, i)
         })
     }
 }
@@ -348,7 +348,7 @@ fn padding_universal_dfa<A: Alphabet>(alphabet: &A) -> DFA<A> {
     let e = dfa.initial();
     dfa.set_initial_color(true);
     for sym in alphabet.universe() {
-        dfa.add_edge(e, A::expression(*sym), e, ());
+        dfa.add_edge(e, A::expression(sym), e, ());
     }
     dfa
 }

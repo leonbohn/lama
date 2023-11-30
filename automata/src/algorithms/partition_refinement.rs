@@ -16,7 +16,7 @@ pub fn partition_refinement<D: DFALike>(dfa: D) -> Partition<D::StateIndex> {
             let x = dfa
                 .state_indices()
                 .filter(|q| {
-                    dfa.transition(*q, *sym)
+                    dfa.transition(*q, sym)
                         .map(|t| a.contains(&t.target()))
                         .unwrap_or(false)
                 })
