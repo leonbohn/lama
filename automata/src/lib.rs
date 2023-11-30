@@ -32,8 +32,6 @@ pub mod prelude {
         Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length, Pointed,
         RightCongruence, Show,
     };
-    #[cfg(test)]
-    pub use pretty_assertions::{assert_eq, assert_ne};
 }
 
 /// Module that contains definitions for dealing with alphabets.

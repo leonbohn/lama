@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use crate::{
     alphabet::{ExpressionOf, HasAlphabet, SymbolOf},
     automata::WithInitial,
@@ -507,67 +509,14 @@ impl<'a, D: TransitionSystem + 'a> TransitionsFrom<'a, D> {
 /// transition system.
 #[macro_export]
 macro_rules! impl_ts_by_passthrough_on_wrapper {
-    ($basetype: ident <Ts, $($typevar:ident : $type:ident),* > ) => {
-        use $crate::prelude::*;
-        impl<Ts: TransitionSystem, $($typevar : $type),*> HasAlphabet for $basetype<Ts::Alphabet, $($typevar),*, Ts> {
-            type Alphabet = Ts::Alphabet;
-
-            fn alphabet(&self) -> &Self::Alphabet {
-                self.ts().alphabet()
-            }
-        }
-        impl<Ts: TransitionSystem, $($typevar : $type),*> TransitionSystem for $basetype<Ts::Alphabet, $($typevar),*, Ts> {
-            type StateIndex = Ts::StateIndex;
-            type EdgeColor = Ts::EdgeColor;
-            type StateColor = Ts::StateColor;
-            type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
-            type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
-            type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
-
-            fn state_indices(&self) -> Self::StateIndices<'_> {
-                self.ts().state_indices()
-            }
-
-            fn transition<Idx: $crate::prelude::Indexes<Self>>(
-                &self,
-                state: Idx,
-                symbol: SymbolOf<Self>,
-            ) -> Option<Self::TransitionRef<'_>> {
-                self.ts().transition(state.to_index(self)?, symbol)
-            }
-
-            fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
-                self.ts().state_color(state)
-            }
-
-            fn edge_color(
-                &self,
-                state: Self::StateIndex,
-                expression: &ExpressionOf<Self>,
-            ) -> Option<EdgeColor<Self>> {
-                self.ts().edge_color(state, expression)
-            }
-
-            fn edges_from<Idx: $crate::prelude::Indexes<Self>>(
-                &self,
-                state: Idx,
-            ) -> Option<Self::EdgesFromIter<'_>> {
-                self.ts().edges_from(state.to_index(self)?)
-            }
-
-            fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
-                self.ts().maybe_initial_state()
-            }
-        }
-    };
-    ($basetype: ident < Ts >) => {
-        impl<Ts: TransitionSystem> HasAlphabet for $basetype<Ts> {
+    ($basetype: ident < $bound: ident >) => {
+        impl<Ts: HasAlphabet + TransitionSystem + $bound> HasAlphabet for $basetype<Ts> {
             type Alphabet = Ts::Alphabet;
             fn alphabet(&self) -> &Self::Alphabet {
                 self.ts().alphabet()
             }
         }
-        impl<Ts: TransitionSystem> TransitionSystem for $basetype<Ts> {
+        impl<Ts: TransitionSystem + $bound> TransitionSystem for $basetype<Ts> {
             type StateIndex = Ts::StateIndex;
             type EdgeColor = Ts::EdgeColor;
             type StateColor = Ts::StateColor;
@@ -594,7 +543,7 @@ macro_rules! impl_ts_by_passthrough_on_wrapper {
                 self.ts().maybe_initial_state()
             }
         }
-        impl<D: Deterministic> Deterministic for $basetype<D> {
+        impl<D: Deterministic + $bound> Deterministic for $basetype<D> {
             fn transition<Idx: Indexes<Self>>(
                 &self,
                 state: Idx,
@@ -614,7 +563,7 @@ macro_rules! impl_ts_by_passthrough_on_wrapper {
     };
 }
 
-impl_ts_by_passthrough_on_wrapper!(WithInitial<Ts>);
+impl_ts_by_passthrough_on_wrapper!(WithInitial<TransitionSystem>);
 
 impl<Ts: TransitionSystem> TransitionSystem for &Ts {
     type StateIndex = Ts::StateIndex;

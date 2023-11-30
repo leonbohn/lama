@@ -172,6 +172,11 @@ impl<A: Alphabet, Q: Color, C: Color> NTS<A, Q, C> {
         true
     }
 
+    pub fn into_deterministic(self) -> DTS<A, Q, C> {
+        assert!(self.is_deterministic());
+        DTS(self)
+    }
+
     fn first_edge(&self, idx: usize) -> Option<usize> {
         assert!(idx < self.states.len(), "State {idx} does not exist");
         self.states[idx].first_edge

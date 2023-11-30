@@ -3,7 +3,7 @@ use crate::prelude::*;
 use super::nts::{NTEdge, NTSEdgesFromIter, NTSEdgesTo};
 
 #[derive(Clone)]
-pub struct DTS<A: Alphabet, Q, C>(NTS<A, Q, C>);
+pub struct DTS<A: Alphabet, Q, C>(pub(crate) NTS<A, Q, C>);
 
 impl<A: Alphabet, Q: Color, C: Color> TryFrom<NTS<A, Q, C>> for DTS<A, Q, C> {
     type Error = ();
