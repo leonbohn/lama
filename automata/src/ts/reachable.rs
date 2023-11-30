@@ -1,6 +1,10 @@
 use std::collections::VecDeque;
 
-use crate::{alphabet::SymbolOf, ts::StateColor, Alphabet, Set, TransitionSystem};
+use crate::{
+    alphabet::SymbolOf, prelude::Expression, ts::StateColor, Alphabet, Set, TransitionSystem,
+};
+
+use super::{transition_system::IsTransition, Deterministic};
 
 /// Struct that can return the minimal representatives of a transition system. A minimal representative
 /// for a state `q` of some transition system is the length-lexicographically minimal string with which
@@ -38,12 +42,15 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some((access, q)) = self.queue.pop_front() {
-            for &a in self.ts.alphabet().universe() {
-                if let Some(p) = self.ts.successor_index(q, a) {
+            if let Some(mut it) = self.ts.edges_from(q) {
+                for edge in it {
+                    let p = edge.target();
                     if self.seen.insert(p) {
-                        let mut new_access = access.clone();
-                        new_access.push(a);
-                        self.queue.push_back((new_access, p));
+                        for sym in edge.expression().symbols() {
+                            let mut new_access = access.clone();
+                            new_access.push(sym);
+                            self.queue.push_back((new_access, p))
+                        }
                     }
                 }
             }

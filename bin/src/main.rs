@@ -4,14 +4,16 @@ use automata::{
     Map, TransitionSystem,
 };
 use automata_learning::passive::{
-    sprout::{
-        iteration_consistency_conflicts, omega_sprout_conflicts, prefix_consistency_conflicts,
-        SeparatesIdempotents,
-    },
+    sprout::{iteration_consistency_conflicts, prefix_consistency_conflicts, sprout},
     OmegaSample,
 };
 use clap::{command, Arg, ArgAction, Command};
+use io::{hoa_deterministic, to_file_or_stdout};
 use tracing::{debug, error, Level};
+
+use crate::io::from_file_or_stdin;
+
+mod io;
 
 fn conflicts_arg() -> Arg {
     Arg::new("conflicts")
@@ -57,6 +59,11 @@ fn main() {
                         .about("Infer a family of right congruences (FORC) from the sample"),
                 ),
         )
+        .subcommand(Command::new("tosample").arg(Arg::new("input").short('i').long("input")))
+        .subcommand(
+            Command::new("nop")
+                .arg(Arg::new("input").short('i').long("input"))
+        )
         .subcommand_required(true)
         .get_matches();
 
@@ -75,6 +82,29 @@ fn main() {
     tracing::subscriber::set_global_default(subscriber).unwrap();
 
     match matches.subcommand() {
+        Some(("tosample", sample_matches)) => {
+            let auts = hoa_deterministic(sample_matches);
+            if auts.len() > 1 {
+                tracing::error!("This operation supports only single inputs");
+                std::process::exit(-1);
+            }
+            std::process::exit(0)
+        }
+        Some(("nop", nop_matches)) => {
+            let hoa = from_file_or_stdin(nop_matches.get_one("input"));
+            let parsed_auts = automata::hoa::hoa_to_ts(&hoa);
+            let mut auts = vec![];
+            for nondet_aut in &parsed_auts {
+                if let Some(aut) = nondet_aut.to_deterministic() {
+                    tracing::debug!("Parsed HOA automaton with {} states", aut.size());
+                    auts.push(aut);
+                } else {
+                    tracing::error!("Input is not deterministic!");
+                }
+            }
+            println!("Successfully parsed {} HOA automata", auts.len());
+        }
+
         Some(("passive", passive_matches)) => {
             let sample_lines: Vec<String> = match passive_matches.get_one::<String>("input") {
                 None => {
@@ -105,7 +135,7 @@ fn main() {
                                 .expect("Unable to render conflict relation to file");
                         }
 
-                        let cong = omega_sprout_conflicts(conflicts, (), true);
+                        let cong = sprout(conflicts, vec![], true);
 
                         if passive_matches.get_flag("nooutput") {
                             "".to_string()
@@ -143,12 +173,13 @@ fn main() {
                             .into_iter()
                             .map(|(c, conflicts)| {
                                 (
-                                    cong.get(&c).unwrap(),
-                                    omega_sprout_conflicts(
+                                    cong.get(c).unwrap(),
+                                    sprout(
                                         conflicts,
-                                        SeparatesIdempotents::new(
-                                            split_sample.get(&c).expect("This must exist"),
-                                        ),
+                                        vec![],
+                                        // SeparatesIdempotents::new(
+                                        //     split_sample.get(&c).expect("This must exist"),
+                                        // ),
                                         false,
                                     ),
                                 )
@@ -177,17 +208,8 @@ fn main() {
                     }
                 };
             }
-
-            match passive_matches.get_one::<String>("output") {
-                None => {
-                    debug!("No output file specified, using stdout");
-                    println!("{}", output_dot);
-                }
-                Some(file_name) => {
-                    debug!("Output file name specified: {:?}", file_name);
-                    std::fs::write(file_name, output_dot).unwrap();
-                }
-            }
+            to_file_or_stdout(passive_matches.get_one("output"), &output_dot)
+                .expect("Could not write output!");
         }
         _ => unreachable!(),
     };

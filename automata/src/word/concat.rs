@@ -1,54 +1,73 @@
-use crate::{length::HasLength, FiniteLength, Length, Word};
+use std::hash::Hash;
 
-/// Represents the concatenation of `W` and `V`.
-#[derive(Debug, Clone)]
-pub struct Concat<W, V>(W, V);
+use crate::{length::HasLength, prelude::Symbol, FiniteLength, Length};
 
-impl<W, V> Word for Concat<W, V>
-where
-    W: Word<Length = FiniteLength>,
-    V: Word<Symbol = W::Symbol>,
-{
-    type Symbol = W::Symbol;
+use super::{FiniteWord, LinearWord, OmegaWord};
 
-    fn nth(&self, position: usize) -> Option<Self::Symbol> {
-        if self.0.length().as_usize() > position {
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Concat<X, Y>(pub X, pub Y);
+
+impl<S: Symbol, X: FiniteWord<S>, Y: LinearWord<S>> LinearWord<S> for Concat<X, Y> {
+    fn nth(&self, position: usize) -> Option<S> {
+        if position < self.0.len() {
             self.0.nth(position)
         } else {
-            self.1.nth(position - self.0.length().as_usize())
+            self.1.nth(position - self.0.len())
         }
     }
 }
 
-impl<W, V> HasLength for Concat<W, V>
-where
-    W: HasLength<Length = FiniteLength>,
-    V: HasLength,
-{
-    type Length = V::Length;
+impl<S: Symbol, X: FiniteWord<S>, Y: FiniteWord<S>> FiniteWord<S> for Concat<X, Y> {
+    type Symbols<'this> = std::iter::Chain<X::Symbols<'this>, Y::Symbols<'this>>
+    where
+        Self: 'this;
 
-    fn length(&self) -> Self::Length {
-        self.1.length().add_front(self.0.length().as_usize())
+    fn symbols(&self) -> Self::Symbols<'_> {
+        self.0.symbols().chain(self.1.symbols())
+    }
+
+    fn to_vec(&self) -> Vec<S> {
+        let mut repr = self.0.to_vec();
+        repr.extend(self.1.to_vec());
+        repr
+    }
+
+    fn len(&self) -> usize {
+        self.0.len() + self.1.len()
     }
 }
 
-impl<W: Word<Length = FiniteLength>, V: Word<Symbol = W::Symbol>> Concat<W, V> {
-    /// Creates a new concatenation of `prefix` and `suffix`.
-    pub fn new(prefix: W, suffix: V) -> Self {
-        Self(prefix, suffix)
+impl<S: Symbol, X: FiniteWord<S>, Y: OmegaWord<S>> OmegaWord<S> for Concat<X, Y> {
+    type Spoke<'this> = Concat<&'this X, Y::Spoke<'this>>
+    where
+        Self: 'this;
+
+    type Cycle<'this> = Y::Cycle<'this>
+    where
+        Self: 'this;
+
+    fn spoke(&self) -> Self::Spoke<'_> {
+        Concat(&self.0, self.1.spoke())
+    }
+
+    fn cycle(&self) -> Self::Cycle<'_> {
+        self.1.cycle()
+    }
+
+    fn loop_index(&self) -> usize {
+        self.0.len() + self.1.loop_index()
     }
 }
 
 #[cfg(test)]
 mod tests {
-
-    use crate::Word;
+    use crate::word::{FiniteWord, LinearWord};
 
     #[test]
     fn concatenations() {
         let prefix = "abc";
         let suffix = "def";
         let combined = prefix.append(suffix);
-        assert_eq!(combined.finite_to_vec(), vec!['a', 'b', 'c', 'd', 'e', 'f']);
+        assert_eq!(combined.to_vec(), vec!['a', 'b', 'c', 'd', 'e', 'f']);
     }
 }

@@ -4,8 +4,7 @@ use itertools::Itertools;
 
 use crate::{
     AcceptanceAtom, AcceptanceCondition, AcceptanceInfo, AcceptanceName, AcceptanceSignature,
-    AliasName, Edge, HeaderItem, HoaAutomaton, HoaBool, Label, LabelExpression, Property, State,
-    StateConjunction,
+    AliasName, Edge, HeaderItem, HoaAutomaton, HoaBool, Label, Property, State, StateConjunction,
 };
 
 impl Display for HeaderItem {
@@ -129,19 +128,6 @@ impl Display for AcceptanceCondition {
 impl Display for AliasName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "@{}", self.0)
-    }
-}
-
-impl Display for LabelExpression {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LabelExpression::Boolean(val) => write!(f, "{}", val),
-            LabelExpression::Integer(val) => write!(f, "{}", val),
-            LabelExpression::Alias(val) => write!(f, "{}", val),
-            LabelExpression::Not(val) => write!(f, "!{}", val),
-            LabelExpression::And(lhs, rhs) => write!(f, "({} & {})", lhs, rhs),
-            LabelExpression::Or(lhs, rhs) => write!(f, "({} | {})", lhs, rhs),
-        }
     }
 }
 

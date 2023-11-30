@@ -1,91 +1,214 @@
-use crate::{length::HasLength, FiniteLength, Length};
+use std::marker::PhantomData;
 
-use super::Word;
+use crate::{length::HasLength, prelude::Symbol, FiniteLength, Length};
+
+use super::{omega::Periodic, ConsumingInfixIterator, FiniteWord, LinearWord, OmegaWord};
 
 /// A suffix of a [`Word`] which skips the first `offset` symbols.
-#[derive(Clone, PartialEq, Debug)]
-pub struct Offset<'a, W: Word> {
+#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+pub struct Offset<'a, S, W: LinearWord<S>> {
     sequence: &'a W,
     offset: usize,
+    _marker: std::marker::PhantomData<S>,
 }
 
-impl<'a, W: Word> Word for Offset<'a, W> {
-    type Symbol = W::Symbol;
-
-    fn nth(&self, position: usize) -> Option<Self::Symbol> {
-        self.sequence.nth(position + self.offset)
-    }
-}
-
-impl<'a, S: Word> HasLength for Offset<'a, S> {
-    type Length = S::Length;
-
-    fn length(&self) -> Self::Length {
-        self.sequence.length().subtract_front(self.offset)
-    }
-}
-
-impl<'a, S: Word> Offset<'a, S> {
+impl<'a, S, W: LinearWord<S>> Offset<'a, S, W> {
     /// Creates a new suffix, which skips the first `offset` symbols of the given sequence.
-    pub fn new(sequence: &'a S, offset: usize) -> Self {
-        Self { sequence, offset }
+    pub fn new(sequence: &'a W, offset: usize) -> Self {
+        Self {
+            sequence,
+            offset,
+            _marker: std::marker::PhantomData,
+        }
     }
 }
 
-/// A prefix of a [`Word`] which only contains the first `length` symbols.
-#[derive(Clone, PartialEq, Debug)]
-pub struct Prefix<'a, S: Word> {
-    sequence: &'a S,
-    length: usize,
-}
-
-impl<'a, S: Word> HasLength for Prefix<'a, S> {
-    type Length = FiniteLength;
-
-    fn length(&self) -> Self::Length {
-        FiniteLength::new(self.length)
+impl<'a, S: Symbol, W: LinearWord<S>> LinearWord<S> for Offset<'a, S, W> {
+    fn nth(&self, position: usize) -> Option<S> {
+        self.sequence.nth(self.offset + position)
     }
 }
 
-impl<'a, S: Word> Word for Prefix<'a, S> {
-    type Symbol = S::Symbol;
+impl<'a, S: Symbol, W: FiniteWord<S>> FiniteWord<S> for Offset<'a, S, W> {
+    type Symbols<'this> = std::iter::Skip<W::Symbols<'this>> where Self: 'this;
 
-    fn nth(&self, position: usize) -> Option<Self::Symbol> {
-        if position < self.length {
-            self.sequence.nth(position)
+    fn to_vec(&self) -> Vec<S> {
+        (self.offset..self.sequence.len())
+            .map(|position| self.sequence.nth(position).unwrap())
+            .collect()
+    }
+
+    fn len(&self) -> usize {
+        self.sequence.len().saturating_sub(self.offset)
+    }
+
+    fn symbols(&self) -> Self::Symbols<'_> {
+        self.sequence.symbols().skip(self.offset)
+    }
+}
+
+#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+pub struct Rotated<W>(pub W, pub usize);
+
+impl<S: Symbol, W: FiniteWord<S>> LinearWord<S> for Rotated<W> {
+    fn nth(&self, position: usize) -> Option<S> {
+        self.0.nth((position + self.1) % self.0.len())
+    }
+}
+
+pub struct RotatedIter<'a, S, W> {
+    rotated: &'a Rotated<W>,
+    start: usize,
+    position: usize,
+    _pd: PhantomData<S>,
+}
+
+impl<'a, S, W> RotatedIter<'a, S, W> {
+    pub fn new(rotated: &'a Rotated<W>, start: usize) -> Self {
+        Self {
+            rotated,
+            start,
+            position: 0,
+            _pd: PhantomData,
+        }
+    }
+}
+
+impl<'a, S: Symbol, W: FiniteWord<S>> Iterator for RotatedIter<'a, S, W> {
+    type Item = S;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.position < self.rotated.len() {
+            let out = self
+                .rotated
+                .nth((self.start + self.position) % self.rotated.len());
+            assert!(out.is_some());
+            self.position += 1;
+            out
         } else {
             None
         }
     }
 }
 
-impl<'a, S: Word> Prefix<'a, S> {
-    /// Creates a new prefix of the given length.
-    pub fn new(sequence: &'a S, length: usize) -> Self {
-        Self { sequence, length }
+impl<S: Symbol, W: FiniteWord<S>> FiniteWord<S> for Rotated<W> {
+    type Symbols<'this> = RotatedIter<'this, S, W> where Self: 'this;
+
+    fn symbols(&self) -> Self::Symbols<'_> {
+        RotatedIter::new(self, self.1)
+    }
+
+    fn to_vec(&self) -> Vec<S> {
+        self.symbols().collect()
+    }
+
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl<'a, S: Symbol, W: OmegaWord<S>> OmegaWord<S> for Offset<'a, S, W> {
+    type Spoke<'this> = Infix<'this, S, W>
+    where
+        Self: 'this;
+
+    type Cycle<'this> = Infix<'this, S, W>
+    where
+        Self: 'this;
+
+    fn spoke(&self) -> Self::Spoke<'_> {
+        if self.offset < self.sequence.loop_index() {
+            self.sequence
+                .infix(self.offset, (self.sequence.loop_index() - self.offset))
+        } else {
+            self.sequence.infix(self.sequence.loop_index(), 0)
+        }
+    }
+
+    fn cycle(&self) -> Self::Cycle<'_> {
+        if self.offset < self.sequence.loop_index() {
+            self.sequence
+                .infix(self.sequence.loop_index(), self.sequence.cycle_length())
+        } else {
+            self.sequence.infix(
+                (self.sequence.loop_index()
+                    + (self.offset.saturating_sub(self.sequence.loop_index())
+                        % self.sequence.cycle_length())),
+                self.sequence.cycle_length(),
+            )
+        }
+    }
+}
+
+/// A suffix of a [`Word`] which skips the first `offset` symbols.
+#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+pub struct Infix<'a, S, W: LinearWord<S>> {
+    sequence: &'a W,
+    offset: usize,
+    length: usize,
+    _marker: std::marker::PhantomData<S>,
+}
+
+impl<'a, S, W: LinearWord<S>> Infix<'a, S, W> {
+    /// Creates a new suffix, which skips the first `offset` symbols of the given sequence.
+    pub fn new(sequence: &'a W, offset: usize, length: usize) -> Self {
+        Self {
+            sequence,
+            offset,
+            length,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<'a, S: Symbol, W: LinearWord<S>> LinearWord<S> for Infix<'a, S, W> {
+    fn nth(&self, position: usize) -> Option<S> {
+        if position < self.length {
+            self.sequence.nth(self.offset + position)
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a, S: Symbol, W: LinearWord<S>> FiniteWord<S> for Infix<'a, S, W> {
+    type Symbols<'this> = ConsumingInfixIterator<'this, S, Self>
+    where
+        Self: 'this;
+
+    fn symbols(&self) -> Self::Symbols<'_> {
+        ConsumingInfixIterator::new(self, self.offset, self.offset + self.length)
+    }
+
+    fn to_vec(&self) -> Vec<S> {
+        (self.offset..(self.offset + self.length))
+            .map(|position| self.sequence.nth(position).unwrap())
+            .collect()
+    }
+
+    fn len(&self) -> usize {
+        self.length
     }
 }
 
 #[cfg(test)]
 mod tests {
 
+    use itertools::Itertools;
+
     use crate::{
         upw,
-        word::{OmegaWord, Word},
+        word::{FiniteWord, LinearWord, OmegaWord, Reduced},
         FiniteLength,
     };
 
     #[test]
     fn subwords() {
-        let word = OmegaWord::new(vec!['a', 'b', 'a', 'b'], FiniteLength::new(4));
+        let word = Reduced::periodic("abab");
         let pref = word.prefix(2);
-        assert_eq!(pref.raw_to_vec(), vec!['a', 'b']);
+        assert_eq!(pref.symbols().collect_vec(), vec!['a', 'b']);
 
         let word = upw!("ab", "ac");
-        assert_eq!(
-            word.offset(3).prefix(4).finite_to_vec(),
-            vec!['c', 'a', 'c', 'a']
-        );
+        assert_eq!(word.offset(3).prefix(4).to_vec(), vec!['c', 'a', 'c', 'a']);
         assert_eq!(
             word.offset(1)
                 .offset(1)
@@ -93,20 +216,15 @@ mod tests {
                 .offset(1)
                 .offset(4)
                 .prefix(2)
-                .finite_to_vec(),
+                .to_vec(),
             vec!['a', 'c']
         );
-        assert_eq!(
-            upw!("abba").offset(1).offset(20).normalized().raw_to_vec(),
-            vec!['b', 'b', 'a', 'a']
-        );
-    }
+        let w = word.offset(3);
+        assert!(w.spoke().is_empty());
+        assert_eq!(w.cycle().to_vec(), vec!['c', 'a']);
 
-    #[test]
-    fn subword_bug() {
-        assert_eq!(
-            upw!("a").normalized().offset(1).prefix(3).finite_to_vec(),
-            vec!['a', 'a', 'a']
-        );
+        let offset_normalized = upw!("abba").offset(1).offset(20).normalized();
+        assert!(offset_normalized.spoke().is_empty());
+        assert_eq!(offset_normalized.cycle().to_vec(), vec!['b', 'b', 'a', 'a']);
     }
 }

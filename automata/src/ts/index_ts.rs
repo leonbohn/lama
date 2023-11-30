@@ -2,12 +2,14 @@ use itertools::Itertools;
 
 use crate::{
     alphabet::{Alphabet, HasAlphabet},
-    Color, Map, Set,
+    prelude::WithInitial,
+    ts::Deterministic,
+    Color, Map, Set, Show,
 };
 
 use super::{
-    EdgeColor, FiniteState, FiniteStatesIterType, HasColor, HasColorMut, HasFiniteStates,
-    HasMutableStates, HasStates, IndexType, Sproutable, StateColor, TransitionSystem,
+    EdgeColor, HasColor, HasColorMut, HasMutableStates, HasStates, IndexType, Sproutable,
+    StateColor, TransitionSystem,
 };
 
 /// A state in a transition system. This stores the color of the state and the index of the
@@ -98,21 +100,35 @@ impl<A: Alphabet, Q: std::fmt::Display, C: Color, Idx: IndexType> std::fmt::Disp
 #[derive(Clone, PartialEq, Eq)]
 pub struct BTS<A: Alphabet, Q, C: Color, Idx: IndexType = usize> {
     alphabet: A,
-    states: Map<Idx, BTState<A, Q, C, Idx>>,
+    pub(crate) states: Map<Idx, BTState<A, Q, C, Idx>>,
 }
+
+pub type IntoBTS<Ts> = BTS<
+    <Ts as HasAlphabet>::Alphabet,
+    <Ts as TransitionSystem>::StateColor,
+    <Ts as TransitionSystem>::EdgeColor,
+>;
+
+pub type IntoInitialBTS<Ts> = WithInitial<
+    BTS<
+        <Ts as HasAlphabet>::Alphabet,
+        <Ts as TransitionSystem>::StateColor,
+        <Ts as TransitionSystem>::EdgeColor,
+    >,
+>;
 
 impl<A, C, Q, Idx> std::fmt::Debug for BTS<A, Q, C, Idx>
 where
     A: Alphabet,
-    C: Color + std::fmt::Debug,
-    Q: Color + std::fmt::Debug,
+    C: Color + Show,
+    Q: Color + Show,
     Idx: IndexType,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(
             f,
             "{}",
-            self.build_transition_table(|idx, c| format!("{} : {:?}", idx, c))
+            self.build_transition_table(|idx, c| format!("{} : {}", idx, c.show()))
         )
     }
 }
@@ -165,7 +181,7 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
     }
 
     /// Returns a reference to the underlying statemap.
-    pub fn states(&self) -> &Map<Idx, BTState<A, Q, C, Idx>> {
+    pub fn raw_state_map(&self) -> &Map<Idx, BTState<A, Q, C, Idx>> {
         &self.states
     }
 
@@ -245,7 +261,9 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
         let target = to.into();
         assert!(
             self.contains_state(source) && self.contains_state(target),
-            "Source or target vertex does not exist in the graph."
+            "Source {} or target {} vertex does not exist in the graph.",
+            source,
+            target
         );
         self.states
             .get_mut(&target)
@@ -290,43 +308,6 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
         } else {
             false
         }
-    }
-}
-
-impl<'a, A, Q, Idx, C> HasFiniteStates<'a> for BTS<A, Q, C, Idx>
-where
-    A: Alphabet,
-    Q: Color,
-    Idx: IndexType,
-    C: Color,
-{
-    type StateIndicesIter =
-        std::iter::Cloned<std::collections::hash_map::Keys<'a, Idx, BTState<A, Q, C, Idx>>>;
-}
-
-impl<A, Q, Idx, C> FiniteState for BTS<A, Q, C, Idx>
-where
-    A: Alphabet,
-    Q: Color,
-    Idx: IndexType,
-    C: Color,
-{
-    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
-        self.states.keys().cloned()
-    }
-
-    fn size(&self) -> usize {
-        self.states.len()
-    }
-
-    fn contains_state_index(&self, index: Self::StateIndex) -> bool {
-        self.states.contains_key(&index)
-    }
-
-    fn find_by_color(&self, color: &StateColor<Self>) -> Option<Self::StateIndex> {
-        self.states
-            .iter()
-            .find_map(|(id, s)| if s.color() == color { Some(*id) } else { None })
     }
 }
 
@@ -380,7 +361,10 @@ where
 mod tests {
     use crate::{
         alphabet,
-        ts::{index_ts::MealyTS, transition_system::IsTransition, Sproutable, TransitionSystem},
+        ts::{
+            index_ts::MealyTS, transition_system::IsTransition, Deterministic, Sproutable,
+            TransitionSystem,
+        },
     };
 
     #[test]

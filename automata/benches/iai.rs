@@ -1,8 +1,8 @@
-use automata::{alphabet::Fixed, prelude::*, ts::finite::ReachedState};
+use automata::{alphabet::Fixed, prelude::*};
 
 type Automata = Vec<MooreMachine<Simple, usize>>;
 type Words = Vec<Vec<char>>;
-type Loops = Vec<Normalized<char, InfiniteLength>>;
+type Loops = Vec<Reduced<char>>;
 lazy_static::lazy_static! {
 static ref DATA: (
     Automata,
@@ -16,9 +16,9 @@ const RANDOM: [usize; 3] = [3, 2, 7];
 fn pseudorandom_sprout(states: usize, n: usize) -> MooreMachine<Simple, usize> {
     let alphabet = alphabet!(simple 'a', 'b', 'c', 'd');
 
-    let mut ts = MooreMachine::new(alphabet);
+    let mut ts = MooreMachine::new(alphabet, 0);
 
-    for i in 0..states {
+    for i in 1..states {
         ts.add_state(i);
     }
 
@@ -44,7 +44,7 @@ fn random_automata(rand: &[usize]) -> Vec<MooreMachine<Simple, usize>> {
 fn data() -> (
     Vec<MooreMachine<Simple, usize>>,
     Vec<Vec<char>>,
-    Vec<Normalized<char, InfiniteLength>>,
+    Vec<Reduced<char>>,
 ) {
     let random_automata = random_automata(&RANDOM);
     let words = vec![
@@ -55,7 +55,7 @@ fn data() -> (
     let mut random_loops = Vec::new();
     for (i, n) in [2usize, 0, 4].into_iter().enumerate() {
         let word = words.get(i).unwrap();
-        random_loops.push(Normalized::new_omega(word, InfiniteLength(word.len(), n)))
+        random_loops.push(Reduced::ultimately_periodic(&word[..n], &word[n..]));
     }
     (random_automata, words, random_loops)
 }
@@ -63,7 +63,7 @@ fn data() -> (
 fn finite_run_words((automata, words): (&[MooreMachine<Simple, usize>], &[Vec<char>])) {
     for automaton in automata {
         for word in words {
-            if automaton.run(word, automaton.initial()).is_ok() {}
+            if automaton.finite_run(word).is_ok() {}
         }
     }
 }
@@ -75,7 +75,7 @@ fn iai_runs() {
 fn finite_run_words_new((automata, words): (&[MooreMachine<Simple, usize>], &[Vec<char>])) {
     for automaton in automata {
         for word in words {
-            if automaton.finite_run(automaton.initial(), word).is_ok() {}
+            if automaton.finite_run(word).is_ok() {}
         }
     }
 }
@@ -149,7 +149,7 @@ fn simple_dfa_ops<A: Alphabet<Symbol = char, Expression = char>>(mut dfa: DFA<A>
         "abbcabbcbabcbbcbbabcbac",
         "bbcbabcbacbabcbabcbabcbabacbcbcbababbc",
     ] {
-        let ReachedState(q) = dfa.induced(&x, dfa.initial()).unwrap();
+        let q = dfa.reached_state_index(x).unwrap();
         assert_eq!(q, 2);
     }
 }

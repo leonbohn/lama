@@ -1,28 +1,17 @@
 use std::collections::VecDeque;
 
-use automata::{
-    alphabet::Simple,
-    congruence::FORC,
-    ts::FiniteState,
-    word::{Normalized, NormalizedParseError, NormalizedPeriodic},
-    Alphabet, Class, Color, InfiniteLength, Map, Pointed, RightCongruence, Set, TransitionSystem,
-    Word,
-};
+use automata::{prelude::*, word::LinearWord, Map, Set};
 use itertools::Itertools;
 use tracing::{debug, trace};
 
 use crate::passive::{
     sprout::{
-        iteration_consistency_conflicts, omega_sprout_conflicts, prefix_consistency_conflicts,
-        SeparatesIdempotents,
+        iteration_consistency_conflicts, prefix_consistency_conflicts, sprout, SeparatesIdempotents,
     },
     ClassOmegaSample, Sample,
 };
 
-use super::SplitOmegaSample;
-
-/// An `OmegaSample` is just a sample that contains infinite words.
-pub type OmegaSample<A, C = bool> = Sample<A, InfiniteLength, C>;
+use super::{OmegaSample, SplitOmegaSample};
 
 /// Abstracts the types of errors that can occur when parsing an `OmegaSample` from a string.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -34,7 +23,7 @@ pub enum OmegaSampleParseError {
     MalformedAlphabetSymbol,
     Inconsistent(String),
     MalformedSample,
-    OmegaWordParseError(NormalizedParseError),
+    OmegaWordParseError(ReducedParseError),
 }
 
 impl std::fmt::Display for OmegaSampleParseError {
@@ -112,7 +101,7 @@ impl TryFrom<Vec<String>> for OmegaSample<Simple, bool> {
                     if trim.is_empty() || trim.starts_with('#') || trim == "negative:" {
                         break 'positive;
                     }
-                    let parsed = Normalized::try_from(word.as_str())
+                    let parsed = Reduced::try_from(word.as_str())
                         .map_err(OmegaSampleParseError::OmegaWordParseError)?;
                     if let Some(old_classification) = words.insert(parsed, true) {
                         debug!("Duplicate positive word found");
@@ -123,7 +112,7 @@ impl TryFrom<Vec<String>> for OmegaSample<Simple, bool> {
         }
         for word in lines {
             trace!("Parsing negative word \"{word}\"");
-            let parsed = Normalized::try_from(word.as_str())
+            let parsed = Reduced::try_from(word.as_str())
                 .map_err(OmegaSampleParseError::OmegaWordParseError)?;
             if let Some(old_classification) = words.insert(parsed, false) {
                 if old_classification {
@@ -141,7 +130,7 @@ impl<A: Alphabet> OmegaSample<A, bool> {
     /// Creates a new `OmegaSample` from an alphabet as well as two iterators, one
     /// over positive words and one over negative words.
     pub fn new_omega_from_pos_neg<
-        W: Into<Normalized<A::Symbol, InfiniteLength>>,
+        W: Into<Reduced<A::Symbol>>,
         I: IntoIterator<Item = W>,
         J: IntoIterator<Item = W>,
     >(
@@ -160,15 +149,15 @@ impl<A: Alphabet> OmegaSample<A, bool> {
     }
 
     /// Returns an iterator over the positive periodic words in the sample.
-    pub fn positive_periodic(&self) -> impl Iterator<Item = NormalizedPeriodic<A::Symbol>> + '_ {
+    pub fn positive_periodic(&self) -> impl Iterator<Item = Periodic<A::Symbol>> + '_ {
         self.positive_words()
-            .filter_map(|w| NormalizedPeriodic::try_from(w.clone()).ok())
+            .filter_map(|w| Periodic::try_from(w.clone()).ok())
     }
 
     /// Returns an iterator over the negative periodic words in the sample.
-    pub fn negative_periodic(&self) -> impl Iterator<Item = NormalizedPeriodic<A::Symbol>> + '_ {
+    pub fn negative_periodic(&self) -> impl Iterator<Item = Periodic<A::Symbol>> + '_ {
         self.negative_words()
-            .filter_map(|w| NormalizedPeriodic::try_from(w.clone()).ok())
+            .filter_map(|w| Periodic::try_from(w.clone()).ok())
     }
 
     /// Computes a `PeriodicOmegaSample` containing only the periodic words in the sample.
@@ -182,38 +171,7 @@ impl<A: Alphabet> OmegaSample<A, bool> {
 
     /// Computes the [`RightCongruence`] underlying the sample.
     pub fn infer_right_congruence(&self) -> RightCongruence<A> {
-        omega_sprout_conflicts(prefix_consistency_conflicts(self), (), true)
-    }
-
-    /// Computes the [`FORC`] underlying the sample.
-    pub fn infer_forc(&self) -> FORC<A> {
-        let cong = self.infer_right_congruence();
-        let split_sample = self.split(&cong);
-
-        let conflict_relations: Map<_, _> = split_sample
-            .classes()
-            .map(|c| {
-                (
-                    c.clone(),
-                    iteration_consistency_conflicts(&split_sample, c.clone()),
-                )
-            })
-            .collect();
-
-        let progress = conflict_relations
-            .into_iter()
-            .map(|(c, conflicts)| {
-                (
-                    cong.get(&c).unwrap(),
-                    omega_sprout_conflicts(
-                        conflicts,
-                        SeparatesIdempotents::new(split_sample.get(&c).expect("This must exist")),
-                        false,
-                    ),
-                )
-            })
-            .collect_vec();
-        FORC::from_iter(cong, progress)
+        sprout(prefix_consistency_conflicts(self), vec![], true)
     }
 
     /// Returns the positive size, i.e. the number of positive words.
@@ -231,18 +189,18 @@ impl<A: Alphabet> OmegaSample<A, bool> {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct PeriodicOmegaSample<A: Alphabet> {
     alphabet: A,
-    positive: Set<NormalizedPeriodic<A::Symbol>>,
-    negative: Set<NormalizedPeriodic<A::Symbol>>,
+    positive: Set<Periodic<A::Symbol>>,
+    negative: Set<Periodic<A::Symbol>>,
 }
 
 impl<A: Alphabet> PeriodicOmegaSample<A> {
     /// Gives an iterator over all positive periodic words in the sample.
-    pub fn positive(&self) -> impl Iterator<Item = &NormalizedPeriodic<A::Symbol>> + '_ {
+    pub fn positive(&self) -> impl Iterator<Item = &Periodic<A::Symbol>> + '_ {
         self.positive.iter()
     }
 
     /// Gives an iterator over all negative periodic words in the sample.
-    pub fn negative(&self) -> impl Iterator<Item = &NormalizedPeriodic<A::Symbol>> + '_ {
+    pub fn negative(&self) -> impl Iterator<Item = &Periodic<A::Symbol>> + '_ {
         self.negative.iter()
     }
 
@@ -267,7 +225,7 @@ impl<A: Alphabet> PeriodicOmegaSample<A> {
     }
 
     /// Classify the given word, i.e. return `true` if it is a positive word, `false` if it is a negative word and `None` if it is neither.
-    pub fn classify<W: Into<NormalizedPeriodic<A::Symbol>>>(&self, word: W) -> Option<bool> {
+    pub fn classify<W: Into<Periodic<A::Symbol>>>(&self, word: W) -> Option<bool> {
         let word = word.into();
         if self.positive.contains(&word) {
             Some(true)
@@ -279,7 +237,7 @@ impl<A: Alphabet> PeriodicOmegaSample<A> {
     }
 
     /// Check whether the given word is contained in the sample.
-    pub fn contains<W: Into<NormalizedPeriodic<A::Symbol>>>(&self, word: W) -> bool {
+    pub fn contains<W: Into<Periodic<A::Symbol>>>(&self, word: W) -> bool {
         self.classify(word).is_some()
     }
 }
@@ -287,10 +245,7 @@ impl<A: Alphabet> PeriodicOmegaSample<A> {
 impl<A: Alphabet, C: Color> OmegaSample<A, C> {
     /// Create a new sample of infinite words. The alphabet is given as something which implements [`RawSymbols`]. The words
     /// in the sample are given as an iterator yielding (word, color) pairs.
-    pub fn new_omega<
-        W: Into<Normalized<A::Symbol, InfiniteLength>>,
-        J: IntoIterator<Item = (W, C)>,
-    >(
+    pub fn new_omega<W: Into<Reduced<A::Symbol>>, J: IntoIterator<Item = (W, C)>>(
         alphabet: A,
         words: J,
     ) -> Self {

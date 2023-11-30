@@ -1,13 +1,207 @@
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug, Display, Write};
 
 use itertools::Itertools;
 
 use crate::{
-    automata::WithInitial, congruence::FORC, ts::FiniteState, Alphabet, Class, Color, Pointed,
-    RightCongruence, TransitionSystem,
+    alphabet::{Directional, InvertibleChar},
+    automata::WithInitial,
+    congruence::{ColoredClass, FORC},
+    prelude::{Simple, Symbol, SymbolOf},
+    Alphabet, Class, Color, Map, Pointed, RightCongruence, Show, TransitionSystem,
 };
 
-use super::{transition_system::IsTransition, IndexType, BTS};
+use super::{
+    transition_system::{Indexes, IsTransition},
+    Deterministic, IndexType, BTS,
+};
+
+/// Enum that abstracts attributes in the DOT format.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum DotStateAttribute {
+    /// The label of a node
+    Label(String),
+    /// The shape of a node
+    Shape(String),
+    /// The color of a node
+    Color(String),
+}
+
+impl Display for DotStateAttribute {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                DotStateAttribute::Label(s) => format!("label=\"{}\"", s),
+                DotStateAttribute::Shape(s) => format!("shape=\"{}\"", s),
+                DotStateAttribute::Color(c) => format!("color=\"{}\"", c),
+            }
+        )
+    }
+}
+
+/// Stores all necessary information for introducing and referencing a node in the DOT format.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct DotStateData {
+    prefix: Option<String>,
+    name: String,
+    attributes: Vec<DotStateAttribute>,
+}
+
+impl DotStateData {
+    fn dot_statement(&self) -> String {
+        format!(
+            "{} [{}]",
+            self.dot_name(),
+            self.attributes.iter().map(|o| o.to_string()).join(", ")
+        )
+    }
+
+    /// Appends the given attribute.
+    pub fn push_attribute(&mut self, attr: DotStateAttribute) {
+        self.attributes.push(attr);
+    }
+
+    fn dot_name(&self) -> String {
+        match &self.prefix {
+            Some(prefix) => format!("\"{prefix}|{}\"", self.name),
+            None => format!("\"{}\"", self.name),
+        }
+    }
+
+    /// Returns a pointer to the raw name of the node.
+    pub fn raw_name(&self) -> &str {
+        &self.name
+    }
+}
+
+impl<Idx: Display> From<(&str, Idx)> for DotStateData {
+    fn from((prefix, value): (&str, Idx)) -> Self {
+        match prefix.len() {
+            0 => Self {
+                name: value.to_string(),
+                prefix: None,
+                attributes: vec![],
+            },
+            _prefix_len => Self {
+                name: value.to_string(),
+                prefix: Some(prefix.to_string()),
+                attributes: vec![],
+            },
+        }
+    }
+}
+
+/// Trait that encapsulates the functionality of coloring/annotating a state in a transition system.
+pub trait DotStateColorize {
+    /// Takes a mutable reference to an instance of [`DotStateData`] and modifies it to reflect
+    /// the information provided by `self`. If `self` is, for example, a boolean, this has the effect
+    /// of drawing the node with a double circle. If `self` is a usize, this has the effect of
+    /// adding a label to the node.
+    fn dot_state_colorize(&self, base: &mut DotStateData);
+}
+
+impl DotStateColorize for bool {
+    fn dot_state_colorize(&self, base: &mut DotStateData) {
+        base.attributes.push(DotStateAttribute::Shape(
+            if *self { "doublecircle" } else { "circle" }.to_string(),
+        ));
+    }
+}
+
+impl DotStateColorize for usize {
+    fn dot_state_colorize(&self, base: &mut DotStateData) {
+        base.attributes
+            .push(DotStateAttribute::Label(format!("{}:{}", base.name, self)))
+    }
+}
+
+impl DotStateColorize for () {
+    fn dot_state_colorize(&self, base: &mut DotStateData) {}
+}
+
+impl<S: Symbol + Display, C: Color + DotStateColorize> DotStateColorize
+    for crate::congruence::ColoredClass<S, C>
+{
+    fn dot_state_colorize(&self, base: &mut DotStateData) {
+        base.name = format!("[{}]", self.class().mr_to_string());
+        base.attributes
+            .push(DotStateAttribute::Shape("box".to_string()));
+        self.color().dot_state_colorize(base);
+    }
+}
+
+pub trait MightDecorateDotTransition {
+    fn dot_transition_attribute(&self, statement: String) -> String;
+}
+
+impl MightDecorateDotTransition for char {
+    fn dot_transition_attribute(&self, statement: String) -> String {
+        statement
+    }
+}
+
+impl MightDecorateDotTransition for InvertibleChar {
+    fn dot_transition_attribute(&self, statement: String) -> String {
+        let mut s = statement;
+        if self.is_inverted() {
+            s.push_str(",color=red");
+        } else {
+            s.push_str(",color=blue");
+        }
+        s
+    }
+}
+
+/// Implemented for all types that can be used to draw a transition between two nodes in the DOT format.
+pub trait DotTransition {
+    /// Returns the actual DOT statement of the transition.
+    fn dot_transition_statement(&self) -> String;
+}
+
+/// Stores all necessary information for producing a DOT statement, which draws a singular
+/// transition between two nodes.
+pub struct DotTransitionInfo<C: Color, A: Alphabet> {
+    source_name: String,
+    target_name: String,
+    color: C,
+    expression: A::Expression,
+}
+
+impl<A> DotTransition for DotTransitionInfo<usize, A>
+where
+    A: Alphabet,
+    A::Expression: MightDecorateDotTransition,
+{
+    fn dot_transition_statement(&self) -> String {
+        format!(
+            "{} -> {} [{}]",
+            self.source_name,
+            self.target_name,
+            self.expression.dot_transition_attribute(format!(
+                "label=\"{}:{}\"",
+                self.expression.show(),
+                self.color
+            ))
+        )
+    }
+}
+
+impl<A> DotTransition for DotTransitionInfo<(), A>
+where
+    A: Alphabet,
+    A::Expression: MightDecorateDotTransition,
+{
+    fn dot_transition_statement(&self) -> String {
+        format!(
+            "{} -> {} [{}]",
+            self.source_name,
+            self.target_name,
+            self.expression
+                .dot_transition_attribute(format!("label=\"{}\"", self.expression.show(),))
+        )
+    }
+}
 
 /// Trait that encapsulates the functionality of converting an object
 /// into a [graphviz](https://graphviz.org/) representation.
@@ -93,47 +287,20 @@ pub trait ToDot {
         }
     }
 
-    /// Similar to the [`Self::render()`] method, but returns a [`tempfile::TempPath`] instead
-    /// of a buffer of bytes.
-    #[cfg(feature = "graphviz")]
-    fn render_tempfile(&self) -> Result<tempfile::TempPath, std::io::Error> {
-        use tracing::trace;
-
-        trace!("Outputting dot and rendering to png");
-        let dot = self.dot_representation();
-        render_dot_to_tempfile(dot.as_str())
-    }
-
     /// First creates a rendered PNG using [`Self::render_tempfile()`], after which the rendered
     /// image is displayed using a locally installed image viewer (`eog` on linux, `qlmanage`
     /// i.e. quicklook on macos and nothing yet on windows).
     #[cfg(feature = "graphviz")]
     fn display_rendered(&self) -> Result<(), std::io::Error> {
-        let rendered_path = self.render_tempfile()?;
-        display_png(rendered_path)
+        display_png(self.render()?)
     }
 }
 
-impl<Ts: ToDot + TransitionSystem> ToDot for WithInitial<Ts> {
-    fn dot_representation(&self) -> String {
-        Ts::dot_representation(self.ts())
-    }
-
-    fn header(&self) -> String {
-        Ts::header(self.ts())
-    }
-
-    fn body(&self, prefix: &str) -> String {
-        Ts::body(self.ts(), prefix)
-    }
-}
-
-impl<A: Alphabet, Q, C, Idx> ToDot for BTS<A, Q, C, Idx>
+impl<Ts> ToDot for Ts
 where
-    A::Symbol: Display,
-    Q: Debug + Color,
-    C: Debug + Color,
-    Idx: IndexType + Debug,
+    Ts: TransitionSystem,
+    Ts::StateColor: DotStateColorize,
+    DotTransitionInfo<Ts::EdgeColor, Ts::Alphabet>: DotTransition,
 {
     fn dot_representation(&self) -> String {
         format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""))
@@ -142,79 +309,46 @@ where
     fn header(&self) -> String {
         [
             "fontname=\"Helvetica,Arial,sans-serif\"\nrankdir=LR".to_string(),
-            "node [shape=none]".into(),
+            "node [shape=circle]".into(),
         ]
         .join("\n")
     }
 
     fn body(&self, prefix: &str) -> String {
-        let mut lines = vec![];
-        let to_consider = self.state_indices();
+        let mut state_map = self
+            .state_indices()
+            .map(|q| {
+                let mut info = (prefix, q).into();
+                self.state_color(q).unwrap().dot_state_colorize(&mut info);
+                (q, info)
+            })
+            .collect::<Map<_, DotStateData>>();
 
-        for state in to_consider {
+        let mut lines = state_map.values().map(|q| q.dot_statement()).collect_vec();
+
+        for state in self.state_indices() {
+            let q = state_map.get(&state).unwrap();
             if let Some(it) = self.edges_from(state) {
                 for e in it {
-                    lines.push(format!(
-                        "\"{prefix}{state},{:?}\" -> \"{prefix}{},{:?}\" [label = \"{:?}\"]",
-                        self.state_color(state)
-                            .expect("Actually every state should be colored!"),
-                        e.target(),
-                        self.state_color(e.target())
-                            .expect("Actually every state should be colored!"),
-                        e.expression(),
-                        prefix = prefix
-                    ));
+                    let p = state_map.get(&e.target()).unwrap();
+                    let info = DotTransitionInfo {
+                        source_name: q.dot_name().to_string(),
+                        target_name: p.dot_name().to_string(),
+                        color: e.color(),
+                        expression: e.expression().clone(),
+                    };
+                    lines.push(info.dot_transition_statement());
                 }
             }
         }
-        lines.join("\n")
-    }
-}
 
-impl<A: Alphabet, Q, C> ToDot for RightCongruence<A, Q, C>
-where
-    A::Symbol: Display,
-    Q: Debug + Color,
-    C: Debug + Color,
-{
-    fn dot_representation(&self) -> String {
-        format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""))
-    }
-
-    fn header(&self) -> String {
-        [
-            "fontname=\"Helvetica,Arial,sans-serif\"\nrankdir=LR".to_string(),
-            "node [shape=none]".into(),
-        ]
-        .join("\n")
-    }
-
-    fn body(&self, prefix: &str) -> String {
-        let mut lines = vec![format!("\"{prefix},init\" [label=\"\", shape=none]")];
-
-        lines.push(format!(
-            "\"{prefix},init\" -> \"{prefix},{}\" [style=\"solid\"]",
-            self.state_color(self.initial())
-                .expect("The initial state must be colored!"),
-        ));
-
-        let to_consider = self.state_indices();
-
-        for state in to_consider {
-            if let Some(it) = self.edges_from(state) {
-                for e in it {
-                    lines.push(format!(
-                        "\"{prefix},{}\" -> \"{prefix},{}\" [label = \"{:?}\"]",
-                        self.state_color(state)
-                            .expect("Actually every state should be colored!"),
-                        self.state_color(e.target())
-                            .expect("Actually every state should be colored!"),
-                        e.expression(),
-                        prefix = prefix
-                    ));
-                }
-            }
+        // deal with the initial state if it exists
+        if let Some(initial) = self.maybe_initial_state() {
+            let q = state_map.get(&initial).unwrap();
+            lines.push("init [shape=\"none\", label=\" \"]".to_string());
+            lines.push(format!("init -> {}", q.dot_name()));
         }
+
         lines.join("\n")
     }
 }
@@ -222,6 +356,8 @@ where
 impl<A: Alphabet, Q: Color + Debug, C: Color + Debug> ToDot for Vec<RightCongruence<A, Q, C>>
 where
     A::Symbol: Display,
+    Q: DotStateColorize,
+    DotTransitionInfo<C, A>: DotTransition,
 {
     fn dot_representation(&self) -> String {
         format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""),)
@@ -255,6 +391,8 @@ where
 impl<A: Alphabet, Q: Color + Debug, C: Color + Debug> ToDot for FORC<A, Q, C>
 where
     A::Symbol: Display,
+    Q: DotStateColorize,
+    DotTransitionInfo<C, A>: DotTransition,
 {
     fn dot_representation(&self) -> String {
         format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""),)
@@ -300,7 +438,7 @@ where
         ));
 
         for state in self.leading.state_indices() {
-            for &sym in self.leading.alphabet().universe() {
+            for sym in self.leading.alphabet().universe() {
                 if let Some(edge) = self.leading.transition(state, sym) {
                     let _source_prc = self
                         .prc(
@@ -342,66 +480,107 @@ pub fn display_dot(dot: &str) -> Result<(), std::io::Error> {
 }
 
 #[cfg(feature = "graphviz")]
-fn render_dot_to_tempfile(dot: &str) -> Result<tempfile::TempPath, std::io::Error> {
-    use std::io::{Read, Write};
+fn render_dot_to_tempfile(dot: &str) -> Result<Vec<u8>, std::io::Error> {
+    use std::{
+        io::{Read, Write},
+        process::Stdio,
+    };
 
     let mut tempfile = tempfile::NamedTempFile::new()?;
     tempfile.write_all(dot.as_bytes())?;
     let tempfile_name = tempfile.path();
 
-    let image_tempfile = tempfile::Builder::new().prefix(".png").tempfile()?;
-    let image_tempfile_name = image_tempfile.into_temp_path();
+    let image_tempfile = tempfile::Builder::new().suffix(".png").tempfile()?;
 
     let mut child = std::process::Command::new("dot")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
         .arg("-Tpng")
-        .arg("-o")
-        .arg(&image_tempfile_name)
-        .arg(tempfile_name)
         .spawn()?;
 
-    if !child.wait()?.success() {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            child
-                .stdout
-                .map_or("Error in dot...".to_string(), |mut err| {
-                    let mut buf = String::new();
-                    err.read_to_string(&mut buf);
-                    buf
-                }),
-        ))
-    } else {
-        Ok(image_tempfile_name)
+    let mut stdin = child.stdin.take().expect("Could not get handle to stdin");
+    stdin.write_all(dot.as_bytes())?;
+
+    match child.wait_with_output() {
+        Ok(res) => {
+            if res.status.success() {
+                Ok(res.stdout)
+            } else {
+                let stderr_output =
+                    String::from_utf8(res.stderr).expect("could not parse stderr of dot");
+                tracing::error!("Could not render, dot reported\n{}", &stderr_output);
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    stderr_output,
+                ))
+            }
+        }
+        Err(e) => todo!(),
     }
 }
 
+#[cfg(target_os = "linux")]
+fn start_linux(contents: Vec<u8>) {
+    use std::{
+        io::{Read, Stdin, Write},
+        process::Stdio,
+    };
+
+    let mut child = std::process::Command::new("display")
+        .stdin(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().expect("Could not take stdin");
+    std::thread::spawn(move || {
+        stdin
+            .write_all(&contents)
+            .expect("Could not write file to stdin");
+    });
+}
+
+#[cfg(target_os = "macos")]
+fn start_macos(contents: Vec<u8>) {
+    use std::{
+        io::{Read, Stdin, Write},
+        process::Stdio,
+    };
+
+    let mut child = std::process::Command::new("open")
+        .arg("-a")
+        .arg("Preview.app")
+        .arg("-f")
+        .stdin(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().expect("Could not take stdin");
+    std::thread::spawn(move || {
+        stdin
+            .write_all(&contents)
+            .expect("Could not write file to stdin");
+    });
+}
+
 #[cfg(feature = "graphviz")]
-fn display_png(rendered_path: tempfile::TempPath) -> Result<(), std::io::Error> {
+fn display_png(contents: Vec<u8>) -> Result<(), std::io::Error> {
     #[cfg(target_os = "linux")]
-    std::process::Command::new("eog")
-        .arg(&rendered_path)
-        .spawn()?
-        .wait()?;
+    start_linux(contents);
     #[cfg(target_os = "macos")]
-    std::process::Command::new("qlmanage")
-        .arg("-p")
-        .arg(&rendered_path)
-        .spawn()?
-        .wait()?;
+    start_macos(contents);
     #[cfg(target_os = "windows")]
     std::process::Command::new("cmd")
         .arg("/c")
         .arg(format!("start {}", rendered_path.display()))
-        .spawn()?
-        .wait()?;
+        .spawn()?;
     #[cfg(target_os = "windows")]
-    std::thread::sleep(std::time::Duration::from_secs(1));
+    std::thread::sleep(std::time::Duration::from_secs(2));
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{alphabet, congruence::FORC, ts::Sproutable, Class, Pointed, RightCongruence};
+    use crate::{
+        alphabet, congruence::FORC, prelude::DPA, ts::Sproutable, Class, Pointed, RightCongruence,
+    };
 
     use super::ToDot;
 
@@ -461,5 +640,20 @@ mod tests {
         cong.display_rendered();
         let three_congs = vec![cong.clone(), cong.clone(), cong];
         three_congs.display_rendered();
+    }
+
+    #[test]
+    #[ignore]
+    fn dot_render_dpa() {
+        let alphabet = alphabet!(simple 'a', 'b');
+        let mut dpa = DPA::new(alphabet, ());
+        let q0 = dpa.initial();
+        let q1 = dpa.add_state(());
+        dpa.add_edge(q0, 'a', q0, 1);
+        dpa.add_edge(q0, 'b', q1, 2);
+        dpa.add_edge(q1, 'a', q1, 0);
+        dpa.add_edge(q1, 'b', q0, 2);
+        println!("{:?}", dpa);
+        dpa.display_rendered();
     }
 }

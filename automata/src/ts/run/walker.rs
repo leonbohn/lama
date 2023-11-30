@@ -4,7 +4,7 @@ use crate::{
     alphabet::{ExpressionOf, SymbolOf},
     length::RawPosition,
     ts::{EdgeColor, Path},
-    Length, Word,
+    Length,
 };
 
 use crate::ts::{IsTransition, TransitionSystem};
@@ -13,16 +13,16 @@ use super::{partial::Partial, successful::Successful};
 
 /// A walker that can traverse a transition system for some given input word.
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub struct Walker<'a, 'b, Ts: TransitionSystem, R> {
-    ts: &'a Ts,
-    word: &'b R,
+pub struct Walker<Ts: TransitionSystem, R> {
+    ts: Ts,
+    word: R,
     position: usize,
     seen: BTreeSet<(RawPosition, Ts::StateIndex)>,
     seq: Path<Ts::Alphabet, Ts::StateIndex>,
 }
 
 /// Type alias for the result of a run.
-pub type RunResult<'a, 'b, Ts, R> = Result<Successful<'a, 'b, R, Ts>, Partial<'a, 'b, R, Ts>>;
+pub type RunResult<Ts, R> = Result<Successful<R, Ts>, Partial<R, Ts>>;
 
 /// Disambiguates between the different possible outcomes of a single step in the automaton.
 pub enum WalkerStep<Ts: TransitionSystem> {
@@ -42,9 +42,9 @@ impl<Ts: TransitionSystem> WalkerStep<Ts> {
     }
 }
 
-impl<'a, 'b, Ts: TransitionSystem, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b, Ts, R> {
+impl<Ts: TransitionSystem, R: Word<Symbol = SymbolOf<Ts>>> Walker<Ts, R> {
     /// Creates a new walker for the given word, transition system and starting point/origin.
-    pub fn new(word: &'b R, ts: &'a Ts, origin: Ts::StateIndex) -> Self {
+    pub fn new(word: R, ts: Ts, origin: Ts::StateIndex) -> Self {
         Self {
             ts,
             word,
@@ -56,7 +56,7 @@ impl<'a, 'b, Ts: TransitionSystem, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b
 
     /// Takes transitions until the end of the word is reached or a cycle is entered and returns the
     /// [`RunResult`] of the run.
-    pub fn result(mut self) -> RunResult<'a, 'b, Ts, R> {
+    pub fn result(mut self) -> RunResult<Ts, R> {
         loop {
             match self.take_transition() {
                 WalkerStep::Transition(_) => continue,
@@ -65,15 +65,12 @@ impl<'a, 'b, Ts: TransitionSystem, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b
                 }
                 WalkerStep::End => return Ok(Successful::new(self.word, self.ts, None, self.seq)),
                 WalkerStep::Cycle => {
-                    return Ok(Successful::new(
-                        self.word,
-                        self.ts,
-                        self.word
-                            .length()
-                            .calculate_raw_position(self.position)
-                            .map(|pos| pos.position()),
-                        self.seq,
-                    ))
+                    let loop_index = self
+                        .word
+                        .length()
+                        .calculate_raw_position(self.position)
+                        .map(|pos| pos.position());
+                    return Ok(Successful::new(self.word, self.ts, loop_index, self.seq));
                 }
             }
         }
@@ -103,7 +100,7 @@ impl<'a, 'b, Ts: TransitionSystem, R: Word<Symbol = SymbolOf<Ts>>> Walker<'a, 'b
                 return WalkerStep::Cycle;
             }
 
-            if let Some(transition) = self.seq.extend_in(self.ts, symbol) {
+            if let Some(transition) = self.seq.extend_in(&self.ts, symbol) {
                 self.position += 1;
                 WalkerStep::Transition(transition.into_tuple())
             } else {

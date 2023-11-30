@@ -1,5 +1,5 @@
 use crate::{
-    ts::{connected_components::Scc, FiniteState, IndexType},
+    ts::{connected_components::Scc, IndexType},
     Alphabet, Map, TransitionSystem,
 };
 
@@ -52,17 +52,15 @@ impl<Idx: IndexType> Tarjan<Idx> {
         );
         self.index += 1;
 
-        for &sym in ts.alphabet().universe() {
-            if let Some(w) = ts.successor_index(v, sym) {
-                if self.data.get(&w).and_then(|data| data.rootindex).is_none() {
-                    self.visit(ts, w, f);
-                }
-                let w_index = self.data.get(&w).unwrap().rootindex;
-                let v_mut = self.data.get_mut(&v).unwrap();
-                if w_index < v_mut.rootindex {
-                    v_mut.rootindex = w_index;
-                    node_v_is_root = false;
-                }
+        for (_, a, _, q) in ts.transitions_from(v) {
+            if self.data.get(&q).and_then(|data| data.rootindex).is_none() {
+                self.visit(ts, q, f);
+            }
+            let w_index = self.data.get(&q).unwrap().rootindex;
+            let v_mut = self.data.get_mut(&v).unwrap();
+            if w_index < v_mut.rootindex {
+                v_mut.rootindex = w_index;
+                node_v_is_root = false;
             }
         }
 
@@ -99,7 +97,7 @@ impl<Idx: IndexType> Tarjan<Idx> {
 
     pub(crate) fn execute<Ts, F>(&mut self, ts: &Ts, mut f: F)
     where
-        Ts: TransitionSystem<StateIndex = Idx> + FiniteState,
+        Ts: TransitionSystem<StateIndex = Idx>,
         F: FnMut(&[Idx]),
     {
         self.data.clear();
@@ -115,7 +113,7 @@ impl<Idx: IndexType> Tarjan<Idx> {
 
 pub(crate) fn tarjan_scc<Ts>(ts: &Ts) -> SccDecomposition<'_, Ts>
 where
-    Ts: TransitionSystem + FiniteState,
+    Ts: TransitionSystem,
 {
     let mut sccs = Vec::new();
     {

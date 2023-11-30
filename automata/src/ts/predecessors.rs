@@ -161,7 +161,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> PredecessorIterable for BT
     where
         Self: 'this;
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
-        Some(self.states().get(&state)?.predecessors().iter())
+        Some(self.raw_state_map().get(&state)?.predecessors().iter())
     }
 }
 

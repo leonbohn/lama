@@ -1,7 +1,14 @@
+use std::fmt::Debug;
+
 use impl_tools::autoimpl;
 use owo_colors::OwoColorize;
 
-use automata::{prelude::*, Set};
+use automata::{
+    automata::MooreLike,
+    prelude::*,
+    ts::dot::{DotStateAttribute, DotStateColorize},
+    Set,
+};
 
 /// A priority mapping is essentially a [`crate::MealyMachine`], i.e. it reads
 /// finite words and ouptuts a priority (which in this case is a `usize`).
@@ -15,6 +22,47 @@ pub type PriorityMapping<A = Simple> = RightCongruence<A, (), usize>;
 pub struct Annotation {
     pub(super) idempotent: bool,
     pub(super) good: Option<bool>,
+}
+
+impl Show for Annotation {
+    fn show(&self) -> String {
+        if !self.idempotent {
+            "#".into()
+        } else {
+            match self.good {
+                Some(true) => "+".into(),
+                Some(false) => "-".into(),
+                None => "o".into(),
+            }
+        }
+    }
+
+    fn show_collection<'a, I>(iter: I) -> String
+    where
+        Self: 'a,
+        I: IntoIterator<Item = &'a Self>,
+        I::IntoIter: DoubleEndedIterator,
+    {
+        todo!()
+    }
+}
+
+impl DotStateColorize for Annotation {
+    fn dot_state_colorize(&self, base: &mut automata::ts::dot::DotStateData) {
+        let i = if self.idempotent { "*" } else { "" };
+        base.push_attribute(DotStateAttribute::Label(format!(
+            "{}{}",
+            base.raw_name(),
+            i,
+        )));
+        if let Some(b) = self.good {
+            base.push_attribute(DotStateAttribute::Color(if b {
+                "green".to_string()
+            } else {
+                "red".to_string()
+            }));
+        }
+    }
 }
 
 impl std::fmt::Debug for Annotation {
@@ -35,6 +83,7 @@ impl Annotation {
 
 /// This a simple newtype wrapper around a congruence, which has no edge colors and uses
 /// [`Annotation`]s as state colors.
+#[derive(Clone)]
 pub struct AnnotatedCongruence<A: Alphabet = Simple>(RightCongruence<A, Annotation, ()>);
 
 #[autoimpl(for<T: trait + ?Sized> &T)]
@@ -42,10 +91,16 @@ pub trait ClassifiesIdempotents<A: Alphabet> {
     fn classify(&self, class: &Class<A::Symbol>) -> Option<bool>;
 }
 
+impl<A: Alphabet> Debug for AnnotatedCongruence<A> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.0)
+    }
+}
+
 impl<A> ToDot for AnnotatedCongruence<A>
 where
     A: Alphabet,
-    A::Symbol: std::fmt::Display,
+    RightCongruence<A, Annotation, ()>: ToDot,
 {
     fn dot_representation(&self) -> String {
         format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""))
@@ -64,16 +119,7 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
     /// Computes the canonic coloring on a given annotated congruence. This makes use
     /// of the dag of strongly connected components of the congruence. For more information
     /// on how the computation is done exactly, see [Section 5, Step 2](https://arxiv.org/pdf/2302.11043.pdf).
-    pub fn canonic_coloring(
-        &self,
-    ) -> impl FiniteState
-           + TransitionSystem<
-        StateIndex = usize,
-        StateColor = automata::congruence::ColoredClass<A::Symbol, Annotation>,
-        Alphabet = A,
-        EdgeColor = usize,
-    > + Clone
-           + '_ {
+    pub fn canonic_coloring(&self) -> MooreMachine<A, usize> {
         // we first need to decompose into sccs and mark them with the color of the
         // idempotent that it contains.
         let tjdag = self.0.tarjan_dag();
@@ -92,7 +138,6 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
                 break 'outer;
             }
             let t = dag.masked_terminal_nodes(&seen).next().unwrap();
-            println!("{:?}\n{:?}", seen, dag);
             assert!(seen.insert(t), "This must not have been seen before!");
             let i = dag
                 .immediate(t)
@@ -114,12 +159,15 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
             *dag.color_mut(t).expect("This node exists") = Ok(i + offset);
         }
 
-        (&self.0).map_edge_colors_full(move |p, e, c, q| {
-            let scc = tjdag.get(p).expect("Must be in an SCC");
-            let info = dag.color(scc).expect("Must have worked on that SCC");
+        (&self.0)
+            .erase_edge_colors()
+            .map_state_colors(move |q| {
+                let scc = tjdag.get(q).expect("Must be in an SCC");
+                let info = dag.color(scc).expect("Must have worked on that SCC");
 
-            info.expect("Every SCC must have a color")
-        })
+                info.expect("Every SCC must have a color")
+            })
+            .collect_with_initial()
     }
 
     /// Takes a reference to a right congruence and a function that classifies idempotents
@@ -141,7 +189,7 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
                         c.recolor(Annotation::new(false, None))
                     }
                 })
-                .collect(),
+                .collect_with_initial(),
         )
     }
 }

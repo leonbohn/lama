@@ -1,14 +1,10 @@
 use std::hash::Hash;
 
-use crate::{
-    prelude::{IsDfa, DFA},
-    ts::transition_system::IsTransition,
-    Alphabet, Map, Partition, Set,
-};
+use crate::{prelude::*, ts::transition_system::IsTransition, Alphabet, Map, Partition, Set};
 
-pub fn partition_refinement<D: IsDfa>(dfa: D) -> Partition<D::StateIndex> {
-    let accepting = dfa.accepting_states().into_iter().collect::<Set<_>>();
-    let rejecting = dfa.rejecting_states().into_iter().collect::<Set<_>>();
+pub fn partition_refinement<D: DFALike>(dfa: D) -> Partition<D::StateIndex> {
+    let accepting = dfa.accepting_states().collect::<Set<_>>();
+    let rejecting = dfa.rejecting_states().collect::<Set<_>>();
     let mut p: Vec<_> = [rejecting, accepting]
         .into_iter()
         .filter(|o| !o.is_empty())
@@ -20,7 +16,7 @@ pub fn partition_refinement<D: IsDfa>(dfa: D) -> Partition<D::StateIndex> {
             let x = dfa
                 .state_indices()
                 .filter(|q| {
-                    dfa.transition(*q, *sym)
+                    dfa.transition(*q, sym)
                         .map(|t| a.contains(&t.target()))
                         .unwrap_or(false)
                 })
@@ -59,6 +55,7 @@ mod tests {
     use crate::{alphabet::Fixed, prelude::*, tests::wiki_dfa, Partition};
 
     use super::partition_refinement;
+    use pretty_assertions::{assert_eq, assert_ne};
 
     #[test]
     fn partition_refinement_wiki() {

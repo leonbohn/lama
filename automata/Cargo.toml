@@ -7,18 +7,23 @@ edition = "2021"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 fxhash = "0.2"
-itertools = "0.11"
+itertools = "0.12"
 tabled = { version = "0.14.0", features = ["color"] }
 owo-colors = "3.5"
 hoars = { version = "0.1", path = "../hoars", optional = true }
 tracing-test = "0.2"
 tempfile = { version = "3.8.0", optional = true }
 impl-tools = "0.10"
+paste = "1.0.14"
+biodivine-lib-bdd = {version = "0.5", optional = true}
+bit-set = "0.5.3"
+# fork = { version = "0.1", optional = true }
+# show-image = { version = "0.13", optional = true }
 
 [features]
 default = ["det", "hoa", "graphviz"]
 det = []
-hoa = ["dep:hoars"]
+hoa = ["dep:hoars", "biodivine-lib-bdd"]
 graphviz = ["dep:tempfile"]
 
 [dev-dependencies]
@@ -26,6 +31,7 @@ lazy_static = "1.4"
 criterion = { version = "0.5", features = ["html_reports"] }
 pprof = { version = "0.12", features = ["flamegraph", "criterion"] }
 iai = { git = "https://github.com/sigaloid/iai", rev = "6c83e942" }
+pretty_assertions = "1.4"
 
 [[bench]]
 name = "ts"

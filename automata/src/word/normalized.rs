@@ -1,358 +1,63 @@
-use crate::{
-    alphabet::Symbol, word::RawSymbols, FiniteLength, HasLength, InfiniteLength, Length, Word,
-};
+use std::fmt::Debug;
+
 use itertools::Itertools;
 
-/// Macro for creating a normalized ultimately periodic word.
-#[macro_export]
-macro_rules! nupw {
-    ($recur:expr) => {
-        $crate::word::Normalized::new_omega($recur, automata::InfiniteLength($recur.len(), 0))
-    };
-    ($base:expr, $recur:expr) => {
-        $crate::word::Normalized::new_omega(
-            $base.chars().chain($recur.chars()).collect_vec(),
-            automata::InfiniteLength($base.len() + $recur.len(), $base.len()),
+use crate::prelude::*;
+
+use super::LinearWord;
+
+#[derive(Clone)]
+pub struct Normalized<S: Symbol> {
+    upw: Reduced<S>,
+    pre_loop_count: usize,
+    loop_size: usize,
+}
+
+impl<S: Symbol> Normalized<S> {
+    pub fn new(upw: Reduced<S>, pre_loop_count: usize, loop_size: usize) -> Self {
+        assert!(loop_size > 0, "loop size must be positive");
+        Self {
+            upw,
+            pre_loop_count,
+            loop_size,
+        }
+    }
+
+    pub fn base_iter(&self) -> impl Iterator<Item = S> + '_ {
+        self.upw.spoke().symbols().chain(
+            self.upw
+                .cycle()
+                .symbols()
+                .cycle()
+                .take(self.upw.cycle_length() * self.pre_loop_count),
         )
-    };
+    }
+
+    pub fn rec_iter(&self) -> impl Iterator<Item = S> + '_ {
+        self.upw
+            .cycle()
+            .symbols()
+            .cycle()
+            .take(self.upw.cycle_length() * self.loop_size)
+    }
 }
 
-/// Macro for creating a normalized periodic word.
-#[macro_export]
-macro_rules! npw {
-    ($recur:expr) => {
-        $crate::word::NormalizedPeriodic::new($recur.chars().collect_vec())
-    };
-}
-
-/// Represents a normalized word. For ultimately periodic words, this means we
-/// try to roll the prefix part into the looping part and deduplicate the looping
-/// part. For periodic words, we just deduplicate the looping part.
-#[derive(Clone, Eq, PartialEq, Hash)]
-pub struct Normalized<S: Symbol, L: Length> {
-    pub(crate) word: Vec<S>,
-    pub(crate) length: L,
-}
-
-/// Represents the types of errors that can occur when parsing a normalized word from a string.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum NormalizedParseError {
-    /// The word is empty.
-    Empty,
-    /// The looping part of the word is empty.
-    EmptyLoop,
-    /// The word contains too many commas, when it should contain at most one.
-    TooManyCommas,
-}
-
-impl std::fmt::Display for NormalizedParseError {
+impl<S: Symbol> Debug for Normalized<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            NormalizedParseError::Empty => write!(f, "Word is empty"),
-            NormalizedParseError::EmptyLoop => write!(f, "Looping part of word is empty"),
-            NormalizedParseError::TooManyCommas => write!(f, "Too many commas in the word"),
-        }
-    }
-}
-
-impl TryFrom<&str> for Normalized<char, InfiniteLength> {
-    type Error = NormalizedParseError;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value.split_once(',') {
-            None => {
-                if value.is_empty() {
-                    Err(NormalizedParseError::Empty)
-                } else {
-                    Ok(Self::new_periodic(value.trim()))
-                }
-            }
-            Some((initial, repeating)) => {
-                if repeating.is_empty() {
-                    Err(NormalizedParseError::EmptyLoop)
-                } else {
-                    if repeating.contains(',') {
-                        return Err(NormalizedParseError::TooManyCommas);
-                    }
-                    let initial = initial.trim();
-                    let base_len = initial.len();
-                    let repeating = repeating.trim();
-                    let repeating_len = repeating.len();
-                    Ok(Self::new_omega(
-                        initial.chars().chain(repeating.chars()).collect_vec(),
-                        InfiniteLength(base_len + repeating_len, base_len),
-                    ))
-                }
-            }
-        }
-    }
-}
-
-impl<S: Symbol, L: Length> Normalized<S, L> {
-    /// Creates a new normalized word from the given word and length.
-    pub fn new(word: Vec<S>, length: L) -> Self {
-        Self { word, length }
-    }
-
-    /// Returns a reference to the underlying raw representation.
-    pub fn raw_word(&self) -> &[S] {
-        &self.word
-    }
-
-    /// Gives the first symbol of the word.
-    pub fn first(&self) -> Option<S> {
-        self.word.first()
-    }
-}
-
-impl<S: Symbol> Normalized<S, InfiniteLength> {
-    /// Returns `true` iff the word is periodic.
-    pub fn is_periodic(&self) -> bool {
-        self.length.loop_index() == 0
-    }
-}
-
-impl<S: Symbol, L: Length> Word for Normalized<S, L>
-where
-    Normalized<S, L>: std::fmt::Debug,
-{
-    type Symbol = S;
-
-    fn nth(&self, position: usize) -> Option<Self::Symbol> {
-        self.length()
-            .calculate_raw_position(position)
-            .and_then(|pos| self.word.get(pos.position()).cloned())
-    }
-}
-impl<S: Symbol, L: Length> HasLength for Normalized<S, L> {
-    type Length = L;
-
-    fn length(&self) -> Self::Length {
-        self.length
-    }
-}
-
-impl From<(&str, usize)> for Normalized<char, InfiniteLength> {
-    fn from(value: (&str, usize)) -> Self {
-        let (word, loop_index) = value;
-        let word = word.chars().collect_vec();
-        let length = InfiniteLength(word.len(), loop_index);
-        Self { word, length }
-    }
-}
-
-impl<S: Symbol> Normalized<S, FiniteLength> {
-    /// Creates a new normalized *finite* word (if that even makes sense...).
-    pub fn new_finite<I: IntoIterator<Item = S>>(word: I) -> Self {
-        let word = word.into_iter().collect_vec();
-        let length = FiniteLength(word.len());
-        Self { word, length }
-    }
-}
-
-impl<S: Symbol> From<NormalizedPeriodic<S>> for Normalized<S, InfiniteLength> {
-    fn from(value: NormalizedPeriodic<S>) -> Self {
-        let len = value.word.len();
-        Self::new_omega(value.word, InfiniteLength(len, 0))
-    }
-}
-
-impl<S: Symbol> From<&NormalizedPeriodic<S>> for Normalized<S, InfiniteLength> {
-    fn from(value: &NormalizedPeriodic<S>) -> Self {
-        let len = value.word.len();
-        Self::new_omega(value.word.clone(), InfiniteLength(len, 0))
-    }
-}
-
-impl<S: Symbol> From<&Normalized<S, InfiniteLength>> for Normalized<S, InfiniteLength> {
-    fn from(value: &Normalized<S, InfiniteLength>) -> Self {
-        Self::new(value.word.clone(), value.length)
-    }
-}
-
-/// Represents a normalized periodic word.
-#[derive(Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct NormalizedPeriodic<S: Symbol> {
-    pub(crate) word: Vec<S>,
-}
-
-impl<S: Symbol> NormalizedPeriodic<S> {
-    /// Creates a new normalized periodic word.
-    pub fn new(word: Vec<S>) -> Self {
-        Self {
-            word: deduplicate(word),
-        }
-    }
-}
-
-impl<S: Symbol> TryFrom<Normalized<S, InfiniteLength>> for NormalizedPeriodic<S> {
-    type Error = ();
-
-    fn try_from(value: Normalized<S, InfiniteLength>) -> Result<Self, Self::Error> {
-        if value.is_periodic() {
-            debug_assert!(
-                deduplicate(value.word.clone()) == value.word,
-                "word is no deduplicated"
-            );
-            Ok(Self::new(value.word))
-        } else {
-            Err(())
-        }
-    }
-}
-
-impl<S: Symbol> Word for NormalizedPeriodic<S> {
-    type Symbol = S;
-
-    fn nth(&self, position: usize) -> Option<Self::Symbol> {
-        self.word.get(position % self.word.len()).cloned()
-    }
-}
-
-impl<S: Symbol> HasLength for NormalizedPeriodic<S> {
-    type Length = InfiniteLength;
-
-    fn length(&self) -> Self::Length {
-        InfiniteLength(self.word.len(), 0)
-    }
-}
-
-fn deduplicate<S: Symbol>(input: Vec<S>) -> Vec<S> {
-    assert!(!input.is_empty());
-    for i in 1..=(input.len() / 2) {
-        // for a word w of length n, if th first n-i symbols of w are equal to the
-        // last n-i symbols of w, then w is periodic with period i
-        if input.len() % i == 0 && input[..input.len() - i] == input[i..] {
-            return input.into_iter().take(i).collect_vec();
-        }
-    }
-    input.raw_to_vec()
-}
-
-impl<S: Symbol> Normalized<S, InfiniteLength> {
-    /// Creates a new normalized periodic word.
-    pub fn new_periodic<R: RawSymbols<S>>(raw: R) -> Self {
-        let word = deduplicate(raw.to_vec());
-        debug_assert!(!word.is_empty());
-        Self {
-            length: InfiniteLength(word.len(), 0),
-            word,
-        }
-    }
-
-    /// Creates a new normalized omega word.
-    pub fn new_omega<R: RawSymbols<S>>(raw: R, length: InfiniteLength) -> Self {
-        // first we "roll in the periodic part" by moving the loop index to
-        // the front and popping symbols from the back.
-        let mut loop_index = length.loop_index();
-        let mut raw = raw.to_vec();
-
-        for i in (0..loop_index).rev() {
-            if raw.get(i) == raw.last() {
-                raw.pop();
-                loop_index = i;
-            } else {
-                break;
-            }
-        }
-
-        let mut repr = raw[..loop_index].to_vec();
-        repr.extend(deduplicate(raw[loop_index..].to_vec()));
-
-        Self {
-            length: InfiniteLength(raw.len(), loop_index),
-            word: repr,
-        }
-    }
-
-    /// Returns a reference to the initial segment of the word.
-    pub fn initial_segment(&self) -> &[S] {
-        &self.word[..self.length.loop_index()]
-    }
-
-    /// Returns a reference to the repeating segment of the word.
-    pub fn repeating_segment(&self) -> &[S] {
-        &self.word[self.length.loop_index()..]
-    }
-
-    /// Removes the first symbol of the word and returns it.
-    pub fn pop_front(&mut self) -> S {
-        debug_assert!(!self.word.is_empty());
-        if self.length.loop_index() > 0 {
-            let out = self.word.remove(0);
-            self.length.set_loop_index(self.length.loop_index() - 1);
-            out
-        } else {
-            let out = self.word[0];
-            self.word.rotate_left(1);
-            out
-        }
-    }
-}
-
-impl<S: Symbol> std::fmt::Debug for Normalized<S, FiniteLength> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "{}",
-            self.word.iter().map(|s| format!("{:?}", s)).join("")
-        ))
-    }
-}
-
-impl<S: Symbol> std::fmt::Debug for Normalized<S, InfiniteLength> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "{}({})⁰",
-            self.initial_segment()
-                .iter()
-                .map(|s| format!("{:?}", s))
-                .join(""),
-            self.repeating_segment()
-                .iter()
-                .map(|s| format!("{:?}", s))
-                .join("")
-        ))
-    }
-}
-
-impl<S: Symbol> std::fmt::Debug for NormalizedPeriodic<S> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "{}⁰",
-            self.word.iter().map(|s| format!("{:?}", s)).join("")
-        ))
+        let base = self.base_iter().map(|s| s.show()).join("");
+        let rec = self.rec_iter().map(|s| s.show()).join("");
+        write!(f, "{base}·{rec}~{base}")
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::InfiniteLength;
-
-    use super::deduplicate;
+    use crate::{upw, word::normalized::Normalized};
 
     #[test]
-    fn parse_normalized() {
-        let repr = "abab";
-        let nupw = super::Normalized::try_from(repr).unwrap();
-        assert_eq!(deduplicate(vec!['a', 'b', 'a', 'b']), vec!['a', 'b']);
-        assert_eq!(nupw.word, vec!['a', 'b']);
-    }
-
-    #[test]
-    fn deduplication() {
-        let input = vec![1, 2, 3, 1, 2, 3];
-        assert_eq!(deduplicate(input), vec![1, 2, 3]);
-
-        let input = vec![1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2];
-        assert_eq!(deduplicate(input), vec![1, 2]);
-
-        let input = vec![1, 2, 3, 1, 2, 3, 1, 2, 3];
-        assert_eq!(deduplicate(input), vec![1, 2, 3]);
-    }
-
-    #[test]
-    fn normalizing_upws() {
-        let normalized = super::Normalized::new_omega("aaaaaaa", InfiniteLength(8, 3));
-        assert_eq!(normalized.word, vec!['a']);
+    fn debug_normalized() {
+        let upw = upw!("ab", "c");
+        let nupw = Normalized::new(upw, 1, 2);
+        assert_eq!(format!("{:?}", nupw), "abc·cc~abc");
     }
 }

@@ -1,0 +1,24 @@
+omega
+alphabet: a,b
+positive:
+abab
+aba
+ababb
+abaa
+abaab
+abbbaab
+babbbba
+negative:
+bab
+abba
+bbab
+aaabb
+a
+abbbba
+abb
+aabb
+babb
+b
+abbba
+abbb
+

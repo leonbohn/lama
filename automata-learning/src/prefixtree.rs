@@ -1,22 +1,19 @@
 use std::collections::VecDeque;
 
 use automata::{
-    ts::Sproutable, Alphabet, HasLength, InfiniteLength, Map, Pointed, RightCongruence, Set,
+    ts::Sproutable, word::OmegaWord, Alphabet, HasLength, InfiniteLength, Map, Pointed,
+    RightCongruence, Set,
 };
 use itertools::Itertools;
 use tracing::trace;
 
-use automata::word::Normalized;
+use automata::word::Reduced;
 
-pub fn prefix_tree<
-    A: Alphabet,
-    W: Into<Normalized<A::Symbol, InfiniteLength>>,
-    I: IntoIterator<Item = W>,
->(
+pub fn prefix_tree<A: Alphabet, W: Into<Reduced<A::Symbol>>, I: IntoIterator<Item = W>>(
     alphabet: A,
     words: I,
 ) -> RightCongruence<A> {
-    let words: Vec<Normalized<_, _>> = words.into_iter().map(|word| word.into()).collect_vec();
+    let words: Vec<Reduced<_>> = words.into_iter().map(|word| word.into()).collect_vec();
     debug_assert!(words.iter().all(|word| !word.raw_word().is_empty()));
     fn build_accepting_loop<A: Alphabet>(
         tree: &mut RightCongruence<A>,
@@ -48,8 +45,8 @@ pub fn prefix_tree<
     while let Some((state, access, words)) = queue.pop_front() {
         debug_assert!(!words.is_empty());
         debug_assert!(words.iter().all(|word| !word.raw_word().is_empty()));
-        if words.len() == 1 && words[0].length().loop_index() == 0 {
-            build_accepting_loop(&mut tree, state, access, words[0].repeating_segment());
+        if words.len() == 1 && words[0].loop_index() == 0 {
+            build_accepting_loop(&mut tree, state, access, words[0].cycle());
         } else {
             let mut map: Map<_, Set<_>> = Map::default();
             for mut word in words {
@@ -62,7 +59,7 @@ pub fn prefix_tree<
                 map.entry(sym).or_default().insert(word);
             }
 
-            for &sym in alphabet.universe() {
+            for sym in alphabet.universe() {
                 if let Some(new_words) = map.remove(&sym) {
                     debug_assert!(!new_words.is_empty());
                     let new_access = access

@@ -8,11 +8,48 @@ use itertools::Itertools;
 use tracing::trace;
 
 use crate::{
-    passive::{ClassOmegaSample, OmegaSample, Sample, SplitOmegaSample},
+    passive::{ClassOmegaSample, FiniteSample, OmegaSample, Sample, SplitOmegaSample},
     prefixtree::prefix_tree,
 };
 
 use owo_colors::OwoColorize;
+
+/// Represents a consistency check that can be performed on a congruence. This is used in the
+/// omega-sprout algorithm to ensure in each iteration, that the produced congruence relation
+/// is consistent with the given constraints. The constraints can either be given by a conflict
+/// relation, by a list or they could be verified against a sample (or other form of data).
+#[impl_tools::autoimpl(for<T: trait> &T)]
+pub trait ConsistencyCheck<A: Alphabet> {
+    /// Verifies that `cong` is consistent with the constraint.
+    fn consistent(&self, cong: &RightCongruence<A>) -> bool;
+    /// Returns an approximate threshold for the number of classes in the congruence. This is
+    /// useful for algorithms to detect infinite loops.
+    fn threshold(&self) -> usize;
+    /// Returns a reference to the alphabet used by the constraint.
+    fn alphabet(&self) -> &A;
+}
+
+impl<A: Alphabet> ConsistencyCheck<A> for FiniteSample<A, bool> {
+    fn consistent(&self, cong: &RightCongruence<A>) -> bool {
+        let positive_indices: Set<_> = self
+            .positive_words()
+            .filter_map(|w| cong.reached_state_index(w))
+            .collect();
+        let negative_indices: Set<_> = self
+            .negative_words()
+            .filter_map(|w| cong.reached_state_index(w))
+            .collect();
+        positive_indices.is_disjoint(&negative_indices)
+    }
+
+    fn threshold(&self) -> usize {
+        self.max_word_len() * 2
+    }
+
+    fn alphabet(&self) -> &A {
+        &self.alphabet
+    }
+}
 
 /// Stores two DFAs and a set of conflicts between them.
 #[derive(Clone)]
@@ -21,9 +58,12 @@ pub struct ConflictRelation<A: Alphabet> {
     conflicts: Set<(usize, usize)>,
 }
 
-impl<A: Alphabet> ConflictRelation<A> {
+impl<A: Alphabet> ConsistencyCheck<A> for ConflictRelation<A> {
+    fn alphabet(&self) -> &A {
+        self.dfas[0].alphabet()
+    }
     /// Verifies that a given congruence is consistent with the conflicts.
-    pub fn consistent(&self, cong: &RightCongruence<A>) -> bool {
+    fn consistent(&self, cong: &RightCongruence<A>) -> bool {
         let left = cong.ts_product(&self.dfas[0]);
         let right = cong.ts_product(&self.dfas[1]);
         let right_reachable = right.reachable_state_indices().collect_vec();
@@ -51,21 +91,38 @@ impl<A: Alphabet> ConflictRelation<A> {
         true
     }
 
+    /// Returns a preliminary threshold for the number of states in the product of the two DFAs.
+    fn threshold(&self) -> usize {
+        2 * self.dfas[0].size() * self.dfas[1].size()
+    }
+}
+
+impl<A: Alphabet> std::fmt::Debug for ConflictRelation<A> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "\t\t{}\n{:?}", "first DFA".blue(), self.dfas[0])?;
+        write!(f, "\t\t{}\n{:?}", "SECOND DFA".cyan(), self.dfas[1])?;
+        write!(
+            f,
+            "Conflicts\n{}",
+            self.conflicts
+                .iter()
+                .map(|(c, d)| format!("({c} | {d})"))
+                .join(", ")
+        )
+    }
+}
+
+impl<A: Alphabet> ConflictRelation<A> {
     /// Returns a reference to the underlying alphabet of one of the DFAs. We assure that both DFAs use the same
     /// alphabet.
     pub fn alphabet(&self) -> &A {
         self.dfas[0].alphabet()
     }
-
-    /// Returns a preliminary threshold for the number of states in the product of the two DFAs.
-    pub fn threshold(&self) -> usize {
-        2 * self.dfas[0].size() * self.dfas[1].size()
-    }
 }
 
 impl<A: Alphabet> ToDot for ConflictRelation<A>
 where
-    A::Symbol: Display,
+    RightCongruence<A>: ToDot,
 {
     fn dot_representation(&self) -> String {
         format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""),)
@@ -89,9 +146,10 @@ where
         );
         let right = format!(
             "subgraph cluster_right {{\nlabel=\"B\"\n{}\n{}\n}}",
-            self.dfas[0].header(),
-            self.dfas[0].body("B"),
+            self.dfas[1].header(),
+            self.dfas[1].body("B"),
         );
+        #[allow(clippy::unwrap_or_default)]
         let conflicts = self
             .conflicts
             .iter()
@@ -164,7 +222,6 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
     let mut queue = VecDeque::from_iter(
         left_pta
             .accepting_states()
-            .into_iter()
             .cartesian_product(right_pta.accepting_states()),
     );
 
@@ -208,10 +265,7 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
 
 /// Computes a conflict relation encoding prefix consistency. For more details on how this works, see
 /// Lemma 28 in [this paper](https://arxiv.org/pdf/2302.11043.pdf).
-pub fn prefix_consistency_conflicts<
-    A: Alphabet,
-    S: std::borrow::Borrow<Sample<A, InfiniteLength, bool>>,
->(
+pub fn prefix_consistency_conflicts<A: Alphabet, S: std::borrow::Borrow<OmegaSample<A, bool>>>(
     sample: S,
 ) -> ConflictRelation<A> {
     let sample = sample.borrow();
@@ -252,16 +306,17 @@ pub fn prefix_consistency_conflicts<
     }
 }
 
-/// We allow additional constraints to be added to the omega-sprout algorithm. This is useful for example to ensure
-/// that the learned automaton separates idempotents.
-pub trait AdditionalConstraint<A: Alphabet> {
-    /// This is the main function that is called to ensure that the constraint is satisfied.
-    fn satisfied(&self, cong: &RightCongruence<A>) -> bool;
-}
-
-impl<A: Alphabet> AdditionalConstraint<A> for () {
-    fn satisfied(&self, cong: &RightCongruence<A>) -> bool {
+impl<A: Alphabet> ConsistencyCheck<A> for () {
+    fn consistent(&self, cong: &RightCongruence<A>) -> bool {
         true
+    }
+
+    fn threshold(&self) -> usize {
+        0
+    }
+
+    fn alphabet(&self) -> &A {
+        unimplemented!("This does not make sense, you should not call this function directly")
     }
 }
 
@@ -278,21 +333,29 @@ impl<'a, A: Alphabet> SeparatesIdempotents<'a, A> {
     }
 }
 
-impl<'a, A: Alphabet> AdditionalConstraint<A> for SeparatesIdempotents<'a, A> {
-    fn satisfied(&self, cong: &RightCongruence<A>) -> bool {
+impl<'a, A: Alphabet> ConsistencyCheck<A> for SeparatesIdempotents<'a, A> {
+    fn consistent(&self, cong: &RightCongruence<A>) -> bool {
         true
+    }
+
+    fn threshold(&self) -> usize {
+        todo!()
+    }
+
+    fn alphabet(&self) -> &A {
+        todo!()
     }
 }
 
 /// Runs the omega-sprout algorithm on a given conflict relation.
-pub fn omega_sprout_conflicts<A, F>(
-    conflicts: ConflictRelation<A>,
-    additional_constraint: F,
+pub fn sprout<A, C>(
+    conflicts: C,
+    additional_constraints: Vec<Box<dyn ConsistencyCheck<A>>>,
     allow_transitions_into_epsilon: bool,
 ) -> RightCongruence<A>
 where
     A: Alphabet,
-    F: AdditionalConstraint<A>,
+    C: ConsistencyCheck<A>,
 {
     let mut cong = RightCongruence::new(conflicts.alphabet().clone());
     let initial = cong.initial();
@@ -305,7 +368,7 @@ where
         .universe()
         .map(|sym| (initial, sym))
         .collect();
-    'outer: while let Some((source, &sym)) = queue.pop_front() {
+    'outer: while let Some((source, sym)) = queue.pop_front() {
         trace!(
             "Trying to add transition from {} on {}",
             cong.state_color(source)
@@ -322,7 +385,9 @@ where
             }
             let old_edge = cong.add_edge(source, A::expression(sym), target, ());
 
-            if conflicts.consistent(&cong) && additional_constraint.satisfied(&cong) {
+            if conflicts.consistent(&cong)
+                && additional_constraints.iter().all(|c| c.consistent(&cong))
+            {
                 trace!(
                     "\tTransition {}--{}-->{} is consistent",
                     cong.state_color(source)
@@ -383,17 +448,45 @@ pub(crate) mod tests {
         alphabet,
         alphabet::Simple,
         congruence::FORC,
-        nupw,
+        prelude::*,
         ts::{
             finite::{ReachedColor, ReachedState},
-            FiniteState, Sproutable, ToDot,
+            Sproutable, ToDot,
         },
         Class, Pointed, RightCongruence, TransitionSystem,
     };
     use itertools::Itertools;
     use tracing_test::traced_test;
 
-    use crate::passive::{OmegaSample, Sample};
+    use crate::passive::{sample::OmegaSample, sprout::ConflictRelation, Sample};
+
+    pub fn inf_aba_sample() -> (Simple, OmegaSample<Simple, bool>) {
+        let Ok(sample) = OmegaSample::try_from(
+            r#"omega
+            alphabet: a,b
+            positive:
+            abab
+            aba
+            ababb
+            abaa
+            abaab
+            negative:
+            bab
+            abba
+            bbab
+            aaabb
+            a
+            abb
+            aabb
+            babb
+            b
+            abbba
+            abbb"#,
+        ) else {
+            panic!("Cannot parse sample")
+        };
+        (sample.alphabet.clone(), sample)
+    }
 
     pub fn testing_larger_forc_sample() -> (Simple, OmegaSample<Simple, bool>) {
         let Ok(sample) = OmegaSample::try_from(
@@ -459,21 +552,23 @@ pub(crate) mod tests {
             Sample::new_omega_from_pos_neg(
                 alphabet,
                 [
-                    nupw!("a"),
-                    nupw!("baa"),
-                    nupw!("aca"),
-                    nupw!("caab"),
-                    nupw!("abca"),
+                    upw!("a"),
+                    upw!("baa"),
+                    upw!("aca"),
+                    upw!("caab"),
+                    upw!("abca"),
                 ],
-                [
-                    nupw!("b"),
-                    nupw!("c"),
-                    nupw!("ab"),
-                    nupw!("ac"),
-                    nupw!("abc"),
-                ],
+                [upw!("b"), upw!("c"), upw!("ab"), upw!("ac"), upw!("abc")],
             ),
         )
+    }
+
+    #[test]
+    #[ignore]
+    fn conflicts_inf_aba() {
+        let (alphabet, sample) = inf_aba_sample();
+        let conflicts = super::prefix_consistency_conflicts(sample);
+        conflicts.display_rendered();
     }
 
     #[test]
@@ -495,7 +590,8 @@ pub(crate) mod tests {
         let eps = Class::epsilon();
         let eps_sample = split_sample.get(&eps).unwrap();
 
-        let conflicts = super::iteration_consistency_conflicts(&split_sample, eps);
+        let conflicts: ConflictRelation<Simple> =
+            super::iteration_consistency_conflicts(&split_sample, eps);
         conflicts.dfas[0].display_rendered();
         conflicts.dfas[1].display_rendered();
         println!(
@@ -506,15 +602,16 @@ pub(crate) mod tests {
                 .map(|(l, r)| format!("({l},{r})"))
                 .join(", ")
         );
-        let prc_eps = super::omega_sprout_conflicts(conflicts, (), false);
+        let prc_eps = super::sprout(conflicts, vec![], false);
         prc_eps.display_rendered();
     }
 
     #[test]
     fn learn_larger_forc() {
         let (alphabet, sample) = testing_larger_forc_sample();
-
-        let forc = sample.infer_forc();
+        let cong = sample.infer_right_congruence();
+        let split = sample.split(&cong);
+        let forc = split.infer_forc();
         let prc_eps = forc.prc(Class::epsilon()).unwrap();
         println!("{}", prc_eps.dot_representation());
         assert_eq!(prc_eps.size(), 13);
@@ -526,30 +623,31 @@ pub(crate) mod tests {
         let sample = Sample::new_omega(
             alphabet.clone(),
             vec![
-                (("b", 0), true),
-                (("abab", 3), true),
-                (("abbab", 4), true),
-                (("ab", 1), false),
-                (("a", 0), false),
+                (upw!("a"), true),
+                (upw!("b", "a"), false),
+                (upw!("bb", "a"), true),
             ],
         );
         let mut expected_cong = RightCongruence::new(alphabet!(simple 'a', 'b'));
         let q0 = expected_cong.initial();
-        let q1 = expected_cong.add_state(vec!['a']);
-        expected_cong.add_edge(q0, 'a', q1, ());
-        expected_cong.add_edge(q1, 'a', q0, ());
-        expected_cong.add_edge(q0, 'b', q0, ());
-        expected_cong.add_edge(q1, 'b', q1, ());
+        let q1 = expected_cong.add_state(vec!['b']);
+        expected_cong.add_edge(q0, 'b', q1, ());
+        expected_cong.add_edge(q1, 'b', q0, ());
+        expected_cong.add_edge(q0, 'a', q0, ());
+        expected_cong.add_edge(q1, 'a', q1, ());
 
         let conflicts = super::prefix_consistency_conflicts(sample);
 
-        let cong = super::omega_sprout_conflicts(conflicts, (), true);
+        let cong = super::sprout(conflicts, vec![], true);
 
         assert_eq!(cong.size(), expected_cong.size());
         for word in ["aba", "abbabb", "baabaaba", "bababaaba", "b", "a", ""] {
+            let reached = cong.reached_state_color(word).unwrap();
+            let expected = expected_cong.reached_state_color(word).unwrap();
             assert_eq!(
-                cong.reached_color(&word),
-                expected_cong.reached_color(&word)
+                reached, expected,
+                "{} reached {}, expected was {}",
+                word, reached, expected
             )
         }
     }
@@ -557,9 +655,12 @@ pub(crate) mod tests {
     #[test]
     fn prefix_consistency_sprout_one() {
         let alphabet = alphabet!(simple 'a', 'b');
-        let sample = Sample::new_omega(alphabet.clone(), vec![(("a", 0), false), (("b", 0), true)]);
+        let sample = Sample::new_omega(
+            alphabet.clone(),
+            vec![(upw!("a"), false), (upw!("b"), true)],
+        );
         let conflicts = super::prefix_consistency_conflicts(sample);
-        let cong = super::omega_sprout_conflicts(conflicts, (), true);
+        let cong = super::sprout(conflicts, vec![], true);
 
         assert_eq!(cong.size(), 1);
         assert!(cong.contains_state_color(&vec![].into()));
@@ -567,42 +668,24 @@ pub(crate) mod tests {
 
     #[test]
     fn prefix_consistency_sprout_four() {
-        let alphabet = alphabet!(simple 'a', 'b', 'c');
+        let alphabet = alphabet!(simple 'a', 'b');
         let sample = Sample::new_omega(
             alphabet.clone(),
             vec![
-                (("aac", 2), true),
-                (("ab", 1), true),
-                (("aab", 2), true),
-                (("abaac", 4), true),
-                (("abbaac", 5), true),
-                (("abc", 2), false),
-                (("c", 0), false),
-                (("ac", 1), false),
-                (("b", 0), false),
-                (("abac", 3), false),
-                (("abbc", 3), false),
+                (upw!("a"), false),
+                (upw!("b", "a"), false),
+                (upw!("bb", "a"), false),
+                (upw!("bbb", "a"), true),
             ],
         );
 
         let conflicts = super::prefix_consistency_conflicts(sample);
-        println!(
-            "{{{}}}",
-            conflicts
-                .conflicts
-                .iter()
-                .map(|(a, b)| format!(
-                    "({:?}, {:?})",
-                    conflicts.dfas[0].state_color(*a),
-                    conflicts.dfas[1].state_color(*b)
-                ))
-                .join(", ")
-        );
+        println!("{:?}", conflicts);
 
-        let cong = super::omega_sprout_conflicts(conflicts, (), true);
+        let cong = super::sprout(conflicts, vec![], true);
 
         assert_eq!(cong.size(), 4);
-        for class in ["", "a", "ab", "aa"] {
+        for class in ["", "b", "bb", "bbb"] {
             assert!(cong.contains_state_color(&class.into()))
         }
     }

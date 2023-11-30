@@ -4,11 +4,9 @@ use itertools::Itertools;
 
 use crate::{
     alphabet::{HasAlphabet, Simple, Symbol},
-    ts::{
-        transition_system::Indexes, FiniteState, FiniteStatesIterType, HasFiniteStates, Sproutable,
-        BTS,
-    },
-    Alphabet, Color, FiniteLength, HasLength, Map, Pointed, TransitionSystem, Word, DFA,
+    prelude::DFALike,
+    ts::{transition_system::Indexes, Deterministic, Sproutable, BTS},
+    Alphabet, Color, FiniteLength, HasLength, Map, Pointed, Show, TransitionSystem, DFA,
 };
 
 mod class;
@@ -16,6 +14,11 @@ pub use class::{Class, ColoredClass};
 
 mod forc;
 pub use forc::FORC;
+
+mod transitionprofile;
+pub use transitionprofile::{Accumulates, RunProfile, RunSignature, TransitionMonoid};
+
+mod cayley;
 
 /// A right congruence is an equivalence relation that is compatible with the right concatenation. We
 /// represent these as a transition system, where the states are the equivalence classes and the colors
@@ -25,7 +28,22 @@ pub struct RightCongruence<A: Alphabet, Q = (), C: Color = ()> {
     ts: BTS<A, ColoredClass<A::Symbol, Q>, C>,
 }
 
-impl<A: Alphabet, Q: Color + Debug, C: Color + Debug> Debug for RightCongruence<A, Q, C> {
+impl<S: Symbol + Show, Q: Show> Show for ColoredClass<S, Q> {
+    fn show(&self) -> String {
+        format!("{} | {}", self.class.show(), self.color.show())
+    }
+
+    fn show_collection<'a, I>(iter: I) -> String
+    where
+        Self: 'a,
+        I: IntoIterator<Item = &'a Self>,
+        I::IntoIter: DoubleEndedIterator,
+    {
+        todo!()
+    }
+}
+
+impl<A: Alphabet, Q: Color + Show, C: Color + Show> Debug for RightCongruence<A, Q, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "RightCongruence\n{:?}", self.ts)
     }
@@ -43,10 +61,16 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
     /// class is u, then it should be that uu ~ u.
     pub fn is_idempotent<I: Indexes<Self>>(&self, elem: I) -> bool {
         if let Some(q) = self.get(elem) {
-            self.reached_state_index_from(q, self.state_color(q).unwrap().class()) == Some(q)
+            self.reached_state_index_from(self.state_color(q).unwrap().class(), q) == Some(q)
         } else {
             false
         }
+    }
+
+    /// Returns an iterator which yields pairs `(c, idx)` consisting of a reference `c` to the class name together
+    /// with the corresponding index of the class.
+    pub fn classes(&self) -> impl Iterator<Item = (&Class<A::Symbol>, usize)> + '_ {
+        self.ts.indices_with_color().map(|(id, c)| (c.class(), id))
     }
 
     /// Returns a reference to the underlying [`TransitionSystem`].
@@ -84,6 +108,10 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
             .find_map(|(id, c)| if c.class() == class { Some(id) } else { None })
     }
 
+    pub fn class_name<Idx: Indexes<Self>>(&self, index: Idx) -> Option<ColoredClass<A::Symbol, Q>> {
+        self.ts().state_color(index.to_index(self)?)
+    }
+
     /// Computes a DFA that accepts precisely those finite words which loop on the given `class`. Formally,
     /// if `u` represents the given class, then the DFA accepts precisely those words `w` such that `uw`
     /// is congruent to `u`.
@@ -92,16 +120,7 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
             .erase_edge_colors()
             .collect_ts()
             .with_initial(self.class_to_index(class).unwrap())
-    }
-}
-
-impl<'a, A: Alphabet, Q: Color, C: Color> HasFiniteStates<'a> for RightCongruence<A, Q, C> {
-    type StateIndicesIter = FiniteStatesIterType<'a, BTS<A, ColoredClass<A::Symbol, Q>, C, usize>>;
-}
-
-impl<A: Alphabet, Q: Color, C: Color> FiniteState for RightCongruence<A, Q, C> {
-    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
-        self.ts.state_indices()
+            .into_dfa()
     }
 }
 

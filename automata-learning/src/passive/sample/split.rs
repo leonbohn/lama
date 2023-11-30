@@ -1,6 +1,10 @@
 use automata::{
-    ts::transition_system::Indexes, Alphabet, Class, Color, InfiniteLength, Map, RightCongruence,
+    congruence::FORC, ts::transition_system::Indexes, Alphabet, Class, Color, InfiniteLength, Map,
+    RightCongruence, TransitionSystem,
 };
+use itertools::Itertools;
+
+use crate::passive::sprout::{iteration_consistency_conflicts, sprout};
 
 use super::{OmegaSample, Sample};
 
@@ -9,11 +13,11 @@ use super::{OmegaSample, Sample};
 pub struct ClassOmegaSample<'a, A: Alphabet, C: Color> {
     congruence: &'a RightCongruence<A>,
     class: Class<A::Symbol>,
-    sample: Sample<A, InfiniteLength, C>,
+    sample: OmegaSample<A, C>,
 }
 
 impl<'a, A: Alphabet, C: Color> std::ops::Deref for ClassOmegaSample<'a, A, C> {
-    type Target = Sample<A, InfiniteLength, C>;
+    type Target = OmegaSample<A, C>;
 
     fn deref(&self) -> &Self::Target {
         &self.sample
@@ -31,7 +35,7 @@ impl<'a, A: Alphabet, C: Color> ClassOmegaSample<'a, A, C> {
     pub fn new(
         congruence: &'a RightCongruence<A>,
         class: Class<A::Symbol>,
-        sample: Sample<A, InfiniteLength, C>,
+        sample: OmegaSample<A, C>,
     ) -> Self {
         Self {
             congruence,
@@ -98,5 +102,32 @@ impl<'a, A: Alphabet, C: Color> SplitOmegaSample<'a, A, C> {
     /// Returns a reference to the underlying congruence.
     pub fn cong(&self) -> &'a RightCongruence<A> {
         self.congruence
+    }
+}
+
+impl<'a, A: Alphabet> SplitOmegaSample<'a, A, bool> {
+    /// Infers a family of right congruences bz first constructing a conflict relation which is then used
+    /// as a constraint for the sprout/glerc algorithm.
+    pub fn infer_forc(&self) -> FORC<A> {
+        let conflict_relations: Map<_, _> = self
+            .classes()
+            .map(|c| (c.clone(), iteration_consistency_conflicts(self, c.clone())))
+            .collect();
+
+        let progress = conflict_relations
+            .into_iter()
+            .map(|(c, conflicts)| {
+                (
+                    self.cong().get(c).unwrap(),
+                    sprout(
+                        conflicts,
+                        vec![],
+                        // SeparatesIdempotents::new(split_sample.get(&c).expect("This must exist")),
+                        false,
+                    ),
+                )
+            })
+            .collect_vec();
+        FORC::from_iter(self.cong().clone(), progress)
     }
 }

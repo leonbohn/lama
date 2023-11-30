@@ -89,12 +89,13 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
     pub fn colors(&self) -> Option<Vec<Ts::StateColor>> {
         debug_assert!(!self.is_empty());
         let maximal_word = self.maximal_word()?;
-        let SeenColors(colors) = self
-            .ts()
-            .run(&maximal_word, *self.first().unwrap())
-            .ok()?
-            .induce();
-        Some(colors)
+        todo!()
+        // let SeenColors(colors) = self
+        //     .ts()
+        //     .finite_run_from(*self.first().unwrap(), &maximal_word)
+        //     .ok()?
+        //     .induce();
+        // Some(colors)
     }
 
     /// Attempts to compute a maximal word (i.e. a word visiting all states in the scc). If such a
@@ -106,15 +107,10 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         let mut should_continue = false;
         let mut queue = Map::default();
         for state in self.iter() {
-            for &sym in ts.alphabet().universe() {
-                if let Some(succ) = ts.successor_index(*state, sym) {
-                    if self.contains(&succ) {
-                        should_continue = true;
-                        queue
-                            .entry(*state)
-                            .or_insert_with(BTreeSet::new)
-                            .insert(sym);
-                    }
+            for (p, a, c, q) in ts.transitions_from(*state) {
+                if self.contains(&q) {
+                    should_continue = true;
+                    queue.entry(p).or_insert_with(BTreeSet::new).insert((a, q));
                 }
             }
         }
@@ -133,10 +129,12 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
                     queue.remove(&current);
                     continue;
                 } else {
-                    let sym = *queue.get(&current).unwrap().iter().next().unwrap();
-                    queue.get_mut(&current).unwrap().remove(&sym);
+                    let (sym, target) = *queue.get(&current).unwrap().iter().next().unwrap();
+                    assert!(ts.has_transition(current, sym, target));
+
+                    queue.get_mut(&current).unwrap().remove(&(sym, target));
                     word.push(sym);
-                    current = ts.successor_index(current, sym).unwrap();
+                    current = target;
                 }
             } else {
                 let q = *queue.keys().next().unwrap();
@@ -183,12 +181,9 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
     /// i.e. if there is a way of reading a non-empty word and staying in the SCC.
     pub fn is_nontransient(&self) -> bool {
         self.1.iter().any(|&q| {
-            self.0.alphabet().universe().any(|&sym| {
-                self.0
-                    .successor_index(q, sym)
-                    .map(|q| self.contains(&q))
-                    .unwrap_or(false)
-            })
+            self.ts()
+                .transitions_from(q)
+                .any(|(_, _, _, q)| self.contains(&q))
         })
     }
 }

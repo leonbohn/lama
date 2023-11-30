@@ -1,6 +1,10 @@
 //! A library for learning automata from data.
-#![warn(missing_docs)]
+#![allow(missing_docs)]
 #![allow(unused)]
+
+/// Contains passive learners such as RPNI, DBAInf and DPAInf.
+#[macro_use]
+pub mod passive;
 
 /// This module deals with acceptance conditions and their inference.
 pub mod acceptance;
@@ -8,13 +12,11 @@ pub mod acceptance;
 /// right congruence relation from a consistency function.
 // pub mod glerc;
 mod priority_mapping;
+use automata::prelude::*;
 pub use priority_mapping::{AnnotatedCongruence, Annotation};
 
 /// Deals with active learning algorithms such as L*.
 pub mod active;
-
-/// Contains passive learners such as RPNI, DBAInf and DPAInf.
-pub mod passive;
 
 pub(crate) mod prefixtree;
 

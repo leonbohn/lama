@@ -2,8 +2,9 @@ use itertools::Itertools;
 
 use crate::{
     alphabet::{Symbol, SymbolOf},
-    ts::{transition_system::Indexes, FiniteState},
-    Alphabet, Color, FiniteLength, HasLength, RightCongruence, TransitionSystem, Word,
+    ts::{transition_system::Indexes, Deterministic},
+    word::{FiniteWord, LinearWord},
+    Alphabet, Color, FiniteLength, HasLength, RightCongruence, Show, TransitionSystem,
 };
 
 /// Represents a congruence class, which is in essence simply a non-empty sequence of symbols
@@ -11,14 +12,28 @@ use crate::{
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Class<S>(pub Vec<S>);
 
+impl<S: Show> Show for Class<S> {
+    fn show(&self) -> String {
+        format!("[{}]", self.0.iter().map(|s| s.show()).join(""))
+    }
+
+    fn show_collection<'a, I>(iter: I) -> String
+    where
+        Self: 'a,
+        I: IntoIterator<Item = &'a Self>,
+        I::IntoIter: DoubleEndedIterator,
+    {
+        todo!()
+    }
+}
+
 impl<A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>> for Class<A::Symbol> {
     #[inline(always)]
     fn to_index(
         &self,
         ts: &RightCongruence<A, Q, C>,
     ) -> Option<<RightCongruence<A, Q, C> as TransitionSystem>::StateIndex> {
-        ts.class_to_index(self)
-            .or(ts.reached_state_index(self).map(|x| *x))
+        ts.class_to_index(self).or(ts.reached_state_index(self))
     }
 }
 impl<'a, A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>>
@@ -83,11 +98,28 @@ impl<S> HasLength for Class<S> {
         FiniteLength(self.0.len())
     }
 }
-impl<S: Symbol> Word for Class<S> {
-    type Symbol = S;
 
-    fn nth(&self, position: usize) -> Option<Self::Symbol> {
-        self.get(position).cloned()
+impl<S: Symbol> LinearWord<S> for Class<S> {
+    fn nth(&self, position: usize) -> Option<S> {
+        self.0.get(position).cloned()
+    }
+}
+impl<S: Symbol> FiniteWord<S> for Class<S> {
+    type Symbols<'this> = std::iter::Cloned<std::slice::Iter<'this, S>>
+    where
+        Self: 'this,
+        S: 'this;
+
+    fn symbols(&self) -> Self::Symbols<'_> {
+        self.0.iter().cloned()
+    }
+
+    fn to_vec(&self) -> Vec<S> {
+        self.0.clone()
+    }
+
+    fn len(&self) -> usize {
+        self.0.len()
     }
 }
 
@@ -146,8 +178,8 @@ impl<S: Ord> PartialOrd for Class<S> {
 /// A colored class is a [`Class`] which additionally has an associated color.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct ColoredClass<S: Symbol, Q = ()> {
-    class: Class<S>,
-    color: Q,
+    pub(crate) class: Class<S>,
+    pub(crate) color: Q,
 }
 
 impl<A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>>

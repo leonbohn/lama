@@ -5,7 +5,7 @@ use crate::{
     ts::{
         predecessors::{IsPreTransition, PredecessorIterable},
         transition_system::IsTransition,
-        FiniteState, FiniteStatesIterType, HasFiniteStates, IndexType,
+        IndexType,
     },
     Color, Pointed, TransitionSystem,
 };
@@ -97,26 +97,6 @@ where
     }
 }
 
-impl<'a, D, Ts, F> HasFiniteStates<'a> for MapEdges<Ts, F>
-where
-    D: Color,
-    Ts: FiniteState,
-    F: Fn(Ts::StateIndex, &ExpressionOf<Ts>, Ts::EdgeColor, Ts::StateIndex) -> D,
-{
-    type StateIndicesIter = FiniteStatesIterType<'a, Ts>;
-}
-
-impl<D, Ts, F> FiniteState for MapEdges<Ts, F>
-where
-    D: Color,
-    Ts: FiniteState,
-    F: Fn(Ts::StateIndex, &ExpressionOf<Ts>, Ts::EdgeColor, Ts::StateIndex) -> D,
-{
-    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
-        self.ts.state_indices()
-    }
-}
-
 /// Iterator over the successors of a transition system whose colors are mapped by some function.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapEdgesSuccessorsIter<'a, Idx, I, F, C> {
@@ -146,6 +126,17 @@ pub struct MappedEdge<Idx, T, F, C> {
     from: Idx,
     f: F,
     _old_color: PhantomData<C>,
+}
+
+impl<Idx, T, F, C> MappedEdge<Idx, T, F, C> {
+    pub fn new(transition: T, from: Idx, f: F) -> Self {
+        Self {
+            transition,
+            from,
+            f,
+            _old_color: PhantomData,
+        }
+    }
 }
 
 impl<Idx, E, C, D, F, T> IsTransition<E, Idx, D> for MappedEdge<Idx, T, F, C>
@@ -194,38 +185,26 @@ where
     where
         Self: 'this;
 
-    fn transition(
-        &self,
-        state: Self::StateIndex,
-        symbol: crate::alphabet::SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        Some(MappedEdge {
-            transition: self.ts().transition(state, symbol)?,
-            from: state,
-            f: self.f(),
-            _old_color: PhantomData,
-        })
-    }
+    type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
 
-    fn edge_color(
-        &self,
-        state: Self::StateIndex,
-        expression: &crate::alphabet::ExpressionOf<Self>,
-    ) -> Option<crate::ts::EdgeColor<Self>> {
-        todo!()
-    }
-
-    fn edges_from(&self, state: Self::StateIndex) -> Option<Self::EdgesFromIter<'_>> {
-        Some(MapEdgesSuccessorsIter {
-            it: self.ts().edges_from(state)?,
-            source: state,
-            f: self.f(),
-            _old_color: PhantomData,
-        })
+    fn state_indices(&self) -> Self::StateIndices<'_> {
+        self.ts().state_indices()
     }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
         self.ts().state_color(state)
+    }
+
+    fn edges_from<Idx: crate::ts::transition_system::Indexes<Self>>(
+        &self,
+        state: Idx,
+    ) -> Option<Self::EdgesFromIter<'_>> {
+        Some(MapEdgesSuccessorsIter {
+            it: self.ts().edges_from(state.to_index(self)?)?,
+            source: state.to_index(self)?,
+            f: self.f(),
+            _old_color: PhantomData,
+        })
     }
 }
 
@@ -339,18 +318,6 @@ where
 
     fn expression(&self) -> &E {
         self.transition.expression()
-    }
-}
-
-impl<'a, D: Color, Ts: FiniteState, F: Fn(Ts::EdgeColor) -> D> HasFiniteStates<'a>
-    for MapEdgeColor<Ts, F>
-{
-    type StateIndicesIter = FiniteStatesIterType<'a, Ts>;
-}
-
-impl<D: Color, Ts: FiniteState, F: Fn(Ts::EdgeColor) -> D> FiniteState for MapEdgeColor<Ts, F> {
-    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
-        self.ts.state_indices()
     }
 }
 
@@ -469,18 +436,6 @@ impl<Ts, F> MapStateColor<Ts, F> {
 
     pub fn f(&self) -> &F {
         &self.f
-    }
-}
-
-impl<'a, D: Color, Ts: FiniteState, F: Fn(Ts::StateColor) -> D> HasFiniteStates<'a>
-    for MapStateColor<Ts, F>
-{
-    type StateIndicesIter = FiniteStatesIterType<'a, Ts>;
-}
-
-impl<D: Color, Ts: FiniteState, F: Fn(Ts::StateColor) -> D> FiniteState for MapStateColor<Ts, F> {
-    fn state_indices(&self) -> FiniteStatesIterType<'_, Self> {
-        self.ts.state_indices()
     }
 }
 
