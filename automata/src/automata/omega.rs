@@ -3,7 +3,7 @@ use hoars::HoaAutomaton;
 use itertools::Itertools;
 use tracing::warn;
 
-use crate::{hoa::HoaAlphabet, prelude::*, Set};
+use crate::{congruence::FORC, hoa::HoaAlphabet, prelude::*, Set};
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 
@@ -106,6 +106,14 @@ impl<A: Alphabet> OmegaAutomaton<A> {
 
     pub fn to_deterministic(&self) -> Option<DeterministicOmegaAutomaton<A>> {
         self.try_into().ok()
+    }
+
+    pub fn prefix_congruence(&self) -> RightCongruence<A> {
+        todo!()
+    }
+
+    pub fn underlying_forc(&self) -> FORC<A, bool> {
+        todo!()
     }
 }
 

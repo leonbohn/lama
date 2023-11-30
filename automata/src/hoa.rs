@@ -385,64 +385,66 @@ mod tests {
     #[test]
     fn parse_generated_hoa() {
         let hoa = r#"HOA: v1
-States: 10
-Start: 0
-AP: 3 "2" "a" "b"
-acc-name: parity min even 5
-Acceptance: 5 Inf(0) | (Fin(1) & (Inf(2) | (Fin(3) & Inf(4))))
-properties: trans-labels explicit-labels trans-acc complete
-properties: deterministic
---BODY--
-State: 0
-[0&1] 4
-[0&!1] 8
-[!0] 6 {0}
-State: 1
-[!0&1&2] 7 {0}
-[!0&1&!2] 3 {4}
-[!0&!1&2] 4 {0 4}
-[!0&!1&!2] 9 {0}
-[0] 5 {0 4}
-State: 2
-[0&1&2] 2 {0 4}
-[0&1&!2] 6 {3}
-[0&!1&2] 1 {1}
-[0&!1&!2] 4 {1}
-[!0] 7
-State: 3
-[0&1] 0 {2}
-[0&!1] 2
-[!0&1] 4 {3 4}
-[!0&!1] 6 {1 2}
-State: 4
-[0&1] 0 {3}
-[0&!1] 6 {1}
-[!0&1] 7 {0}
-[!0&!1] 4
-State: 5
-[0&1] 9
-[0&!1] 2
-[!0] 4
-State: 6
-[0&1] 9 {4}
-[0&!1] 0 {2}
-[!0&1] 6 {2 3}
-[!0&!1] 4 {0}
-State: 7
-[0&!1&2] 8 {4}
-[0&!1&!2] 1 {4}
-[0&1] 2 {1}
-[!0] 4 {2}
-State: 8
-[!0&1] 2
-[!0&!1] 6
-[0] 4
-State: 9
-[0] 5
-[!0] 3
---END--
-"#;
+        States: 10
+        Start: 0
+        AP: 3 "2" "a" "b"
+        acc-name: parity min even 5
+        Acceptance: 5 Inf(0) | (Fin(1) & (Inf(2) | (Fin(3) & Inf(4))))
+        properties: trans-labels explicit-labels trans-acc complete
+        properties: deterministic
+        --BODY--
+        State: 0
+        [0&1] 4
+        [0&!1] 8
+        [!0] 6 {0}
+        State: 1
+        [!0&1&2] 7 {0}
+        [!0&1&!2] 3 {4}
+        [!0&!1&2] 4 {0 4}
+        [!0&!1&!2] 9 {0}
+        [0] 5 {0 4}
+        State: 2
+        [0&1&2] 2 {0 4}
+        [0&1&!2] 6 {3}
+        [0&!1&2] 1 {1}
+        [0&!1&!2] 4 {1}
+        [!0] 7
+        State: 3
+        [0&1] 0 {2}
+        [0&!1] 2
+        [!0&1] 4 {3 4}
+        [!0&!1] 6 {1 2}
+        State: 4
+        [0&1] 0 {3}
+        [0&!1] 6 {1}
+        [!0&1] 7 {0}
+        [!0&!1] 4
+        State: 5
+        [0&1] 9
+        [0&!1] 2
+        [!0] 4
+        State: 6
+        [0&1] 9 {4}
+        [0&!1] 0 {2}
+        [!0&1] 6 {2 3}
+        [!0&!1] 4 {0}
+        State: 7
+        [0&!1&2] 8 {4}
+        [0&!1&!2] 1 {4}
+        [0&1] 2 {1}
+        [!0] 4 {2}
+        State: 8
+        [!0&1] 2
+        [!0&!1] 6
+        [0] 4
+        State: 9
+        [0] 5
+        [!0] 3
+        --END--
+        "#;
+        let start = std::time::Instant::now();
         let auts = hoa_to_ts(hoa);
+        println!("Took {}ms", start.elapsed().as_millis());
         assert_eq!(auts.len(), 1);
         let aut = &auts[0];
         assert_eq!(aut.size(), 10);

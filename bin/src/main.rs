@@ -10,7 +10,7 @@ use automata_learning::passive::{
     OmegaSample,
 };
 use clap::{command, Arg, ArgAction, Command};
-use io::to_file_or_stdout;
+use io::{hoa_deterministic, to_file_or_stdout};
 use tracing::{debug, error, Level};
 
 use crate::io::from_file_or_stdin;
@@ -61,6 +61,7 @@ fn main() {
                         .about("Infer a family of right congruences (FORC) from the sample"),
                 ),
         )
+        .subcommand(Command::new("tosample").arg(Arg::new("input").short('i').long("input")))
         .subcommand(
             Command::new("nop")
                 .arg(Arg::new("input").short('i').long("input"))
@@ -83,8 +84,15 @@ fn main() {
     tracing::subscriber::set_global_default(subscriber).unwrap();
 
     match matches.subcommand() {
+        Some(("tosample", sample_matches)) => {
+            let auts = hoa_deterministic(sample_matches);
+            if auts.len() > 1 {
+                tracing::error!("This operation supports only single inputs");
+                std::process::exit(-1);
+            }
+            std::process::exit(0)
+        }
         Some(("nop", nop_matches)) => {
-            debug!("No input files specified, using stdin");
             let hoa = from_file_or_stdin(nop_matches.get_one("input"));
             let parsed_auts = automata::hoa::hoa_to_ts(&hoa);
             let mut auts = vec![];
