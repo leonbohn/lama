@@ -4,8 +4,7 @@ use itertools::Itertools;
 
 use crate::{
     AcceptanceAtom, AcceptanceCondition, AcceptanceInfo, AcceptanceName, AcceptanceSignature,
-    AliasName, Edge, HeaderItem, HoaAutomaton, HoaBool, Label, LabelExpression, Property, State,
-    StateConjunction,
+    AliasName, Edge, HeaderItem, HoaAutomaton, HoaBool, Label, Property, State, StateConjunction,
 };
 
 impl Display for HeaderItem {

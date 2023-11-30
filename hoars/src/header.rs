@@ -311,15 +311,15 @@ mod tests {
         )
     }
 
-    #[test]
+    // #[test]
     // fn alias() {
-    //     // assert_header(
-    //     //     "Alias: @a 0",
-    //     //     &[
-    //     //         HeaderItem::Version("v1".to_string()),
-    //     //         HeaderItem::Alias(AliasName("a".to_string()), LabelExpression::Integer(0)),
-    //     //     ],
-    //     // );
+    // assert_header(
+    //     "Alias: @a 0",
+    //     &[
+    //         HeaderItem::Version("v1".to_string()),
+    //         HeaderItem::Alias(AliasName("a".to_string()), LabelExpression::Integer(0)),
+    //     ],
+    // );
     //     assert_header(
     //         "Alias: @a 0 & 1",
     //         &[
@@ -374,17 +374,11 @@ mod tests {
     //             HeaderItem::Version("v1".to_string()),
     //             HeaderItem::Alias(
     //                 AliasName("a".to_string()),
-    //                 LabelExpression::And(
-    //                     Box::new(LabelExpression::Or(
-    //                         Box::new(LabelExpression::Integer(0)),
-    //                         Box::new(LabelExpression::Integer(1)),
-    //                     )),
-    //                     Box::new(LabelExpression::Integer(2)),
-    //                 ),
+    //                 Label,
     //             ),
     //         ],
     //     );
     // }
-    #[test]
-    fn multiple_headers() {}
+    // #[test]
+    // fn multiple_headers() {}
 }

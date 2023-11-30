@@ -33,8 +33,7 @@ impl<A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>> for Clas
         &self,
         ts: &RightCongruence<A, Q, C>,
     ) -> Option<<RightCongruence<A, Q, C> as TransitionSystem>::StateIndex> {
-        ts.class_to_index(self)
-            .or(ts.reached_state_index(self).map(|x| x))
+        ts.class_to_index(self).or(ts.reached_state_index(self))
     }
 }
 impl<'a, A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>>

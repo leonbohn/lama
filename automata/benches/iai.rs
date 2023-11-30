@@ -1,4 +1,4 @@
-use automata::{alphabet::Fixed, prelude::*, ts::finite::ReachedState};
+use automata::{alphabet::Fixed, prelude::*};
 
 type Automata = Vec<MooreMachine<Simple, usize>>;
 type Words = Vec<Vec<char>>;
@@ -149,7 +149,7 @@ fn simple_dfa_ops<A: Alphabet<Symbol = char, Expression = char>>(mut dfa: DFA<A>
         "abbcabbcbabcbbcbbabcbac",
         "bbcbabcbacbabcbabcbabcbabacbcbcbababbc",
     ] {
-        let q = dfa.reached_state_index(&x).unwrap();
+        let q = dfa.reached_state_index(x).unwrap();
         assert_eq!(q, 2);
     }
 }

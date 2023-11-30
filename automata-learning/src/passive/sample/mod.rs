@@ -234,12 +234,12 @@ mod tests {
 
         for (access, mr) in [("aaaa", "aaa"), ("baaa", "ba"), ("bbbbbbbbbb", "bbb")] {
             let expected_state_name = mr.chars().collect_vec().into();
-            assert_eq!(cong.reached_state_color(&access), Some(expected_state_name));
+            assert_eq!(cong.reached_state_color(access), Some(expected_state_name));
         }
 
         let dfa = cong.map_state_colors(|_| true).collect_dfa();
         for prf in ["aba", "ababbbbbb", "", "aa", "b", "bbabbab"] {
-            assert!(dfa.accepts_finite(&prf));
+            assert!(dfa.accepts_finite(prf));
         }
     }
 }

@@ -110,7 +110,7 @@ impl Accumulates for Reduces<usize> {
     where
         Self: 'a,
     {
-        Self(iter.into_iter().min().unwrap().clone())
+        Self(*iter.into_iter().min().unwrap())
     }
 
     fn result(&self) -> &Self::X {
@@ -139,7 +139,7 @@ impl Accumulates for Reduces<bool> {
     where
         Self: 'a,
     {
-        Self(iter.into_iter().min().unwrap().clone())
+        Self(*iter.into_iter().min().unwrap())
     }
 
     fn result(&self) -> &Self::X {
@@ -215,7 +215,7 @@ impl<Idx: IndexType, Q: Accumulates, C: Accumulates> RunSignature<Idx, Q, C> {
     fn with_ec(self, ec: C::X) -> Self {
         Self(self.0, self.1, C::from(ec))
     }
-    pub fn extend_in<Ts>(&self, ts: &Ts, symbol: SymbolOf<Ts>) -> Result<Self, ()>
+    pub fn extend_in<Ts>(&self, ts: &Ts, symbol: SymbolOf<Ts>) -> Option<Self>
     where
         Ts: Deterministic<StateIndex = Idx, StateColor = Q::X, EdgeColor = C::X>,
     {
@@ -227,9 +227,9 @@ impl<Idx: IndexType, Q: Accumulates, C: Accumulates> RunSignature<Idx, Q, C> {
                 let mut ec = C::from(tt.color());
                 ec.update(self.ec());
 
-                Ok(Self(target, sc, ec))
+                Some(Self(target, sc, ec))
             }
-            None => Err(()),
+            None => None,
         }
     }
     pub fn all_extensions<
@@ -241,7 +241,7 @@ impl<Idx: IndexType, Q: Accumulates, C: Accumulates> RunSignature<Idx, Q, C> {
     ) -> impl Iterator<Item = (SymbolOf<Ts>, Self)> + 'a {
         ts.alphabet()
             .universe()
-            .filter_map(|sym| self.extend_in(ts, sym).ok().map(|x| (sym, x)))
+            .filter_map(|sym| self.extend_in(ts, sym).map(|x| (sym, x)))
     }
 }
 
@@ -422,6 +422,7 @@ impl<'a, Ts, SA: Accumulates<X = Ts::StateColor>, EA: Accumulates<X = Ts::EdgeCo
 where
     Ts: Deterministic + Pointed,
 {
+    #[allow(clippy::type_complexity)]
     pub fn get_profile(
         &self,
         idx: usize,
@@ -517,7 +518,7 @@ where
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use owo_colors::OwoColorize;
         let mut b = tabled::builder::Builder::default();
-        println!("{:?}", self.tps.len());
+
         for (word, entry) in &self.strings {
             let mut row = vec![word.symbols().map(|s| s.show()).join("")];
             let profile_idx = match entry {

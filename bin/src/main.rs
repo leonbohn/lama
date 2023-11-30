@@ -1,7 +1,5 @@
 use automata::{
-    automata::DeterministicOmegaAutomaton,
     congruence::FORC,
-    hoa::HoaAlphabet,
     ts::{dot::display_dot, ToDot},
     Map, TransitionSystem,
 };

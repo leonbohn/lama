@@ -1,9 +1,9 @@
-use biodivine_lib_bdd::{Bdd, BddVariable, BddVariableSet};
+use biodivine_lib_bdd::Bdd;
 use chumsky::{prelude::*, select};
 
 use crate::{
-    AcceptanceAtom, AcceptanceCondition, AcceptanceInfo, AcceptanceSignature, AliasName, HoaBool,
-    Id, LabelExpression, StateConjunction, Token, MAX_APS,
+    AcceptanceAtom, AcceptanceCondition, AcceptanceInfo, AcceptanceSignature, HoaBool, Id,
+    StateConjunction, Token, MAX_APS,
 };
 
 #[allow(unused)]

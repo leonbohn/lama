@@ -22,7 +22,7 @@ impl<A: Alphabet, Idx: IndexType> Path<A, Idx> {
     }
 
     pub fn origin(&self) -> Idx {
-        if self.transitions.len() > 0 {
+        if !self.transitions.is_empty() {
             self.transitions[0].0
         } else {
             self.end

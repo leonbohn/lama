@@ -371,8 +371,8 @@ impl Show for InvertibleChar {
 #[derive(Clone, Debug)]
 pub struct Directional(Vec<InvertibleChar>);
 
-impl Directional {
-    pub fn from_iter<I: IntoIterator<Item = char>>(iter: I) -> Self {
+impl FromIterator<char> for Directional {
+    fn from_iter<I: IntoIterator<Item = char>>(iter: I) -> Self {
         let mut v = vec![];
         for sym in iter {
             v.push(InvertibleChar(sym, false));
@@ -380,6 +380,9 @@ impl Directional {
         }
         Self(v)
     }
+}
+
+impl Directional {
     pub fn from_alphabet<A: std::borrow::Borrow<Simple>>(alphabet: A) -> Self {
         Self::from_iter(alphabet.borrow().universe())
     }

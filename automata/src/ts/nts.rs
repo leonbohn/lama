@@ -153,7 +153,7 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for NTS<A, Q, C> {
 
 impl<Q, C> NTS<Simple, Q, C> {
     pub fn builder() -> NTSBuilder<Q, C> {
-        NTSBuilder::new()
+        NTSBuilder::default()
     }
 }
 
@@ -306,14 +306,17 @@ pub struct NTSBuilder<Q, C> {
     colors: Vec<(usize, Q)>,
 }
 
-impl<Q, C> NTSBuilder<Q, C> {
-    pub fn new() -> Self {
+impl<Q, C> Default for NTSBuilder<Q, C> {
+    fn default() -> Self {
         Self {
             edges: vec![],
             default: None,
             colors: vec![],
         }
     }
+}
+
+impl<Q, C> NTSBuilder<Q, C> {
     pub fn default_color(mut self, color: Q) -> Self {
         self.default = Some(color);
         self
@@ -336,7 +339,7 @@ impl<Q, C> NTSBuilder<Q, C> {
         Q: Color,
         C: Color,
     {
-        let alphabet = Simple::from_iter(self.edges.iter().map(|(_, a, _, _)| a.clone()));
+        let alphabet = Simple::from_iter(self.edges.iter().map(|(_, a, _, _)| *a));
         let num_states = self
             .edges
             .iter()

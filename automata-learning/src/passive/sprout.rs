@@ -33,11 +33,11 @@ impl<A: Alphabet> ConsistencyCheck<A> for FiniteSample<A, bool> {
     fn consistent(&self, cong: &RightCongruence<A>) -> bool {
         let positive_indices: Set<_> = self
             .positive_words()
-            .filter_map(|w| cong.reached_state_index(w).map(|q| q))
+            .filter_map(|w| cong.reached_state_index(w))
             .collect();
         let negative_indices: Set<_> = self
             .negative_words()
-            .filter_map(|w| cong.reached_state_index(w).map(|q| q))
+            .filter_map(|w| cong.reached_state_index(w))
             .collect();
         positive_indices.is_disjoint(&negative_indices)
     }
@@ -642,8 +642,8 @@ pub(crate) mod tests {
 
         assert_eq!(cong.size(), expected_cong.size());
         for word in ["aba", "abbabb", "baabaaba", "bababaaba", "b", "a", ""] {
-            let reached = cong.reached_state_color(&word).unwrap();
-            let expected = expected_cong.reached_state_color(&word).unwrap();
+            let reached = cong.reached_state_color(word).unwrap();
+            let expected = expected_cong.reached_state_color(word).unwrap();
             assert_eq!(
                 reached, expected,
                 "{} reached {}, expected was {}",

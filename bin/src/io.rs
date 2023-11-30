@@ -35,16 +35,10 @@ pub fn from_file_or_stdin(maybe_file_name: Option<&String>) -> String {
         None => {
             tracing::debug!("No input files specified, using stdin");
             let mut buf = String::new();
-            std::io::stdin().read_to_string(&mut buf);
+            std::io::stdin()
+                .read_to_string(&mut buf)
+                .expect("Error when reading from stdin");
             buf
         }
-    }
-}
-
-pub fn read_from_file_or_stdin(maybe_file_name: Option<&String>) -> Box<dyn Read> {
-    if let Some(file_name) = maybe_file_name {
-        Box::new(std::fs::File::open(file_name).expect("Could not open input file"))
-    } else {
-        Box::new(std::io::stdin())
     }
 }

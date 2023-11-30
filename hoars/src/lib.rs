@@ -1,5 +1,5 @@
 //! This crate provides a parser for the HOA format.
-#![warn(missing_docs)]
+// #![warn(missing_docs)]
 mod body;
 mod display;
 mod format;
@@ -420,7 +420,7 @@ mod tests {
         body::{Edge, State},
         header::Header,
         AcceptanceAtom, AcceptanceCondition, AcceptanceName, AcceptanceSignature, Body, HeaderItem,
-        HoaAutomaton, Label, LabelExpression, StateConjunction, ALPHABET, VARS,
+        HoaAutomaton, Label, StateConjunction, ALPHABET, VARS,
     };
 
     #[test]

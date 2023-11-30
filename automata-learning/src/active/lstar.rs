@@ -13,10 +13,7 @@ use super::{
     },
 };
 
-#[cfg(not(debug_assertions))]
-const ITERATION_THRESHOLD: usize = 200000;
-#[cfg(debug_assertions)]
-const ITERATION_THRESHOLD: usize = 200;
+const ITERATION_THRESHOLD: usize = if cfg!(debug_assertions) { 200 } else { 200000 };
 
 /// An implementation of the L* algorithm.
 #[derive(Debug, Clone)]
@@ -223,10 +220,10 @@ mod tests {
             hypothesis: &MooreMachine<Simple, bool>,
         ) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)> {
             for word in ["aa", "bb", "bab", "aba", "abba", "bbab", "", "b", "a"] {
-                let output = self.output(&word);
+                let output = self.output(word);
                 if output
                     != hypothesis
-                        .try_moore_map(&word)
+                        .try_moore_map(word)
                         .expect("Hypothesis should be complete")
                 {
                     return Err((word.chars().collect(), output));
@@ -262,8 +259,8 @@ mod tests {
             for word in [
                 "aa", "bb", "bab", "bbabba", "aba", "abba", "bbab", "", "b", "a",
             ] {
-                let output = self.output(&word);
-                if output != hypothesis.try_moore_map(&word).unwrap() {
+                let output = self.output(word);
+                if output != hypothesis.try_moore_map(word).unwrap() {
                     return Err((word.to_vec(), output));
                 }
             }

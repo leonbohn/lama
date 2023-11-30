@@ -105,7 +105,7 @@ impl<'a, Idx: IndexType, E, C: Color> IsTransition<E, Idx, C> for (&'a E, Idx, &
     }
 }
 
-impl<'a, Idx: IndexType, E, C: Color> IsTransition<E, Idx, C> for (E, Idx, C) {
+impl<Idx: IndexType, E, C: Color> IsTransition<E, Idx, C> for (E, Idx, C) {
     fn target(&self) -> Idx {
         self.1
     }
@@ -162,7 +162,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
 
     /// Returns an iterator over the transitions that start in the given `state`. If the state does
     /// not exist, `None` is returned.
-    fn edges_from<'a, Idx: Indexes<Self>>(&'a self, state: Idx) -> Option<Self::EdgesFromIter<'_>>;
+    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>>;
 
     fn has_transition(
         &self,
@@ -171,8 +171,7 @@ pub trait TransitionSystem: HasAlphabet + Sized {
         target: Self::StateIndex,
     ) -> bool {
         self.transitions_from(source)
-            .find(|(p, a, _, q)| p == &source && q == &target && a == &sym)
-            .is_some()
+            .any(|(p, a, _, q)| p == source && q == target && a == sym)
     }
 
     fn transitions_from<Idx: Indexes<Self>>(&self, state: Idx) -> TransitionsFrom<'_, Self> {

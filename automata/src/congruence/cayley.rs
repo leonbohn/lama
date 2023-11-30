@@ -30,7 +30,7 @@ impl<
     > Cayley<'a, Ts, SA, EA>
 {
     pub fn ts(&self) -> &Ts {
-        &self.ts
+        self.ts
     }
 
     pub fn monoid(&self) -> &TransitionMonoid<'a, Ts, SA, EA> {
@@ -166,7 +166,7 @@ impl<
     > RightCayley<'a, Ts, SA, EA>
 {
     pub fn ts(&self) -> &Ts {
-        &self.ts
+        self.ts
     }
 
     pub fn monoid(&self) -> &TransitionMonoid<'a, Ts, SA, EA> {

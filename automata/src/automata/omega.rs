@@ -142,7 +142,7 @@ impl<A: Alphabet> TryFrom<&OmegaAutomaton<A>> for DeterministicOmegaAutomaton<A>
 
     fn try_from(value: &OmegaAutomaton<A>) -> Result<Self, Self::Error> {
         let dts = (&value.ts).try_into()?;
-        Ok(Self::new(dts, value.acc.clone()))
+        Ok(Self::new(dts, value.acc))
     }
 }
 
@@ -181,7 +181,7 @@ impl<A: Alphabet> TransitionSystem for OmegaAutomaton<A> {
         self.ts.state_indices()
     }
 
-    fn edges_from<'a, Idx: Indexes<Self>>(&'a self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
+    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
         self.ts.edges_from(state.to_index(self)?)
     }
 
@@ -213,7 +213,7 @@ impl<A: Alphabet> TransitionSystem for DeterministicOmegaAutomaton<A> {
         self.ts.state_indices()
     }
 
-    fn edges_from<'a, Idx: Indexes<Self>>(&'a self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
+    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
         self.ts.edges_from(state.to_index(self)?)
     }
 

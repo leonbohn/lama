@@ -320,10 +320,10 @@ mod tests {
         let dfa0 = &dfas[0];
 
         println!("{:?}", dfa0);
-        assert!(dfa2.accepts_finite(&""));
-        assert!(dfa2.accepts_finite(&"b"));
-        assert!(!dfa0.accepts_finite(&"b"));
-        assert!(dfa0.accepts_finite(&"ba"));
+        assert!(dfa2.accepts_finite(""));
+        assert!(dfa2.accepts_finite("b"));
+        assert!(!dfa0.accepts_finite("b"));
+        assert!(dfa0.accepts_finite("ba"));
     }
 
     #[test]

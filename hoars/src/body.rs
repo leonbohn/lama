@@ -1,14 +1,9 @@
-use std::{
-    fmt::Display,
-    ops::{Deref, DerefMut},
-};
+use std::ops::{Deref, DerefMut};
 
 use biodivine_lib_bdd::Bdd;
 use chumsky::prelude::*;
 
-use crate::{
-    lexer::Token, value, AcceptanceSignature, Aliases, AtomicProposition, Id, StateConjunction,
-};
+use crate::{lexer::Token, value, AcceptanceSignature, AtomicProposition, Id, StateConjunction};
 
 /// Newtype wrapper around a [`LabelExpression`], implements [`Deref`].
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -233,9 +228,9 @@ impl DerefMut for Body {
 mod tests {
     use chumsky::{primitive::end, Parser, Stream};
 
-    use crate::{lexer, HoaBool, LabelExpression, StateConjunction};
+    use crate::{lexer, Edge, Label, StateConjunction, ALPHABET, VARS};
 
-    use super::{Edge, Label, State};
+    use super::State;
 
     pub fn in_tags(input: &str) -> String {
         format!("--BODY--\n{}\n--END--", input)
@@ -273,21 +268,18 @@ mod tests {
         let hoa = r#"State: 0 "a U b"   /* An example of named state */
         [0 & !1] 0 {0}
         [1] 1 {0}"#;
-        // let t0 = Edge::from_parts(
-        //     Label(LabelExpression::And(
-        //         Box::new(LabelExpression::Integer(0)),
-        //         Box::new(LabelExpression::Not(Box::new(LabelExpression::Integer(1)))),
-        //     )),
-        //     StateConjunction(vec![0]),
-        //     crate::AcceptanceSignature(vec![0]),
-        // );
-        // let t1 = Edge::from_parts(
-        //     Label(LabelExpression::Integer(1)),
-        //     StateConjunction(vec![1]),
-        //     crate::AcceptanceSignature(vec![0]),
-        // );
-        // let q0 = State::from_parts(0, Some("a U b".to_string()), vec![t0, t1]);
-        // assert_eq!(process_body(&in_tags(hoa)), Ok(vec![q0]));
+        let t0 = Edge::from_parts(
+            Label(ALPHABET.mk_var(VARS[0]).and(&ALPHABET.mk_not_var(VARS[1]))),
+            StateConjunction(vec![0]),
+            crate::AcceptanceSignature(vec![0]),
+        );
+        let t1 = Edge::from_parts(
+            Label(ALPHABET.mk_var(VARS[1])),
+            StateConjunction(vec![1]),
+            crate::AcceptanceSignature(vec![0]),
+        );
+        let q0 = State::from_parts(0, Some("a U b".to_string()), vec![t0, t1]);
+        assert_eq!(process_body(&in_tags(hoa)), Ok(vec![q0]));
     }
 
     #[test]
@@ -296,19 +288,19 @@ mod tests {
             State: 1
             [t] 1 {1}
         "#;
-        // let t0 = Edge::from_parts(
-        //     Label(LabelExpression::Boolean(HoaBool(true))),
-        //     StateConjunction(vec![1]),
-        //     crate::AcceptanceSignature(vec![1]),
-        // );
-        // let q0 = State::from_parts(1, None, vec![t0]);
-        // assert_eq!(process_body(&in_tags(hoa)), Ok(vec![q0]));
+        let t0 = Edge::from_parts(
+            Label(ALPHABET.mk_true()),
+            StateConjunction(vec![1]),
+            crate::AcceptanceSignature(vec![1]),
+        );
+        let q0 = State::from_parts(1, None, vec![t0]);
+        assert_eq!(process_body(&in_tags(hoa)), Ok(vec![q0]));
     }
 
     #[test]
     fn no_transition_state() {
         let hoa = r#"State: 1"#;
-        // let q0 = State::from_parts(1, None, vec![]);
-        // assert_eq!(process_body(&in_tags(hoa)), Ok(vec![q0]));
+        let q0 = State::from_parts(1, None, vec![]);
+        assert_eq!(process_body(&in_tags(hoa)), Ok(vec![q0]));
     }
 }

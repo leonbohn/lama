@@ -193,7 +193,7 @@ impl<S: Symbol> Reduced<S> {
             self.loop_index -= 1;
             out
         } else {
-            let out = self.cycle().first().unwrap().clone();
+            let out = *self.cycle().first().unwrap();
             self.word.rotate_left(1);
             out
         }

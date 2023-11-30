@@ -101,7 +101,7 @@ impl HoaAlphabet {
     pub fn from_hoa_automaton(aut: &HoaAutomaton) -> Self {
         let apnames = aut.aps().clone();
         assert!(apnames.len() < MAX_APS);
-        assert!(0 < apnames.len());
+        assert!(!apnames.is_empty());
 
         Self { apnames }
     }
@@ -120,7 +120,7 @@ impl HoaAlphabet {
     pub fn nth_variable(&self, n: usize) -> BddVariable {
         assert!(n < MAX_APS);
         assert!(n < self.apnames.len());
-        VARS[n].clone()
+        VARS[n]
     }
 }
 
@@ -135,7 +135,7 @@ pub(crate) fn bdd_valuation_to_hoa_symbol(valuation: &BddValuation) -> HoaSymbol
     );
     let mut repr = 0;
     for i in 0..MAX_APS {
-        if valuation.value(VARS[i].clone()) {
+        if valuation.value(VARS[i]) {
             repr |= (1 << i);
         }
     }
@@ -149,11 +149,11 @@ pub struct HoaSymbol {
 }
 
 impl HoaSymbol {
-    fn to_bdd_valuation(&self) -> BddValuation {
+    fn as_bdd_valuation(&self) -> BddValuation {
         let mut valuation = BddValuation::all_false(MAX_APS.try_into().unwrap());
         for i in 0..self.aps {
             let val = ((1 << i) & self.repr) > 0;
-            valuation.set_value(VARS[i].clone(), val);
+            valuation.set_value(VARS[i], val);
         }
         valuation
     }
@@ -297,7 +297,7 @@ impl Expression<HoaSymbol> for HoaExpression {
     }
 
     fn matches(&self, symbol: HoaSymbol) -> bool {
-        self.bdd.eval_in(&symbol.to_bdd_valuation())
+        self.bdd.eval_in(&symbol.as_bdd_valuation())
     }
 }
 
@@ -309,7 +309,7 @@ pub struct HoaUniverse {
 impl Iterator for HoaUniverse {
     type Item = HoaSymbol;
     fn next(&mut self) -> Option<Self::Item> {
-        if (self.current as u16) < (2u16.saturating_pow(self.aps as u32) as u16) {
+        if (self.current as u16) < (2u32.saturating_pow(self.aps as u32) as u16) {
             let out = self.current;
             self.current += 1;
             Some(HoaSymbol {
@@ -357,11 +357,7 @@ impl Alphabet for HoaAlphabet {
     fn contains(&self, symbol: Self::Symbol) -> bool {
         for i in (0..MAX_APS).rev() {
             if (symbol.repr & (1 << i)) > 0 {
-                if i < self.apnames.len() {
-                    return true;
-                } else {
-                    return false;
-                }
+                return i < self.apnames.len();
             }
         }
         true
