@@ -52,6 +52,82 @@ impl<Ts: TransitionSystem> Indexes<Ts> for Ts::StateIndex {
         Some(*self)
     }
 }
+
+pub trait FullTransition<Idx, S, C> {
+    fn source(&self) -> &Idx;
+    fn target(&self) -> &Idx;
+    fn color(&self) -> &C;
+    fn symbol(&self) -> &S;
+
+    fn clone_tuple(&self) -> (Idx, S, C, Idx)
+    where
+        Idx: Clone,
+        S: Clone,
+        C: Clone,
+    {
+        (
+            self.source().clone(),
+            self.symbol().clone(),
+            self.color().clone(),
+            self.target().clone(),
+        )
+    }
+}
+
+impl<Idx, S, C> FullTransition<Idx, S, C> for (Idx, S, C, Idx) {
+    fn source(&self) -> &Idx {
+        &self.0
+    }
+
+    fn target(&self) -> &Idx {
+        &self.3
+    }
+
+    fn color(&self) -> &C {
+        &self.2
+    }
+
+    fn symbol(&self) -> &S {
+        &self.1
+    }
+}
+
+impl<'a, Idx, S, C> FullTransition<Idx, S, C> for &'a (Idx, S, C, Idx) {
+    fn source(&self) -> &Idx {
+        &self.0
+    }
+
+    fn target(&self) -> &Idx {
+        &self.3
+    }
+
+    fn color(&self) -> &C {
+        &self.2
+    }
+
+    fn symbol(&self) -> &S {
+        &self.1
+    }
+}
+
+impl<'a, Idx, S, C> FullTransition<Idx, S, C> for (&'a Idx, &'a S, &'a C, &'a Idx) {
+    fn source(&self) -> &Idx {
+        self.0
+    }
+
+    fn target(&self) -> &Idx {
+        self.3
+    }
+
+    fn color(&self) -> &C {
+        self.2
+    }
+
+    fn symbol(&self) -> &S {
+        self.1
+    }
+}
+
 /// This trait is implemented for references to transitions, so that they can be used in
 /// generic contexts. It is automatically implemented for (mutable) references.
 #[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
@@ -172,8 +248,11 @@ pub trait TransitionSystem: HasAlphabet + Sized {
         sym: SymbolOf<Self>,
         target: Self::StateIndex,
     ) -> bool {
-        self.transitions_from(source)
-            .any(|(p, a, _, q)| p == source && q == target && a == sym)
+        if let Some(mut it) = self.edges_from(source) {
+            it.any(|t| t.target() == target && t.expression().matches(sym))
+        } else {
+            false
+        }
     }
 
     fn transitions_from<Idx: Indexes<Self>>(&self, state: Idx) -> TransitionsFrom<'_, Self> {

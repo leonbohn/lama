@@ -1,5 +1,6 @@
 use crate::{
-    ts::{connected_components::Scc, IndexType},
+    prelude::Expression,
+    ts::{connected_components::Scc, transition_system::IsTransition, IndexType},
     Alphabet, Map, TransitionSystem,
 };
 
@@ -52,15 +53,20 @@ impl<Idx: IndexType> Tarjan<Idx> {
         );
         self.index += 1;
 
-        for (_, a, _, q) in ts.transitions_from(v) {
-            if self.data.get(&q).and_then(|data| data.rootindex).is_none() {
-                self.visit(ts, q, f);
-            }
-            let w_index = self.data.get(&q).unwrap().rootindex;
-            let v_mut = self.data.get_mut(&v).unwrap();
-            if w_index < v_mut.rootindex {
-                v_mut.rootindex = w_index;
-                node_v_is_root = false;
+        if let Some(it) = ts.edges_from(v) {
+            for edge in it {
+                let q = edge.target();
+                for a in edge.expression().symbols() {
+                    if self.data.get(&q).and_then(|data| data.rootindex).is_none() {
+                        self.visit(ts, q, f);
+                    }
+                    let w_index = self.data.get(&q).unwrap().rootindex;
+                    let v_mut = self.data.get_mut(&v).unwrap();
+                    if w_index < v_mut.rootindex {
+                        v_mut.rootindex = w_index;
+                        node_v_is_root = false;
+                    }
+                }
             }
         }
 

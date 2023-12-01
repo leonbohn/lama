@@ -5,6 +5,8 @@ use itertools::Itertools;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 
+use super::transition_system::FullTransition;
+
 #[derive(Clone, Eq, PartialEq)]
 pub struct NTState<Q> {
     pub(super) color: Q,
@@ -321,7 +323,7 @@ impl<Q, C> Default for NTSBuilder<Q, C> {
     }
 }
 
-impl<Q, C> NTSBuilder<Q, C> {
+impl<Q, C: Color> NTSBuilder<Q, C> {
     pub fn default_color(mut self, color: Q) -> Self {
         self.default = Some(color);
         self
@@ -343,8 +345,11 @@ impl<Q, C> NTSBuilder<Q, C> {
         self.colors.push((idx, color));
         self
     }
-    pub fn extend<T: IntoIterator<Item = (usize, char, C, usize)>>(mut self, iter: T) -> Self {
-        self.edges.extend(iter);
+    pub fn extend<X: FullTransition<usize, char, C>, T: IntoIterator<Item = X>>(
+        mut self,
+        iter: T,
+    ) -> Self {
+        self.edges.extend(iter.into_iter().map(|t| t.clone_tuple()));
         self
     }
 
