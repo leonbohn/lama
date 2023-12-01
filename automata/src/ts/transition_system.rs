@@ -13,9 +13,9 @@ use super::{
     connected_components::{tarjan_scc, SccDecomposition, TarjanDAG},
     index_ts::BTState,
     operations::{
-        MapEdgeColor, MapStateColor, MappedEdgesFromIter, MappedTransition, MatchingProduct,
-        ProductEdgesFrom, ProductIndex, ProductStatesIter, ProductTransition, RestrictByStateIndex,
-        RestrictedEdgesFromIter, StateIndexFilter, SubsetConstruction,
+        ColorRestricted, MapEdgeColor, MapStateColor, MappedEdgesFromIter, MappedTransition,
+        MatchingProduct, ProductEdgesFrom, ProductIndex, ProductStatesIter, ProductTransition,
+        RestrictByStateIndex, RestrictedEdgesFromIter, StateIndexFilter, SubsetConstruction,
     },
     predecessors::PredecessorIterable,
     reachable::{MinimalRepresentatives, ReachableStateIndices, ReachableStates},
@@ -266,6 +266,17 @@ pub trait TransitionSystem: HasAlphabet + Sized {
         Self: Sized,
     {
         Quotient::new(self, partition)
+    }
+
+    /// Restricts the edges of `self` such that only transitions p --a|c--> q exist where
+    /// `min` <= `c` <= `max`, i.e. all transitions where either `c` < `min` or `max` < `c`
+    /// are discarded.
+    fn edge_color_restricted(
+        self,
+        min: Self::EdgeColor,
+        max: Self::EdgeColor,
+    ) -> ColorRestricted<Self> {
+        ColorRestricted::new(self, min, max)
     }
 
     /// Restricts the state indices with the given function. This means that only the states for

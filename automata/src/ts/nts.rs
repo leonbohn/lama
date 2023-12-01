@@ -326,6 +326,15 @@ impl<Q, C> NTSBuilder<Q, C> {
         self.default = Some(color);
         self
     }
+
+    pub fn deterministic(mut self) -> DTS<Simple, Q, C>
+    where
+        Q: Color,
+        C: Color,
+    {
+        self.collect().try_into().expect("Not deterministic!")
+    }
+
     pub fn color(mut self, idx: usize, color: Q) -> Self
     where
         Q: Color,

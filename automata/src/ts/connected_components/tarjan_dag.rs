@@ -68,9 +68,9 @@ impl<'a, Ts: TransitionSystem + Clone> From<SccDecomposition<'a, Ts>> for Tarjan
     }
 }
 
-impl<'a, Ts: TransitionSystem + std::fmt::Debug> std::fmt::Debug for TarjanDAG<'a, Ts> {
+impl<'a, Ts: TransitionSystem> std::fmt::Debug for TarjanDAG<'a, Ts> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "DAG: {:?}", self.dag)
+        todo!()
     }
 }
 
