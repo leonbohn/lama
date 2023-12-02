@@ -219,6 +219,23 @@ impl<I: Hash + Eq> Partition<I> {
     }
 }
 
+pub trait Parity {
+    fn is_even(&self) -> bool;
+    fn is_odd(&self) -> bool {
+        !self.is_even()
+    }
+}
+impl<P: Parity> Parity for &P {
+    fn is_even(&self) -> bool {
+        P::is_even(self)
+    }
+}
+impl Parity for usize {
+    fn is_even(&self) -> bool {
+        self % 2 == 0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{alphabet, prelude::*};

@@ -59,8 +59,7 @@ pub struct MatchingProduct<L, R>(pub L, pub R);
 impl<L, R> Pointed for MatchingProduct<L, R>
 where
     L: Pointed,
-    R: Pointed,
-    R::Alphabet: Alphabet<Symbol = SymbolOf<L>, Expression = ExpressionOf<L>>,
+    R: Pointed<Alphabet = L::Alphabet>,
 {
     fn initial(&self) -> Self::StateIndex {
         ProductIndex(self.0.initial(), self.1.initial())

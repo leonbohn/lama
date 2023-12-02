@@ -6,7 +6,7 @@ use crate::{
     alphabet::SymbolOf,
     prelude::Expression,
     ts::{finite::SeenColors, transition_system::IsTransition, CanInduce},
-    Alphabet, Map, Set, Show, TransitionSystem,
+    Alphabet, Map, Pointed, Set, Show, TransitionSystem,
 };
 
 /// Represents a strongly connected component of a transition system.
@@ -16,6 +16,7 @@ pub struct Scc<'a, Ts: TransitionSystem> {
     states: BTreeSet<Ts::StateIndex>,
     edges: OnceCell<Set<(Ts::StateIndex, SymbolOf<Ts>, Ts::EdgeColor, Ts::StateIndex)>>,
     edge_colors: OnceCell<Set<Ts::EdgeColor>>,
+    minimal_representative: OnceCell<Option<(Ts::StateIndex, Vec<SymbolOf<Ts>>)>>,
 }
 
 impl<'a, Ts: TransitionSystem> IntoIterator for Scc<'a, Ts> {
@@ -63,10 +64,12 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         assert!(!states.is_empty(), "Cannot have empty SCC!");
         let edges = OnceCell::new();
         let edge_colors = OnceCell::new();
+        let minimal_representative = OnceCell::new();
         Self {
             ts,
             edges,
             states,
+            minimal_representative,
             edge_colors,
         }
     }
@@ -105,6 +108,22 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         })
     }
 
+    /// Computes the minimal word on which a state of this SCC may be reached.
+    pub fn minimal_representative(&self) -> &Option<(Ts::StateIndex, Vec<SymbolOf<Ts>>)>
+    where
+        Ts: Pointed,
+    {
+        self.minimal_representative.get_or_init(|| {
+            self.ts.minimal_representatives().find_map(|(access, q)| {
+                if self.states.contains(&q) {
+                    Some((q, access))
+                } else {
+                    None
+                }
+            })
+        })
+    }
+
     /// Returns an iterator yielding the colors of edges whose source and target states are
     /// in the SCC.
     pub fn interior_edge_colors(&self) -> &Set<Ts::EdgeColor> {
@@ -119,19 +138,22 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
     /// Returns a vector of the colors of the states in the SCC.
     pub fn colors(&self) -> Option<Vec<Ts::StateColor>> {
         debug_assert!(!self.is_empty());
-        let maximal_word = self.maximal_word()?;
-        todo!()
-        // let SeenColors(colors) = self
-        //     .ts()
-        //     .finite_run_from(*self.first().unwrap(), &maximal_word)
-        //     .ok()?
-        //     .induce();
-        // Some(colors)
+        Some(
+            self.states
+                .iter()
+                .filter_map(|q| self.ts.state_color(*q))
+                .collect(),
+        )
+    }
+
+    pub fn maximal_word(&self) -> Option<Vec<SymbolOf<Ts>>> {
+        self.maximal_word_from(*self.states.first()?)
     }
 
     /// Attempts to compute a maximal word (i.e. a word visiting all states in the scc). If such a
     /// word exists, it is returned, otherwise the function returns `None`.
-    pub fn maximal_word(&self) -> Option<Vec<SymbolOf<Ts>>> {
+    pub fn maximal_word_from(&self, from: Ts::StateIndex) -> Option<Vec<SymbolOf<Ts>>> {
+        assert!(self.contains(&from));
         let ts = self.ts;
         debug_assert!(!self.is_empty());
 
@@ -146,8 +168,9 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         if queue.is_empty() {
             return None;
         }
+        assert!(queue.contains_key(&from));
 
-        let mut current = *self.first()?;
+        let mut current = from;
         let mut word = Vec::new();
 
         while !queue.is_empty() {

@@ -3,9 +3,11 @@ use std::{collections::VecDeque, marker::PhantomData};
 use crate::{
     prelude::*,
     ts::{
+        connected_components::Scc,
         operations::{MapEdgeColor, MapStateColor},
         IntoInitialBTS,
     },
+    Parity,
 };
 
 use super::acceptor::OmegaWordAcceptor;
@@ -27,22 +29,6 @@ pub trait DPALike: Deterministic<EdgeColor = usize> + Pointed {
     fn collect_dpa(self) -> IntoDPA<IntoInitialBTS<Self>> {
         DPA::from(self.trim_collect())
     }
-
-    fn prefix_congruence(&self) -> RightCongruence<Self::Alphabet> {
-        let mut states: VecDeque<_> = self.state_indices().collect();
-
-        while let Some(q) = states.pop_front() {}
-        todo!()
-    }
-
-    fn witness_colors<O: DPALike<Alphabet = Self::Alphabet>>(
-        self,
-        k: usize,
-        other: IntoDPA<O>,
-        l: usize,
-    ) -> Option<Reduced<SymbolOf<Self>>> {
-        todo!()
-    }
 }
 
 impl<Ts> DPALike for Ts where Ts: Deterministic<EdgeColor = usize> + Pointed {}
@@ -63,27 +49,93 @@ impl<Ts: DPALike> AsRef<IntoDPA<Ts>> for IntoDPA<Ts> {
     }
 }
 
-impl<Ts: DPALike> DPA<Ts::Alphabet, Ts::StateColor, Ts> {
+impl<D: DPALike> IntoDPA<D> {
     pub fn give_word(&self) -> Option<Reduced<SymbolOf<Self>>> {
         todo!()
     }
 
-    pub fn complement(self) -> DPA<Ts::Alphabet, Ts::StateColor> {
+    pub fn complement(self) -> DPA<D::Alphabet, D::StateColor> {
         self.map_edge_colors(|c| c + 1).collect_dpa()
     }
 
-    pub fn intersection<O: DPALike<Alphabet = Ts::Alphabet>>(
-        self,
-        other: IntoDPA<O>,
-    ) -> DPA<Ts::Alphabet, (Ts::StateColor, O::StateColor)> {
-        self.ts
-            .ts_product(other.ts)
-            .map_edge_colors(|(c, d)| std::cmp::min(c, d))
-            .collect_dpa()
+    fn prefix_congruence(&self) -> RightCongruence<D::Alphabet> {
+        let mut states: VecDeque<_> = self.state_indices().collect();
+
+        while let Some(q) = states.pop_front() {}
+        todo!()
     }
 
-    pub fn equivalent<O: DPALike<Alphabet = Ts::Alphabet>>(self, other: IntoDPA<O>) -> bool {
-        self.intersection(other.complement()).give_word().is_none()
+    pub fn witness_colors<O: DPALike<Alphabet = D::Alphabet>>(
+        &self,
+        k: usize,
+        other: &IntoDPA<O>,
+        l: usize,
+    ) -> Option<Reduced<SymbolOf<Self>>> {
+        let t1 = self.edge_color_restricted(k, usize::MAX);
+        let t2 = other.edge_color_restricted(l, usize::MAX);
+        let prod = t1.ts_product(t2);
+        let sccs = prod.sccs();
+        for scc in sccs.iter() {
+            if scc.is_transient() {
+                continue;
+            }
+            let (a, b) = scc
+                .interior_edge_colors()
+                .iter()
+                .min()
+                .expect("we know this is not transient");
+            if *a == k && *b == l {
+                let Some((mr, spoke)) = scc.minimal_representative() else {
+                    continue;
+                };
+                let cycle = scc
+                    .maximal_word_from(*mr)
+                    .expect("This thing is non-transient");
+                return Some(Reduced::ultimately_periodic(spoke, cycle));
+            }
+        }
+        None
+    }
+
+    pub fn colors(&self) -> Vec<D::EdgeColor> {
+        MealyLike::color_range(self)
+    }
+
+    pub fn witness_inequivalence<O: DPALike<Alphabet = D::Alphabet>>(
+        &self,
+        other: &IntoDPA<O>,
+    ) -> Option<Reduced<SymbolOf<D>>> {
+        self.witness_not_subset_of(other)
+            .or(other.witness_not_subset_of(self))
+    }
+
+    pub fn language_equivalent<O: DPALike<Alphabet = D::Alphabet>>(
+        &self,
+        other: &IntoDPA<O>,
+    ) -> bool {
+        self.witness_inequivalence(other).is_none()
+    }
+
+    pub fn included_in<O: DPALike<Alphabet = D::Alphabet>>(&self, other: &IntoDPA<O>) -> bool {
+        self.witness_not_subset_of(other).is_none()
+    }
+
+    pub fn includes<O: DPALike<Alphabet = D::Alphabet>>(&self, other: &IntoDPA<O>) -> bool {
+        other.witness_not_subset_of(self).is_none()
+    }
+
+    pub fn witness_not_subset_of<O: DPALike<Alphabet = D::Alphabet>>(
+        &self,
+        other: &IntoDPA<O>,
+    ) -> Option<Reduced<SymbolOf<D>>> {
+        for i in self.colors().iter().filter(|x| x.is_even()) {
+            for j in other.colors().iter().filter(|x| x.is_odd()) {
+                if let Some(cex) = self.as_ref().witness_colors(*i, &other, *j) {
+                    return Some(cex);
+                }
+            }
+        }
+        None
     }
 }
 
@@ -128,7 +180,7 @@ mod tests {
     }
 
     #[test]
-    fn simple_dpa_equivalence() {
+    fn dpa_equivalence() {
         let good = [
             NTS::builder()
                 .default_color(())
@@ -180,5 +232,27 @@ mod tests {
                 .with_initial(0)
                 .collect_dpa(),
         ];
+        for g in &good {
+            for b in &bad {
+                assert!(!g.language_equivalent(b));
+            }
+        }
+    }
+    #[test]
+    fn dpa_inclusion() {
+        let univ = NTS::builder()
+            .default_color(())
+            .extend([(0, 'a', 0, 0), (0, 'b', 2, 0)])
+            .deterministic()
+            .with_initial(0)
+            .collect_dpa();
+        let aomega = NTS::builder()
+            .default_color(())
+            .extend([(0, 'a', 0, 0), (0, 'b', 1, 0)])
+            .deterministic()
+            .with_initial(0)
+            .collect_dpa();
+        assert!(univ.includes(&aomega));
+        assert!(!univ.included_in(&aomega));
     }
 }
