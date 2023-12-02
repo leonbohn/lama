@@ -323,6 +323,15 @@ impl<Q, C> Default for NTSBuilder<Q, C> {
     }
 }
 
+impl NTSBuilder<(), usize> {
+    pub fn into_dpa(mut self, initial: usize) -> DPA<Simple> {
+        self.default_color(())
+            .deterministic()
+            .with_initial(initial)
+            .collect_dpa()
+    }
+}
+
 impl<Q, C: Color> NTSBuilder<Q, C> {
     pub fn default_color(mut self, color: Q) -> Self {
         self.default = Some(color);

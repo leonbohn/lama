@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display};
 
-use itertools::Itertools;
+use itertools::{Itertools, MapInto};
 
 use crate::{
     alphabet::{HasAlphabet, Simple, Symbol},
@@ -51,10 +51,16 @@ impl<A: Alphabet, Q: Color + Show, C: Color + Show> Debug for RightCongruence<A,
 
 impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
     /// Turns the given transition system into a right congruence.
-    pub fn from_ts<X: Into<ColoredClass<A::Symbol, Q>> + Color>(ts: BTS<A, X, C>) -> Self {
-        Self {
-            ts: ts.map_state_colors(|c| c.into()).collect_ts(),
-        }
+    pub fn from_ts<Ts: Pointed + Deterministic<Alphabet = A, StateColor = Q, EdgeColor = C>>(
+        ts: Ts,
+    ) -> Self {
+        let mut cong = Self {
+            ts: ts
+                .map_state_colors(|c| ColoredClass::new(Class::default(), c))
+                .collect_ts(),
+        };
+        cong.recompute_labels();
+        cong
     }
 
     /// Verifies whether an element of `self` is  idempotent, i.e. if the mr of the indexed

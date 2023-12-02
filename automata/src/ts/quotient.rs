@@ -1,6 +1,6 @@
 use crate::{
     prelude::{ExpressionOf, HasAlphabet, SymbolOf},
-    Alphabet, Partition, Pointed, Set, TransitionSystem,
+    Alphabet, Partition, Pointed, RightCongruence, Set, TransitionSystem,
 };
 
 use super::{transition_system::IsTransition, Deterministic};
@@ -64,6 +64,16 @@ impl<Ts: TransitionSystem> Quotient<Ts> {
             }
         }
         true
+    }
+
+    pub fn into_right_congruence(self, ts: &Ts) -> RightCongruence<Ts::Alphabet>
+    where
+        Ts: Deterministic + Pointed,
+    {
+        assert!(Self::sanity_check(ts, &self.partition));
+        self.erase_edge_colors()
+            .erase_state_colors()
+            .collect_right_congruence()
     }
 
     /// Creates a new quotient of the given transition system by the give [`Partition`].

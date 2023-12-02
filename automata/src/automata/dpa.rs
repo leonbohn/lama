@@ -5,9 +5,9 @@ use crate::{
     ts::{
         connected_components::Scc,
         operations::{MapEdgeColor, MapStateColor},
-        IntoInitialBTS,
+        IntoInitialBTS, Quotient,
     },
-    Parity,
+    Parity, Partition,
 };
 
 use super::acceptor::OmegaWordAcceptor;
@@ -59,10 +59,39 @@ impl<D: DPALike> IntoDPA<D> {
     }
 
     fn prefix_congruence(&self) -> RightCongruence<D::Alphabet> {
-        let mut states: VecDeque<_> = self.state_indices().collect();
+        let mut it = self.reachable_state_indices();
+        let fst = it.next();
+        assert_eq!(fst, Some(self.initial()));
+        let mut partition = vec![vec![fst.unwrap()]];
+        let mut queue: VecDeque<_> = it.collect();
+        let expected_size = queue.len() + 1;
 
-        while let Some(q) = states.pop_front() {}
-        todo!()
+        'outer: while let Some(q) = queue.pop_front() {
+            for i in 0..partition.len() {
+                let p = *partition[i]
+                    .first()
+                    .expect("Class of partition must be non-empty");
+                if self
+                    .as_ref()
+                    .with_initial(p)
+                    .as_dpa()
+                    .language_equivalent(self)
+                {
+                    partition.get_mut(i).unwrap().push(q);
+                    continue 'outer;
+                }
+            }
+            partition.push(vec![q]);
+        }
+        debug_assert_eq!(
+            partition.iter().fold(0, |acc, x| acc + x.len()),
+            expected_size,
+            "size mismatch!"
+        );
+
+        self.as_ref()
+            .quotient(Partition::new(partition))
+            .into_right_congruence(&self)
     }
 
     pub fn witness_colors<O: DPALike<Alphabet = D::Alphabet>>(
@@ -254,5 +283,19 @@ mod tests {
             .collect_dpa();
         assert!(univ.includes(&aomega));
         assert!(!univ.included_in(&aomega));
+    }
+
+    #[test]
+    fn dpa_equivalence_clases() {
+        let dpa = NTS::builder()
+            .extend([
+                (0, 'a', 0, 0),
+                (0, 'b', 0, 1),
+                (1, 'a', 0, 0),
+                (1, 'b', 0, 0),
+            ])
+            .into_dpa(0);
+        let cong = dpa.prefix_congruence();
+        assert_eq!(cong.size(), 1);
     }
 }

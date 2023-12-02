@@ -382,6 +382,15 @@ pub trait Deterministic: TransitionSystem {
         self.finite_run_from(word, origin).ok().map(|p| p.reached())
     }
 
+    fn collect_right_congruence(
+        &self,
+    ) -> RightCongruence<Self::Alphabet, Self::StateColor, Self::EdgeColor>
+    where
+        Self: Pointed,
+    {
+        RightCongruence::from_ts(self)
+    }
+
     /// Collects `self` into a new [`BTS`] with the same alphabet, state colors and edge colors.
     fn collect_ts(&self) -> BTS<Self::Alphabet, Self::StateColor, Self::EdgeColor> {
         use crate::ts::Sproutable;
