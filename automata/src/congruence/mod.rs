@@ -6,6 +6,7 @@ use crate::{
     alphabet::{HasAlphabet, Simple, Symbol},
     prelude::DFALike,
     ts::{transition_system::Indexes, Deterministic, Sproutable, BTS},
+    word::FiniteWord,
     Alphabet, Color, FiniteLength, HasLength, Map, Pointed, Show, TransitionSystem, DFA,
 };
 
@@ -50,6 +51,15 @@ impl<A: Alphabet, Q: Color + Show, C: Color + Show> Debug for RightCongruence<A,
 }
 
 impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
+    /// Assumes that `self` is det. and complete.
+    pub fn congruent<W, V>(&self, word: W, other: V) -> bool
+    where
+        W: FiniteWord<A::Symbol>,
+        V: FiniteWord<A::Symbol>,
+    {
+        self.reached(word).unwrap() == self.reached(other).unwrap()
+    }
+
     /// Turns the given transition system into a right congruence.
     pub fn from_ts<Ts: Pointed + Deterministic<Alphabet = A, StateColor = Q, EdgeColor = C>>(
         ts: Ts,

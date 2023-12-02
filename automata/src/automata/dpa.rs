@@ -297,5 +297,17 @@ mod tests {
             .into_dpa(0);
         let cong = dpa.prefix_congruence();
         assert_eq!(cong.size(), 1);
+        let dpa = NTS::builder()
+            .extend([
+                (0, 'a', 0, 1),
+                (0, 'b', 1, 0),
+                (1, 'a', 2, 0),
+                (1, 'b', 0, 1),
+            ])
+            .into_dpa(0);
+        let cong = dpa.prefix_congruence();
+        assert_eq!(cong.size(), 2);
+        assert_eq!(cong.initial(), cong.reached("aa").unwrap());
+        assert!(cong.congruent("", "aa"));
     }
 }

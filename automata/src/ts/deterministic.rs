@@ -70,6 +70,25 @@ pub trait Deterministic: TransitionSystem {
         self.finite_run_from(word, self.initial())
     }
 
+    fn reached_from<W, Idx>(&self, word: W, origin: Idx) -> Option<Self::StateIndex>
+    where
+        W: FiniteWord<SymbolOf<Self>>,
+        Idx: Indexes<Self>,
+    {
+        self.finite_run_from(word, origin.to_index(self)?)
+            .ok()
+            .map(|x| x.reached())
+    }
+
+    fn reached<W>(&self, word: W) -> Option<Self::StateIndex>
+    where
+        W: FiniteWord<SymbolOf<Self>>,
+        Self: Pointed,
+    {
+        self.finite_run_from(word, self.initial())
+            .ok()
+            .map(|x| x.reached())
+    }
     /// Runs the given `word` on the transition system, starting from `state`. The result is
     /// - [`Ok`] if the run is successful (i.e. for all symbols of `word` a suitable transition
     ///  can be taken),
