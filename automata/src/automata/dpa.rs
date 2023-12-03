@@ -75,7 +75,7 @@ impl<D: DPALike> IntoDPA<D> {
                     .as_ref()
                     .with_initial(p)
                     .as_dpa()
-                    .language_equivalent(self)
+                    .language_equivalent(&self.as_ref().with_initial(q).as_dpa())
                 {
                     partition.get_mut(i).unwrap().push(q);
                     continue 'outer;
@@ -309,5 +309,6 @@ mod tests {
         assert_eq!(cong.size(), 2);
         assert_eq!(cong.initial(), cong.reached("aa").unwrap());
         assert!(cong.congruent("", "aa"));
+        assert!(cong.congruent("ab", "baaba"));
     }
 }

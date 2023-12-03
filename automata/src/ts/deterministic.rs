@@ -615,7 +615,7 @@ impl<A: Alphabet, Q: Color, C: Color> Deterministic for RightCongruence<A, Q, C>
     fn edge_color(
         &self,
         state: Self::StateIndex,
-        expression: &crate::alphabet::ExpressionOf<Self>,
+        expression: &ExpressionOf<Self>,
     ) -> Option<crate::ts::EdgeColor<Self>> {
         self.ts().edge_color(state, expression)
     }
@@ -625,7 +625,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Deterministic for BTS<A, Q
     fn edge_color(
         &self,
         state: Self::StateIndex,
-        expression: &crate::alphabet::ExpressionOf<Self>,
+        expression: &ExpressionOf<Self>,
     ) -> Option<EdgeColor<Self>> {
         self.raw_state_map()
             .get(&state)
@@ -736,7 +736,7 @@ where
     fn edge_color(
         &self,
         state: Self::StateIndex,
-        expression: &crate::alphabet::ExpressionOf<Self>,
+        expression: &ExpressionOf<Self>,
     ) -> Option<crate::ts::EdgeColor<Self>> {
         self.ts()
             .edge_color(state, expression)
@@ -764,7 +764,7 @@ where
     fn edge_color(
         &self,
         state: Self::StateIndex,
-        expression: &crate::alphabet::ExpressionOf<Self>,
+        expression: &ExpressionOf<Self>,
     ) -> Option<crate::ts::EdgeColor<Self>> {
         todo!()
     }

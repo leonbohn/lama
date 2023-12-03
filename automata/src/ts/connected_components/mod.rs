@@ -5,11 +5,7 @@ use std::{
 
 use itertools::Itertools;
 
-use crate::{
-    alphabet::{HasAlphabet, SymbolOf},
-    ts::{finite::SeenColors, CanInduce, IndexType},
-    Alphabet, Map, Set, TransitionSystem,
-};
+use crate::prelude::*;
 
 use super::IsTransition;
 

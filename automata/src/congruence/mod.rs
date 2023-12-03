@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display};
 use itertools::{Itertools, MapInto};
 
 use crate::{
-    alphabet::{HasAlphabet, Simple, Symbol},
+    alphabet::{Simple, Symbol},
     prelude::DFALike,
     ts::{transition_system::Indexes, Deterministic, Sproutable, BTS},
     word::FiniteWord,
@@ -194,14 +194,6 @@ impl<A: Alphabet, Q: Color + Default, C: Color> Sproutable for RightCongruence<A
         iter: I,
     ) -> Self::ExtendStateIndexIter {
         self.ts_mut().extend_states(iter)
-    }
-}
-
-impl<A: Alphabet, Q: Color, C: Color> HasAlphabet for RightCongruence<A, Q, C> {
-    type Alphabet = A;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.ts.alphabet()
     }
 }
 

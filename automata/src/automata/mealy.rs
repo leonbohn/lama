@@ -13,7 +13,7 @@ pub struct MealyMachine<A, C = usize, Ts = WithInitial<BTS<A, NoColor, C, usize>
 }
 
 pub type IntoMealyMachine<Ts> =
-    MealyMachine<<Ts as HasAlphabet>::Alphabet, <Ts as TransitionSystem>::EdgeColor, Ts>;
+    MealyMachine<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::EdgeColor, Ts>;
 
 impl<A: Alphabet> MealyMachine<A> {
     pub fn new(alphabet: A) -> Self {
@@ -42,6 +42,11 @@ impl<Ts: TransitionSystem> TransitionSystem for MealyMachine<Ts::Alphabet, Ts::E
     type StateIndices<'this> = Ts::StateIndices<'this>
     where
         Self: 'this;
+    type Alphabet = Ts::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.ts().alphabet()
+    }
 
     fn state_indices(&self) -> Self::StateIndices<'_> {
         self.ts().state_indices()
@@ -63,14 +68,6 @@ impl<D: Deterministic> Deterministic for MealyMachine<D::Alphabet, D::EdgeColor,
         symbol: SymbolOf<Self>,
     ) -> Option<Self::TransitionRef<'_>> {
         self.ts().transition(state.to_index(self)?, symbol)
-    }
-}
-
-impl<Ts: TransitionSystem> HasAlphabet for MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts> {
-    type Alphabet = Ts::Alphabet;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.ts().alphabet()
     }
 }
 
@@ -175,7 +172,7 @@ impl<Ts: TransitionSystem + Debug> std::fmt::Debug
 macro_rules! impl_mealy_automaton {
     ($name:ident, $color:ident) => {
         paste::paste! {
-            pub type [< Into $name >]<Ts> = $name<<Ts as HasAlphabet>::Alphabet, <Ts as TransitionSystem>::StateColor, Ts>;
+            pub type [< Into $name >]<Ts> = $name<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::StateColor, Ts>;
         }
 
         #[derive(Clone)]
@@ -286,12 +283,6 @@ macro_rules! impl_mealy_automaton {
                 self.ts_mut().remove_edge(from, on)
             }
         }
-        impl<Ts: TransitionSystem> HasAlphabet for $name<Ts::Alphabet, Ts::StateColor, Ts> {
-            type Alphabet = Ts::Alphabet;
-            fn alphabet(&self) -> &Self::Alphabet {
-                self.ts.alphabet()
-            }
-        }
         impl<Ts: TransitionSystem> TransitionSystem
             for $name<Ts::Alphabet, Ts::StateColor, Ts>
         {
@@ -301,6 +292,10 @@ macro_rules! impl_mealy_automaton {
             type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
             type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
             type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
+            type Alphabet = Ts::Alphabet;
+            fn alphabet(&self) -> &Self::Alphabet {
+                self.ts.alphabet()
+            }
             fn state_indices(&self) -> Self::StateIndices<'_> {
                 self.ts().state_indices()
             }

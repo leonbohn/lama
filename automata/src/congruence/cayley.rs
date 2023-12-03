@@ -55,6 +55,12 @@ where
 
     type EdgesFromIter<'this> = DeterministicEdgesFrom<'this, Self> where Self: 'this;
 
+    type Alphabet = Directional;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        &self.alphabet
+    }
+
     fn state_indices(&self) -> Self::StateIndices<'_> {
         self.monoid().profile_indices()
     }
@@ -84,19 +90,6 @@ where
         symbol.mul(&mut word);
         let tp = self.monoid().profile_for(&word)?;
         Some((symbol, tp, ()))
-    }
-}
-
-impl<
-        'a,
-        Ts: TransitionSystem<Alphabet = Simple> + Pointed,
-        SA: Accumulates<X = Ts::StateColor>,
-        EA: Accumulates<X = Ts::EdgeColor>,
-    > HasAlphabet for Cayley<'a, Ts, SA, EA>
-{
-    type Alphabet = Directional;
-    fn alphabet(&self) -> &Self::Alphabet {
-        &self.alphabet
     }
 }
 
@@ -191,6 +184,12 @@ where
 
     type EdgesFromIter<'this> = DeterministicEdgesFrom<'this, Self> where Self: 'this;
 
+    type Alphabet = Ts::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.ts.alphabet()
+    }
+
     fn state_indices(&self) -> Self::StateIndices<'_> {
         self.monoid().profile_indices()
     }
@@ -219,19 +218,6 @@ where
         word.push(symbol);
         let tp = self.monoid().profile_for(&word)?;
         Some((<Ts::Alphabet as Alphabet>::expression(symbol), tp, ()))
-    }
-}
-
-impl<
-        'a,
-        Ts: TransitionSystem + Pointed,
-        SA: Accumulates<X = Ts::StateColor>,
-        EA: Accumulates<X = Ts::EdgeColor>,
-    > HasAlphabet for RightCayley<'a, Ts, SA, EA>
-{
-    type Alphabet = Ts::Alphabet;
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.ts().alphabet()
     }
 }
 

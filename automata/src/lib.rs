@@ -9,7 +9,7 @@
 pub mod prelude {
     pub use super::{
         alphabet,
-        alphabet::{AlphabetOf, Expression, ExpressionOf, HasAlphabet, Simple, Symbol, SymbolOf},
+        alphabet::{Expression, Simple, Symbol},
         automata::{
             DBALike, DFALike, DPALike, FiniteWordAcceptor, FiniteWordTransformer, IntoMealyMachine,
             IntoMooreMachine, MealyLike, MealyMachine, MooreLike, MooreMachine, NoColor,
@@ -23,9 +23,9 @@ pub mod prelude {
             operations::{Product, ProductIndex},
             predecessors::{IsPreTransition, PredecessorIterable},
             transition_system::{EdgeColorOf, Indexes, IsTransition, StateColorOf},
-            Congruence, Deterministic, DeterministicEdgesFrom, EdgeColor, HasColor, HasColorMut,
-            HasMutableStates, HasStates, IndexType, NTSBuilder, Sproutable, StateColor, ToDot,
-            TransitionSystem, BTS, DTS, NTS,
+            Congruence, Deterministic, DeterministicEdgesFrom, EdgeColor, ExpressionOf, HasColor,
+            HasColorMut, HasMutableStates, HasStates, IndexType, NTSBuilder, Sproutable,
+            StateColor, SymbolOf, ToDot, TransitionSystem, BTS, DTS, NTS,
         },
         upw,
         word::{FiniteWord, LinearWord, OmegaWord, Periodic, Reduced, ReducedParseError},

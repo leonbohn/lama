@@ -29,7 +29,7 @@ pub struct MooreMachine<A, Q = usize, C: Color = NoColor, Ts = WithInitial<BTS<A
 /// For concrete automaton types such as [`DFA`], the [`IntoDFA`] type can be used to
 /// obtain the type of a [`DFA`] for the given ts.
 pub type IntoMooreMachine<Ts> = MooreMachine<
-    <Ts as HasAlphabet>::Alphabet,
+    <Ts as TransitionSystem>::Alphabet,
     <Ts as TransitionSystem>::StateColor,
     <Ts as TransitionSystem>::EdgeColor,
     Ts,
@@ -71,6 +71,12 @@ impl<Ts: TransitionSystem> TransitionSystem
     where
         Self: 'this;
 
+    type Alphabet = Ts::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.ts.alphabet()
+    }
+
     fn state_indices(&self) -> Self::StateIndices<'_> {
         self.ts().state_indices()
     }
@@ -91,16 +97,6 @@ impl<D: Deterministic> Deterministic for MooreMachine<D::Alphabet, D::StateColor
         symbol: SymbolOf<Self>,
     ) -> Option<Self::TransitionRef<'_>> {
         self.ts().transition(state.to_index(self)?, symbol)
-    }
-}
-
-impl<Ts: TransitionSystem> HasAlphabet
-    for MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
-{
-    type Alphabet = Ts::Alphabet;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.ts().alphabet()
     }
 }
 
@@ -221,7 +217,7 @@ macro_rules! impl_moore_automaton {
         }
         paste::paste! {
             /// See [`IntoMooreMachine`].
-            pub type [< Into $name >]<Ts> = $name<<Ts as HasAlphabet>::Alphabet, <Ts as TransitionSystem>::EdgeColor, Ts>;
+            pub type [< Into $name >]<Ts> = $name<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::EdgeColor, Ts>;
         }
 
         impl<A: Alphabet, C: Color>
@@ -328,12 +324,6 @@ macro_rules! impl_moore_automaton {
                 self.ts_mut().remove_edge(from, on)
             }
         }
-        impl<Ts: TransitionSystem> HasAlphabet for $name<Ts::Alphabet, Ts::EdgeColor, Ts> {
-            type Alphabet = Ts::Alphabet;
-            fn alphabet(&self) -> &Self::Alphabet {
-                self.ts.alphabet()
-            }
-        }
         impl<Ts: TransitionSystem> TransitionSystem
             for $name<Ts::Alphabet, Ts::EdgeColor, Ts>
         {
@@ -343,6 +333,12 @@ macro_rules! impl_moore_automaton {
             type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
             type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
             type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
+            type Alphabet = Ts::Alphabet;
+
+            fn alphabet(&self) -> &Self::Alphabet {
+                self.ts().alphabet()
+            }
+
             fn state_indices(&self) -> Self::StateIndices<'_> {
                 self.ts().state_indices()
             }

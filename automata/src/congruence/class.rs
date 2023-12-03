@@ -1,11 +1,6 @@
 use itertools::Itertools;
 
-use crate::{
-    alphabet::{Symbol, SymbolOf},
-    ts::{transition_system::Indexes, Deterministic},
-    word::{FiniteWord, LinearWord},
-    Alphabet, Color, FiniteLength, HasLength, RightCongruence, Show, TransitionSystem,
-};
+use crate::prelude::*;
 
 /// Represents a congruence class, which is in essence simply a non-empty sequence of symbols
 /// for the underlying alphabet.

@@ -57,14 +57,6 @@ impl<A: Alphabet, Q: Color, C: Color> From<DTS<A, Q, C>> for NTS<A, Q, C> {
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> HasAlphabet for DTS<A, Q, C> {
-    type Alphabet = A;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.0.alphabet()
-    }
-}
-
 impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for DTS<A, Q, C> {
     type StateIndex = usize;
 
@@ -83,6 +75,12 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for DTS<A, Q, C> {
     type StateIndices<'this> = std::ops::Range<usize>
     where
         Self: 'this;
+
+    type Alphabet = A;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.0.alphabet()
+    }
 
     fn state_indices(&self) -> Self::StateIndices<'_> {
         self.0.state_indices()

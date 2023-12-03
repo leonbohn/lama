@@ -206,13 +206,6 @@ impl<A: Alphabet, Q: Color, C: Color> NTS<A, Q, C> {
     }
 }
 
-impl<A: Alphabet, Q, C> HasAlphabet for NTS<A, Q, C> {
-    type Alphabet = A;
-    fn alphabet(&self) -> &Self::Alphabet {
-        &self.alphabet
-    }
-}
-
 pub struct NTSEdgesFromIter<'a, E, C> {
     edges: &'a [NTEdge<E, C>],
     current: Option<usize>,
@@ -253,6 +246,12 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for NTS<A, Q, C> {
     type StateIndices<'this> = std::ops::Range<usize>
     where
         Self: 'this;
+
+    type Alphabet = A;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        &self.alphabet
+    }
 
     fn state_indices(&self) -> Self::StateIndices<'_> {
         0..self.states.len()

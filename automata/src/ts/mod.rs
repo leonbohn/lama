@@ -5,7 +5,7 @@ use std::{fmt::Display, hash::Hash, ops::Deref};
 
 use impl_tools::autoimpl;
 use itertools::Itertools;
-pub use transition_system::{DeterministicEdgesFrom, TransitionSystem};
+pub use transition_system::{DeterministicEdgesFrom, ExpressionOf, SymbolOf, TransitionSystem};
 
 /// Defines implementations for common operations on automata/transition systems.
 pub mod operations;

@@ -2,12 +2,7 @@ use std::{cell::OnceCell, collections::BTreeSet, fmt::Debug};
 
 use itertools::Itertools;
 
-use crate::{
-    alphabet::SymbolOf,
-    prelude::Expression,
-    ts::{finite::SeenColors, transition_system::IsTransition, CanInduce},
-    Alphabet, Map, Pointed, Set, Show, TransitionSystem,
-};
+use crate::{prelude::*, Map, Set};
 
 /// Represents a strongly connected component of a transition system.
 #[derive(Clone)]

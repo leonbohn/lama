@@ -54,13 +54,6 @@ pub struct SubsetConstruction<Ts: TransitionSystem> {
     states: RefCell<Vec<StateSet<Ts>>>,
 }
 
-impl<Ts: TransitionSystem> HasAlphabet for SubsetConstruction<Ts> {
-    type Alphabet = Ts::Alphabet;
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.ts.alphabet()
-    }
-}
-
 impl<Ts: TransitionSystem> Deterministic for SubsetConstruction<Ts> {
     fn transition<Idx: Indexes<Self>>(
         &self,
@@ -125,6 +118,11 @@ impl<Ts: TransitionSystem> TransitionSystem for SubsetConstruction<Ts> {
     where
         Self: 'this;
 
+    type Alphabet = Ts::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.ts.alphabet()
+    }
     fn state_indices(&self) -> Self::StateIndices<'_> {
         self.reachable_state_indices_from(self.initial())
     }

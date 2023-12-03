@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
 use crate::{
-    alphabet::HasAlphabet,
     prelude::*,
     ts::{
         predecessors::{IsPreTransition, PredecessorIterable},
@@ -104,16 +103,6 @@ where
     }
 }
 
-impl<Ts, F> HasAlphabet for RestrictByStateIndex<Ts, F>
-where
-    Ts: TransitionSystem,
-{
-    type Alphabet = Ts::Alphabet;
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.ts.alphabet()
-    }
-}
-
 #[allow(missing_docs)]
 impl<Ts: TransitionSystem, F> RestrictByStateIndex<Ts, F> {
     pub fn new(ts: Ts, filter: F) -> Self {
@@ -194,14 +183,6 @@ impl<D: TransitionSystem + Pointed> Pointed for ColorRestricted<D> {
     }
 }
 
-impl<D: TransitionSystem> HasAlphabet for ColorRestricted<D> {
-    type Alphabet = D::Alphabet;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.ts().alphabet()
-    }
-}
-
 impl<D: TransitionSystem> TransitionSystem for ColorRestricted<D> {
     type StateIndex = D::StateIndex;
 
@@ -220,6 +201,11 @@ impl<D: TransitionSystem> TransitionSystem for ColorRestricted<D> {
     where
         Self: 'this;
 
+    type Alphabet = D::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.ts().alphabet()
+    }
     fn state_indices(&self) -> Self::StateIndices<'_> {
         self.ts().state_indices()
     }

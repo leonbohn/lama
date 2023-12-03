@@ -1,7 +1,6 @@
 use std::any::Any;
 
 use crate::{
-    alphabet::{ExpressionOf, HasAlphabet, SymbolOf},
     automata::WithInitial,
     congruence::ColoredClass,
     prelude::{Expression, Simple, Symbol},
@@ -202,6 +201,11 @@ pub type StateColorOf<Ts> = <Ts as TransitionSystem>::StateColor;
 /// Type alias to extract the edge color of a [`TransitionSystem`].
 pub type EdgeColorOf<Ts> = <Ts as TransitionSystem>::EdgeColor;
 
+/// Helper trait for extracting the [`Symbol`] type from an an object which implements [`HasAlphabet`].
+pub type SymbolOf<A> = <<A as TransitionSystem>::Alphabet as Alphabet>::Symbol;
+/// Helper trait for extracting the [`Expression`] type from an an object which implements [`HasAlphabet`].
+pub type ExpressionOf<A> = <<A as TransitionSystem>::Alphabet as Alphabet>::Expression;
+
 /// Encapsulates the transition function δ of a (finite) transition system. This is the main trait that
 /// is used to query a transition system. Transitions are labeled with a [`Alphabet::Expression`], which
 /// determines on which [`Alphabet::Symbol`]s the transition can be taken. Additionally, every transition
@@ -215,7 +219,8 @@ pub type EdgeColorOf<Ts> = <Ts as TransitionSystem>::EdgeColor;
 /// with an expression, while a transition is labelled with an actual symbol (that [`Alphabet::matches`]
 /// the expression). So a transition is a concrete edge that is taken (usually by the run on a word), while
 /// an edge may represent any different number of transitions.
-pub trait TransitionSystem: HasAlphabet + Sized {
+pub trait TransitionSystem: Sized {
+    type Alphabet: Alphabet;
     /// The type of the indices of the states of the transition system.
     type StateIndex: IndexType;
     /// The type of the colors of the states of the transition system.
@@ -234,6 +239,8 @@ pub trait TransitionSystem: HasAlphabet + Sized {
     type StateIndices<'this>: Iterator<Item = Self::StateIndex>
     where
         Self: 'this;
+
+    fn alphabet(&self) -> &Self::Alphabet;
 
     /// Returns an iterator over the state indices of `self`.
     fn state_indices(&self) -> Self::StateIndices<'_>;
@@ -600,12 +607,6 @@ impl<'a, D: TransitionSystem + 'a> TransitionsFrom<'a, D> {
 #[macro_export]
 macro_rules! impl_ts_by_passthrough_on_wrapper {
     ($basetype: ident < $bound: ident >) => {
-        impl<Ts: HasAlphabet + TransitionSystem + $bound> HasAlphabet for $basetype<Ts> {
-            type Alphabet = Ts::Alphabet;
-            fn alphabet(&self) -> &Self::Alphabet {
-                self.ts().alphabet()
-            }
-        }
         impl<Ts: TransitionSystem + $bound> TransitionSystem for $basetype<Ts> {
             type StateIndex = Ts::StateIndex;
             type EdgeColor = Ts::EdgeColor;
@@ -614,6 +615,10 @@ macro_rules! impl_ts_by_passthrough_on_wrapper {
             type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
             type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
 
+            type Alphabet = Ts::Alphabet;
+            fn alphabet(&self) -> &Self::Alphabet {
+                self.ts().alphabet()
+            }
             fn state_indices(&self) -> Self::StateIndices<'_> {
                 self.ts().state_indices()
             }
@@ -662,6 +667,11 @@ impl<Ts: TransitionSystem> TransitionSystem for &Ts {
     type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
     type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
     type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
+    type Alphabet = Ts::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        Ts::alphabet(self)
+    }
 
     fn state_indices(&self) -> Self::StateIndices<'_> {
         Ts::state_indices(self)
@@ -688,6 +698,11 @@ impl<Ts: TransitionSystem> TransitionSystem for &mut Ts {
     type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
     type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
 
+    type Alphabet = Ts::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        Ts::alphabet(self)
+    }
     fn state_indices(&self) -> Self::StateIndices<'_> {
         Ts::state_indices(self)
     }
@@ -715,6 +730,11 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for RightCongruence<A, Q,
         Self: 'this;
     type StateIndices<'this> = std::iter::Cloned<std::collections::hash_map::Keys<'this, usize, BTState<A, ColoredClass<A::Symbol, Q>, C, usize>>> where Self: 'this;
 
+    type Alphabet = A;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.ts().alphabet()
+    }
     fn state_indices(&self) -> Self::StateIndices<'_> {
         self.ts().state_indices()
     }
@@ -741,6 +761,11 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A
         Self: 'this;
     type StateIndices<'this> = std::iter::Cloned<std::collections::hash_map::Keys<'this, Idx, super::index_ts::BTState<A, Q, C, Idx>>> where Self: 'this;
 
+    type Alphabet = A;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        &self.alphabet
+    }
     fn state_indices(&self) -> Self::StateIndices<'_> {
         self.states.keys().cloned()
     }
@@ -770,6 +795,10 @@ where
     type TransitionRef<'this> = ProductTransition<L::StateIndex, R::StateIndex, ExpressionOf<L>, L::EdgeColor, R::EdgeColor> where Self: 'this;
     type EdgesFromIter<'this> = ProductEdgesFrom<'this, L, R> where Self: 'this;
     type StateIndices<'this> = ProductStatesIter<'this, L, R> where Self: 'this;
+    type Alphabet = L::Alphabet;
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.0.alphabet()
+    }
 
     fn state_indices(&self) -> Self::StateIndices<'_> {
         ProductStatesIter::new(&self.0, &self.1)
@@ -807,6 +836,11 @@ where
     type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
     type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
 
+    type Alphabet = Ts::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.ts().alphabet()
+    }
     fn state_indices(&self) -> Self::StateIndices<'_> {
         self.ts().state_indices()
     }
@@ -840,6 +874,11 @@ where
 
     type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
 
+    type Alphabet = Ts::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.ts().alphabet()
+    }
     fn state_indices(&self) -> Self::StateIndices<'_> {
         self.ts().state_indices()
     }
@@ -871,6 +910,11 @@ where
     type EdgesFromIter<'this> = RestrictedEdgesFromIter<'this, Ts, F> where Self: 'this;
     type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
 
+    type Alphabet = Ts::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.ts().alphabet()
+    }
     fn state_indices(&self) -> Self::StateIndices<'_> {
         self.ts().state_indices()
     }

@@ -1,14 +1,6 @@
 use itertools::Itertools;
 
-use crate::{
-    alphabet::{ExpressionOf, HasAlphabet, SymbolOf},
-    ts::{
-        predecessors::{IsPreTransition, PredecessorIterable},
-        transition_system::IsTransition,
-        IndexType,
-    },
-    Alphabet, Color, Pointed, TransitionSystem,
-};
+use crate::prelude::*;
 
 /// Trait that abstracts the product operation for transition systems.
 pub trait Product: TransitionSystem + Sized {
@@ -63,14 +55,6 @@ where
 {
     fn initial(&self) -> Self::StateIndex {
         ProductIndex(self.0.initial(), self.1.initial())
-    }
-}
-
-impl<L: HasAlphabet, R> HasAlphabet for MatchingProduct<L, R> {
-    type Alphabet = L::Alphabet;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.0.alphabet()
     }
 }
 

@@ -1,14 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{
-    alphabet::{ExpressionOf, HasAlphabet},
-    ts::{
-        predecessors::{IsPreTransition, PredecessorIterable},
-        transition_system::IsTransition,
-        IndexType,
-    },
-    Color, Pointed, TransitionSystem,
-};
+use crate::prelude::*;
 
 /// A transition system that maps the edge colors of a given transition system to a new type.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -187,6 +179,12 @@ where
 
     type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
 
+    type Alphabet = Ts::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.ts().alphabet()
+    }
+
     fn state_indices(&self) -> Self::StateIndices<'_> {
         self.ts().state_indices()
     }
@@ -235,14 +233,6 @@ where
     }
 }
 
-impl<Ts: TransitionSystem, F> HasAlphabet for MapEdges<Ts, F> {
-    type Alphabet = Ts::Alphabet;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.ts.alphabet()
-    }
-}
-
 /// A transition system that maps the edge colors of a given transition system to a new type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapEdgeColor<Ts, F> {
@@ -270,14 +260,6 @@ impl<D: Color, Ts: TransitionSystem + Pointed, F: Fn(Ts::EdgeColor) -> D> Pointe
 {
     fn initial(&self) -> Self::StateIndex {
         self.ts.initial()
-    }
-}
-
-impl<Ts: TransitionSystem, F> HasAlphabet for MapEdgeColor<Ts, F> {
-    type Alphabet = Ts::Alphabet;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.ts.alphabet()
     }
 }
 
@@ -444,13 +426,5 @@ impl<D: Color, Ts: TransitionSystem + Pointed, F: Fn(Ts::StateColor) -> D> Point
 {
     fn initial(&self) -> Self::StateIndex {
         self.ts.initial()
-    }
-}
-
-impl<Ts: TransitionSystem, F> HasAlphabet for MapStateColor<Ts, F> {
-    type Alphabet = Ts::Alphabet;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.ts.alphabet()
     }
 }

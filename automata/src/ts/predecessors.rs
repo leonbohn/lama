@@ -1,10 +1,6 @@
 use impl_tools::autoimpl;
 
-use crate::{
-    alphabet::{ExpressionOf, SymbolOf},
-    automata::WithInitial,
-    Alphabet, Color, RightCongruence, TransitionSystem,
-};
+use crate::{automata::WithInitial, Alphabet, Color, RightCongruence, TransitionSystem};
 
 use super::{
     operations::{
@@ -12,7 +8,7 @@ use super::{
         ProductEdgesTo, ProductPreTransition, RestrictByStateIndex, RestrictedEdgesToIter,
         StateIndexFilter,
     },
-    EdgeColor, IndexType, BTS,
+    EdgeColor, ExpressionOf, IndexType, SymbolOf, BTS,
 };
 
 /// The counterpart to the [`super::transition_system::IsTransition`] trait for predecessors.

@@ -1,9 +1,6 @@
-use crate::{
-    prelude::{ExpressionOf, HasAlphabet, SymbolOf},
-    Alphabet, Partition, Pointed, RightCongruence, Set, TransitionSystem,
-};
+use crate::{Alphabet, Partition, Pointed, RightCongruence, Set, TransitionSystem};
 
-use super::{transition_system::IsTransition, Deterministic};
+use super::{transition_system::IsTransition, Deterministic, ExpressionOf, SymbolOf};
 
 /// A quotient takes a transition system and merges states which are in the same
 /// congruence class of some [`Partition`]. We assume that the [`Partition`] is
@@ -43,8 +40,6 @@ impl<Ts: TransitionSystem> Quotient<Ts> {
     }
 
     fn sanity_check(ts: &Ts, partition: &Partition<Ts::StateIndex>) -> bool {
-        #[cfg(not(debug_assertions))]
-        return true;
         use itertools::Itertools;
 
         for p in &partition.0 {
@@ -60,6 +55,7 @@ impl<Ts: TransitionSystem> Quotient<Ts> {
                 })
                 .all_equal();
             if !all_equal {
+                println!("SANITY CHECK FAILED:\n{:?}", partition);
                 return false;
             }
         }
@@ -70,7 +66,6 @@ impl<Ts: TransitionSystem> Quotient<Ts> {
     where
         Ts: Deterministic + Pointed,
     {
-        assert!(Self::sanity_check(ts, &self.partition));
         self.erase_edge_colors()
             .erase_state_colors()
             .collect_right_congruence()
@@ -158,6 +153,11 @@ impl<Ts: Deterministic> TransitionSystem for Quotient<Ts> {
         Self: 'this;
     type StateIndices<'this> = std::ops::Range<usize> where Self: 'this;
 
+    type Alphabet = Ts::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.ts.alphabet()
+    }
     fn state_indices(&self) -> Self::StateIndices<'_> {
         0..self.partition.len()
     }
@@ -209,14 +209,6 @@ impl<D: Deterministic> Deterministic for Quotient<D> {
             colors,
             target: states.into_iter().next().unwrap(),
         })
-    }
-}
-
-impl<Ts: TransitionSystem> HasAlphabet for Quotient<Ts> {
-    type Alphabet = Ts::Alphabet;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        Ts::alphabet(&self.ts)
     }
 }
 
