@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{Alphabet, Partition, Pointed, RightCongruence, Set, TransitionSystem};
 
 use super::{transition_system::IsTransition, Deterministic, ExpressionOf, SymbolOf};
@@ -16,6 +18,7 @@ use super::{transition_system::IsTransition, Deterministic, ExpressionOf, Symbol
 #[derive(Debug, Clone)]
 pub struct Quotient<Ts: TransitionSystem> {
     ts: Ts,
+    expressions: crate::Map<SymbolOf<Ts>, ExpressionOf<Ts>>,
     partition: Partition<Ts::StateIndex>,
 }
 
@@ -73,17 +76,27 @@ impl<Ts: TransitionSystem> Quotient<Ts> {
 
     /// Creates a new quotient of the given transition system by the give [`Partition`].
     pub fn new(ts: Ts, partition: Partition<Ts::StateIndex>) -> Self {
-        Self { ts, partition }
+        Self {
+            expressions: ts
+                .alphabet()
+                .universe()
+                .map(|sym| (sym, <Ts::Alphabet as Alphabet>::expression(sym)))
+                .collect(),
+            ts,
+            partition,
+        }
     }
 }
 
-pub struct QuotientTransition<Idx, E, C> {
-    expression: E,
+pub struct QuotientTransition<'a, Idx, E, C> {
+    expression: &'a E,
     colors: Vec<C>,
     target: Idx,
 }
 
-impl<Idx: Copy, E, C: Clone> IsTransition<E, Idx, Vec<C>> for QuotientTransition<Idx, E, C> {
+impl<'a, Idx: Copy, E, C: Clone> IsTransition<'a, E, Idx, Vec<C>>
+    for QuotientTransition<'a, Idx, E, C>
+{
     fn target(&self) -> Idx {
         self.target
     }
@@ -92,13 +105,13 @@ impl<Idx: Copy, E, C: Clone> IsTransition<E, Idx, Vec<C>> for QuotientTransition
         self.colors.clone()
     }
 
-    fn expression(&self) -> &E {
+    fn expression(&self) -> &'a E {
         &self.expression
     }
 }
 
-impl<Idx, E, C> QuotientTransition<Idx, E, C> {
-    pub fn new(expression: E, colors: Vec<C>, target: Idx) -> Self {
+impl<'a, Idx, E, C> QuotientTransition<'a, Idx, E, C> {
+    pub fn new(expression: &'a E, colors: Vec<C>, target: Idx) -> Self {
         Self {
             expression,
             colors,
@@ -119,7 +132,7 @@ where
     Ts: Deterministic,
     I: Iterator<Item = SymbolOf<Ts>>,
 {
-    type Item = QuotientTransition<usize, ExpressionOf<Ts>, Ts::EdgeColor>;
+    type Item = QuotientTransition<'a, usize, ExpressionOf<Ts>, Ts::EdgeColor>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let sym = self.it.next()?;
@@ -144,7 +157,7 @@ impl<Ts: Deterministic> TransitionSystem for Quotient<Ts> {
 
     type EdgeColor = Vec<Ts::EdgeColor>;
 
-    type TransitionRef<'this> = QuotientTransition<usize, ExpressionOf<Self>, Ts::EdgeColor>
+    type TransitionRef<'this> = QuotientTransition<'this, usize, ExpressionOf<Self>, Ts::EdgeColor>
     where
         Self: 'this;
 
@@ -204,8 +217,9 @@ impl<D: Deterministic> Deterministic for Quotient<D> {
             1,
             "More than one quotient class reached, partition was faulty"
         );
+        let expression = self.expressions.get(&symbol).unwrap();
         Some(QuotientTransition {
-            expression: <D::Alphabet as Alphabet>::expression(symbol),
+            expression,
             colors,
             target: states.into_iter().next().unwrap(),
         })

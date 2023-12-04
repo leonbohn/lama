@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use automata::{
     automata::{MealyLike, MooreLike},
     congruence::ColoredClass,
-    prelude::{Expression, HasAlphabet, IsTransition, DFA},
+    prelude::{Expression, IsTransition, DFA},
     ts::{reachable::ReachableStateIndices, Deterministic, Sproutable},
     Alphabet, Map, Pointed, RightCongruence, Show, TransitionSystem,
 };
@@ -99,6 +99,7 @@ impl<const N: usize> PState<N> {
 pub struct PreciseDPA<A: Alphabet, const N: usize = 8> {
     states: Vec<PState<N>>,
     cong: RightCongruence<A>,
+    expressions: Map<A::Symbol, A::Expression>,
     /// Nat -> class -> DFA
     dfas: Vec<[DFA<A>; N]>,
 }
@@ -108,12 +109,12 @@ pub struct PreciseDPA<A: Alphabet, const N: usize = 8> {
 pub struct PreciseDPATransition<'a, A: Alphabet, const N: usize> {
     dpa: &'a PreciseDPA<A, N>,
     source: PState<N>,
-    expression: A::Expression,
+    expression: &'a A::Expression,
     target: PState<N>,
     color: usize,
 }
 
-impl<'a, A: Alphabet, const N: usize> IsTransition<A::Expression, PState<N>, usize>
+impl<'a, A: Alphabet, const N: usize> IsTransition<'a, A::Expression, PState<N>, usize>
     for PreciseDPATransition<'a, A, N>
 {
     fn target(&self) -> PState<N> {
@@ -124,7 +125,7 @@ impl<'a, A: Alphabet, const N: usize> IsTransition<A::Expression, PState<N>, usi
         self.color
     }
 
-    fn expression(&self) -> &A::Expression {
+    fn expression(&self) -> &'a A::Expression {
         &self.expression
     }
 }
@@ -134,7 +135,7 @@ impl<'a, A: Alphabet, const N: usize> PreciseDPATransition<'a, A, N> {
     pub fn new(
         dpa: &'a PreciseDPA<A, N>,
         source: PState<N>,
-        expression: A::Expression,
+        expression: &'a A::Expression,
         target: PState<N>,
         color: usize,
     ) -> Self {
@@ -152,6 +153,7 @@ impl<'a, A: Alphabet, const N: usize> PreciseDPATransition<'a, A, N> {
 #[derive(Debug, Clone)]
 pub struct PreciseDPAEdgesFrom<'a, A: Alphabet, const N: usize> {
     dpa: &'a PreciseDPA<A, N>,
+    expressions: &'a Map<A::Symbol, A::Expression>,
     state: PState<N>,
     it: A::Universe<'a>,
 }
@@ -162,7 +164,15 @@ impl<'a, A: Alphabet, const N: usize> Iterator for PreciseDPAEdgesFrom<'a, A, N>
     fn next(&mut self) -> Option<Self::Item> {
         self.it.next().map(|o| {
             let (i, q) = self.dpa.take_precise_transition(&self.state, o);
-            PreciseDPATransition::new(self.dpa, self.state, A::expression(o), q, i)
+            PreciseDPATransition::new(
+                self.dpa,
+                self.state,
+                self.expressions
+                    .get(&o)
+                    .expect("Alphabet expression_map error!"),
+                q,
+                i,
+            )
         })
     }
 }
@@ -172,6 +182,7 @@ impl<'a, A: Alphabet, const N: usize> PreciseDPAEdgesFrom<'a, A, N> {
     pub fn new(dpa: &'a PreciseDPA<A, N>, state: PState<N>) -> Self {
         Self {
             dpa,
+            expressions: &dpa.expressions,
             state,
             it: dpa.alphabet().universe(),
         }
@@ -201,6 +212,12 @@ impl<A: Alphabet, const N: usize> TransitionSystem for PreciseDPA<A, N> {
         Self: 'this;
     type StateIndices<'this> = ReachableStateIndices<&'this Self> where Self: 'this;
 
+    type Alphabet = A;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.cong.alphabet()
+    }
+
     fn state_indices(&self) -> Self::StateIndices<'_> {
         self.reachable_state_indices()
     }
@@ -228,17 +245,10 @@ impl<A: Alphabet, const N: usize> Deterministic for PreciseDPA<A, N> {
         Some(PreciseDPATransition::new(
             self,
             q,
-            A::expression(symbol),
+            self.expressions.get(&symbol).unwrap(),
             p,
             i,
         ))
-    }
-}
-
-impl<A: Alphabet, const N: usize> HasAlphabet for PreciseDPA<A, N> {
-    type Alphabet = A;
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.dfas[0][0].alphabet()
     }
 }
 
@@ -255,6 +265,7 @@ impl<A: Alphabet, const N: usize> PreciseDPA<A, N> {
         let initial = PState::from_iters(e, [e; N], (0..dfas.len()).map(|i| dfas[i][e].initial()));
         Self {
             states: vec![initial],
+            expressions: cong.alphabet().expression_map(),
             cong,
             dfas,
         }

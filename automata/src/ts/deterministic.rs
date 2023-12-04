@@ -671,7 +671,7 @@ where
         let ll = self.0.transition(l, symbol)?;
         let rr = self.1.transition(r, symbol)?;
         Some(ProductTransition::new(
-            ll.expression().clone(),
+            ll.expression(),
             ProductIndex(ll.target(), rr.target()),
             (ll.color(), rr.color()),
         ))

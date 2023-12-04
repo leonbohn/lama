@@ -46,6 +46,12 @@ pub trait Alphabet: Clone {
     /// The type of expressions in this alphabet.
     type Expression: Expression<Self::Symbol>;
 
+    fn expression_map(&self) -> crate::Map<Self::Symbol, Self::Expression> {
+        self.universe()
+            .map(|sym| (sym, Self::expression(sym)))
+            .collect()
+    }
+
     /// This method is used for an optimization: If we have a [`Simple`] alphabet, then an edge list essentially
     /// boils down to a map from `Self::Symbol` to an edge. For more complicated alphabets, this may not always
     /// be so easy. To allow for an optimization (i.e. just lookup the corresponding edge in a [`crate::Map`]),

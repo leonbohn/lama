@@ -13,18 +13,19 @@ use crate::{
 #[derive(Clone)]
 pub struct Cayley<
     'a,
-    Ts: TransitionSystem<Alphabet = Simple> + Pointed,
+    Ts: Deterministic<Alphabet = Simple> + Pointed,
     SA: Accumulates<X = Ts::StateColor>,
     EA: Accumulates<X = Ts::EdgeColor>,
 > {
     ts: &'a Ts,
     alphabet: Directional,
+    expressions: crate::Map<SymbolOf<Self>, ExpressionOf<Self>>,
     m: TransitionMonoid<'a, Ts, SA, EA>,
 }
 
 impl<
         'a,
-        Ts: TransitionSystem<Alphabet = Simple> + Pointed,
+        Ts: Deterministic<Alphabet = Simple> + Pointed,
         SA: Accumulates<X = Ts::StateColor>,
         EA: Accumulates<X = Ts::EdgeColor>,
     > Cayley<'a, Ts, SA, EA>
@@ -49,7 +50,7 @@ where
 
     type EdgeColor = ();
 
-    type TransitionRef<'this> = (InvertibleChar, usize, ()) where Self: 'this;
+    type TransitionRef<'this> = (&'this InvertibleChar, usize, ()) where Self: 'this;
 
     type StateIndices<'this> = std::ops::Range<usize> where Self: 'this;
 
@@ -89,7 +90,7 @@ where
         let mut word = string.to_deque();
         symbol.mul(&mut word);
         let tp = self.monoid().profile_for(&word)?;
-        Some((symbol, tp, ()))
+        Some((self.expressions.get(&symbol).unwrap(), tp, ()))
     }
 }
 
@@ -100,9 +101,11 @@ where
     Reduces<Ts::StateColor>: Accumulates<X = Ts::StateColor>,
 {
     pub fn new_reducing(ts: &'a Ts) -> Self {
+        let alphabet = Directional::from_iter(ts.alphabet().universe());
         Cayley {
+            expressions: alphabet.expression_map(),
             ts,
-            alphabet: Directional::from_alphabet(ts.alphabet()),
+            alphabet,
             m: TransitionMonoid::new_reducing(ts),
         }
     }
@@ -114,9 +117,11 @@ where
     Replaces<Ts::StateColor>: Accumulates<X = Ts::StateColor>,
 {
     pub fn new_replacing(ts: &'a Ts) -> Self {
+        let alphabet = Directional::from_iter(ts.alphabet().universe());
         Cayley {
+            expressions: alphabet.expression_map(),
             ts,
-            alphabet: Directional::from_iter(ts.alphabet().universe()),
+            alphabet,
             m: TransitionMonoid::new_replacing(ts),
         }
     }
@@ -125,14 +130,16 @@ where
 impl<'a, Ts, SA: Accumulates<X = Ts::StateColor>, EA: Accumulates<X = Ts::EdgeColor>>
     Cayley<'a, Ts, SA, EA>
 where
-    Ts: TransitionSystem<Alphabet = Simple> + Pointed,
+    Ts: Deterministic<Alphabet = Simple> + Pointed,
     Ts::StateColor: Accumulates,
     Ts::EdgeColor: Accumulates,
 {
     pub fn from(ts: &'a Ts, m: TransitionMonoid<'a, Ts, SA, EA>) -> Self {
+        let alphabet = Directional::from_iter(ts.alphabet().universe());
         Self {
+            expressions: alphabet.expression_map(),
             ts,
-            alphabet: Directional::from_iter(ts.alphabet().universe()),
+            alphabet,
             m,
         }
     }
@@ -148,6 +155,7 @@ pub struct RightCayley<
     EA: Accumulates<X = Ts::EdgeColor>,
 > {
     ts: &'a Ts,
+    expressions: crate::Map<SymbolOf<Ts>, ExpressionOf<Ts>>,
     m: TransitionMonoid<'a, Ts, SA, EA>,
 }
 
@@ -178,7 +186,7 @@ where
 
     type EdgeColor = ();
 
-    type TransitionRef<'this> = (ExpressionOf<Ts>, usize, ()) where Self: 'this;
+    type TransitionRef<'this> = (&'this ExpressionOf<Ts>, usize, ()) where Self: 'this;
 
     type StateIndices<'this> = std::ops::Range<usize> where Self: 'this;
 
@@ -217,7 +225,7 @@ where
         let mut word = string.to_vec();
         word.push(symbol);
         let tp = self.monoid().profile_for(&word)?;
-        Some((<Ts::Alphabet as Alphabet>::expression(symbol), tp, ()))
+        Some((self.expressions.get(&symbol).unwrap(), tp, ()))
     }
 }
 
@@ -229,6 +237,7 @@ where
 {
     pub fn new_reducing(ts: &'a Ts) -> Self {
         RightCayley {
+            expressions: ts.alphabet().expression_map(),
             ts,
             m: TransitionMonoid::new_reducing(ts),
         }
@@ -242,6 +251,7 @@ where
 {
     pub fn new_replacing(ts: &'a Ts) -> Self {
         RightCayley {
+            expressions: ts.alphabet().expression_map(),
             ts,
             m: TransitionMonoid::new_replacing(ts),
         }
@@ -256,7 +266,11 @@ where
     Ts::EdgeColor: Accumulates,
 {
     pub fn from(ts: &'a Ts, m: TransitionMonoid<'a, Ts, SA, EA>) -> Self {
-        Self { ts, m }
+        Self {
+            expressions: ts.alphabet().expression_map(),
+            ts,
+            m,
+        }
     }
 }
 

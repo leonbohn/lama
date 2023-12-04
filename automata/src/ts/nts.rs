@@ -32,6 +32,20 @@ pub struct NTEdge<E, C> {
     pub(super) next: Option<usize>,
 }
 
+impl<'a, E, C: Clone> IsTransition<'a, E, usize, C> for &'a NTEdge<E, C> {
+    fn target(&self) -> usize {
+        self.target
+    }
+
+    fn color(&self) -> C {
+        self.color.clone()
+    }
+
+    fn expression(&self) -> &'a E {
+        &self.expression
+    }
+}
+
 impl<E, C> NTEdge<E, C> {
     pub fn new(source: usize, expression: E, color: C, target: usize) -> Self {
         Self {
@@ -42,20 +56,6 @@ impl<E, C> NTEdge<E, C> {
             expression,
             next: None,
         }
-    }
-}
-
-impl<E, C: Color> IsTransition<E, usize, C> for NTEdge<E, C> {
-    fn target(&self) -> usize {
-        self.target
-    }
-
-    fn color(&self) -> C {
-        self.color.clone()
-    }
-
-    fn expression(&self) -> &E {
-        &self.expression
     }
 }
 
@@ -164,7 +164,7 @@ impl<A: Alphabet, Q: Color, C: Color> NTS<A, Q, C> {
         for state in self.state_indices() {
             let mut symbols = Set::default();
             for edge in self.edges_from(state).unwrap() {
-                for sym in IsTransition::expression(edge).symbols() {
+                for sym in edge.expression().symbols() {
                     if !symbols.insert(sym) {
                         return false;
                     }
