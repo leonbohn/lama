@@ -194,18 +194,10 @@ mod tests {
     struct ModkAmodlB(Simple);
     struct WordLenModk(Simple, usize);
 
-    impl HasAlphabet for ModkAmodlB {
-        type Alphabet = Simple;
-
-        fn alphabet(&self) -> &Self::Alphabet {
-            &self.0
-        }
-    }
-
     impl LStarOracle<MooreMachine<Simple, bool>> for ModkAmodlB {
         type Output = bool;
 
-        fn output<W: FiniteWord<SymbolOf<Self>>>(&self, word: W) -> Self::Output {
+        fn output<W: FiniteWord<char>>(&self, word: W) -> Self::Output {
             let (count_a, count_b) = word.symbols().fold((0, 0), |(a, b), c| match c {
                 'a' => (a + 1, b),
                 'b' => (a, b + 1),
@@ -218,7 +210,7 @@ mod tests {
         fn equivalence(
             &self,
             hypothesis: &MooreMachine<Simple, bool>,
-        ) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)> {
+        ) -> Result<(), (Vec<char>, Self::Output)> {
             for word in ["aa", "bb", "bab", "aba", "abba", "bbab", "", "b", "a"] {
                 let output = self.output(word);
                 if output
@@ -235,27 +227,19 @@ mod tests {
         type Length = FiniteLength;
     }
 
-    impl HasAlphabet for WordLenModk {
-        type Alphabet = Simple;
-
-        fn alphabet(&self) -> &Self::Alphabet {
-            &self.0
-        }
-    }
-
     #[cfg(test)]
     impl LStarOracle<MooreMachine<Simple, usize>> for WordLenModk {
         type Output = usize;
         type Length = FiniteLength;
 
-        fn output<W: FiniteWord<SymbolOf<Self>>>(&self, word: W) -> Self::Output {
+        fn output<W: FiniteWord<char>>(&self, word: W) -> Self::Output {
             word.len() % self.1
         }
 
         fn equivalence(
             &self,
             hypothesis: &MooreMachine<Simple, usize>,
-        ) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)> {
+        ) -> Result<(), (Vec<char>, Self::Output)> {
             for word in [
                 "aa", "bb", "bab", "bbabba", "aba", "abba", "bbab", "", "b", "a",
             ] {

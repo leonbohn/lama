@@ -1,14 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{
-    alphabet::{ExpressionOf, HasAlphabet},
-    ts::{
-        predecessors::{IsPreTransition, PredecessorIterable},
-        transition_system::IsTransition,
-        IndexType,
-    },
-    Color, Pointed, TransitionSystem,
-};
+use crate::prelude::*;
 
 /// A transition system that maps the edge colors of a given transition system to a new type.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -139,13 +131,13 @@ impl<Idx, T, F, C> MappedEdge<Idx, T, F, C> {
     }
 }
 
-impl<Idx, E, C, D, F, T> IsTransition<E, Idx, D> for MappedEdge<Idx, T, F, C>
+impl<'ts, Idx, E: 'ts, C, D, F, T> IsTransition<'ts, E, Idx, D> for MappedEdge<Idx, T, F, C>
 where
     Idx: IndexType,
     C: Color,
     D: Color,
     F: Fn(Idx, &E, C, Idx) -> D,
-    T: IsTransition<E, Idx, C>,
+    T: IsTransition<'ts, E, Idx, C>,
 {
     fn target(&self) -> Idx {
         self.transition.target()
@@ -160,7 +152,7 @@ where
         )
     }
 
-    fn expression(&self) -> &E {
+    fn expression(&self) -> &'ts E {
         self.transition.expression()
     }
 }
@@ -186,6 +178,12 @@ where
         Self: 'this;
 
     type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
+
+    type Alphabet = Ts::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.ts().alphabet()
+    }
 
     fn state_indices(&self) -> Self::StateIndices<'_> {
         self.ts().state_indices()
@@ -235,14 +233,6 @@ where
     }
 }
 
-impl<Ts: TransitionSystem, F> HasAlphabet for MapEdges<Ts, F> {
-    type Alphabet = Ts::Alphabet;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.ts.alphabet()
-    }
-}
-
 /// A transition system that maps the edge colors of a given transition system to a new type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapEdgeColor<Ts, F> {
@@ -273,14 +263,6 @@ impl<D: Color, Ts: TransitionSystem + Pointed, F: Fn(Ts::EdgeColor) -> D> Pointe
     }
 }
 
-impl<Ts: TransitionSystem, F> HasAlphabet for MapEdgeColor<Ts, F> {
-    type Alphabet = Ts::Alphabet;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.ts.alphabet()
-    }
-}
-
 /// Represents a transition whose color is mapped by some function.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MappedTransition<T, F, C> {
@@ -300,13 +282,13 @@ impl<T, F, C> MappedTransition<T, F, C> {
     }
 }
 
-impl<Idx, E, C, D, F, T> IsTransition<E, Idx, D> for MappedTransition<T, F, C>
+impl<'ts, Idx, E, C, D, F, T> IsTransition<'ts, E, Idx, D> for MappedTransition<T, F, C>
 where
     Idx: IndexType,
     C: Color,
     D: Color,
     F: Fn(C) -> D,
-    T: IsTransition<E, Idx, C>,
+    T: IsTransition<'ts, E, Idx, C>,
 {
     fn target(&self) -> Idx {
         self.transition.target()
@@ -316,7 +298,7 @@ where
         (self.f)(self.transition.color())
     }
 
-    fn expression(&self) -> &E {
+    fn expression(&self) -> &'ts E {
         self.transition.expression()
     }
 }
@@ -444,13 +426,5 @@ impl<D: Color, Ts: TransitionSystem + Pointed, F: Fn(Ts::StateColor) -> D> Point
 {
     fn initial(&self) -> Self::StateIndex {
         self.ts.initial()
-    }
-}
-
-impl<Ts: TransitionSystem, F> HasAlphabet for MapStateColor<Ts, F> {
-    type Alphabet = Ts::Alphabet;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.ts.alphabet()
     }
 }

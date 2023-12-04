@@ -10,7 +10,7 @@ use crate::passive::Sample;
 /// non-empty finite words a value of type `Output`. This means we can learn a Mealy machine by using priorities as
 /// the `Output` type, but it also enables us to learn a regular language/deterministic finite automaton by using
 /// `bool` as the `Output` type.
-pub trait LStarOracle<H: HasAlphabet> {
+pub trait LStarOracle<H: Deterministic> {
     /// The length type of the words that this oracle can handle.
     type Length: Length;
     /// The output type, for a DFA that would be a boolean, but a Mealy Machine might output a priority instead.
@@ -139,13 +139,6 @@ impl<D: DFALike + Clone> DFAOracle<D> {
     }
 }
 
-impl<D: DFALike> HasAlphabet for DFAOracle<D> {
-    type Alphabet = D::Alphabet;
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.automaton.alphabet()
-    }
-}
-
 impl<D: DFALike> LStarOracle<MooreMachine<D::Alphabet, bool>> for DFAOracle<D> {
     type Length = FiniteLength;
 
@@ -158,7 +151,7 @@ impl<D: DFALike> LStarOracle<MooreMachine<D::Alphabet, bool>> for DFAOracle<D> {
     fn equivalence(
         &self,
         hypothesis: &MooreMachine<D::Alphabet, bool>,
-    ) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)> {
+    ) -> Result<(), (Vec<SymbolOf<D>>, Self::Output)> {
         let dfa = (&self.negated).intersection(&hypothesis).into_dfa();
         match dfa.dfa_give_word() {
             Some(w) => {
@@ -187,19 +180,11 @@ impl<C: Color, D: MealyLike<C>> LStarOracle<MealyMachine<D::Alphabet, C>> for Me
             .try_mealy_map(word)
             .expect("The oracle must be total!")
     }
-
     fn equivalence(
         &self,
         hypothesis: &MealyMachine<D::Alphabet, C>,
-    ) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)> {
+    ) -> Result<(), (Vec<SymbolOf<MealyMachine<D::Alphabet, C>>>, Self::Output)> {
         todo!()
-    }
-}
-
-impl<C: Color, D: MealyLike<C>> HasAlphabet for MealyOracle<C, D> {
-    type Alphabet = D::Alphabet;
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.automaton.alphabet()
     }
 }
 
@@ -215,15 +200,14 @@ impl<C: Color, D: MealyLike<C>> MealyOracle<C, D> {
 
 /// An oracle based on a [`MooreMachine`].
 #[derive(Debug, Clone)]
-pub struct MooreOracle<C: Color, D: MooreLike<C>> {
+pub struct MooreOracle<D: MooreLike> {
     automaton: D,
-    _color: std::marker::PhantomData<C>,
 }
 
-impl<C: Color, D: MooreLike<C>> LStarOracle<MooreMachine<D::Alphabet, C>> for MooreOracle<C, D> {
+impl<D: MooreLike> LStarOracle<MooreMachine<D::Alphabet, D::StateColor>> for MooreOracle<D> {
     type Length = FiniteLength;
 
-    type Output = C;
+    type Output = D::StateColor;
 
     fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> Self::Output {
         self.automaton
@@ -233,25 +217,15 @@ impl<C: Color, D: MooreLike<C>> LStarOracle<MooreMachine<D::Alphabet, C>> for Mo
 
     fn equivalence(
         &self,
-        hypothesis: &MooreMachine<D::Alphabet, C>,
-    ) -> Result<(), (Vec<SymbolOf<Self>>, Self::Output)> {
+        hypothesis: &MooreMachine<D::Alphabet, D::StateColor>,
+    ) -> Result<(), (Vec<SymbolOf<D>>, Self::Output)> {
         todo!()
     }
 }
 
-impl<C: Color, D: MooreLike<C>> HasAlphabet for MooreOracle<C, D> {
-    type Alphabet = D::Alphabet;
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.automaton.alphabet()
-    }
-}
-
-impl<C: Color, D: MooreLike<C>> MooreOracle<C, D> {
+impl<D: MooreLike> MooreOracle<D> {
     /// Creates a new [`MooreOracle`] based on an instance of [`MooreLike`].
     pub fn new(automaton: D) -> Self {
-        Self {
-            automaton,
-            _color: std::marker::PhantomData,
-        }
+        Self { automaton }
     }
 }

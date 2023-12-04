@@ -29,7 +29,7 @@ pub struct MooreMachine<A, Q = usize, C: Color = NoColor, Ts = WithInitial<BTS<A
 /// For concrete automaton types such as [`DFA`], the [`IntoDFA`] type can be used to
 /// obtain the type of a [`DFA`] for the given ts.
 pub type IntoMooreMachine<Ts> = MooreMachine<
-    <Ts as HasAlphabet>::Alphabet,
+    <Ts as TransitionSystem>::Alphabet,
     <Ts as TransitionSystem>::StateColor,
     <Ts as TransitionSystem>::EdgeColor,
     Ts,
@@ -50,7 +50,7 @@ impl<A: Alphabet, Q: Color, C: Color> MooreMachine<A, Q, C> {
 
 // impl_ts_by_passthrough_on_wrapper!(MooreMachine <Ts, Q: Color>);
 
-impl<Ts: TransitionSystem> TransitionSystem
+impl<Ts: MooreLike> TransitionSystem
     for MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
 {
     type StateIndex = Ts::StateIndex;
@@ -71,6 +71,12 @@ impl<Ts: TransitionSystem> TransitionSystem
     where
         Self: 'this;
 
+    type Alphabet = Ts::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.ts.alphabet()
+    }
+
     fn state_indices(&self) -> Self::StateIndices<'_> {
         self.ts().state_indices()
     }
@@ -84,7 +90,7 @@ impl<Ts: TransitionSystem> TransitionSystem
     }
 }
 
-impl<D: Deterministic> Deterministic for MooreMachine<D::Alphabet, D::StateColor, D::EdgeColor, D> {
+impl<D: MooreLike> Deterministic for MooreMachine<D::Alphabet, D::StateColor, D::EdgeColor, D> {
     fn transition<Idx: Indexes<Self>>(
         &self,
         state: Idx,
@@ -94,17 +100,9 @@ impl<D: Deterministic> Deterministic for MooreMachine<D::Alphabet, D::StateColor
     }
 }
 
-impl<Ts: TransitionSystem> HasAlphabet
+impl<Ts: Sproutable + MooreLike> Sproutable
     for MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
 {
-    type Alphabet = Ts::Alphabet;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.ts().alphabet()
-    }
-}
-
-impl<Ts: Sproutable> Sproutable for MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts> {
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
         Self {
             ts: Ts::new_for_alphabet(alphabet),
@@ -152,13 +150,15 @@ impl<Ts: Sproutable> Sproutable for MooreMachine<Ts::Alphabet, Ts::StateColor, T
     }
 }
 
-impl<Ts: Pointed> Pointed for MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts> {
+impl<Ts: Pointed + MooreLike> Pointed
+    for MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
+{
     fn initial(&self) -> Self::StateIndex {
         self.ts().initial()
     }
 }
 
-impl<Ts: TransitionSystem> MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts> {
+impl<Ts: MooreLike> MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts> {
     /// Gives a reference to the underlying ts.
     pub fn ts(&self) -> &Ts {
         &self.ts
@@ -170,7 +170,7 @@ impl<Ts: TransitionSystem> MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeCo
     }
 }
 
-impl<Ts: PredecessorIterable> PredecessorIterable
+impl<Ts: MooreLike + PredecessorIterable> PredecessorIterable
     for MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
 {
     type PreTransitionRef<'this> = Ts::PreTransitionRef<'this>
@@ -186,7 +186,7 @@ impl<Ts: PredecessorIterable> PredecessorIterable
     }
 }
 
-impl<Q: Color, Ts: MooreLike<Q>> From<Ts> for MooreMachine<Ts::Alphabet, Q, Ts::EdgeColor, Ts> {
+impl<Ts: MooreLike> From<Ts> for MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts> {
     fn from(ts: Ts) -> Self {
         Self {
             ts,
@@ -195,7 +195,7 @@ impl<Q: Color, Ts: MooreLike<Q>> From<Ts> for MooreMachine<Ts::Alphabet, Q, Ts::
     }
 }
 
-impl<Ts: TransitionSystem + Debug> std::fmt::Debug
+impl<Ts: MooreLike + Debug> std::fmt::Debug
     for MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -221,7 +221,7 @@ macro_rules! impl_moore_automaton {
         }
         paste::paste! {
             /// See [`IntoMooreMachine`].
-            pub type [< Into $name >]<Ts> = $name<<Ts as HasAlphabet>::Alphabet, <Ts as TransitionSystem>::EdgeColor, Ts>;
+            pub type [< Into $name >]<Ts> = $name<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::EdgeColor, Ts>;
         }
 
         impl<A: Alphabet, C: Color>
@@ -328,12 +328,6 @@ macro_rules! impl_moore_automaton {
                 self.ts_mut().remove_edge(from, on)
             }
         }
-        impl<Ts: TransitionSystem> HasAlphabet for $name<Ts::Alphabet, Ts::EdgeColor, Ts> {
-            type Alphabet = Ts::Alphabet;
-            fn alphabet(&self) -> &Self::Alphabet {
-                self.ts.alphabet()
-            }
-        }
         impl<Ts: TransitionSystem> TransitionSystem
             for $name<Ts::Alphabet, Ts::EdgeColor, Ts>
         {
@@ -343,6 +337,12 @@ macro_rules! impl_moore_automaton {
             type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
             type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
             type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
+            type Alphabet = Ts::Alphabet;
+
+            fn alphabet(&self) -> &Self::Alphabet {
+                self.ts().alphabet()
+            }
+
             fn state_indices(&self) -> Self::StateIndices<'_> {
                 self.ts().state_indices()
             }
@@ -389,20 +389,20 @@ macro_rules! impl_moore_automaton {
 
 /// Implemented by objects that can be viewed as MooreMachines, i.e. finite transition systems
 /// that have usize annotated/outputting states.
-pub trait MooreLike<Q: Color>: Deterministic<StateColor = Q> + Pointed {
+pub trait MooreLike: Deterministic + Pointed {
     /// Takes a reference to `self` and turns the underlying transition system into a [`MooreMachine`].
-    fn as_moore(&self) -> MooreMachine<Self::Alphabet, Q, Self::EdgeColor, &Self> {
+    fn as_moore(&self) -> MooreMachine<Self::Alphabet, Self::StateColor, Self::EdgeColor, &Self> {
         MooreMachine::from(self)
     }
 
     /// Consumes and thereby turns `self` into a [`MooreMachine`].
-    fn into_moore(self) -> MooreMachine<Self::Alphabet, Q, Self::EdgeColor, Self> {
+    fn into_moore(self) -> MooreMachine<Self::Alphabet, Self::StateColor, Self::EdgeColor, Self> {
         MooreMachine::from(self)
     }
 
     /// Runs the given `input` word in self. If the run is successful, the color of the state that it reaches
     /// is emitted (wrapped in a `Some`). For unsuccessful runs, `None` is returned.
-    fn try_moore_map<W: FiniteWord<SymbolOf<Self>>>(&self, input: W) -> Option<Q> {
+    fn try_moore_map<W: FiniteWord<SymbolOf<Self>>>(&self, input: W) -> Option<Self::StateColor> {
         self.reached_state_color(input)
     }
 
@@ -428,7 +428,7 @@ pub trait MooreLike<Q: Color>: Deterministic<StateColor = Q> + Pointed {
     }
 
     /// Builds a DFA that accepts all words which emit a color less than or equal to `color`.
-    fn color_or_below_dfa(&self, color: Q) -> DFA<Self::Alphabet> {
+    fn color_or_below_dfa(&self, color: Self::StateColor) -> DFA<Self::Alphabet> {
         self.map_state_colors(|o| o <= color)
             .erase_edge_colors()
             .minimize()
@@ -437,4 +437,4 @@ pub trait MooreLike<Q: Color>: Deterministic<StateColor = Q> + Pointed {
             .collect_with_initial()
     }
 }
-impl<Ts: Deterministic + Pointed> MooreLike<Ts::StateColor> for Ts {}
+impl<Ts: Deterministic + Pointed> MooreLike for Ts {}

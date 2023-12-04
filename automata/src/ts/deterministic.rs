@@ -70,6 +70,25 @@ pub trait Deterministic: TransitionSystem {
         self.finite_run_from(word, self.initial())
     }
 
+    fn reached_from<W, Idx>(&self, word: W, origin: Idx) -> Option<Self::StateIndex>
+    where
+        W: FiniteWord<SymbolOf<Self>>,
+        Idx: Indexes<Self>,
+    {
+        self.finite_run_from(word, origin.to_index(self)?)
+            .ok()
+            .map(|x| x.reached())
+    }
+
+    fn reached<W>(&self, word: W) -> Option<Self::StateIndex>
+    where
+        W: FiniteWord<SymbolOf<Self>>,
+        Self: Pointed,
+    {
+        self.finite_run_from(word, self.initial())
+            .ok()
+            .map(|x| x.reached())
+    }
     /// Runs the given `word` on the transition system, starting from `state`. The result is
     /// - [`Ok`] if the run is successful (i.e. for all symbols of `word` a suitable transition
     ///  can be taken),
@@ -382,6 +401,15 @@ pub trait Deterministic: TransitionSystem {
         self.finite_run_from(word, origin).ok().map(|p| p.reached())
     }
 
+    fn collect_right_congruence(
+        &self,
+    ) -> RightCongruence<Self::Alphabet, Self::StateColor, Self::EdgeColor>
+    where
+        Self: Pointed,
+    {
+        RightCongruence::from_ts(self)
+    }
+
     /// Collects `self` into a new [`BTS`] with the same alphabet, state colors and edge colors.
     fn collect_ts(&self) -> BTS<Self::Alphabet, Self::StateColor, Self::EdgeColor> {
         use crate::ts::Sproutable;
@@ -587,7 +615,7 @@ impl<A: Alphabet, Q: Color, C: Color> Deterministic for RightCongruence<A, Q, C>
     fn edge_color(
         &self,
         state: Self::StateIndex,
-        expression: &crate::alphabet::ExpressionOf<Self>,
+        expression: &ExpressionOf<Self>,
     ) -> Option<crate::ts::EdgeColor<Self>> {
         self.ts().edge_color(state, expression)
     }
@@ -597,7 +625,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Deterministic for BTS<A, Q
     fn edge_color(
         &self,
         state: Self::StateIndex,
-        expression: &crate::alphabet::ExpressionOf<Self>,
+        expression: &ExpressionOf<Self>,
     ) -> Option<EdgeColor<Self>> {
         self.raw_state_map()
             .get(&state)
@@ -643,7 +671,7 @@ where
         let ll = self.0.transition(l, symbol)?;
         let rr = self.1.transition(r, symbol)?;
         Some(ProductTransition::new(
-            ll.expression().clone(),
+            ll.expression(),
             ProductIndex(ll.target(), rr.target()),
             (ll.color(), rr.color()),
         ))
@@ -708,7 +736,7 @@ where
     fn edge_color(
         &self,
         state: Self::StateIndex,
-        expression: &crate::alphabet::ExpressionOf<Self>,
+        expression: &ExpressionOf<Self>,
     ) -> Option<crate::ts::EdgeColor<Self>> {
         self.ts()
             .edge_color(state, expression)
@@ -736,7 +764,7 @@ where
     fn edge_color(
         &self,
         state: Self::StateIndex,
-        expression: &crate::alphabet::ExpressionOf<Self>,
+        expression: &ExpressionOf<Self>,
     ) -> Option<crate::ts::EdgeColor<Self>> {
         todo!()
     }

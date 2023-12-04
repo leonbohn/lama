@@ -1,14 +1,6 @@
 use itertools::Itertools;
 
-use crate::{
-    alphabet::{ExpressionOf, HasAlphabet, SymbolOf},
-    ts::{
-        predecessors::{IsPreTransition, PredecessorIterable},
-        transition_system::IsTransition,
-        IndexType,
-    },
-    Alphabet, Color, Pointed, TransitionSystem,
-};
+use crate::prelude::*;
 
 /// Trait that abstracts the product operation for transition systems.
 pub trait Product: TransitionSystem + Sized {
@@ -59,19 +51,10 @@ pub struct MatchingProduct<L, R>(pub L, pub R);
 impl<L, R> Pointed for MatchingProduct<L, R>
 where
     L: Pointed,
-    R: Pointed,
-    R::Alphabet: Alphabet<Symbol = SymbolOf<L>, Expression = ExpressionOf<L>>,
+    R: Pointed<Alphabet = L::Alphabet>,
 {
     fn initial(&self) -> Self::StateIndex {
         ProductIndex(self.0.initial(), self.1.initial())
-    }
-}
-
-impl<L: HasAlphabet, R> HasAlphabet for MatchingProduct<L, R> {
-    type Alphabet = L::Alphabet;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.0.alphabet()
     }
 }
 
@@ -119,15 +102,15 @@ impl<'a, L: TransitionSystem, R: TransitionSystem> ProductStatesIter<'a, L, R> {
 
 /// Type that encapsulates a transition in a product transition system.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct ProductTransition<LI, RI, E, LC, RC> {
-    expression: E,
+pub struct ProductTransition<'a, LI, RI, E, LC, RC> {
+    expression: &'a E,
     target: ProductIndex<LI, RI>,
     color: (LC, RC),
 }
 
 #[allow(missing_docs)]
-impl<LI, RI, E, LC, RC> ProductTransition<LI, RI, E, LC, RC> {
-    pub fn new(expression: E, target: ProductIndex<LI, RI>, color: (LC, RC)) -> Self {
+impl<'a, LI, RI, E, LC, RC> ProductTransition<'a, LI, RI, E, LC, RC> {
+    pub fn new(expression: &'a E, target: ProductIndex<LI, RI>, color: (LC, RC)) -> Self {
         Self {
             expression,
             target,
@@ -136,8 +119,8 @@ impl<LI, RI, E, LC, RC> ProductTransition<LI, RI, E, LC, RC> {
     }
 }
 
-impl<Idx, Jdx, E, C, D> IsTransition<E, ProductIndex<Idx, Jdx>, (C, D)>
-    for ProductTransition<Idx, Jdx, E, C, D>
+impl<'a, Idx, Jdx, E, C, D> IsTransition<'a, E, ProductIndex<Idx, Jdx>, (C, D)>
+    for ProductTransition<'a, Idx, Jdx, E, C, D>
 where
     Idx: IndexType,
     Jdx: IndexType,
@@ -152,7 +135,7 @@ where
         self.color.clone()
     }
 
-    fn expression(&self) -> &E {
+    fn expression(&self) -> &'a E {
         &self.expression
     }
 }
@@ -194,6 +177,7 @@ where
     R::Alphabet: Alphabet<Symbol = SymbolOf<L>, Expression = ExpressionOf<L>>,
 {
     type Item = ProductTransition<
+        'a,
         L::StateIndex,
         R::StateIndex,
         ExpressionOf<L>,
@@ -213,7 +197,7 @@ where
                     self.position += 1;
                     if l.expression() == r.expression() {
                         return Some(ProductTransition::new(
-                            l.expression().clone(),
+                            l.expression(),
                             ProductIndex(l.target(), r.target()),
                             (l.color(), r.color()),
                         ));

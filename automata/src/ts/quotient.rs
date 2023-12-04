@@ -1,9 +1,8 @@
-use crate::{
-    prelude::{ExpressionOf, HasAlphabet, SymbolOf},
-    Alphabet, Partition, Pointed, Set, TransitionSystem,
-};
+use std::collections::HashMap;
 
-use super::{transition_system::IsTransition, Deterministic};
+use crate::{Alphabet, Partition, Pointed, RightCongruence, Set, TransitionSystem};
+
+use super::{transition_system::IsTransition, Deterministic, ExpressionOf, SymbolOf};
 
 /// A quotient takes a transition system and merges states which are in the same
 /// congruence class of some [`Partition`]. We assume that the [`Partition`] is
@@ -19,6 +18,7 @@ use super::{transition_system::IsTransition, Deterministic};
 #[derive(Debug, Clone)]
 pub struct Quotient<Ts: TransitionSystem> {
     ts: Ts,
+    expressions: crate::Map<SymbolOf<Ts>, ExpressionOf<Ts>>,
     partition: Partition<Ts::StateIndex>,
 }
 
@@ -43,8 +43,6 @@ impl<Ts: TransitionSystem> Quotient<Ts> {
     }
 
     fn sanity_check(ts: &Ts, partition: &Partition<Ts::StateIndex>) -> bool {
-        #[cfg(not(debug_assertions))]
-        return true;
         use itertools::Itertools;
 
         for p in &partition.0 {
@@ -60,25 +58,45 @@ impl<Ts: TransitionSystem> Quotient<Ts> {
                 })
                 .all_equal();
             if !all_equal {
+                println!("SANITY CHECK FAILED:\n{:?}", partition);
                 return false;
             }
         }
         true
     }
 
+    pub fn into_right_congruence(self, ts: &Ts) -> RightCongruence<Ts::Alphabet>
+    where
+        Ts: Deterministic + Pointed,
+    {
+        self.erase_edge_colors()
+            .erase_state_colors()
+            .collect_right_congruence()
+    }
+
     /// Creates a new quotient of the given transition system by the give [`Partition`].
     pub fn new(ts: Ts, partition: Partition<Ts::StateIndex>) -> Self {
-        Self { ts, partition }
+        Self {
+            expressions: ts
+                .alphabet()
+                .universe()
+                .map(|sym| (sym, <Ts::Alphabet as Alphabet>::expression(sym)))
+                .collect(),
+            ts,
+            partition,
+        }
     }
 }
 
-pub struct QuotientTransition<Idx, E, C> {
-    expression: E,
+pub struct QuotientTransition<'a, Idx, E, C> {
+    expression: &'a E,
     colors: Vec<C>,
     target: Idx,
 }
 
-impl<Idx: Copy, E, C: Clone> IsTransition<E, Idx, Vec<C>> for QuotientTransition<Idx, E, C> {
+impl<'a, Idx: Copy, E, C: Clone> IsTransition<'a, E, Idx, Vec<C>>
+    for QuotientTransition<'a, Idx, E, C>
+{
     fn target(&self) -> Idx {
         self.target
     }
@@ -87,13 +105,13 @@ impl<Idx: Copy, E, C: Clone> IsTransition<E, Idx, Vec<C>> for QuotientTransition
         self.colors.clone()
     }
 
-    fn expression(&self) -> &E {
+    fn expression(&self) -> &'a E {
         &self.expression
     }
 }
 
-impl<Idx, E, C> QuotientTransition<Idx, E, C> {
-    pub fn new(expression: E, colors: Vec<C>, target: Idx) -> Self {
+impl<'a, Idx, E, C> QuotientTransition<'a, Idx, E, C> {
+    pub fn new(expression: &'a E, colors: Vec<C>, target: Idx) -> Self {
         Self {
             expression,
             colors,
@@ -114,7 +132,7 @@ where
     Ts: Deterministic,
     I: Iterator<Item = SymbolOf<Ts>>,
 {
-    type Item = QuotientTransition<usize, ExpressionOf<Ts>, Ts::EdgeColor>;
+    type Item = QuotientTransition<'a, usize, ExpressionOf<Ts>, Ts::EdgeColor>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let sym = self.it.next()?;
@@ -139,7 +157,7 @@ impl<Ts: Deterministic> TransitionSystem for Quotient<Ts> {
 
     type EdgeColor = Vec<Ts::EdgeColor>;
 
-    type TransitionRef<'this> = QuotientTransition<usize, ExpressionOf<Self>, Ts::EdgeColor>
+    type TransitionRef<'this> = QuotientTransition<'this, usize, ExpressionOf<Self>, Ts::EdgeColor>
     where
         Self: 'this;
 
@@ -148,6 +166,11 @@ impl<Ts: Deterministic> TransitionSystem for Quotient<Ts> {
         Self: 'this;
     type StateIndices<'this> = std::ops::Range<usize> where Self: 'this;
 
+    type Alphabet = Ts::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.ts.alphabet()
+    }
     fn state_indices(&self) -> Self::StateIndices<'_> {
         0..self.partition.len()
     }
@@ -194,19 +217,12 @@ impl<D: Deterministic> Deterministic for Quotient<D> {
             1,
             "More than one quotient class reached, partition was faulty"
         );
+        let expression = self.expressions.get(&symbol).unwrap();
         Some(QuotientTransition {
-            expression: <D::Alphabet as Alphabet>::expression(symbol),
+            expression,
             colors,
             target: states.into_iter().next().unwrap(),
         })
-    }
-}
-
-impl<Ts: TransitionSystem> HasAlphabet for Quotient<Ts> {
-    type Alphabet = Ts::Alphabet;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        Ts::alphabet(&self.ts)
     }
 }
 

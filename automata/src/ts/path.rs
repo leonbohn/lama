@@ -1,6 +1,8 @@
 use crate::{alphabet::Alphabet, Set};
 
-use super::{transition_system::IsTransition, Deterministic, IndexType, TransitionSystem};
+use super::{
+    transition_system::IsTransition, Deterministic, ExpressionOf, IndexType, TransitionSystem,
+};
 
 /// Represents a path through a transition system. Note, that the path itself is decoupled from the
 /// transition system, which allows to use it for multiple transition systems. In particular, it is possible
@@ -138,6 +140,7 @@ impl<A: Alphabet, Idx: IndexType> Path<A, Idx> {
     where
         Idx: IndexType,
         Ts: Deterministic<Alphabet = A, StateIndex = Idx>,
+        ExpressionOf<Ts>: 'a,
     {
         let transition = ts.transition(self.end, symbol)?;
         self.transitions

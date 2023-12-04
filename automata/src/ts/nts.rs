@@ -5,6 +5,8 @@ use itertools::Itertools;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 
+use super::transition_system::FullTransition;
+
 #[derive(Clone, Eq, PartialEq)]
 pub struct NTState<Q> {
     pub(super) color: Q,
@@ -30,6 +32,20 @@ pub struct NTEdge<E, C> {
     pub(super) next: Option<usize>,
 }
 
+impl<'a, E, C: Clone> IsTransition<'a, E, usize, C> for &'a NTEdge<E, C> {
+    fn target(&self) -> usize {
+        self.target
+    }
+
+    fn color(&self) -> C {
+        self.color.clone()
+    }
+
+    fn expression(&self) -> &'a E {
+        &self.expression
+    }
+}
+
 impl<E, C> NTEdge<E, C> {
     pub fn new(source: usize, expression: E, color: C, target: usize) -> Self {
         Self {
@@ -40,20 +56,6 @@ impl<E, C> NTEdge<E, C> {
             expression,
             next: None,
         }
-    }
-}
-
-impl<E, C: Color> IsTransition<E, usize, C> for NTEdge<E, C> {
-    fn target(&self) -> usize {
-        self.target
-    }
-
-    fn color(&self) -> C {
-        self.color.clone()
-    }
-
-    fn expression(&self) -> &E {
-        &self.expression
     }
 }
 
@@ -162,7 +164,7 @@ impl<A: Alphabet, Q: Color, C: Color> NTS<A, Q, C> {
         for state in self.state_indices() {
             let mut symbols = Set::default();
             for edge in self.edges_from(state).unwrap() {
-                for sym in IsTransition::expression(edge).symbols() {
+                for sym in edge.expression().symbols() {
                     if !symbols.insert(sym) {
                         return false;
                     }
@@ -170,6 +172,11 @@ impl<A: Alphabet, Q: Color, C: Color> NTS<A, Q, C> {
             }
         }
         true
+    }
+
+    pub fn into_deterministic(self) -> DTS<A, Q, C> {
+        assert!(self.is_deterministic());
+        DTS(self)
     }
 
     fn first_edge(&self, idx: usize) -> Option<usize> {
@@ -196,13 +203,6 @@ impl<A: Alphabet, Q: Color, C: Color> NTS<A, Q, C> {
                 return Some(current);
             }
         }
-    }
-}
-
-impl<A: Alphabet, Q, C> HasAlphabet for NTS<A, Q, C> {
-    type Alphabet = A;
-    fn alphabet(&self) -> &Self::Alphabet {
-        &self.alphabet
     }
 }
 
@@ -246,6 +246,12 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for NTS<A, Q, C> {
     type StateIndices<'this> = std::ops::Range<usize>
     where
         Self: 'this;
+
+    type Alphabet = A;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        &self.alphabet
+    }
 
     fn state_indices(&self) -> Self::StateIndices<'_> {
         0..self.states.len()
@@ -316,11 +322,29 @@ impl<Q, C> Default for NTSBuilder<Q, C> {
     }
 }
 
-impl<Q, C> NTSBuilder<Q, C> {
+impl NTSBuilder<(), usize> {
+    pub fn into_dpa(mut self, initial: usize) -> DPA<Simple> {
+        self.default_color(())
+            .deterministic()
+            .with_initial(initial)
+            .collect_dpa()
+    }
+}
+
+impl<Q, C: Color> NTSBuilder<Q, C> {
     pub fn default_color(mut self, color: Q) -> Self {
         self.default = Some(color);
         self
     }
+
+    pub fn deterministic(mut self) -> DTS<Simple, Q, C>
+    where
+        Q: Color,
+        C: Color,
+    {
+        self.collect().try_into().expect("Not deterministic!")
+    }
+
     pub fn color(mut self, idx: usize, color: Q) -> Self
     where
         Q: Color,
@@ -329,8 +353,11 @@ impl<Q, C> NTSBuilder<Q, C> {
         self.colors.push((idx, color));
         self
     }
-    pub fn extend<T: IntoIterator<Item = (usize, char, C, usize)>>(mut self, iter: T) -> Self {
-        self.edges.extend(iter);
+    pub fn extend<X: FullTransition<usize, char, C>, T: IntoIterator<Item = X>>(
+        mut self,
+        iter: T,
+    ) -> Self {
+        self.edges.extend(iter.into_iter().map(|t| t.clone_tuple()));
         self
     }
 

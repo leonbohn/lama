@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::{alphabet::ExpressionOf, Alphabet, Pointed, TransitionSystem};
+use crate::{Alphabet, Pointed, TransitionSystem};
 
 use super::{transition_system::IsTransition, EdgeColor, StateColor};
 

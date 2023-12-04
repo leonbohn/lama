@@ -5,11 +5,7 @@ use std::{
 
 use itertools::Itertools;
 
-use crate::{
-    alphabet::{HasAlphabet, SymbolOf},
-    ts::{finite::SeenColors, CanInduce, IndexType},
-    Alphabet, Map, Set, TransitionSystem,
-};
+use crate::prelude::*;
 
 use super::IsTransition;
 
@@ -38,6 +34,10 @@ impl<'a, Ts: TransitionSystem> SccDecomposition<'a, Ts> {
     /// Creates a new SCC decomposition from a transition system and a vector of SCCs.
     pub fn new(ts: &'a Ts, sccs: Vec<Scc<'a, Ts>>) -> Self {
         Self(ts, sccs)
+    }
+
+    pub fn first(&self) -> &Scc<'a, Ts> {
+        self.1.first().expect("At least one SCC must exist!")
     }
 
     /// Attepmts to find the index of a the SCC containing the given `state`. Returns this index if
@@ -75,7 +75,7 @@ mod tests {
             connected_components::{Scc, SccDecomposition},
             Sproutable,
         },
-        Pointed, RightCongruence, TransitionSystem,
+        Pointed, RightCongruence, Set, TransitionSystem,
     };
 
     pub(super) fn ts() -> RightCongruence<Simple> {
@@ -99,6 +99,7 @@ mod tests {
     fn tarjan_scc_decomposition() {
         let cong = ts();
         let sccs = cong.sccs();
+        println!("{:?}", sccs);
 
         let scc1 = Scc::new(&cong, vec![0]);
         let scc2 = Scc::new(&cong, vec![1]);
@@ -109,8 +110,22 @@ mod tests {
             SccDecomposition::new(&cong, vec![scc1.clone(), scc2.clone(), scc3.clone()])
         );
 
+        assert_eq!(
+            scc2.interior_transitions(),
+            &Set::from_iter([(1, 'a', (), 1), (1, 'b', (), 1)])
+        );
+        assert_eq!(
+            scc3.interior_transitions(),
+            &Set::from_iter([
+                (2, 'a', (), 3),
+                (2, 'b', (), 2),
+                (3, 'a', (), 3),
+                (3, 'b', (), 2)
+            ])
+        );
+
         assert_eq!(scc1.maximal_word(), None);
         assert_eq!(scc2.maximal_word(), Some(vec!['a', 'b']));
-        assert_eq!(scc3.maximal_word(), Some(vec!['a', 'a', 'b', 'b']))
+        assert_eq!(scc3.maximal_word(), Some(vec!['b', 'a', 'a', 'b']))
     }
 }

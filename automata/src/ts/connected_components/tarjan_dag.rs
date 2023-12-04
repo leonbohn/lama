@@ -32,9 +32,10 @@ impl<'a, Ts: TransitionSystem> TarjanDAG<'a, Ts> {
     pub fn fold_edge_colors<F, D>(&self, init: D, f: F) -> Dag<D>
     where
         D: Clone,
-        F: FnMut(D, Ts::EdgeColor) -> D + Copy,
+        F: FnMut(D, &Ts::EdgeColor) -> D + Copy,
     {
-        self.dag.reduce(|x| x.edge_colors().fold(init.clone(), f))
+        self.dag
+            .reduce(|x| x.interior_edge_colors().iter().fold(init.clone(), f))
     }
 
     /// Returns an iterator over sccs which are reachable from the given source scc.
@@ -68,9 +69,9 @@ impl<'a, Ts: TransitionSystem + Clone> From<SccDecomposition<'a, Ts>> for Tarjan
     }
 }
 
-impl<'a, Ts: TransitionSystem + std::fmt::Debug> std::fmt::Debug for TarjanDAG<'a, Ts> {
+impl<'a, Ts: TransitionSystem> std::fmt::Debug for TarjanDAG<'a, Ts> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "DAG: {:?}", self.dag)
+        todo!()
     }
 }
 

@@ -52,13 +52,7 @@ impl<Ts: TransitionSystem> StateSet<Ts> {
 pub struct SubsetConstruction<Ts: TransitionSystem> {
     ts: Ts,
     states: RefCell<Vec<StateSet<Ts>>>,
-}
-
-impl<Ts: TransitionSystem> HasAlphabet for SubsetConstruction<Ts> {
-    type Alphabet = Ts::Alphabet;
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.ts.alphabet()
-    }
+    expressions: crate::Map<SymbolOf<Ts>, ExpressionOf<Ts>>,
 }
 
 impl<Ts: TransitionSystem> Deterministic for SubsetConstruction<Ts> {
@@ -83,16 +77,12 @@ impl<Ts: TransitionSystem> Deterministic for SubsetConstruction<Ts> {
             })
             .unzip();
         if let Some(pos) = self.states.borrow().iter().position(|s| stateset.eq(s)) {
-            return Some((
-                <Ts::Alphabet as Alphabet>::expression(symbol),
-                pos,
-                colorset,
-            ));
+            return Some((self.expressions.get(&symbol).unwrap(), pos, colorset));
         }
 
         self.states.borrow_mut().push(stateset);
         Some((
-            <Ts::Alphabet as Alphabet>::expression(symbol),
+            self.expressions.get(&symbol).unwrap(),
             self.states.borrow().len(),
             colorset,
         ))
@@ -113,7 +103,7 @@ impl<Ts: TransitionSystem> TransitionSystem for SubsetConstruction<Ts> {
 
     type EdgeColor = Vec<Ts::EdgeColor>;
 
-    type TransitionRef<'this> = (ExpressionOf<Ts>, usize, Self::EdgeColor)
+    type TransitionRef<'this> = (&'this ExpressionOf<Ts>, usize, Self::EdgeColor)
     where
         Self: 'this;
 
@@ -125,6 +115,11 @@ impl<Ts: TransitionSystem> TransitionSystem for SubsetConstruction<Ts> {
     where
         Self: 'this;
 
+    type Alphabet = Ts::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.ts.alphabet()
+    }
     fn state_indices(&self) -> Self::StateIndices<'_> {
         self.reachable_state_indices_from(self.initial())
     }
@@ -172,6 +167,7 @@ impl<Ts: TransitionSystem> Debug for SubsetConstruction<Ts> {
 impl<Ts: TransitionSystem> SubsetConstruction<Ts> {
     pub fn new_from(ts: Ts, idx: Ts::StateIndex) -> Self {
         Self {
+            expressions: ts.alphabet().expression_map(),
             states: vec![StateSet::singleton(idx)].into(),
             ts,
         }
@@ -179,6 +175,7 @@ impl<Ts: TransitionSystem> SubsetConstruction<Ts> {
 
     pub fn new<I: IntoIterator<Item = Ts::StateIndex>>(ts: Ts, iter: I) -> Self {
         Self {
+            expressions: ts.alphabet().expression_map(),
             states: vec![StateSet::from_iter(iter)].into(),
             ts,
         }

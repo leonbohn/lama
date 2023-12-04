@@ -1,11 +1,6 @@
 use itertools::Itertools;
 
-use crate::{
-    alphabet::{Alphabet, HasAlphabet},
-    prelude::WithInitial,
-    ts::Deterministic,
-    Color, Map, Set, Show,
-};
+use crate::{alphabet::Alphabet, prelude::WithInitial, ts::Deterministic, Color, Map, Set, Show};
 
 use super::{
     EdgeColor, HasColor, HasColorMut, HasMutableStates, HasStates, IndexType, Sproutable,
@@ -99,19 +94,19 @@ impl<A: Alphabet, Q: std::fmt::Display, C: Color, Idx: IndexType> std::fmt::Disp
 /// are indexed by their position in the respective vector.
 #[derive(Clone, PartialEq, Eq)]
 pub struct BTS<A: Alphabet, Q, C: Color, Idx: IndexType = usize> {
-    alphabet: A,
+    pub(crate) alphabet: A,
     pub(crate) states: Map<Idx, BTState<A, Q, C, Idx>>,
 }
 
 pub type IntoBTS<Ts> = BTS<
-    <Ts as HasAlphabet>::Alphabet,
+    <Ts as TransitionSystem>::Alphabet,
     <Ts as TransitionSystem>::StateColor,
     <Ts as TransitionSystem>::EdgeColor,
 >;
 
 pub type IntoInitialBTS<Ts> = WithInitial<
     BTS<
-        <Ts as HasAlphabet>::Alphabet,
+        <Ts as TransitionSystem>::Alphabet,
         <Ts as TransitionSystem>::StateColor,
         <Ts as TransitionSystem>::EdgeColor,
     >,
@@ -334,13 +329,6 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> HasMutableStates for BTS<A
 
     fn state_mut(&mut self, index: Idx) -> Option<Self::StateMut<'_>> {
         self.states.get_mut(&index)
-    }
-}
-
-impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> HasAlphabet for BTS<A, Q, C, Idx> {
-    type Alphabet = A;
-    fn alphabet(&self) -> &Self::Alphabet {
-        &self.alphabet
     }
 }
 

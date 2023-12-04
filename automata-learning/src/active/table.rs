@@ -64,13 +64,6 @@ pub struct LStarTable<A: Alphabet, C: Color, const FOR_MEALY: bool> {
     pub(crate) alphabet: A,
 }
 
-impl<A: Alphabet, C: Color, const FOR_MEALY: bool> HasAlphabet for LStarTable<A, C, FOR_MEALY> {
-    type Alphabet = A;
-    fn alphabet(&self) -> &Self::Alphabet {
-        &self.alphabet
-    }
-}
-
 impl<A: Alphabet, C: Color + Debug + Default> LStarTarget<false> for LStarTable<A, C, false> {
     type Alphabet = A;
 

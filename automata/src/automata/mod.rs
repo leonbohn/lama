@@ -10,15 +10,15 @@ use owo_colors::OwoColorize;
 
 use crate::{
     algorithms::minimize_dfa,
-    alphabet::{Alphabet, HasAlphabet, Symbol, SymbolOf},
+    alphabet::{Alphabet, Symbol},
+    prelude::Simple,
     prelude::*,
-    prelude::{ExpressionOf, Simple},
     ts::{
         finite::{InfinityColors, ReachedColor},
         operations::{MapStateColor, MatchingProduct, Product, ProductIndex, ProductTransition},
         transition_system::IsTransition,
         EdgeColor, HasMutableStates, HasStates, IndexType, Pointed, Quotient, Sproutable,
-        StateColor, TransitionSystem, BTS,
+        StateColor, SymbolOf, TransitionSystem, BTS,
     },
     word::{OmegaWord, Reduced},
     Color, FiniteLength, InfiniteLength, Length,
@@ -69,7 +69,7 @@ macro_rules! impl_automaton_type {
     ($name:ident, $color:ident, $edgecolor:ident) => {
         paste::paste! {
             /// Type alias to allow conversion of a transition system into an automaton of the type.
-            pub type [< Into $name >]<Ts> = $name<<Ts as HasAlphabet>::Alphabet, <Ts as TransitionSystem>::StateColor, <Ts as TransitionSystem>::EdgeColor, Ts>;
+            pub type [< Into $name >]<Ts> = $name<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::StateColor, <Ts as TransitionSystem>::EdgeColor, Ts>;
         }
 
         #[allow(missing_docs)]
@@ -183,15 +183,13 @@ macro_rules! impl_automaton_type {
                 self.ts_mut().remove_edge(from, on)
             }
         }
-        impl<Ts: TransitionSystem> HasAlphabet for $name<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts> {
-            type Alphabet = Ts::Alphabet;
-            fn alphabet(&self) -> &Self::Alphabet {
-                self.ts.alphabet()
-            }
-        }
         impl<Ts: TransitionSystem> TransitionSystem
             for $name<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
         {
+            type Alphabet = Ts::Alphabet;
+            fn alphabet(&self) -> &Self::Alphabet {
+                self.ts().alphabet()
+            }
             type StateIndex = Ts::StateIndex;
             type EdgeColor = Ts::EdgeColor;
             type StateColor = Ts::StateColor;

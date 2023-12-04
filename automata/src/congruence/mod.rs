@@ -1,11 +1,12 @@
 use std::fmt::{Debug, Display};
 
-use itertools::Itertools;
+use itertools::{Itertools, MapInto};
 
 use crate::{
-    alphabet::{HasAlphabet, Simple, Symbol},
+    alphabet::{Simple, Symbol},
     prelude::DFALike,
     ts::{transition_system::Indexes, Deterministic, Sproutable, BTS},
+    word::FiniteWord,
     Alphabet, Color, FiniteLength, HasLength, Map, Pointed, Show, TransitionSystem, DFA,
 };
 
@@ -50,11 +51,26 @@ impl<A: Alphabet, Q: Color + Show, C: Color + Show> Debug for RightCongruence<A,
 }
 
 impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
+    /// Assumes that `self` is det. and complete.
+    pub fn congruent<W, V>(&self, word: W, other: V) -> bool
+    where
+        W: FiniteWord<A::Symbol>,
+        V: FiniteWord<A::Symbol>,
+    {
+        self.reached(word).unwrap() == self.reached(other).unwrap()
+    }
+
     /// Turns the given transition system into a right congruence.
-    pub fn from_ts<X: Into<ColoredClass<A::Symbol, Q>> + Color>(ts: BTS<A, X, C>) -> Self {
-        Self {
-            ts: ts.map_state_colors(|c| c.into()).collect_ts(),
-        }
+    pub fn from_ts<Ts: Pointed + Deterministic<Alphabet = A, StateColor = Q, EdgeColor = C>>(
+        ts: Ts,
+    ) -> Self {
+        let mut cong = Self {
+            ts: ts
+                .map_state_colors(|c| ColoredClass::new(Class::default(), c))
+                .collect_ts(),
+        };
+        cong.recompute_labels();
+        cong
     }
 
     /// Verifies whether an element of `self` is  idempotent, i.e. if the mr of the indexed
@@ -178,14 +194,6 @@ impl<A: Alphabet, Q: Color + Default, C: Color> Sproutable for RightCongruence<A
         iter: I,
     ) -> Self::ExtendStateIndexIter {
         self.ts_mut().extend_states(iter)
-    }
-}
-
-impl<A: Alphabet, Q: Color, C: Color> HasAlphabet for RightCongruence<A, Q, C> {
-    type Alphabet = A;
-
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.ts.alphabet()
     }
 }
 

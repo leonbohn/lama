@@ -1,5 +1,7 @@
+use std::marker::PhantomData;
+
 use crate::{
-    alphabet::HasAlphabet,
+    prelude::*,
     ts::{
         predecessors::{IsPreTransition, PredecessorIterable},
         transition_system::IsTransition,
@@ -101,16 +103,6 @@ where
     }
 }
 
-impl<Ts, F> HasAlphabet for RestrictByStateIndex<Ts, F>
-where
-    Ts: TransitionSystem,
-{
-    type Alphabet = Ts::Alphabet;
-    fn alphabet(&self) -> &Self::Alphabet {
-        self.ts.alphabet()
-    }
-}
-
 #[allow(missing_docs)]
 impl<Ts: TransitionSystem, F> RestrictByStateIndex<Ts, F> {
     pub fn new(ts: Ts, filter: F) -> Self {
@@ -175,6 +167,135 @@ where
 impl<'a, Ts: PredecessorIterable + 'a, F> RestrictedEdgesToIter<'a, Ts, F> {
     pub fn new(it: Ts::EdgesToIter<'a>, filter: &'a F) -> Self {
         Self { filter, it }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ColorRestricted<D: TransitionSystem> {
+    ts: D,
+    min: D::EdgeColor,
+    max: D::EdgeColor,
+}
+
+impl<D: TransitionSystem + Pointed> Pointed for ColorRestricted<D> {
+    fn initial(&self) -> Self::StateIndex {
+        self.ts.initial()
+    }
+}
+
+impl<D: TransitionSystem> TransitionSystem for ColorRestricted<D> {
+    type StateIndex = D::StateIndex;
+
+    type StateColor = D::StateColor;
+
+    type EdgeColor = D::EdgeColor;
+
+    type TransitionRef<'this> = D::TransitionRef<'this>
+    where
+        Self: 'this;
+
+    type EdgesFromIter<'this> = ColorRestrictedEdgesFrom<'this, D>    where
+        Self: 'this;
+
+    type StateIndices<'this> = D::StateIndices<'this>
+    where
+        Self: 'this;
+
+    type Alphabet = D::Alphabet;
+
+    fn alphabet(&self) -> &Self::Alphabet {
+        self.ts().alphabet()
+    }
+    fn state_indices(&self) -> Self::StateIndices<'_> {
+        self.ts().state_indices()
+    }
+
+    fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
+        let min = self.min.clone();
+        let max = self.max.clone();
+        Some(ColorRestrictedEdgesFrom {
+            min,
+            max,
+            _phantom: PhantomData,
+            it: self.ts().edges_from(state.to_index(self)?)?,
+        })
+    }
+
+    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
+        self.ts().state_color(state)
+    }
+}
+
+impl<D: PredecessorIterable<EdgeColor = usize>> PredecessorIterable for ColorRestricted<D> {
+    type PreTransitionRef<'this> = D::PreTransitionRef<'this>
+    where
+        Self: 'this;
+
+    type EdgesToIter<'this> = ColorRestrictedEdgesTo<'this, D>
+    where
+        Self: 'this;
+
+    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
+        todo!()
+    }
+}
+
+impl<D: DPALike> Deterministic for ColorRestricted<D> {
+    fn transition<Idx: Indexes<Self>>(
+        &self,
+        state: Idx,
+        symbol: SymbolOf<Self>,
+    ) -> Option<Self::TransitionRef<'_>> {
+        self.ts()
+            .transition(state.to_index(self)?, symbol)
+            .and_then(|t| {
+                if t.color() <= self.max && self.min <= t.color() {
+                    Some(t)
+                } else {
+                    None
+                }
+            })
+    }
+}
+
+pub struct ColorRestrictedEdgesFrom<'a, D: TransitionSystem> {
+    _phantom: PhantomData<&'a D>,
+    it: D::EdgesFromIter<'a>,
+    min: D::EdgeColor,
+    max: D::EdgeColor,
+}
+
+impl<'a, D: TransitionSystem> Iterator for ColorRestrictedEdgesFrom<'a, D> {
+    type Item = D::TransitionRef<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.it
+            .find(|t| t.color() <= self.max && self.min <= t.color())
+    }
+}
+
+pub struct ColorRestrictedEdgesTo<'a, D: PredecessorIterable> {
+    _phantom: PhantomData<&'a D>,
+    it: D::EdgesToIter<'a>,
+    min: D::EdgeColor,
+    max: D::EdgeColor,
+}
+
+impl<'a, D: PredecessorIterable> Iterator for ColorRestrictedEdgesTo<'a, D> {
+    type Item = D::PreTransitionRef<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.it
+            .find(|t| t.color() <= self.max && self.min <= t.color())
+    }
+}
+
+impl<D: TransitionSystem> ColorRestricted<D> {
+    pub fn ts(&self) -> &D {
+        &self.ts
+    }
+    pub fn new(ts: D, min: D::EdgeColor, max: D::EdgeColor) -> Self {
+        Self { ts, min, max }
     }
 }
 

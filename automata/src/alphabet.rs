@@ -38,9 +38,6 @@ pub trait Expression<S: Symbol>: Hash + Clone + Debug + Eq + Ord + Show {
     }
 }
 
-/// Type alias that can be used to extract the underlying alphabet of some object implementing [`HasAlphabet`].
-pub type AlphabetOf<A> = <A as HasAlphabet>::Alphabet;
-
 /// An alphabet abstracts a collection of [`Symbol`]s and complex [`Expression`]s over those.
 #[impl_tools::autoimpl(for<T: trait + ?Sized> &T)]
 pub trait Alphabet: Clone {
@@ -48,6 +45,12 @@ pub trait Alphabet: Clone {
     type Symbol: Symbol;
     /// The type of expressions in this alphabet.
     type Expression: Expression<Self::Symbol>;
+
+    fn expression_map(&self) -> crate::Map<Self::Symbol, Self::Expression> {
+        self.universe()
+            .map(|sym| (sym, Self::expression(sym)))
+            .collect()
+    }
 
     /// This method is used for an optimization: If we have a [`Simple`] alphabet, then an edge list essentially
     /// boils down to a map from `Self::Symbol` to an edge. For more complicated alphabets, this may not always
@@ -79,21 +82,6 @@ pub trait Alphabet: Clone {
     /// Creates an expression from a single symbol.
     fn expression(symbol: Self::Symbol) -> Self::Expression;
 }
-
-/// Abstracts posessing an [`Alphabet`], which can then be accessed via [`HasAlphabet::alphabet`].
-#[impl_tools::autoimpl(for<T: trait + ?Sized> &T, &mut T)]
-pub trait HasAlphabet {
-    /// The type of alphabet posessed by the object
-    type Alphabet: Alphabet;
-
-    /// Returns a reference to the alphabet posessed by the object.
-    fn alphabet(&self) -> &Self::Alphabet;
-}
-
-/// Helper trait for extracting the [`Symbol`] type from an an object which implements [`HasAlphabet`].
-pub type SymbolOf<A> = <<A as HasAlphabet>::Alphabet as Alphabet>::Symbol;
-/// Helper trait for extracting the [`Expression`] type from an an object which implements [`HasAlphabet`].
-pub type ExpressionOf<A> = <<A as HasAlphabet>::Alphabet as Alphabet>::Expression;
 
 /// A simple alphabet is an alphabet where a [`Symbol`] is just a single character.
 ///

@@ -6,7 +6,7 @@ use crate::active::{oracle::MealyOracle, LStar};
 
 use super::{FiniteSample, Sample};
 
-type DFASample<D> = FiniteSample<<D as HasAlphabet>::Alphabet, bool>;
+type DFASample<D> = FiniteSample<<D as TransitionSystem>::Alphabet, bool>;
 
 pub fn characterize_dfa<D: DFALike>(dfa: D) -> DFASample<D> {
     todo!()
@@ -17,7 +17,7 @@ pub fn actively_exchanged_words_dfa<D: DFALike>(dfa: D) -> DFASample<D> {
 }
 
 type MealySample<D> =
-    Sample<<D as HasAlphabet>::Alphabet, Vec<SymbolOf<D>>, <D as TransitionSystem>::EdgeColor>;
+    Sample<<D as TransitionSystem>::Alphabet, Vec<SymbolOf<D>>, <D as TransitionSystem>::EdgeColor>;
 
 pub fn actively_exchanged_words_mealy<C: Color + Default + Debug, D: MealyLike<C>>(
     mm: D,
