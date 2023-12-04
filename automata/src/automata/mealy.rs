@@ -15,6 +15,15 @@ pub struct MealyMachine<A, C = usize, Ts = WithInitial<BTS<A, NoColor, C, usize>
 pub type IntoMealyMachine<Ts> =
     MealyMachine<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::EdgeColor, Ts>;
 
+impl<Ts: MealyLike> IntoMealyMachine<Ts> {
+    pub fn witness_inequivalence<O: MealyLike<Alphabet = Ts::Alphabet>>(
+        &self,
+        other: &IntoMealyMachine<O>,
+    ) -> Option<Vec<SymbolOf<Ts>>> {
+        todo!()
+    }
+}
+
 impl<A: Alphabet> MealyMachine<A> {
     pub fn new(alphabet: A) -> Self {
         Self {
@@ -151,7 +160,7 @@ impl<Ts: PredecessorIterable> PredecessorIterable
     }
 }
 
-impl<C: Color, Ts: MealyLike<C>> From<Ts> for MealyMachine<Ts::Alphabet, C, Ts> {
+impl<Ts: MealyLike> From<Ts> for MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts> {
     fn from(ts: Ts) -> Self {
         Self {
             ts,
@@ -343,20 +352,20 @@ macro_rules! impl_mealy_automaton {
 
 /// Implemented by objects which can be viewed as a MealyMachine, i.e. a finite transition system
 /// which has outputs of type usize on its edges.
-pub trait MealyLike<C: Color>: TransitionSystem<EdgeColor = C> + Pointed {
+pub trait MealyLike: TransitionSystem + Pointed {
     /// Uses a reference to `self` for obtaining a [`MealyMachine`].
-    fn as_mealy(&self) -> MealyMachine<Self::Alphabet, C, &Self> {
+    fn as_mealy(&self) -> MealyMachine<Self::Alphabet, Self::EdgeColor, &Self> {
         MealyMachine::from(self)
     }
 
-    /// Consumes `self`, returning a [`MealyMachine`] that uses the underlying transition system.
-    fn into_mealy(self) -> MealyMachine<Self::Alphabet, C, Self> {
+    /// Self::EdgeColoronsumes `self`, returning a [`MealyMachine`] that uses the underlying transition system.
+    fn into_mealy(self) -> MealyMachine<Self::Alphabet, Self::EdgeColor, Self> {
         MealyMachine::from(self)
     }
 
     /// Attempts to run the given finite word in `self`, returning the color of the last transition that
     /// is taken wrapped in `Some`. If no successful run on `input` is possible, the function returns `None`.
-    fn try_mealy_map<W: FiniteWord<SymbolOf<Self>>>(&self, input: W) -> Option<C> {
+    fn try_mealy_map<W: FiniteWord<SymbolOf<Self>>>(&self, input: W) -> Option<Self::EdgeColor> {
         todo!()
     }
 
@@ -368,4 +377,4 @@ pub trait MealyLike<C: Color>: TransitionSystem<EdgeColor = C> + Pointed {
             .collect()
     }
 }
-impl<Ts: TransitionSystem + Pointed + Sized> MealyLike<Ts::EdgeColor> for Ts {}
+impl<Ts: TransitionSystem + Pointed + Sized> MealyLike for Ts {}

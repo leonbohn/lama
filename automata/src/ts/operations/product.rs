@@ -316,3 +316,31 @@ impl<'a, L: PredecessorIterable, R: PredecessorIterable> ProductEdgesTo<'a, L, R
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        ts::{Deterministic, NTS},
+        TransitionSystem,
+    };
+
+    use super::Product;
+
+    #[test]
+    fn product_subalphabet() {
+        let l = NTS::builder()
+            .default_color(())
+            .extend([(0, 'a', 0, 0), (0, 'b', 0, 0)])
+            .deterministic()
+            .with_initial(0);
+        let r = NTS::builder()
+            .default_color(())
+            .extend([(0, 'a', 0, 0)])
+            .deterministic()
+            .with_initial(0);
+        assert!((&l).ts_product(&l).reached("b").is_some());
+        let prod = l.ts_product(r);
+        assert!(prod.reached("a").is_some());
+        assert!(prod.reached("b").is_none());
+    }
+}
