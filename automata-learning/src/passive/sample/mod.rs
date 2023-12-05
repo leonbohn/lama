@@ -10,7 +10,7 @@ use automata::{prelude::*, word::LinearWord, Map};
 use itertools::Itertools;
 use tracing::{debug, trace};
 
-use crate::passive::sprout::iteration_consistency_conflicts;
+use crate::{passive::sprout::iteration_consistency_conflicts, prefixtree::prefix_tree};
 
 use super::sprout::{prefix_consistency_conflicts, sprout, SeparatesIdempotents};
 
@@ -38,6 +38,12 @@ pub type FiniteSample<A, C = bool> = Sample<A, Vec<<A as Alphabet>::Symbol>, C>;
 /// Type alias for samples over alphabet `A` which contain infinite/omega words that are classified with `C`,
 /// which defaults to `bool`.
 pub type OmegaSample<A, C = bool> = Sample<A, Reduced<<A as Alphabet>::Symbol>, C>;
+
+impl<A: Alphabet> OmegaSample<A> {
+    pub fn prefix_tree(&self) -> RightCongruence<A> {
+        prefix_tree(self.alphabet().clone(), self.words())
+    }
+}
 
 impl<A: Alphabet, W: LinearWord<A::Symbol>> Sample<A, W, bool> {
     /// Gives an iterator over all positive words in the sample.

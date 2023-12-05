@@ -165,15 +165,16 @@ impl<D: DFALike> LStarOracle<MooreMachine<D::Alphabet, bool>> for DFAOracle<D> {
 
 /// An oracle based on a [`MealyMachine`].
 #[derive(Debug, Clone)]
-pub struct MealyOracle<C: Color, D: MealyLike<C>> {
-    automaton: D,
-    _color: std::marker::PhantomData<C>,
+pub struct MealyOracle<D: MealyLike> {
+    automaton: IntoMealyMachine<D>,
 }
 
-impl<C: Color, D: MealyLike<C>> LStarOracle<MealyMachine<D::Alphabet, C>> for MealyOracle<C, D> {
+impl<D: MealyLike + Deterministic> LStarOracle<MealyMachine<D::Alphabet, D::EdgeColor>>
+    for MealyOracle<D>
+{
     type Length = FiniteLength;
 
-    type Output = C;
+    type Output = D::EdgeColor;
 
     fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> Self::Output {
         self.automaton
@@ -182,18 +183,32 @@ impl<C: Color, D: MealyLike<C>> LStarOracle<MealyMachine<D::Alphabet, C>> for Me
     }
     fn equivalence(
         &self,
-        hypothesis: &MealyMachine<D::Alphabet, C>,
-    ) -> Result<(), (Vec<SymbolOf<MealyMachine<D::Alphabet, C>>>, Self::Output)> {
-        todo!()
+        hypothesis: &MealyMachine<D::Alphabet, D::EdgeColor>,
+    ) -> Result<
+        (),
+        (
+            Vec<SymbolOf<MealyMachine<D::Alphabet, D::EdgeColor>>>,
+            Self::Output,
+        ),
+    > {
+        match self.automaton.witness_inequivalence(hypothesis) {
+            Some(w) => {
+                let expected = self
+                    .automaton
+                    .try_mealy_map(&w)
+                    .expect("Target must be complete!");
+                Err((w, expected))
+            }
+            None => Ok(()),
+        }
     }
 }
 
-impl<C: Color, D: MealyLike<C>> MealyOracle<C, D> {
+impl<D: MealyLike> MealyOracle<D> {
     /// Creates a new [`MealyOracle`] based on an instance of [`MealyLike`].
     pub fn new(automaton: D) -> Self {
         Self {
-            automaton,
-            _color: std::marker::PhantomData,
+            automaton: automaton.into_mealy(),
         }
     }
 }

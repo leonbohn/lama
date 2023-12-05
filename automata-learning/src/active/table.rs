@@ -611,7 +611,9 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
                         ))
                         .join(", ")
                 );
-                assert!(!self.experiments.contains(&experiment));
+                if self.experiments.contains(&experiment) {
+                    panic!("The experiment {:?} is already present!", experiment);
+                }
                 self.experiments.push(experiment);
                 return queries;
             }

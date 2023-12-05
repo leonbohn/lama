@@ -1,4 +1,7 @@
-use automata::{prelude::*, ts::dot::MightDecorateDotTransition};
+use automata::{
+    prelude::*,
+    ts::{dot::MightDecorateDotTransition, IndexedAlphabet},
+};
 use owo_colors::OwoColorize;
 use tracing::trace;
 
@@ -8,7 +11,12 @@ use tracing::trace;
 pub mod sample;
 pub use sample::{ClassOmegaSample, PeriodicOmegaSample, Sample, SplitOmegaSample};
 
-use crate::{passive::fwpm::FWPM, AnnotatedCongruence};
+use crate::{
+    active::{LStar, MealyOracle},
+    passive::fwpm::FWPM,
+    prefixtree::prefix_tree,
+    AnnotatedCongruence,
+};
 
 use self::precise::PreciseDPA;
 
@@ -88,8 +96,26 @@ pub fn infer_precise_dpa<A: Alphabet>(
 }
 
 /// Similar to [`dba_rpni`], but produces a DPA instead.
-pub fn dpa_rpni<A: Alphabet>(sample: &OmegaSample<A, bool>) -> DPA<A> {
-    todo!()
+pub fn dpa_rpni<A: Alphabet>(sample: &OmegaSample<A, bool>) -> DPA<A, (), MealyMachine<A>>
+where
+    A: IndexedAlphabet,
+{
+    let precise = infer_precise_dpa(sample);
+    let pta = sample.prefix_tree().erase_state_colors();
+
+    let prod = precise
+        .ts_product(pta)
+        .map_edge_colors(|(c, _)| c)
+        .map_state_colors(|(_, _)| ());
+    let completed = prod.collect_complete_with_initial((), 0);
+
+    //now we use the completed thing to learn a MealyMachine from which we can then build the DPA
+    let mm = completed.into_mealy();
+    let alphabet = mm.alphabet().clone();
+    let oracle = MealyOracle::new(mm);
+
+    let learned = LStar::mealy_unlogged(oracle, alphabet).infer();
+    learned.into_dpa()
 }
 
 #[cfg(test)]
@@ -97,23 +123,43 @@ mod tests {
     use automata::prelude::*;
     use tracing_test::traced_test;
 
+    use crate::passive::dpa_rpni;
+
     use super::{sample, OmegaSample};
 
     #[test]
-    #[traced_test]
     fn infer_precise_dpa_inf_aa() {
         let alphabet = alphabet!(simple 'a', 'b', 'c');
         let sample = sample! {alphabet; pos "a", "aab", "aaab", "bbaa", "aca", "caa", "abca", "baac"; neg "c", "b", "bc", "abc", "cba", "ac", "ba"};
-        let dpa = super::infer_precise_dpa(&sample);
-        println!("{:?}", dpa);
-        let dpa = dpa.into_dpa();
 
-        for (w, c) in [
+        let t = std::time::Instant::now();
+        let dpa = super::infer_precise_dpa(&sample).into_dpa();
+        let full_duration = t.elapsed().as_millis();
+        println!(
+            "{}",
+            dpa.build_transition_table(|q, c| format!("{}|{:?}", q, c))
+        );
+
+        let expected = [
             (upw!("a"), true),
             (upw!("baa"), true),
             (upw!("cabaca"), false),
             (upw!("baacbacbac"), true),
-        ] {
+        ];
+        for (w, c) in &expected {
+            let b = dpa.accepts_omega(&w);
+            assert_eq!(b, *c, "{:?} is classified {b}, expected {c}", w);
+        }
+
+        let t = std::time::Instant::now();
+        let dpa = dpa_rpni(&sample);
+        let paper_duration = t.elapsed().as_millis();
+
+        println!(
+            "Full construction took {full_duration}ms, paper construction took {paper_duration}ms"
+        );
+
+        for (w, c) in expected {
             let b = dpa.accepts_omega(&w);
             assert_eq!(b, c, "{:?} is classified {b}, expected {c}", w);
         }

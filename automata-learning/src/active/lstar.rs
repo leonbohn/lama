@@ -316,7 +316,6 @@ mod tests {
     }
 
     #[test]
-    #[traced_test]
     fn lstar_logged() {
         let target = test_dfa();
         let oracle = DFAOracle::new(&target);
