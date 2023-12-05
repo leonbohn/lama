@@ -217,6 +217,32 @@ pub type SymbolOf<A> = <<A as TransitionSystem>::Alphabet as Alphabet>::Symbol;
 /// Helper trait for extracting the [`Expression`] type from an an object which implements [`HasAlphabet`].
 pub type ExpressionOf<A> = <<A as TransitionSystem>::Alphabet as Alphabet>::Expression;
 
+#[derive(Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+pub struct EdgeReference<'ts, Idx, E, C> {
+    source: Idx,
+    color: &'ts C,
+    expression: &'ts E,
+    target: Idx,
+}
+
+impl<'ts, Idx, E, C> IsTransition<'ts, E, Idx, C> for EdgeReference<'ts, Idx, E, C>
+where
+    Idx: IndexType,
+    C: Color,
+{
+    fn target(&self) -> Idx {
+        self.target
+    }
+
+    fn color(&self) -> C {
+        self.color.clone()
+    }
+
+    fn expression(&self) -> &'ts E {
+        self.expression
+    }
+}
+
 /// Encapsulates the transition function δ of a (finite) transition system. This is the main trait that
 /// is used to query a transition system. Transitions are labeled with a [`Alphabet::Expression`], which
 /// determines on which [`Alphabet::Symbol`]s the transition can be taken. Additionally, every transition

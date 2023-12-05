@@ -1,13 +1,81 @@
+use bit_set::BitSet;
 use itertools::Itertools;
 
-use crate::{Alphabet, Pointed, TransitionSystem};
+use crate::{prelude::Simple, Alphabet, Pointed, TransitionSystem};
 
 use super::{transition_system::IsTransition, EdgeColor, StateColor};
+
+pub trait IndexedAlphabet: Alphabet {
+    fn symbol_to_index(&self, sym: Self::Symbol) -> usize;
+    fn expression_to_index(&self, sym: &Self::Expression) -> usize;
+    fn symbol_from_index(&self, index: usize) -> Self::Symbol;
+    fn expression_from_index(&self, index: usize) -> Self::Expression;
+    fn expression_to_symbol(&self, expression: &Self::Expression) -> Self::Symbol {
+        self.symbol_from_index(self.expression_to_index(expression))
+    }
+    fn symbol_to_expression(&self, symbol: Self::Symbol) -> Self::Expression {
+        self.expression_from_index(self.symbol_to_index(symbol))
+    }
+}
+
+impl IndexedAlphabet for Simple {
+    fn symbol_to_index(&self, sym: Self::Symbol) -> usize {
+        self.expression_to_index(&sym)
+    }
+
+    fn expression_to_index(&self, sym: &Self::Expression) -> usize {
+        self.0
+            .iter()
+            .position(|x| x == sym)
+            .expect("Must be present in alphabet")
+    }
+
+    fn symbol_from_index(&self, index: usize) -> Self::Symbol {
+        self.expression_from_index(index)
+    }
+
+    fn expression_from_index(&self, index: usize) -> Self::Expression {
+        assert!(index < self.0.len());
+        self.0[index]
+    }
+}
 
 /// Trait for transition systems that allow insertion of states and transitions.
 pub trait Sproutable: TransitionSystem {
     /// Creates a new instance of `Self` for the given alphabet.
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self;
+
+    fn complete_with_colors(&mut self, sink_color: Self::StateColor, edge_color: Self::EdgeColor)
+    where
+        Self::Alphabet: IndexedAlphabet,
+    {
+        let sink = self.add_state(sink_color);
+        for sym in self.alphabet().universe().collect_vec() {
+            self.add_edge(
+                sink,
+                self.alphabet().symbol_to_expression(sym),
+                sink,
+                edge_color.clone(),
+            );
+        }
+        let mut seen = BitSet::with_capacity(self.alphabet().size());
+        for state in self.state_indices().collect_vec() {
+            seen.clear();
+            for edge in self.edges_from(state).unwrap() {
+                seen.insert(self.alphabet().expression_to_index(edge.expression()));
+            }
+            for missing in (0..self.alphabet().size()).filter(|i| !seen.contains(*i)) {
+                assert!(self
+                    .add_edge(
+                        state,
+                        self.alphabet().expression_from_index(missing),
+                        sink,
+                        edge_color.clone()
+                    )
+                    .is_none());
+            }
+        }
+    }
 
     /// Adds a new state with the given color, returning the index of the newly created state.
     ///
@@ -67,5 +135,32 @@ pub trait Sproutable: TransitionSystem {
         let _universe = self.alphabet().universe().collect_vec();
 
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ts::{Deterministic, Sproutable, NTS};
+
+    #[test]
+    fn complete_ts() {
+        let mut partial = NTS::builder()
+            .default_color(())
+            .extend([
+                (0, 'a', 0, 0),
+                (0, 'b', 0, 0),
+                (0, 'c', 0, 1),
+                (1, 'a', 0, 0),
+            ])
+            .deterministic();
+        assert_eq!(partial.reached_from("aaacb", 0), None);
+        partial.complete_with_colors((), 2);
+        println!(
+            "{:?}",
+            partial.build_transition_table(|q, c| format!("{q}"))
+        );
+        for w in ["abbacababcab", "bbcca", "cc", "aababbabbabbccbabba"] {
+            assert!(partial.reached_state_index_from(w, 0).unwrap() > 1);
+        }
     }
 }

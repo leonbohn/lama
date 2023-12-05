@@ -344,6 +344,12 @@ impl Alphabet for HoaAlphabet {
         todo!()
     }
 
+    fn size(&self) -> usize {
+        2u32.saturating_pow(self.apnames.len() as u32)
+            .try_into()
+            .expect("Cannot fit value into usize")
+    }
+
     type Universe<'this> = HoaUniverse
     where
         Self: 'this;

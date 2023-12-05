@@ -81,6 +81,8 @@ pub trait Alphabet: Clone {
 
     /// Creates an expression from a single symbol.
     fn expression(symbol: Self::Symbol) -> Self::Expression;
+
+    fn size(&self) -> usize;
 }
 
 /// A simple alphabet is an alphabet where a [`Symbol`] is just a single character.
@@ -91,7 +93,7 @@ pub trait Alphabet: Clone {
 /// Now an **expression** would also be just a single character, e.g. 'a'. Then such an expression is
 /// matched by a symbol if the expression equals the symbol.
 #[derive(Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
-pub struct Simple(Vec<char>);
+pub struct Simple(pub(crate) Vec<char>);
 
 /// A special type of [`Alphabet`], which has no symbols.
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
@@ -133,6 +135,10 @@ impl Alphabet for Empty {
 
     fn expression(_symbol: Self::Symbol) -> Self::Expression {
         Empty
+    }
+
+    fn size(&self) -> usize {
+        0
     }
 }
 
@@ -230,6 +236,10 @@ impl Alphabet for Simple {
         where
             Self: 'this;
 
+    fn size(&self) -> usize {
+        self.0.len()
+    }
+
     fn matches(&self, expression: &Self::Expression, symbol: Self::Symbol) -> bool {
         expression == &symbol
     }
@@ -290,6 +300,10 @@ impl<S: Symbol + Expression<S>, const N: usize> Alphabet for Fixed<S, N> {
         sym: Self::Symbol,
     ) -> Option<(&Self::Expression, &X)> {
         map.get_key_value(&sym)
+    }
+
+    fn size(&self) -> usize {
+        N
     }
 
     type Universe<'this> = std::iter::Cloned<std::slice::Iter<'this, S>>
@@ -386,6 +400,10 @@ impl Alphabet for Directional {
         sym: Self::Symbol,
     ) -> Option<(&Self::Expression, &X)> {
         todo!()
+    }
+
+    fn size(&self) -> usize {
+        self.0.len()
     }
 
     type Universe<'this> = std::iter::Cloned<std::slice::Iter<'this, InvertibleChar>>
