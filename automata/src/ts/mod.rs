@@ -20,7 +20,7 @@ pub mod path;
 pub use path::Path;
 
 mod sproutable;
-pub use sproutable::Sproutable;
+pub use sproutable::{IndexedAlphabet, Sproutable};
 
 mod deterministic;
 pub use deterministic::Deterministic;

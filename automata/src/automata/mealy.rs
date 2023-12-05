@@ -15,12 +15,33 @@ pub struct MealyMachine<A, C = usize, Ts = WithInitial<BTS<A, NoColor, C, usize>
 pub type IntoMealyMachine<Ts> =
     MealyMachine<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::EdgeColor, Ts>;
 
-impl<Ts: MealyLike> IntoMealyMachine<Ts> {
-    pub fn witness_inequivalence<O: MealyLike<Alphabet = Ts::Alphabet>>(
+impl<Ts: MealyLike + Deterministic> IntoMealyMachine<Ts> {
+    pub fn witness_inequivalence<
+        O: MealyLike<Alphabet = Ts::Alphabet, EdgeColor = Ts::EdgeColor> + Deterministic,
+    >(
         &self,
         other: &IntoMealyMachine<O>,
     ) -> Option<Vec<SymbolOf<Ts>>> {
-        todo!()
+        let prod = self.ts_product(other);
+        for ps in prod.reachable_state_indices() {
+            if let Some(mut it) = prod.edges_from(ps) {
+                if let Some(sym) = it.find_map(|t| {
+                    let (c, d) = t.color();
+                    if c != d {
+                        t.expression().symbols().next()
+                    } else {
+                        None
+                    }
+                }) {
+                    let mut mr = prod.minimal_representative(ps).expect("Must be reachable!");
+                    mr.push(sym);
+
+                    return Some(mr);
+                }
+            }
+        }
+
+        None
     }
 }
 
@@ -365,8 +386,13 @@ pub trait MealyLike: TransitionSystem + Pointed {
 
     /// Attempts to run the given finite word in `self`, returning the color of the last transition that
     /// is taken wrapped in `Some`. If no successful run on `input` is possible, the function returns `None`.
-    fn try_mealy_map<W: FiniteWord<SymbolOf<Self>>>(&self, input: W) -> Option<Self::EdgeColor> {
-        todo!()
+    fn try_mealy_map<W: FiniteWord<SymbolOf<Self>>>(&self, input: W) -> Option<Self::EdgeColor>
+    where
+        Self: Deterministic,
+    {
+        self.finite_run(input)
+            .ok()
+            .and_then(|r| r.last_transition_color(self))
     }
 
     /// Returns a vector over all colors that can be emitted.
@@ -378,3 +404,55 @@ pub trait MealyLike: TransitionSystem + Pointed {
     }
 }
 impl<Ts: TransitionSystem + Pointed + Sized> MealyLike for Ts {}
+
+#[cfg(test)]
+mod tests {
+    use crate::{ts::NTS, TransitionSystem};
+
+    use super::MealyLike;
+
+    #[test]
+    fn mealy_equivalence() {
+        let mm1 = NTS::builder()
+            .default_color(())
+            .extend([
+                (0, 'a', 1, 0),
+                (0, 'b', 0, 1),
+                (1, 'a', 1, 0),
+                (1, 'b', 0, 2),
+                (2, 'a', 1, 0),
+                (2, 'b', 0, 0),
+            ])
+            .deterministic()
+            .with_initial(0)
+            .into_mealy();
+        let mm2 = NTS::builder()
+            .default_color(())
+            .extend([
+                (0, 'a', 1, 0),
+                (0, 'b', 0, 1),
+                (1, 'a', 1, 0),
+                (1, 'b', 0, 2),
+                (2, 'a', 1, 0),
+                (2, 'b', 1, 0),
+            ])
+            .deterministic()
+            .with_initial(0)
+            .into_mealy();
+        let mm3 = NTS::builder()
+            .default_color(())
+            .extend([
+                (0, 'a', 1, 0),
+                (0, 'b', 0, 1),
+                (1, 'a', 1, 0),
+                (1, 'b', 0, 2),
+                (2, 'a', 1, 0),
+                (2, 'b', 0, 2),
+            ])
+            .deterministic()
+            .with_initial(0)
+            .into_mealy();
+
+        assert_eq!(mm1.witness_inequivalence(&mm2), Some(vec!['b', 'b', 'b']))
+    }
+}

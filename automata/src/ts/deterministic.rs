@@ -20,6 +20,7 @@ use super::operations::ProductTransition;
 use super::operations::RestrictByStateIndex;
 use super::operations::StateIndexFilter;
 use super::path::Lasso;
+use super::sproutable::{IndexedAlphabet, Sproutable};
 use super::Path;
 
 pub trait Deterministic: TransitionSystem {
@@ -52,6 +53,15 @@ pub trait Deterministic: TransitionSystem {
         let sym = symbols.next().unwrap();
         assert_eq!(symbols.next(), None);
         Some(self.transition(state, sym)?.color())
+    }
+
+    fn minimal_representative<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Vec<SymbolOf<Self>>>
+    where
+        Self: Pointed,
+    {
+        let q = state.to_index(self)?;
+        self.minimal_representatives()
+            .find_map(|(rep, p)| if p == q { Some(rep) } else { None })
     }
 
     /// Runs the given `word` on the transition system, starting from the initial state. The result is
@@ -89,6 +99,7 @@ pub trait Deterministic: TransitionSystem {
             .ok()
             .map(|x| x.reached())
     }
+
     /// Runs the given `word` on the transition system, starting from `state`. The result is
     /// - [`Ok`] if the run is successful (i.e. for all symbols of `word` a suitable transition
     ///  can be taken),
@@ -439,19 +450,31 @@ pub trait Deterministic: TransitionSystem {
         ts
     }
 
+    fn collect_complete_with_initial(
+        &self,
+        sink_color: Self::StateColor,
+        edge_color: Self::EdgeColor,
+    ) -> WithInitial<BTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>
+    where
+        Self: Pointed,
+        Self::Alphabet: IndexedAlphabet,
+        Self::StateColor: Default,
+    {
+        let mut out: WithInitial<BTS<_, _, _>> = self.collect_initialized();
+        out.complete_with_colors(sink_color, edge_color);
+        out
+    }
+
     /// Variant of [`Self::collect()`] which also considers the initial state.
-    fn collect_with_initial<
+    fn collect_with_initial<Ts>(&self) -> Ts
+    where
+        Self: Pointed,
         Ts: TransitionSystem<
                 StateColor = Self::StateColor,
                 EdgeColor = Self::EdgeColor,
                 Alphabet = Self::Alphabet,
             > + super::Sproutable
             + Pointed,
-    >(
-        &self,
-    ) -> Ts
-    where
-        Self: Pointed,
     {
         let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
         ts.set_initial_color(self.initial_color());
