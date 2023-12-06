@@ -34,20 +34,11 @@ impl<Ts: MealyLike + Deterministic> IntoMealyMachine<Ts> {
                     Some(e) => {
                         if edge.color() != e.color() {
                             rep.push(sym);
-                            println!(
-                                "Counterexample from mismatching colors {:?} from state ({}, {}) in \n{:?}\n{:?}",
-                                rep, l, r,
-                                self, other
-                            );
                             return Some(rep);
                         }
                     }
                     None => {
                         rep.push(sym);
-                        println!(
-                            "Counterexample from missing transition {:?} from state ({}, {})",
-                            rep, l, r
-                        );
                         return Some(rep);
                     }
                 }

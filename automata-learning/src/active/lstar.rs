@@ -131,7 +131,6 @@ impl<
             if base_size >= ITERATION_THRESHOLD {
                 panic!("Too many iterations, probably an infinite loop!");
             }
-            println!("{:?}", self.table);
             match self.table.hypothesis() {
                 crate::active::table::LStarHypothesisResult::Success(hyp) => {
                     match self.teacher.equivalence(&hyp) {
