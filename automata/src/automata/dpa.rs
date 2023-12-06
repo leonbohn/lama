@@ -26,7 +26,9 @@ pub trait DPALike: Deterministic<EdgeColor = usize> + Pointed {
         DPA::from(self)
     }
 
-    fn collect_dpa(self) -> IntoDPA<IntoInitialBTS<Self>> {
+    fn collect_dpa(
+        self,
+    ) -> IntoDPA<WithInitial<DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>> {
         DPA::from(self.trim_collect())
     }
 }
@@ -68,7 +70,7 @@ impl<D: DPALike> IntoDPA<D> {
 
         'outer: while let Some(q) = queue.pop_front() {
             for i in 0..partition.len() {
-                let p = *partition[i]
+                let p = partition[i]
                     .first()
                     .expect("Class of partition must be non-empty");
                 if self
@@ -179,7 +181,7 @@ mod tests {
     fn example_dpa() -> DPA {
         NTS::builder()
             .default_color(())
-            .extend([
+            .with_transitions([
                 (0, 'a', 0, 0),
                 (0, 'b', 1, 1),
                 (0, 'c', 2, 2),
@@ -213,7 +215,7 @@ mod tests {
         let good = [
             NTS::builder()
                 .default_color(())
-                .extend([
+                .with_transitions([
                     (0, 'a', 0, 1),
                     (0, 'b', 1, 0),
                     (1, 'a', 1, 1),
@@ -224,7 +226,7 @@ mod tests {
                 .collect_dpa(),
             NTS::builder()
                 .default_color(())
-                .extend([
+                .with_transitions([
                     (0, 'a', 5, 1),
                     (0, 'b', 7, 0),
                     (1, 'a', 3, 1),
@@ -239,19 +241,19 @@ mod tests {
         let bad = [
             NTS::builder()
                 .default_color(())
-                .extend([(0, 'a', 1, 0), (0, 'b', 0, 0)])
+                .with_transitions([(0, 'a', 1, 0), (0, 'b', 0, 0)])
                 .deterministic()
                 .with_initial(0)
                 .collect_dpa(),
             NTS::builder()
                 .default_color(())
-                .extend([(0, 'a', 1, 0), (0, 'b', 2, 0)])
+                .with_transitions([(0, 'a', 1, 0), (0, 'b', 2, 0)])
                 .deterministic()
                 .with_initial(0)
                 .collect_dpa(),
             NTS::builder()
                 .default_color(())
-                .extend([
+                .with_transitions([
                     (0, 'a', 4, 1),
                     (0, 'b', 1, 0),
                     (1, 'a', 5, 0),
@@ -271,13 +273,13 @@ mod tests {
     fn dpa_inclusion() {
         let univ = NTS::builder()
             .default_color(())
-            .extend([(0, 'a', 0, 0), (0, 'b', 2, 0)])
+            .with_transitions([(0, 'a', 0, 0), (0, 'b', 2, 0)])
             .deterministic()
             .with_initial(0)
             .collect_dpa();
         let aomega = NTS::builder()
             .default_color(())
-            .extend([(0, 'a', 0, 0), (0, 'b', 1, 0)])
+            .with_transitions([(0, 'a', 0, 0), (0, 'b', 1, 0)])
             .deterministic()
             .with_initial(0)
             .collect_dpa();
@@ -288,7 +290,7 @@ mod tests {
     #[test]
     fn dpa_equivalence_clases() {
         let dpa = NTS::builder()
-            .extend([
+            .with_transitions([
                 (0, 'a', 0, 0),
                 (0, 'b', 0, 1),
                 (1, 'a', 0, 0),
@@ -298,7 +300,7 @@ mod tests {
         let cong = dpa.prefix_congruence();
         assert_eq!(cong.size(), 1);
         let dpa = NTS::builder()
-            .extend([
+            .with_transitions([
                 (0, 'a', 0, 1),
                 (0, 'b', 1, 0),
                 (1, 'a', 2, 0),

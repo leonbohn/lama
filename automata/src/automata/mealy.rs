@@ -7,7 +7,7 @@ use crate::prelude::*;
 use super::MooreLike;
 
 #[derive(Clone)]
-pub struct MealyMachine<A, C = usize, Ts = WithInitial<BTS<A, NoColor, C, usize>>> {
+pub struct MealyMachine<A, C = usize, Ts = WithInitial<DTS<A, NoColor, C>>> {
     ts: Ts,
     _q: PhantomData<(A, C)>,
 }
@@ -16,32 +16,54 @@ pub type IntoMealyMachine<Ts> =
     MealyMachine<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::EdgeColor, Ts>;
 
 impl<Ts: MealyLike + Deterministic> IntoMealyMachine<Ts> {
-    pub fn witness_inequivalence<
+    pub fn restricted_inequivalence<
         O: MealyLike<Alphabet = Ts::Alphabet, EdgeColor = Ts::EdgeColor> + Deterministic,
     >(
         &self,
         other: &IntoMealyMachine<O>,
     ) -> Option<Vec<SymbolOf<Ts>>> {
         let prod = self.ts_product(other);
-        for ps in prod.reachable_state_indices() {
-            if let Some(mut it) = prod.edges_from(ps) {
-                if let Some(sym) = it.find_map(|t| {
-                    let (c, d) = t.color();
-                    if c != d {
-                        t.expression().symbols().next()
-                    } else {
-                        None
-                    }
-                }) {
-                    let mut mr = prod.minimal_representative(ps).expect("Must be reachable!");
-                    mr.push(sym);
+        for (mut rep, ProductIndex(l, r)) in prod.minimal_representatives() {
+            'edges: for edge in self.edges_from(l).unwrap() {
+                let Some(sym) = edge.expression().symbols().next() else {
+                    continue 'edges;
+                };
+                let mut it = other.edges_from(r).unwrap();
 
-                    return Some(mr);
+                match other.transition(r, sym) {
+                    Some(e) => {
+                        if edge.color() != e.color() {
+                            rep.push(sym);
+                            println!(
+                                "Counterexample from mismatching colors {:?} from state ({}, {}) in \n{:?}\n{:?}",
+                                rep, l, r,
+                                self, other
+                            );
+                            return Some(rep);
+                        }
+                    }
+                    None => {
+                        rep.push(sym);
+                        println!(
+                            "Counterexample from missing transition {:?} from state ({}, {})",
+                            rep, l, r
+                        );
+                        return Some(rep);
+                    }
                 }
             }
         }
-
         None
+    }
+
+    pub fn witness_inequivalence<
+        O: MealyLike<Alphabet = Ts::Alphabet, EdgeColor = Ts::EdgeColor> + Deterministic,
+    >(
+        &self,
+        other: &IntoMealyMachine<O>,
+    ) -> Option<Vec<SymbolOf<Ts>>> {
+        self.restricted_inequivalence(other)
+            .or(other.restricted_inequivalence(self))
     }
 }
 
@@ -140,12 +162,12 @@ impl<Ts: Sproutable> Sproutable for MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts
         self.ts_mut().add_edge(from, on, to, color)
     }
 
-    fn remove_edge(
+    fn remove_edges(
         &mut self,
         from: Self::StateIndex,
         on: <Self::Alphabet as Alphabet>::Expression,
     ) -> bool {
-        self.ts_mut().remove_edge(from, on)
+        self.ts_mut().remove_edges(from, on)
     }
 }
 
@@ -190,11 +212,14 @@ impl<Ts: MealyLike> From<Ts> for MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts> {
     }
 }
 
-impl<Ts: TransitionSystem + Debug> std::fmt::Debug
-    for MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts>
-{
+impl<Ts: Deterministic> std::fmt::Debug for MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        write!(
+            f,
+            "{}",
+            self.ts
+                .build_transition_table(|q, c| format!("({}|{})", q.show(), c.show()))
+        )
     }
 }
 
@@ -209,15 +234,15 @@ macro_rules! impl_mealy_automaton {
         pub struct $name<
             A = Simple,
             Q = (),
-            Ts = WithInitial<BTS<A, Q, $color, usize>>,
+            Ts = WithInitial<DTS<A, Q, $color>>,
         > {
             ts: Ts,
             _alphabet: std::marker::PhantomData<(A, Q, $color)>,
         }
         impl<A: Alphabet, Q: Color + Default>
-            $name<A, Q, WithInitial<BTS<A, Q, $color, usize>>>
+            $name<A, Q, WithInitial<DTS<A, Q, $color>>>
         {
-            pub fn new(alphabet: A, initial_state_color: Q) -> $name<A, Q, WithInitial<BTS<A, Q, $color, usize>>> {
+            pub fn new(alphabet: A, initial_state_color: Q) -> $name<A, Q, WithInitial<DTS<A, Q, $color>>> {
                 let mut ts = WithInitial::new(alphabet);
                 ts.set_initial_color(initial_state_color);
                 $name {
@@ -305,12 +330,12 @@ macro_rules! impl_mealy_automaton {
             fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
                 self.ts_mut().add_state(color)
             }
-            fn remove_edge(
+            fn remove_edges(
                 &mut self,
                 from: Self::StateIndex,
                 on: <Self::Alphabet as Alphabet>::Expression,
             ) -> bool {
-                self.ts_mut().remove_edge(from, on)
+                self.ts_mut().remove_edges(from, on)
             }
         }
         impl<Ts: TransitionSystem> TransitionSystem
@@ -415,7 +440,7 @@ mod tests {
     fn mealy_equivalence() {
         let mm1 = NTS::builder()
             .default_color(())
-            .extend([
+            .with_transitions([
                 (0, 'a', 1, 0),
                 (0, 'b', 0, 1),
                 (1, 'a', 1, 0),
@@ -428,7 +453,7 @@ mod tests {
             .into_mealy();
         let mm2 = NTS::builder()
             .default_color(())
-            .extend([
+            .with_transitions([
                 (0, 'a', 1, 0),
                 (0, 'b', 0, 1),
                 (1, 'a', 1, 0),
@@ -441,7 +466,7 @@ mod tests {
             .into_mealy();
         let mm3 = NTS::builder()
             .default_color(())
-            .extend([
+            .with_transitions([
                 (0, 'a', 1, 0),
                 (0, 'b', 0, 1),
                 (1, 'a', 1, 0),

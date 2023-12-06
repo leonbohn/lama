@@ -56,6 +56,15 @@ pub trait LStarTarget<const FOR_MEALY: bool>: Sized + std::fmt::Debug {
     );
     fn find_equivalent_row_index(&self, outputs: &[Self::Output]) -> Option<usize>;
     fn recompute_base(&mut self) -> usize;
+
+    fn ensure_experiment<
+        O: LStarOracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>,
+    >(
+        &mut self,
+        oracle: &O,
+        experiment: Vec<<Self::Alphabet as Alphabet>::Symbol>,
+        queries: &mut Vec<LStarQuery<FOR_MEALY, Self>>,
+    );
 }
 
 pub struct LStarTable<A: Alphabet, C: Color, const FOR_MEALY: bool> {
@@ -71,6 +80,16 @@ impl<A: Alphabet, C: Color + Debug + Default> LStarTarget<false> for LStarTable<
 
     type Hypothesis = MooreMachine<A, C>;
 
+    fn ensure_experiment<
+        O: LStarOracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>,
+    >(
+        &mut self,
+        oracle: &O,
+        experiment: Vec<<Self::Alphabet as Alphabet>::Symbol>,
+        queries: &mut Vec<LStarQuery<false, Self>>,
+    ) {
+    }
+
     fn add_row(
         &mut self,
         row: LStarRow<<Self::Alphabet as Alphabet>::Symbol, Self::Output, false>,
@@ -79,6 +98,10 @@ impl<A: Alphabet, C: Color + Debug + Default> LStarTarget<false> for LStarTable<
     }
 
     fn recompute_base(&mut self) -> usize {
+        debug_assert!(self
+            .rows
+            .iter()
+            .all(|r| r.outputs.len() == self.experiments.len()));
         trace!(
             "Recomputing base, currently have {} rows {}",
             self.rows.len(),
@@ -138,9 +161,12 @@ impl<A: Alphabet, C: Color + Debug + Default> LStarTarget<false> for LStarTable<
         );
 
         assert!(!self.rows.is_empty(), "Cannot have no states!");
+        assert!(!self.experiments.is_empty(), "Cannot have no experiments!");
         assert!(
-            !self.rows[0].outputs.is_empty(),
-            "Cannot have no experiments!"
+            self.rows
+                .iter()
+                .all(|r| r.outputs.len() == self.experiments.len()),
+            "Output length mismatch!"
         );
 
         let mut out: MooreMachine<A, C> =
@@ -173,8 +199,8 @@ impl<A: Alphabet, C: Color + Debug + Default> LStarTarget<false> for LStarTable<
                             Some(
                                 row.outputs
                                     .iter()
-                                    .map(|sym| format!("{:?}", sym))
-                                    .join(", "),
+                                    .map(|sym| format!("{}", sym.show()))
+                                    .join(""),
                             )
                         } else {
                             None
@@ -268,10 +294,12 @@ impl<A: Alphabet, C: Color + Debug + Default> LStarTarget<false> for LStarTable<
         (counterexample, expected_color): LStarExample<Self::Alphabet, Self::Output>,
         oracle: &O,
     ) -> Vec<LStarQuery<false, Self>> {
-        debug_assert!(
-            hypothesis.reached_state_color(&counterexample).as_ref() != Some(&expected_color),
-            "This is not a real counterexample"
-        );
+        if cfg!(debug_assertions) {
+            if hypothesis.reached_state_color(&counterexample).as_ref() != Some(&expected_color) {
+                println!("{:?}", hypothesis);
+                panic!("This is not a real counterexample");
+            }
+        }
         debug_assert!(
             !counterexample.is_empty(),
             "Counterexample must not be empty"
@@ -335,6 +363,7 @@ impl<A: Alphabet, C: Color + Debug + Default> LStarTarget<false> for LStarTable<
         &mut self,
         oracle: &O,
     ) -> Vec<LStarQuery<false, Self>> {
+        trace!("Filling rows for Moore machine");
         let mut queries = vec![];
         for row in self.rows.iter_mut() {
             if row.len_outputs() == self.experiments.len() {
@@ -425,10 +454,6 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
         );
 
         assert!(!self.rows.is_empty(), "Cannot have no states!");
-        assert!(
-            !self.rows[0].outputs.is_empty(),
-            "Cannot have no experiments!"
-        );
 
         let mut out: MealyMachine<A> = MealyMachine::new(self.alphabet.clone());
         let state_mapping: Vec<_> = std::iter::once((0, out.initial()))
@@ -479,11 +504,13 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
                     .chain(std::iter::once(sym))
                     .collect();
 
-                let symbol_position = self
+                let Some(symbol_position) = self
                     .experiments
                     .iter()
                     .position(|e| e.len() == 1 && e[0] == sym)
-                    .expect("Single symbol experiments must be present!");
+                else {
+                    continue 'transition;
+                };
                 let output_color = self.rows[*i].outputs[symbol_position];
 
                 match self
@@ -498,37 +525,11 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
                         ));
                     }
                     Some((row_index, found_row)) => {
-                        trace!(
-                            "Searching equivalent row for {}|[{}]",
-                            found_row
-                                .base
-                                .iter()
-                                .map(|sym| format!("{:?}", sym))
-                                .join(""),
-                            found_row
-                                .outputs
-                                .iter()
-                                .map(|sym| format!("{:?}", sym))
-                                .join(", ")
-                        );
                         if let Some(equivalent_row_idx) =
                             self.find_equivalent_row_index(&found_row.outputs)
                         {
                             assert!(equivalent_row_idx < self.rows.len());
                             let equivalent_row = self.rows[equivalent_row_idx].clone();
-                            trace!(
-                                "Found equivalent row {}|[{}] with index {equivalent_row_idx}",
-                                equivalent_row
-                                    .base
-                                    .iter()
-                                    .map(|sym| format!("{:?}", sym))
-                                    .join(""),
-                                equivalent_row
-                                    .outputs
-                                    .iter()
-                                    .map(|sym| format!("{:?}", sym))
-                                    .join(", "),
-                            );
 
                             let target_state_idx = state_mapping
                                 .iter()
@@ -568,8 +569,23 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
         oracle: &O,
     ) -> Vec<LStarQuery<true, Self>> {
         debug_assert!(
-            hypothesis.last_edge_color(&counterexample) != Some(expected_color),
-            "This is not a real counterexample"
+            self.rows
+                .iter()
+                .all(|r| r.outputs.len() == self.experiments.len()),
+            "Output length does not match"
+        );
+        if cfg!(debug_assertions) {
+            if hypothesis.last_edge_color(&counterexample).as_ref() == Some(&expected_color) {
+                panic!(
+                    "{:?}\n{}",
+                    hypothesis,
+                    hypothesis.last_edge_color(&counterexample).unwrap().show()
+                );
+            }
+        }
+        debug_assert!(
+            oracle.output(&counterexample) == expected_color,
+            "The expected color is wrong!"
         );
         debug_assert!(
             !counterexample.is_empty(),
@@ -578,47 +594,12 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
 
         let mut queries = vec![];
         let mut state = hypothesis.initial();
-        let mut loop_start = 0;
 
         let mut previous_color = expected_color;
-        for i in loop_start..counterexample.len() {
-            let sym = counterexample[i];
-            let transition = hypothesis
-                .transition(state, sym)
-                .expect("We assume the hypothesis to be deterministic!");
-            let suffix = counterexample.offset(i);
-            let next_color = transition.color();
-            state = transition.target();
-
-            if next_color != previous_color {
-                // this is the breakpoint
-                let experiment = suffix.to_vec();
-
-                for row_index in 0..self.rows.len() {
-                    let word = (&self.rows[row_index].base).append(&experiment);
-                    let output = oracle.output(&word);
-                    queries.push(LStarQuery::Membership((word.to_vec(), output)));
-                }
-
-                trace!(
-                    "We add \"{}\" to the experiments {}",
-                    experiment.iter().map(|sym| format!("{:?}", sym)).join(""),
-                    self.experiments
-                        .iter()
-                        .map(|experiment| format!(
-                            "\"{}\"",
-                            experiment.iter().map(|sym| format!("{:?}", sym)).join("")
-                        ))
-                        .join(", ")
-                );
-                if self.experiments.contains(&experiment) {
-                    panic!("The experiment {:?} is already present!", experiment);
-                }
-                self.experiments.push(experiment);
-                return queries;
-            }
+        for i in 0..counterexample.len() {
+            self.ensure_experiment(oracle, counterexample[i..].to_vec(), &mut queries);
         }
-        unreachable!("A breakpoint has to exist!");
+        queries
     }
 
     fn new_table(
@@ -633,10 +614,45 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
         }
     }
 
+    fn ensure_experiment<
+        O: LStarOracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>,
+    >(
+        &mut self,
+        oracle: &O,
+        experiment: Vec<<Self::Alphabet as Alphabet>::Symbol>,
+        queries: &mut Vec<LStarQuery<true, Self>>,
+    ) {
+        if self.experiments.contains(&experiment) {
+            return;
+        }
+        for row_index in 0..self.rows.len() {
+            let word = (&self.rows[row_index].base).append(&experiment);
+            let output = oracle.output(&word);
+            queries.push(LStarQuery::Membership((word.to_vec(), output)));
+        }
+
+        trace!(
+            "We add \"{}\" to the experiments {}",
+            experiment.iter().map(|sym| format!("{:?}", sym)).join(""),
+            self.experiments
+                .iter()
+                .map(|experiment| format!(
+                    "\"{}\"",
+                    experiment.iter().map(|sym| format!("{:?}", sym)).join("")
+                ))
+                .join(", ")
+        );
+        if self.experiments.contains(&experiment) {
+            panic!("The experiment {:?} is already present!", experiment);
+        }
+        self.experiments.push(experiment);
+    }
+
     fn fill_rows<O: LStarOracle<Self::Hypothesis, Length = FiniteLength, Output = Self::Output>>(
         &mut self,
         oracle: &O,
     ) -> Vec<LStarQuery<true, Self>> {
+        trace!("Filling rows for Mealy Machine");
         let mut queries = vec![];
         for row in self.rows.iter_mut() {
             if row.len_outputs() == self.experiments.len() {
@@ -645,7 +661,6 @@ impl<A: Alphabet> LStarTarget<true> for LStarTable<A, usize, true> {
             for i in row.len_outputs()..self.experiments.len() {
                 let word = (&row.base).append(&self.experiments[i]);
                 let output = oracle.output(&word);
-                trace!("Obtained output {:?} for word {:?}", output, word);
                 queries.push(LStarQuery::Membership((word.to_vec(), output)));
                 row.outputs.push(output);
             }

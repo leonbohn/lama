@@ -280,7 +280,7 @@ mod tests {
         .collect::<Set<_>>();
         let ts = NTS::builder()
             .default_color(())
-            .extend(&transitions)
+            .with_transitions(&transitions)
             .deterministic()
             .with_initial(0);
         let sccs = ts.sccs();
@@ -290,7 +290,6 @@ mod tests {
         assert_eq!(first.interior_edge_colors(), &Set::from_iter([0, 1, 2]));
 
         let color_restricted = (&ts).edge_color_restricted(1, 2);
-        println!("{:?}", color_restricted.collect_ts());
         let sccs = color_restricted.sccs();
         assert_eq!(sccs[0].interior_transitions(), &Set::default());
         assert_eq!(

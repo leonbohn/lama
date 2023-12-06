@@ -57,7 +57,7 @@ impl<Ts: TransitionSystem> From<(Ts, Ts::StateIndex)> for WithInitial<Ts> {
     }
 }
 
-impl<A, C, Q> WithInitial<BTS<A, Q, C, usize>>
+impl<A, C, Q> WithInitial<DTS<A, Q, C>>
 where
     A: Alphabet,
     C: Color,
@@ -66,7 +66,7 @@ where
     /// Takes an alphabet and a color and constructs a [`WithInitial`] instance with the given alphabet, no
     /// transitions and a single initial state with the given color.
     pub fn with_initial_color(alphabet: A, color: Q) -> Self {
-        let mut ts = BTS::new(alphabet);
+        let mut ts = DTS::new_for_alphabet(alphabet);
         let initial = ts.add_state(color);
         Self(ts, initial)
     }
@@ -84,7 +84,7 @@ where
     where
         StateColor<Self>: Default,
     {
-        let mut ts = BTS::with_capacity(alphabet, size);
+        let mut ts = DTS::with_capacity(alphabet, size);
         let initial = ts.add_state(<StateColor<Self> as Default>::default());
         Self(ts, initial)
     }
@@ -114,12 +114,12 @@ where
         self.ts_mut().add_edge(from, on, to, color)
     }
 
-    fn remove_edge(
+    fn remove_edges(
         &mut self,
         from: Self::StateIndex,
         on: <Self::Alphabet as Alphabet>::Expression,
     ) -> bool {
-        self.ts_mut().remove_edge(from, on)
+        self.ts_mut().remove_edges(from, on)
     }
 
     fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {

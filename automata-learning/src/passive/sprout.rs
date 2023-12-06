@@ -410,9 +410,7 @@ where
                         .expect("We expect every state to be colored")
                         .red()
                 );
-                if let Some((old_target, _)) = old_edge {
-                    cong.remove_edge(source, A::expression(sym));
-                }
+                cong.remove_edges(source, A::expression(sym));
             }
         }
 

@@ -194,7 +194,7 @@ mod tests {
     fn subset_construction() {
         let nts = NTS::builder()
             .default_color(false)
-            .extend([
+            .with_transitions([
                 (0, 'a', (), 0),
                 (0, 'a', (), 1),
                 (0, 'b', (), 1),

@@ -30,6 +30,28 @@ pub struct PState<const N: usize> {
     progress_states: [usize; N],
 }
 
+impl<const N: usize> Show for PState<N> {
+    fn show(&self) -> String {
+        format!(
+            "[{}||{}]",
+            self.class,
+            self.progress_classes()
+                .zip(self.progress_states())
+                .map(|(c, q)| format!("{c}:{q}"))
+                .join(", ")
+        )
+    }
+
+    fn show_collection<'a, I>(iter: I) -> String
+    where
+        Self: 'a,
+        I: IntoIterator<Item = &'a Self>,
+        I::IntoIter: DoubleEndedIterator,
+    {
+        format!("{{{}}}", iter.into_iter().map(|x| x.show()).join(", "))
+    }
+}
+
 impl<const N: usize> std::fmt::Display for PState<N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(

@@ -2,7 +2,7 @@ use crate::prelude::*;
 
 use super::nts::{NTEdge, NTSEdgesFromIter, NTSEdgesTo};
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct DTS<A: Alphabet, Q, C>(pub(crate) NTS<A, Q, C>);
 
 impl<A: Alphabet, Q: Color, C: Color> TryFrom<NTS<A, Q, C>> for DTS<A, Q, C> {
@@ -166,11 +166,27 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for DTS<A, Q, C> {
         self.0.add_edge(source, on, target, color)
     }
 
-    fn remove_edge(
+    fn remove_edges(
         &mut self,
         from: Self::StateIndex,
         on: <Self::Alphabet as Alphabet>::Expression,
     ) -> bool {
-        unimplemented!("Might be added but might not be")
+        self.0.remove_edges(from, on)
+    }
+}
+
+impl<A: Alphabet, Q: Color, C: Color> DTS<A, Q, C> {
+    pub fn with_capacity(alphabet: A, cap: usize) -> Self {
+        Self(NTS::with_capacity(alphabet, cap))
+    }
+}
+
+impl<A: Alphabet, Q: Color, C: Color> std::fmt::Debug for DTS<A, Q, C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.build_transition_table(|q, c| format!("{}|{}", q.show(), c.show()))
+        )
     }
 }

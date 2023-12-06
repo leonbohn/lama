@@ -78,16 +78,16 @@ macro_rules! impl_automaton_type {
             A = Simple,
             Q = $color,
             C = $edgecolor,
-            Ts = WithInitial<BTS<A, Q, C, usize>>,
+            Ts = WithInitial<DTS<A, Q, C>>,
         > {
             ts: Ts,
             _alphabet: PhantomData<(A, Q, C)>,
         }
         impl<A: Alphabet>
-            $name<A, $color, $edgecolor, WithInitial<BTS<A, $color, $edgecolor, usize>>>
+            $name<A, $color, $edgecolor, WithInitial<DTS<A, $color, $edgecolor>>>
         {
             /// Creates a new automaton from a given alphabet.
-            pub fn new(alphabet: A) -> $name<A, $color, $edgecolor, WithInitial<BTS<A, $color, $edgecolor, usize>>> {
+            pub fn new(alphabet: A) -> $name<A, $color, $edgecolor, WithInitial<DTS<A, $color, $edgecolor>>> {
                 $name {
                     ts: WithInitial::new(alphabet),
                     _alphabet: PhantomData,
@@ -175,12 +175,12 @@ macro_rules! impl_automaton_type {
             fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
                 self.ts_mut().add_state(color)
             }
-            fn remove_edge(
+            fn remove_edges(
                 &mut self,
                 from: Self::StateIndex,
                 on: <Self::Alphabet as Alphabet>::Expression,
             ) -> bool {
-                self.ts_mut().remove_edge(from, on)
+                self.ts_mut().remove_edges(from, on)
             }
         }
         impl<Ts: TransitionSystem> TransitionSystem

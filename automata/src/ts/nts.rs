@@ -73,7 +73,7 @@ impl<E, C: Color> IsPreTransition<usize, E, C> for NTEdge<E, C> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct NTS<A: Alphabet, Q, C> {
     alphabet: A,
     states: Vec<NTState<Q>>,
@@ -144,12 +144,17 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for NTS<A, Q, C> {
         None
     }
 
-    fn remove_edge(
+    fn remove_edges(
         &mut self,
         from: Self::StateIndex,
         on: <Self::Alphabet as Alphabet>::Expression,
     ) -> bool {
-        unimplemented!()
+        let mut b = false;
+        while let Some(pos) = self.edge_position(from, &on) {
+            self.remove_edge(from, pos);
+            b = true;
+        }
+        b
     }
 }
 
@@ -160,6 +165,44 @@ impl<Q, C> NTS<Simple, Q, C> {
 }
 
 impl<A: Alphabet, Q: Color, C: Color> NTS<A, Q, C> {
+    fn edge_position(&self, from: usize, on: &A::Expression) -> Option<usize> {
+        let mut idx = self.states.get(from)?.first_edge?;
+        loop {
+            // FIXME: Make this be a match
+            if self.edges[idx].expression() == on {
+                return Some(idx);
+            }
+            idx = self.edges[idx].next?;
+        }
+    }
+    fn remove_edge(&mut self, from: usize, idx: usize) {
+        assert!(idx < self.edges.len());
+
+        let pred = self.edges[idx].prev;
+        let succ = self.edges[idx].next;
+
+        if self.states[from].first_edge == Some(idx) {
+            assert!(pred.is_none());
+            self.states[from].first_edge = succ;
+            return;
+        }
+
+        assert!(
+            pred.is_some(),
+            "This must exist, otherwise we would be first edge"
+        );
+        if succ.is_some() {
+            self.edges[succ.unwrap()].prev = pred;
+        }
+        self.edges[pred.unwrap()].next = succ;
+    }
+    pub fn with_capacity(alphabet: A, cap: usize) -> Self {
+        Self {
+            alphabet,
+            states: Vec::with_capacity(cap),
+            edges: Vec::with_capacity(cap),
+        }
+    }
     pub fn is_deterministic(&self) -> bool {
         for state in self.state_indices() {
             let mut symbols = Set::default();
@@ -329,6 +372,13 @@ impl NTSBuilder<(), usize> {
             .with_initial(initial)
             .collect_dpa()
     }
+
+    pub fn into_mealy_machine(mut self, initial: usize) -> MealyMachine<Simple> {
+        self.default_color(())
+            .deterministic()
+            .with_initial(initial)
+            .into_mealy()
+    }
 }
 
 impl<Q, C: Color> NTSBuilder<Q, C> {
@@ -353,7 +403,7 @@ impl<Q, C: Color> NTSBuilder<Q, C> {
         self.colors.push((idx, color));
         self
     }
-    pub fn extend<X: FullTransition<usize, char, C>, T: IntoIterator<Item = X>>(
+    pub fn with_transitions<X: FullTransition<usize, char, C>, T: IntoIterator<Item = X>>(
         mut self,
         iter: T,
     ) -> Self {

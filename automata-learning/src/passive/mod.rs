@@ -1,6 +1,7 @@
 use automata::{
+    congruence::ColoredClass,
     prelude::*,
-    ts::{dot::MightDecorateDotTransition, IndexedAlphabet},
+    ts::{dot::MightDecorateDotTransition, operations::MapStateColor, IndexedAlphabet},
 };
 use owo_colors::OwoColorize;
 use tracing::trace;
@@ -99,20 +100,23 @@ pub fn infer_precise_dpa<A: Alphabet>(
 pub fn dpa_rpni<A: Alphabet>(sample: &OmegaSample<A, bool>) -> DPA<A, (), MealyMachine<A>>
 where
     A: IndexedAlphabet,
+    MealyMachine<A>: ToDot,
+    MapStateColor<RightCongruence<A>, fn(ColoredClass<A::Symbol, ()>) -> ()>: ToDot,
 {
     let precise = infer_precise_dpa(sample);
     let pta = sample.prefix_tree().erase_state_colors();
 
-    let prod = precise
-        .ts_product(pta)
-        .map_edge_colors(|(c, _)| c)
+    let prod = pta
+        .ts_product(precise)
+        .map_edge_colors(|(_, c)| c)
         .map_state_colors(|(_, _)| ());
-    let completed = prod.collect_complete_with_initial((), 0);
+    let completed = prod.trim_collect();
 
     //now we use the completed thing to learn a MealyMachine from which we can then build the DPA
     let mm = completed.into_mealy();
     let alphabet = mm.alphabet().clone();
-    let oracle = MealyOracle::new(mm);
+    mm.display_rendered();
+    let oracle = MealyOracle::new(mm, Some(0));
 
     let learned = LStar::mealy_unlogged(oracle, alphabet).infer();
     learned.into_dpa()
@@ -128,6 +132,7 @@ mod tests {
     use super::{sample, OmegaSample};
 
     #[test]
+    #[traced_test]
     fn infer_precise_dpa_inf_aa() {
         let alphabet = alphabet!(simple 'a', 'b', 'c');
         let sample = sample! {alphabet; pos "a", "aab", "aaab", "bbaa", "aca", "caa", "abca", "baac"; neg "c", "b", "bc", "abc", "cba", "ac", "ba"};
@@ -158,7 +163,7 @@ mod tests {
         println!(
             "Full construction took {full_duration}ms, paper construction took {paper_duration}ms"
         );
-
+        dpa.display_rendered();
         for (w, c) in expected {
             let b = dpa.accepts_omega(&w);
             assert_eq!(b, c, "{:?} is classified {b}, expected {c}", w);

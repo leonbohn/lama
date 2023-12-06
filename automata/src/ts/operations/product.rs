@@ -39,6 +39,21 @@ impl<L, R> From<ProductIndex<L, R>> for (L, R) {
     }
 }
 
+impl<L: Show, R: Show> Show for ProductIndex<L, R> {
+    fn show(&self) -> String {
+        format!("({} | {})", self.0.show(), self.1.show())
+    }
+
+    fn show_collection<'a, I>(iter: I) -> String
+    where
+        Self: 'a,
+        I: IntoIterator<Item = &'a Self>,
+        I::IntoIter: DoubleEndedIterator,
+    {
+        format!("{{{}}}", iter.into_iter().map(|x| x.show()).join(", "))
+    }
+}
+
 impl<L: std::fmt::Display, R: std::fmt::Display> std::fmt::Display for ProductIndex<L, R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}.{}", self.0, self.1)
@@ -332,12 +347,12 @@ mod tests {
     fn product_subalphabet() {
         let l = NTS::builder()
             .default_color(())
-            .extend([(0, 'a', 0, 0), (0, 'b', 0, 0)])
+            .with_transitions([(0, 'a', 0, 0), (0, 'b', 0, 0)])
             .deterministic()
             .with_initial(0);
         let r = NTS::builder()
             .default_color(())
-            .extend([(0, 'a', 0, 0)])
+            .with_transitions([(0, 'a', 0, 0)])
             .deterministic()
             .with_initial(0);
         assert!((&l).ts_product(&l).reached("b").is_some());

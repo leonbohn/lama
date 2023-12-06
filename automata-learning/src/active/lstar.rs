@@ -101,13 +101,7 @@ impl<
     > LStar<A, O, T, L, FOR_MEALY>
 {
     fn new(teacher: O, alphabet: A) -> Self {
-        let experiments = if FOR_MEALY {
-            either::Either::Right(std::iter::empty())
-        } else {
-            either::Either::Left(std::iter::once(vec![]))
-        }
-        .chain(alphabet.universe().map(|sym| vec![sym]))
-        .collect_vec();
+        let experiments = vec![];
 
         let mut logger = L::create();
 
@@ -148,12 +142,12 @@ impl<
                                 conflict.0.iter().map(|sym| format!("{:?}", sym)).join(""),
                                 conflict.1
                             );
-                            let queries =
-                                self.table
-                                    .accept_counterexample(&hyp, conflict, &self.teacher);
-                            for query in queries {
-                                self.logger.log(query);
-                            }
+                            self.logger.log_iter(self.table.accept_counterexample(
+                                &hyp,
+                                conflict,
+                                &self.teacher,
+                            ));
+                            self.logger.log_iter(self.table.fill_rows(&self.teacher));
                         }
                     }
                 }

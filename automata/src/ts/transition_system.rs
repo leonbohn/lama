@@ -11,6 +11,7 @@ use crate::{
 use super::{
     connected_components::{tarjan_scc, SccDecomposition, TarjanDAG},
     index_ts::BTState,
+    nts::{NTEdge, NTSEdgesFromIter},
     operations::{
         ColorRestricted, MapEdgeColor, MapStateColor, MappedEdgesFromIter, MappedTransition,
         MatchingProduct, ProductEdgesFrom, ProductIndex, ProductStatesIter, ProductTransition,
@@ -290,6 +291,11 @@ pub trait TransitionSystem: Sized {
     /// Returns an iterator over the transitions that start in the given `state`. If the state does
     /// not exist, `None` is returned.
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>>;
+
+    fn indices_with_color(&self) -> impl Iterator<Item = (Self::StateIndex, Self::StateColor)> {
+        self.state_indices()
+            .map(|i| (i, self.state_color(i).unwrap()))
+    }
 
     fn edges_matching<Idx: Indexes<Self>>(
         &self,
@@ -782,11 +788,11 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for RightCongruence<A, Q,
     type StateIndex = usize;
     type EdgeColor = C;
     type StateColor = ColoredClass<A::Symbol, Q>;
-    type TransitionRef<'this> = (&'this A::Expression, &'this (usize, C)) where Self: 'this;
-    type EdgesFromIter<'this> = std::collections::hash_map::Iter<'this, A::Expression, (usize, C)>
+    type TransitionRef<'this> = &'this NTEdge<A::Expression, C> where Self: 'this;
+    type EdgesFromIter<'this> = NTSEdgesFromIter<'this, A::Expression, C>
     where
         Self: 'this;
-    type StateIndices<'this> = std::iter::Cloned<std::collections::hash_map::Keys<'this, usize, BTState<A, ColoredClass<A::Symbol, Q>, C, usize>>> where Self: 'this;
+    type StateIndices<'this> = std::ops::Range<usize> where Self: 'this;
 
     type Alphabet = A;
 

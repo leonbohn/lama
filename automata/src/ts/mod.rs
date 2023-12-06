@@ -10,7 +10,7 @@ pub use transition_system::{DeterministicEdgesFrom, ExpressionOf, SymbolOf, Tran
 /// Defines implementations for common operations on automata/transition systems.
 pub mod operations;
 
-use crate::{Class, Color, Map, RightCongruence};
+use crate::{Class, Color, Map, RightCongruence, Show};
 
 mod index_ts;
 pub use index_ts::{IntoBTS, IntoInitialBTS, BTS};
@@ -50,8 +50,8 @@ pub mod predecessors;
 pub mod dag;
 
 /// Encapsulates what is necessary for a type to be usable as a state index in a [`TransitionSystem`].
-pub trait IndexType: Copy + std::hash::Hash + std::fmt::Debug + Eq + Ord + Display {}
-impl<Idx: Copy + std::hash::Hash + std::fmt::Debug + Eq + Ord + Display> IndexType for Idx {}
+pub trait IndexType: Copy + std::hash::Hash + std::fmt::Debug + Eq + Ord + Display + Show {}
+impl<Idx: Copy + std::hash::Hash + std::fmt::Debug + Eq + Ord + Display + Show> IndexType for Idx {}
 
 /// Type for indices of states and edges.
 pub type Idx = usize;

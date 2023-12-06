@@ -3,6 +3,7 @@ use impl_tools::autoimpl;
 use crate::{automata::WithInitial, Alphabet, Color, RightCongruence, TransitionSystem};
 
 use super::{
+    nts::{NTEdge, NTSEdgesTo},
     operations::{
         MapEdgeColor, MapStateColor, MappedPreTransition, MappedTransitionsToIter, MatchingProduct,
         ProductEdgesTo, ProductPreTransition, RestrictByStateIndex, RestrictedEdgesToIter,
@@ -162,8 +163,11 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> PredecessorIterable for BT
 }
 
 impl<A: Alphabet> PredecessorIterable for RightCongruence<A> {
-    type PreTransitionRef<'this> = &'this (usize, A::Expression, ()) where Self: 'this;
-    type EdgesToIter<'this> = std::collections::hash_set::Iter<'this, (usize, A::Expression, ())>
+    type PreTransitionRef<'this> = &'this NTEdge<A::Expression, ()>
+    where
+        Self: 'this;
+
+    type EdgesToIter<'this> = NTSEdgesTo<'this, A::Expression, ()>
     where
         Self: 'this;
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {

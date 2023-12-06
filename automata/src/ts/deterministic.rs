@@ -422,9 +422,9 @@ pub trait Deterministic: TransitionSystem {
     }
 
     /// Collects `self` into a new [`BTS`] with the same alphabet, state colors and edge colors.
-    fn collect_ts(&self) -> BTS<Self::Alphabet, Self::StateColor, Self::EdgeColor> {
+    fn collect_ts(&self) -> DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor> {
         use crate::ts::Sproutable;
-        let mut ts = BTS::new_for_alphabet(self.alphabet().clone());
+        let mut ts = DTS::new_for_alphabet(self.alphabet().clone());
         let mut map = std::collections::HashMap::new();
         for index in self.state_indices() {
             map.insert(
@@ -454,13 +454,13 @@ pub trait Deterministic: TransitionSystem {
         &self,
         sink_color: Self::StateColor,
         edge_color: Self::EdgeColor,
-    ) -> WithInitial<BTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>
+    ) -> WithInitial<DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>
     where
         Self: Pointed,
         Self::Alphabet: IndexedAlphabet,
         Self::StateColor: Default,
     {
-        let mut out: WithInitial<BTS<_, _, _>> = self.collect_initialized();
+        let mut out: WithInitial<DTS<_, _, _>> = self.collect_initialized();
         out.complete_with_colors(sink_color, edge_color);
         out
     }
@@ -501,11 +501,11 @@ pub trait Deterministic: TransitionSystem {
     /// Collects into a transition system of type `Ts`, but only considers states that
     /// are reachable from the initial state. Naturally, this means that `self` must
     /// be a pointed transition system.
-    fn trim_collect(&self) -> WithInitial<BTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>
+    fn trim_collect(&self) -> WithInitial<DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>
     where
         Self: Pointed,
     {
-        let mut ts = BTS::new_for_alphabet(self.alphabet().clone());
+        let mut ts = DTS::new_for_alphabet(self.alphabet().clone());
         let mut map = Map::default();
         let reachable = self.reachable_state_indices().collect_vec();
         for idx in &reachable {
@@ -529,7 +529,7 @@ pub trait Deterministic: TransitionSystem {
 
     fn collect_initialized(
         self,
-    ) -> WithInitial<BTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>
+    ) -> WithInitial<DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>
     where
         Self: Pointed,
         Self::StateColor: Default,

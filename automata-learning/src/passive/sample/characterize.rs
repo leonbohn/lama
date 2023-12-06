@@ -19,9 +19,9 @@ pub fn actively_exchanged_words_dfa<D: DFALike>(dfa: D) -> DFASample<D> {
 type MealySample<D> =
     Sample<<D as TransitionSystem>::Alphabet, Vec<SymbolOf<D>>, <D as TransitionSystem>::EdgeColor>;
 
-pub fn actively_exchanged_words_mealy<D: MealyLike>(mm: D) -> MealySample<D> {
+pub fn actively_exchanged_words_mealy<D: MealyLike + Deterministic>(mm: D) -> MealySample<D> {
     let alphabet = mm.alphabet().clone();
-    let oracle = MealyOracle::new(mm);
+    let oracle = MealyOracle::new(mm, None);
     // let mut lstar = LStar::logged(oracle, alphabet);
     // let learned = lstar.learn();
     // let mut sample = MealySample::new(alphabet);

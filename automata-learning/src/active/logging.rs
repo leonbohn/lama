@@ -46,6 +46,11 @@ impl<const FOR_MEALY: bool, T: LStarTarget<FOR_MEALY>> LStarQuery<FOR_MEALY, T> 
 
 pub trait LStarLogger<const FOR_MEALY: bool, T: LStarTarget<FOR_MEALY>> {
     fn log(&mut self, query: LStarQuery<FOR_MEALY, T>);
+    fn log_iter<I: IntoIterator<Item = LStarQuery<FOR_MEALY, T>>>(&mut self, iter: I) {
+        for x in iter.into_iter() {
+            self.log(x)
+        }
+    }
     fn create() -> Self;
 }
 

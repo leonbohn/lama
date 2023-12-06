@@ -292,7 +292,9 @@ pub trait ToDot {
     /// i.e. quicklook on macos and nothing yet on windows).
     #[cfg(feature = "graphviz")]
     fn display_rendered(&self) -> Result<(), std::io::Error> {
-        display_png(self.render()?)
+        display_png(self.render()?)?;
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        Ok(())
     }
 }
 

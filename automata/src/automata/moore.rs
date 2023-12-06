@@ -19,7 +19,7 @@ use crate::prelude::*;
 /// is, however, prefered to use a [`MealyMachine`] for this purpose, as for infinite inputs
 /// switching to transition-based acceptance is preferable.
 #[derive(Clone)]
-pub struct MooreMachine<A, Q = usize, C: Color = NoColor, Ts = WithInitial<BTS<A, Q, C, usize>>> {
+pub struct MooreMachine<A, Q = usize, C: Color = NoColor, Ts = WithInitial<DTS<A, Q, C>>> {
     ts: Ts,
     _q: std::marker::PhantomData<(A, Q, C)>,
 }
@@ -40,7 +40,7 @@ impl<A: Alphabet, Q: Color, C: Color> MooreMachine<A, Q, C> {
     pub fn new(
         alphabet: A,
         initial_state_output: Q,
-    ) -> IntoMooreMachine<WithInitial<BTS<A, Q, C, usize>>> {
+    ) -> IntoMooreMachine<WithInitial<DTS<A, Q, C>>> {
         Self {
             ts: WithInitial::with_initial_color(alphabet, initial_state_output),
             _q: std::marker::PhantomData,
@@ -141,12 +141,12 @@ impl<Ts: Sproutable + MooreLike> Sproutable
         self.ts_mut().add_edge(from, on, to, color)
     }
 
-    fn remove_edge(
+    fn remove_edges(
         &mut self,
         from: Self::StateIndex,
         on: <Self::Alphabet as Alphabet>::Expression,
     ) -> bool {
-        self.ts_mut().remove_edge(from, on)
+        self.ts_mut().remove_edges(from, on)
     }
 }
 
@@ -214,7 +214,7 @@ macro_rules! impl_moore_automaton {
         pub struct $name<
             A = Simple,
             C = NoColor,
-            Ts = WithInitial<BTS<A, $color, C, usize>>,
+            Ts = WithInitial<DTS<A, $color, C>>,
         > {
             ts: Ts,
             _alphabet: std::marker::PhantomData<(A, $color, C)>,
@@ -225,10 +225,10 @@ macro_rules! impl_moore_automaton {
         }
 
         impl<A: Alphabet, C: Color>
-            $name<A, C, WithInitial<BTS<A, $color, C, usize>>>
+            $name<A, C, WithInitial<DTS<A, $color, C>>>
         {
             /// Creates a new automaton.
-            pub fn new(alphabet: A) -> $name<A, C, WithInitial<BTS<A, $color, C, usize>>> {
+            pub fn new(alphabet: A) -> $name<A, C, WithInitial<DTS<A, $color, C>>> {
                 $name {
                     ts: WithInitial::new(alphabet),
                     _alphabet: std::marker::PhantomData,
@@ -320,12 +320,12 @@ macro_rules! impl_moore_automaton {
             fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
                 self.ts_mut().add_state(color)
             }
-            fn remove_edge(
+            fn remove_edges(
                 &mut self,
                 from: Self::StateIndex,
                 on: <Self::Alphabet as Alphabet>::Expression,
             ) -> bool {
-                self.ts_mut().remove_edge(from, on)
+                self.ts_mut().remove_edges(from, on)
             }
         }
         impl<Ts: TransitionSystem> TransitionSystem

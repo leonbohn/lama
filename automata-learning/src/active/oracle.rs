@@ -165,8 +165,9 @@ impl<D: DFALike> LStarOracle<MooreMachine<D::Alphabet, bool>> for DFAOracle<D> {
 
 /// An oracle based on a [`MealyMachine`].
 #[derive(Debug, Clone)]
-pub struct MealyOracle<D: MealyLike> {
+pub struct MealyOracle<D: MealyLike + Deterministic> {
     automaton: IntoMealyMachine<D>,
+    default: Option<D::EdgeColor>,
 }
 
 impl<D: MealyLike + Deterministic> LStarOracle<MealyMachine<D::Alphabet, D::EdgeColor>>
@@ -179,6 +180,7 @@ impl<D: MealyLike + Deterministic> LStarOracle<MealyMachine<D::Alphabet, D::Edge
     fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> Self::Output {
         self.automaton
             .try_mealy_map(word)
+            .or(self.default.clone())
             .expect("The oracle must be total!")
     }
     fn equivalence(
@@ -191,12 +193,24 @@ impl<D: MealyLike + Deterministic> LStarOracle<MealyMachine<D::Alphabet, D::Edge
             Self::Output,
         ),
     > {
-        match self.automaton.witness_inequivalence(hypothesis) {
+        match self.automaton.restricted_inequivalence(hypothesis) {
             Some(w) => {
                 let expected = self
                     .automaton
                     .try_mealy_map(&w)
+                    .or(self.default.clone())
                     .expect("Target must be complete!");
+                if hypothesis.try_mealy_map(&w).as_ref() == Some(&expected) {
+                    panic!(
+                        "Misclassified example {:?}, should be {} but is {:?}",
+                        w,
+                        expected.show(),
+                        hypothesis
+                            .try_mealy_map(&w)
+                            .map(|c| c.show())
+                            .unwrap_or("-".to_string())
+                    );
+                }
                 Err((w, expected))
             }
             None => Ok(()),
@@ -204,12 +218,17 @@ impl<D: MealyLike + Deterministic> LStarOracle<MealyMachine<D::Alphabet, D::Edge
     }
 }
 
-impl<D: MealyLike> MealyOracle<D> {
+impl<D: MealyLike + Deterministic> MealyOracle<D> {
     /// Creates a new [`MealyOracle`] based on an instance of [`MealyLike`].
-    pub fn new(automaton: D) -> Self {
+    pub fn new(automaton: D, default: Option<D::EdgeColor>) -> Self {
         Self {
             automaton: automaton.into_mealy(),
+            default,
         }
+    }
+
+    pub fn alphabet(&self) -> &D::Alphabet {
+        self.automaton.alphabet()
     }
 }
 
@@ -242,5 +261,36 @@ impl<D: MooreLike> MooreOracle<D> {
     /// Creates a new [`MooreOracle`] based on an instance of [`MooreLike`].
     pub fn new(automaton: D) -> Self {
         Self { automaton }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use automata::{
+        ts::{ToDot, NTS},
+        TransitionSystem,
+    };
+
+    use crate::active::LStar;
+
+    use super::MealyOracle;
+
+    #[test]
+    fn mealy_al() {
+        let target = NTS::builder()
+            .with_transitions([
+                (0, 'a', 1, 1),
+                (0, 'b', 1, 0),
+                (0, 'c', 1, 0),
+                (1, 'a', 0, 0),
+                (1, 'b', 1, 0),
+                (1, 'c', 1, 0),
+            ])
+            .into_mealy_machine(0);
+        let oracle = MealyOracle::new(target, Some(0));
+        let alphabet = oracle.alphabet().clone();
+        let mut learner = LStar::mealy_logged(oracle, alphabet);
+        let mm = learner.infer();
+        mm.display_rendered();
     }
 }
