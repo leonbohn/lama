@@ -381,10 +381,16 @@ impl NTSBuilder<(), usize> {
     }
 }
 
-impl<Q, C: Color> NTSBuilder<Q, C> {
+impl<Q: Color, C: Color> NTSBuilder<Q, C> {
     pub fn default_color(mut self, color: Q) -> Self {
         self.default = Some(color);
         self
+    }
+
+    pub fn with_colors<I: IntoIterator<Item = Q>>(mut self, iter: I) -> Self {
+        iter.into_iter()
+            .enumerate()
+            .fold(self, |mut acc, (i, x)| acc.color(i, x))
     }
 
     pub fn deterministic(mut self) -> DTS<Simple, Q, C>

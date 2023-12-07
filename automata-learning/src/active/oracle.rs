@@ -19,6 +19,8 @@ pub trait LStarOracle<H: LStarHypothesis> {
     /// Query the desired output for the given word.
     fn output<W: FiniteWord<SymbolOf<H>>>(&self, word: W) -> H::Color;
 
+    fn alphabet(&self) -> H::Alphabet;
+
     /// Test the given hypothesis for equivalence, returning `Ok(())` if it is equivalent and `Err((word, color))` otherwise.
     /// In the latter case, `word` is a counterexample from the symmetric difference of the target and the hypothesis,
     /// meaning it produces a different output in the hypothesis compared to the target.
@@ -44,6 +46,10 @@ impl<A: Alphabet, W: LinearWord<A::Symbol>, C: Color> SampleOracle<A, W, C> {
 
 impl<C: Color> LStarOracle<MooreMachine<Simple, C>> for SampleOracle<Simple, Vec<char>, C> {
     type Length = FiniteLength;
+
+    fn alphabet(&self) -> Simple {
+        self.sample.alphabet().clone()
+    }
 
     fn output<V: FiniteWord<SymbolOf<MooreMachine<Simple, C>>>>(&self, word: V) -> C {
         self.sample
@@ -73,6 +79,10 @@ impl<C: Color> LStarOracle<MooreMachine<Simple, C>> for SampleOracle<Simple, Vec
 
 impl<C: Color> LStarOracle<MealyMachine<Simple, C>> for SampleOracle<Simple, Vec<char>, C> {
     type Length = FiniteLength;
+
+    fn alphabet(&self) -> Simple {
+        self.sample.alphabet().clone()
+    }
 
     fn output<W: FiniteWord<SymbolOf<MealyMachine<Simple, C>>>>(&self, word: W) -> C {
         self.sample
@@ -137,6 +147,29 @@ impl<D: DFALike + Clone> DFAOracle<D> {
     }
 }
 
+impl<D: DFALike<Alphabet = Simple>> LStarOracle<DFA> for DFAOracle<D> {
+    type Length = FiniteLength;
+
+    fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> bool {
+        (&self.automaton).into_dfa().accepts_finite(word)
+    }
+
+    fn equivalence(&self, hypothesis: &DFA) -> Result<(), (Vec<SymbolOf<D>>, bool)> {
+        let dfa = (&self.negated).intersection(&hypothesis).into_dfa();
+        match dfa.dfa_give_word() {
+            Some(w) => {
+                let should_be_accepted = (&self.automaton).into_dfa().accepts_finite(&w);
+                Err((w, should_be_accepted))
+            }
+            None => Ok(()),
+        }
+    }
+
+    fn alphabet(&self) -> Simple {
+        self.automaton.alphabet().clone()
+    }
+}
+
 impl<D: DFALike<Alphabet = Simple>> LStarOracle<MooreMachine<Simple, bool>> for DFAOracle<D> {
     type Length = FiniteLength;
 
@@ -156,6 +189,10 @@ impl<D: DFALike<Alphabet = Simple>> LStarOracle<MooreMachine<Simple, bool>> for 
             }
             None => Ok(()),
         }
+    }
+
+    fn alphabet(&self) -> Simple {
+        self.automaton.alphabet().clone()
     }
 }
 
@@ -210,6 +247,10 @@ impl<D: MealyLike + Deterministic<Alphabet = Simple>>
             None => Ok(()),
         }
     }
+
+    fn alphabet(&self) -> Simple {
+        self.automaton.alphabet().clone()
+    }
 }
 
 impl<D: MealyLike + Deterministic> MealyOracle<D> {
@@ -236,6 +277,10 @@ impl<D: MooreLike<Alphabet = Simple>> LStarOracle<MooreMachine<Simple, D::StateC
     for MooreOracle<D>
 {
     type Length = FiniteLength;
+
+    fn alphabet(&self) -> Simple {
+        self.automaton.alphabet().clone()
+    }
 
     fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> D::StateColor {
         self.automaton

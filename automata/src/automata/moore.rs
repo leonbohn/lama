@@ -417,6 +417,27 @@ pub trait MooreLike: Deterministic + Pointed {
             .collect()
     }
 
+    fn moore_bisimilar<M>(&self, other: M) -> bool
+    where
+        M: MooreLike<Alphabet = Self::Alphabet, StateColor = Self::StateColor>,
+    {
+        self.moore_witness_non_bisimilarity(other).is_none()
+    }
+
+    fn moore_witness_non_bisimilarity<M>(&self, other: M) -> Option<Vec<SymbolOf<Self>>>
+    where
+        M: MooreLike<Alphabet = Self::Alphabet, StateColor = Self::StateColor>,
+    {
+        let prod = self.ts_product(other);
+        for (mr, idx) in prod.minimal_representatives() {
+            let (c, d) = prod.state_color(idx).unwrap();
+            if c != d {
+                return Some(mr);
+            }
+        }
+        None
+    }
+
     /// Decomposes `self` into a sequence of DFAs, where the i-th DFA accepts all words which
     /// produce a color less than or equal to i.
     fn decompose_dfa(&self) -> Vec<DFA<Self::Alphabet>> {

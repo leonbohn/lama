@@ -42,6 +42,8 @@ pub type SymbolOf<A> = <<A as TransitionSystem>::Alphabet as Alphabet>::Symbol;
 /// Helper trait for extracting the [`Expression`] type from an an object which implements [`HasAlphabet`].
 pub type ExpressionOf<A> = <<A as TransitionSystem>::Alphabet as Alphabet>::Expression;
 
+pub type FiniteInput<D> = Vec<SymbolOf<D>>;
+
 #[derive(Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub struct EdgeReference<'ts, Idx, E, C> {
     source: Idx,
@@ -371,12 +373,20 @@ pub trait TransitionSystem: Sized {
         MinimalRepresentatives::new(self, self.initial())
     }
 
-    /// Returns an iterator over the indices of the states that are reachable from the initial state.
+    /// Returns an iterator over the indices of the states that are reachable from the initial state. The iterator yields tuples
+    /// (State Index, State Color)
     fn reachable_states(&self) -> ReachableStates<&Self>
     where
         Self: Sized + Pointed,
     {
         ReachableStates::new(self, self.initial())
+    }
+
+    fn reachable_state_colors(&self) -> impl Iterator<Item = Self::StateColor>
+    where
+        Self: Sized + Pointed,
+    {
+        self.reachable_states().map(|(_, c)| c)
     }
 
     /// Returns an iterator over the minimal representatives (i.e. length-lexicographically minimal

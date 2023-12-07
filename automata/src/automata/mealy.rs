@@ -390,6 +390,13 @@ macro_rules! impl_mealy_automaton {
 /// Implemented by objects which can be viewed as a MealyMachine, i.e. a finite transition system
 /// which has outputs of type usize on its edges.
 pub trait MealyLike: Deterministic + Pointed {
+    fn mealy_bisimilar<M: MealyLike<Alphabet = Self::Alphabet, EdgeColor = Self::EdgeColor>>(
+        &self,
+        other: M,
+    ) -> bool {
+        todo!()
+    }
+
     /// Uses a reference to `self` for obtaining a [`MealyMachine`].
     fn as_mealy(&self) -> MealyMachine<Self::Alphabet, Self::EdgeColor, &Self> {
         MealyMachine::from(self)
