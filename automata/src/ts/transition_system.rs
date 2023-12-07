@@ -32,182 +32,6 @@ use super::{
 use impl_tools::autoimpl;
 use itertools::Itertools;
 
-/// Trait that helps with accessing states in more elaborate [`TransitionSystem`]s. For
-/// example in a [`crate::RightCongruence`], we have more information than the [`Color`]
-/// on a state, we have its [`Class`] as well. Since we would like to be able to
-/// access a state of a congruence not only by its index, but also by its classname
-/// or any other [`Word`] of finite length, this trait is necessary.
-///
-/// Implementors should be able to _uniquely_ identify a single state in a transition
-/// system of type `Ts`.
-pub trait Indexes<Ts: TransitionSystem> {
-    /// _Uniquely_ identifies a state in `ts` and return its index. If the state does
-    /// not exist, `None` is returned.
-    fn to_index(&self, ts: &Ts) -> Option<Ts::StateIndex>;
-}
-
-impl<Ts: TransitionSystem> Indexes<Ts> for Ts::StateIndex {
-    #[inline(always)]
-    fn to_index(&self, ts: &Ts) -> Option<<Ts as TransitionSystem>::StateIndex> {
-        Some(*self)
-    }
-}
-
-pub trait FullTransition<Idx, S, C> {
-    fn source(&self) -> &Idx;
-    fn target(&self) -> &Idx;
-    fn color(&self) -> &C;
-    fn symbol(&self) -> &S;
-
-    fn clone_tuple(&self) -> (Idx, S, C, Idx)
-    where
-        Idx: Clone,
-        S: Clone,
-        C: Clone,
-    {
-        (
-            self.source().clone(),
-            self.symbol().clone(),
-            self.color().clone(),
-            self.target().clone(),
-        )
-    }
-}
-
-impl<Idx, S, C> FullTransition<Idx, S, C> for (Idx, S, C, Idx) {
-    fn source(&self) -> &Idx {
-        &self.0
-    }
-
-    fn target(&self) -> &Idx {
-        &self.3
-    }
-
-    fn color(&self) -> &C {
-        &self.2
-    }
-
-    fn symbol(&self) -> &S {
-        &self.1
-    }
-}
-
-impl<'a, Idx, S, C> FullTransition<Idx, S, C> for &'a (Idx, S, C, Idx) {
-    fn source(&self) -> &Idx {
-        &self.0
-    }
-
-    fn target(&self) -> &Idx {
-        &self.3
-    }
-
-    fn color(&self) -> &C {
-        &self.2
-    }
-
-    fn symbol(&self) -> &S {
-        &self.1
-    }
-}
-
-impl<'a, Idx, S, C> FullTransition<Idx, S, C> for (&'a Idx, &'a S, &'a C, &'a Idx) {
-    fn source(&self) -> &Idx {
-        self.0
-    }
-
-    fn target(&self) -> &Idx {
-        self.3
-    }
-
-    fn color(&self) -> &C {
-        self.2
-    }
-
-    fn symbol(&self) -> &S {
-        self.1
-    }
-}
-
-/// This trait is implemented for references to transitions, so that they can be used in
-/// generic contexts. It is automatically implemented for (mutable) references.
-pub trait IsTransition<'ts, E, Idx, C> {
-    /// Returns the target state of the transition.
-    fn target(&self) -> Idx;
-    /// Returns the color of the transition.
-    fn color(&self) -> C;
-    /// Gives a reference to the expression that labels the transition.
-    fn expression(&self) -> &'ts E;
-    /// Destructures the transition into its components.
-    fn into_tuple(self) -> (&'ts E, Idx, C)
-    where
-        Self: Sized,
-    {
-        (self.expression(), self.target(), self.color())
-    }
-    /// Destructures `self` but into a slightly different form.
-    fn into_nested_tuple(self) -> (&'ts E, (Idx, C))
-    where
-        Self: Sized,
-    {
-        (self.expression(), (self.target(), self.color()))
-    }
-}
-
-impl<'a, Idx: IndexType, E, C: Color> IsTransition<'a, E, Idx, C> for (&'a E, &'a (Idx, C)) {
-    fn target(&self) -> Idx {
-        self.1 .0
-    }
-
-    fn color(&self) -> C {
-        self.1 .1.clone()
-    }
-
-    fn expression(&self) -> &'a E {
-        self.0
-    }
-}
-impl<'a, Idx: IndexType, E, C: Color> IsTransition<'a, E, Idx, C> for (&'a E, Idx, &'a C) {
-    fn target(&self) -> Idx {
-        self.1
-    }
-
-    fn color(&self) -> C {
-        self.2.clone()
-    }
-
-    fn expression(&self) -> &'a E {
-        self.0
-    }
-}
-
-impl<'a, Idx: IndexType, E, C: Color> IsTransition<'a, E, Idx, C> for &'a (E, Idx, C) {
-    fn target(&self) -> Idx {
-        self.1
-    }
-
-    fn color(&self) -> C {
-        self.2.clone()
-    }
-
-    fn expression(&self) -> &'a E {
-        &self.0
-    }
-}
-
-impl<'a, Idx: IndexType, E, C: Color> IsTransition<'a, E, Idx, C> for (&'a E, Idx, C) {
-    fn target(&self) -> Idx {
-        self.1
-    }
-
-    fn color(&self) -> C {
-        self.2.clone()
-    }
-
-    fn expression(&self) -> &'a E {
-        &self.0
-    }
-}
-
 /// Type alias to extract the state color of a [`TransitionSystem`].
 pub type StateColorOf<Ts> = <Ts as TransitionSystem>::StateColor;
 /// Type alias to extract the edge color of a [`TransitionSystem`].
@@ -603,6 +427,182 @@ pub trait TransitionSystem: Sized {
     /// since the provided default implementation assumes that the no initial state exists.
     fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
         None
+    }
+}
+
+/// Trait that helps with accessing states in more elaborate [`TransitionSystem`]s. For
+/// example in a [`crate::RightCongruence`], we have more information than the [`Color`]
+/// on a state, we have its [`Class`] as well. Since we would like to be able to
+/// access a state of a congruence not only by its index, but also by its classname
+/// or any other [`Word`] of finite length, this trait is necessary.
+///
+/// Implementors should be able to _uniquely_ identify a single state in a transition
+/// system of type `Ts`.
+pub trait Indexes<Ts: TransitionSystem> {
+    /// _Uniquely_ identifies a state in `ts` and return its index. If the state does
+    /// not exist, `None` is returned.
+    fn to_index(&self, ts: &Ts) -> Option<Ts::StateIndex>;
+}
+
+impl<Ts: TransitionSystem> Indexes<Ts> for Ts::StateIndex {
+    #[inline(always)]
+    fn to_index(&self, ts: &Ts) -> Option<<Ts as TransitionSystem>::StateIndex> {
+        Some(*self)
+    }
+}
+
+pub trait FullTransition<Idx, S, C> {
+    fn source(&self) -> &Idx;
+    fn target(&self) -> &Idx;
+    fn color(&self) -> &C;
+    fn symbol(&self) -> &S;
+
+    fn clone_tuple(&self) -> (Idx, S, C, Idx)
+    where
+        Idx: Clone,
+        S: Clone,
+        C: Clone,
+    {
+        (
+            self.source().clone(),
+            self.symbol().clone(),
+            self.color().clone(),
+            self.target().clone(),
+        )
+    }
+}
+
+impl<Idx, S, C> FullTransition<Idx, S, C> for (Idx, S, C, Idx) {
+    fn source(&self) -> &Idx {
+        &self.0
+    }
+
+    fn target(&self) -> &Idx {
+        &self.3
+    }
+
+    fn color(&self) -> &C {
+        &self.2
+    }
+
+    fn symbol(&self) -> &S {
+        &self.1
+    }
+}
+
+impl<'a, Idx, S, C> FullTransition<Idx, S, C> for &'a (Idx, S, C, Idx) {
+    fn source(&self) -> &Idx {
+        &self.0
+    }
+
+    fn target(&self) -> &Idx {
+        &self.3
+    }
+
+    fn color(&self) -> &C {
+        &self.2
+    }
+
+    fn symbol(&self) -> &S {
+        &self.1
+    }
+}
+
+impl<'a, Idx, S, C> FullTransition<Idx, S, C> for (&'a Idx, &'a S, &'a C, &'a Idx) {
+    fn source(&self) -> &Idx {
+        self.0
+    }
+
+    fn target(&self) -> &Idx {
+        self.3
+    }
+
+    fn color(&self) -> &C {
+        self.2
+    }
+
+    fn symbol(&self) -> &S {
+        self.1
+    }
+}
+
+/// This trait is implemented for references to transitions, so that they can be used in
+/// generic contexts. It is automatically implemented for (mutable) references.
+pub trait IsTransition<'ts, E, Idx, C> {
+    /// Returns the target state of the transition.
+    fn target(&self) -> Idx;
+    /// Returns the color of the transition.
+    fn color(&self) -> C;
+    /// Gives a reference to the expression that labels the transition.
+    fn expression(&self) -> &'ts E;
+    /// Destructures the transition into its components.
+    fn into_tuple(self) -> (&'ts E, Idx, C)
+    where
+        Self: Sized,
+    {
+        (self.expression(), self.target(), self.color())
+    }
+    /// Destructures `self` but into a slightly different form.
+    fn into_nested_tuple(self) -> (&'ts E, (Idx, C))
+    where
+        Self: Sized,
+    {
+        (self.expression(), (self.target(), self.color()))
+    }
+}
+
+impl<'a, Idx: IndexType, E, C: Color> IsTransition<'a, E, Idx, C> for (&'a E, &'a (Idx, C)) {
+    fn target(&self) -> Idx {
+        self.1 .0
+    }
+
+    fn color(&self) -> C {
+        self.1 .1.clone()
+    }
+
+    fn expression(&self) -> &'a E {
+        self.0
+    }
+}
+impl<'a, Idx: IndexType, E, C: Color> IsTransition<'a, E, Idx, C> for (&'a E, Idx, &'a C) {
+    fn target(&self) -> Idx {
+        self.1
+    }
+
+    fn color(&self) -> C {
+        self.2.clone()
+    }
+
+    fn expression(&self) -> &'a E {
+        self.0
+    }
+}
+
+impl<'a, Idx: IndexType, E, C: Color> IsTransition<'a, E, Idx, C> for &'a (E, Idx, C) {
+    fn target(&self) -> Idx {
+        self.1
+    }
+
+    fn color(&self) -> C {
+        self.2.clone()
+    }
+
+    fn expression(&self) -> &'a E {
+        &self.0
+    }
+}
+
+impl<'a, Idx: IndexType, E, C: Color> IsTransition<'a, E, Idx, C> for (&'a E, Idx, C) {
+    fn target(&self) -> Idx {
+        self.1
+    }
+
+    fn color(&self) -> C {
+        self.2.clone()
+    }
+
+    fn expression(&self) -> &'a E {
+        &self.0
     }
 }
 

@@ -97,12 +97,7 @@ pub fn infer_precise_dpa<A: Alphabet>(
 }
 
 /// Similar to [`dba_rpni`], but produces a DPA instead.
-pub fn dpa_rpni<A: Alphabet>(sample: &OmegaSample<A, bool>) -> DPA<A, (), MealyMachine<A>>
-where
-    A: IndexedAlphabet,
-    MealyMachine<A>: ToDot,
-    MapStateColor<RightCongruence<A>, fn(ColoredClass<A::Symbol, ()>) -> ()>: ToDot,
-{
+pub fn dpa_rpni(sample: &OmegaSample<Simple, bool>) -> DPA<Simple, (), MealyMachine> {
     let precise = infer_precise_dpa(sample);
     let pta = sample.prefix_tree().erase_state_colors();
 
@@ -115,10 +110,9 @@ where
     //now we use the completed thing to learn a MealyMachine from which we can then build the DPA
     let mm = completed.into_mealy();
     let alphabet = mm.alphabet().clone();
-    mm.display_rendered();
     let oracle = MealyOracle::new(mm, Some(0));
 
-    let learned = LStar::mealy_unlogged(oracle, alphabet).infer();
+    let learned = LStar::for_mealy(alphabet, oracle).infer();
     learned.into_dpa()
 }
 

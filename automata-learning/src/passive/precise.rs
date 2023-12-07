@@ -4,7 +4,7 @@ use automata::{
     automata::{MealyLike, MooreLike},
     congruence::ColoredClass,
     prelude::{Expression, IsTransition, DFA},
-    ts::{reachable::ReachableStateIndices, Deterministic, Sproutable},
+    ts::{reachable::ReachableStateIndices, Deterministic, IndexType, Sproutable},
     Alphabet, Map, Pointed, RightCongruence, Show, TransitionSystem,
 };
 use itertools::Itertools;
@@ -28,6 +28,16 @@ pub struct PState<const N: usize> {
     class: usize,
     progress_classes: [usize; N],
     progress_states: [usize; N],
+}
+
+impl<const N: usize> IndexType for PState<N> {
+    fn first() -> Self {
+        Self {
+            class: 0,
+            progress_classes: [0; N],
+            progress_states: [0; N],
+        }
+    }
 }
 
 impl<const N: usize> Show for PState<N> {

@@ -7,7 +7,7 @@ use crate::prelude::*;
 use super::MooreLike;
 
 #[derive(Clone)]
-pub struct MealyMachine<A, C = usize, Ts = WithInitial<DTS<A, NoColor, C>>> {
+pub struct MealyMachine<A = Simple, C = usize, Ts = WithInitial<DTS<A, NoColor, C>>> {
     ts: Ts,
     _q: PhantomData<(A, C)>,
 }
@@ -312,7 +312,7 @@ macro_rules! impl_mealy_automaton {
             {
                 self.ts_mut().add_edge(from, on, to, color)
             }
-            fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
+            fn new_for_alphabet(alphabet: Self::Alphabet) -> Self            {
                 Self {
                     ts: Ts::new_for_alphabet(alphabet),
                     _alphabet: std::marker::PhantomData,
@@ -389,7 +389,7 @@ macro_rules! impl_mealy_automaton {
 
 /// Implemented by objects which can be viewed as a MealyMachine, i.e. a finite transition system
 /// which has outputs of type usize on its edges.
-pub trait MealyLike: TransitionSystem + Pointed {
+pub trait MealyLike: Deterministic + Pointed {
     /// Uses a reference to `self` for obtaining a [`MealyMachine`].
     fn as_mealy(&self) -> MealyMachine<Self::Alphabet, Self::EdgeColor, &Self> {
         MealyMachine::from(self)
@@ -419,7 +419,7 @@ pub trait MealyLike: TransitionSystem + Pointed {
             .collect()
     }
 }
-impl<Ts: TransitionSystem + Pointed + Sized> MealyLike for Ts {}
+impl<Ts: Deterministic + Pointed> MealyLike for Ts {}
 
 #[cfg(test)]
 mod tests {

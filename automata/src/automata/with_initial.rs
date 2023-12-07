@@ -90,14 +90,10 @@ where
     }
 }
 
-impl<Ts: TransitionSystem + Sproutable> Sproutable for WithInitial<Ts>
-where
-    StateColor<Ts>: Default,
-{
+impl<Ts: TransitionSystem + Sproutable> Sproutable for WithInitial<Ts> {
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
         let mut ts = Ts::new_for_alphabet(alphabet);
-        let initial = ts.add_state(<StateColor<Ts> as Default>::default());
-        Self(ts, initial)
+        Self(ts, <Ts::StateIndex as IndexType>::first())
     }
 
     fn add_edge<X, Y>(

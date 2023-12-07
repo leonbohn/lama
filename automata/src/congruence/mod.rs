@@ -25,7 +25,7 @@ mod cayley;
 /// represent these as a transition system, where the states are the equivalence classes and the colors
 /// on edges are `()`.
 #[derive(Clone, Eq, PartialEq)]
-pub struct RightCongruence<A: Alphabet, Q = (), C: Color = ()> {
+pub struct RightCongruence<A: Alphabet = Simple, Q = (), C: Color = ()> {
     ts: DTS<A, ColoredClass<A::Symbol, Q>, C>,
 }
 

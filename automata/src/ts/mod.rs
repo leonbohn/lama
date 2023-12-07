@@ -50,8 +50,21 @@ pub mod predecessors;
 pub mod dag;
 
 /// Encapsulates what is necessary for a type to be usable as a state index in a [`TransitionSystem`].
-pub trait IndexType: Copy + std::hash::Hash + std::fmt::Debug + Eq + Ord + Display + Show {}
-impl<Idx: Copy + std::hash::Hash + std::fmt::Debug + Eq + Ord + Display + Show> IndexType for Idx {}
+pub trait IndexType: Copy + std::hash::Hash + std::fmt::Debug + Eq + Ord + Display + Show {
+    fn first() -> Self;
+}
+
+impl IndexType for usize {
+    fn first() -> Self {
+        0
+    }
+}
+
+impl<I: IndexType, J: IndexType> IndexType for ProductIndex<I, J> {
+    fn first() -> Self {
+        ProductIndex(I::first(), J::first())
+    }
+}
 
 /// Type for indices of states and edges.
 pub type Idx = usize;
@@ -209,7 +222,7 @@ pub use dot::ToDot;
 mod quotient;
 pub use quotient::Quotient;
 
-use self::transition_system::IsTransition;
+use self::{operations::ProductIndex, transition_system::IsTransition};
 
 /// A congruence is a [`TransitionSystem`], which additionally has a distinguished initial state. On top
 /// of that, a congruence does not have any coloring on either states or symbols. This
