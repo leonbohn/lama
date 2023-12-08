@@ -7,7 +7,7 @@ use tracing::{debug, info, trace};
 
 use super::oracle::LStarOracle;
 
-const ITERATION_THRESHOLD: usize = if cfg!(debug_assertions) { 30 } else { 200000 };
+const ITERATION_THRESHOLD: usize = if cfg!(debug_assertions) { 300 } else { 200000 };
 
 pub trait LStarHypothesis:
     Deterministic + Sproutable + Pointed + FiniteWordTransformer<SymbolOf<Self>, Self::Color>
@@ -160,8 +160,12 @@ impl<D: LStarHypothesis, T: LStarOracle<D>> LStar<D, T> {
     pub fn infer(&mut self) -> D {
         let start = std::time::Instant::now();
         let mut iteration = 0;
+        let threshold = std::env::var("MAX_ITERATIONS")
+            .unwrap_or(format!("{ITERATION_THRESHOLD}"))
+            .parse()
+            .unwrap();
 
-        'outer: while iteration < ITERATION_THRESHOLD {
+        'outer: while iteration < threshold {
             self.update_table();
             iteration += 1;
             trace!("LStar iteration {iteration} with table\n{:?}", self);
@@ -199,7 +203,7 @@ impl<D: LStarHypothesis, T: LStarOracle<D>> LStar<D, T> {
     }
 
     fn process_counterexample(&mut self, word: Word<D>, color: D::Color) {
-        for i in 0..(word.len() - 1) {
+        for i in 0..(word.len()) {
             let suffix = (&word[i..]).to_vec();
             assert!(!suffix.is_empty());
             if !self.experiments.contains(&suffix) {
@@ -334,6 +338,7 @@ impl<D: LStarHypothesis, T: LStarOracle<D>> LStar<D, T> {
         let mut out = Set::default();
 
         for word in self.one_letter_extensions() {
+            trace!("Considering one letter extension {}", word.as_string());
             let seq = self.table.get(&word).unwrap();
             if !known.contains(seq) {
                 if seen.insert(seq) {
@@ -405,14 +410,16 @@ mod tests {
             });
 
             if count_a % 2 == 0 && count_b % 2 == 0 {
-                0
-            } else {
                 1
+            } else {
+                0
             }
         }
 
         fn equivalence(&self, hypothesis: &MooreMachine<Simple>) -> Result<(), (Vec<char>, usize)> {
-            for word in ["aa", "bb", "bab", "aba", "abba", "bbab", "", "b", "a"] {
+            for word in [
+                "aa", "bb", "bab", "aba", "abba", "bbab", "", "b", "a", "abaaabab", "bbababa",
+            ] {
                 let output = self.output(word);
                 if output
                     != hypothesis
@@ -482,9 +489,10 @@ mod tests {
         let mut lstar = super::LStar::for_moore(alphabet, oracle);
 
         let mm = lstar.infer();
+        println!("{:?}", mm);
 
         assert_eq!(mm.try_moore_map("abba").unwrap(), 1);
-        assert_eq!(!mm.try_moore_map("ab").unwrap(), 0);
+        assert_eq!(mm.try_moore_map("ab").unwrap(), 0);
         assert_eq!(mm.try_moore_map("").unwrap(), 1)
     }
 
@@ -511,7 +519,7 @@ mod tests {
         dfa
     }
 
-    #[test_log::test]
+    #[test]
     fn lstar_dfa() {
         let oracle = DFAOracle::new(test_dfa());
         let dfa = LStar::dfa(oracle);
@@ -523,7 +531,7 @@ mod tests {
         }
     }
 
-    #[test_log::test]
+    #[test]
     fn lstar_mealy() {
         let mm = NTS::builder()
             .default_color(())
@@ -549,7 +557,7 @@ mod tests {
     }
 
     #[test]
-    fn moore_vs_mealy() {
+    fn lstar_moore_vs_mealy() {
         let alphabet = alphabet!(simple 'a', 'b');
         let classified_words = [
             "a", "b", "aa", "ab", "ba", "bb", "aaa", "aab", "aba", "abb", "baa", "bab", "bba",
