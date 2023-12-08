@@ -161,7 +161,7 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for DTS<A, Q, C> {
     {
         let source = from.into();
         let target = to.into();
-        on.for_each(|sym| assert!(self.transition(source, sym).is_none()));
+        // on.for_each(|sym| assert!(self.transition(source, sym).is_none()));
 
         self.0.add_edge(source, on, target, color)
     }

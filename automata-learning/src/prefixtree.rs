@@ -38,7 +38,7 @@ pub fn prefix_tree<A: Alphabet, W: Into<Reduced<A::Symbol>>, I: IntoIterator<Ite
         );
     }
     let mut tree = RightCongruence::new(alphabet.clone());
-    let root = tree.initial();
+    let root = tree.add_state((vec![], ()));
 
     let mut queue = VecDeque::from_iter([(root, vec![], words.to_vec())]);
 

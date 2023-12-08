@@ -477,7 +477,8 @@ pub trait Deterministic: TransitionSystem {
             + Pointed,
     {
         let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
-        ts.set_initial_color(self.initial_color());
+        assert_eq!(ts.size(), 0);
+        ts.add_state(self.initial_color());
 
         let (l, r) = self.state_indices().filter(|o| o != &self.initial()).tee();
         let map: Map<Self::StateIndex, Ts::StateIndex> = l

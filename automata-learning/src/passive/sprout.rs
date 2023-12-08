@@ -358,7 +358,7 @@ where
     C: ConsistencyCheck<A>,
 {
     let mut cong = RightCongruence::new(conflicts.alphabet().clone());
-    let initial = cong.initial();
+    let initial = cong.add_state((vec![], ()));
     let threshold = conflicts.threshold();
 
     // We maintain a set of missing transitions and go through them in order of creation for the states and in order
@@ -370,11 +370,12 @@ where
         .collect();
     'outer: while let Some((source, sym)) = queue.pop_front() {
         trace!(
-            "Trying to add transition from {} on {}",
+            "Trying to add transition from {} on {}, cong size is {}",
             cong.state_color(source)
                 .expect("Every state must be colored!")
                 .blue(),
-            sym.show().blue()
+            sym.show().blue(),
+            cong.size(),
         );
 
         // FIXME: This is a hack to avoid lifetime issues, find a better way...

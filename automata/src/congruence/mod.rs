@@ -153,7 +153,7 @@ impl<A: Alphabet, Q: Color, C: Color> Pointed for RightCongruence<A, Q, C> {
     }
 }
 
-impl<A: Alphabet, Q: Color + Default, C: Color> Sproutable for RightCongruence<A, Q, C> {
+impl<A: Alphabet, Q: Color, C: Color> Sproutable for RightCongruence<A, Q, C> {
     fn add_state<X: Into<crate::ts::StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
         self.ts.add_state(color.into())
     }
@@ -168,7 +168,6 @@ impl<A: Alphabet, Q: Color + Default, C: Color> Sproutable for RightCongruence<A
 
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
         let mut ts = DTS::new_for_alphabet(alphabet);
-        let _initial = ts.add_state(ColoredClass::new(Class::epsilon(), Q::default()));
         Self { ts }
     }
 

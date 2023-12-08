@@ -110,7 +110,12 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for NTS<A, Q, C> {
     }
 
     fn set_state_color<X: Into<StateColor<Self>>>(&mut self, index: Self::StateIndex, color: X) {
-        assert!(index < self.states.len());
+        if index >= self.states.len() {
+            panic!(
+                "Index {index} is out of bounds, there are only {} states",
+                self.states.len()
+            );
+        }
         self.states[index].color = color.into();
     }
 
@@ -308,6 +313,12 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for NTS<A, Q, C> {
     }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
+        if state >= self.states.len() {
+            panic!(
+                "index {state} is out of bounds, there are only {} states",
+                self.states.len()
+            );
+        }
         assert!(state < self.states.len());
         self.states.get(state).map(|x| x.color.clone())
     }

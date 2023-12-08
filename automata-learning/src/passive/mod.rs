@@ -4,7 +4,7 @@ use automata::{
     ts::{dot::MightDecorateDotTransition, operations::MapStateColor, IndexedAlphabet},
 };
 use owo_colors::OwoColorize;
-use tracing::trace;
+use tracing::{debug, trace};
 
 /// Contains definitions for samples, which are collections of positive and
 /// negative example words.
@@ -112,20 +112,26 @@ pub fn dpa_rpni(sample: &OmegaSample<Simple, bool>) -> DPA<Simple, (), MealyMach
     let alphabet = mm.alphabet().clone();
     let oracle = MealyOracle::new(mm, Some(0));
 
+    let start = std::time::Instant::now();
     let learned = LStar::for_mealy(alphabet, oracle).infer();
+    debug!(
+        "Learning representation of DPA with LStar took {}ms",
+        start.elapsed().as_millis()
+    );
     learned.into_dpa()
 }
 
 #[cfg(test)]
 mod tests {
     use automata::prelude::*;
+    use tracing::info;
     use tracing_test::traced_test;
 
     use crate::passive::dpa_rpni;
 
     use super::{sample, OmegaSample};
 
-    #[test]
+    #[test_log::test]
     fn infer_precise_dpa_inf_aa() {
         let alphabet = alphabet!(simple 'a', 'b', 'c');
         let sample = sample! {alphabet; pos "a", "aab", "aaab", "bbaa", "aca", "caa", "abca", "baac"; neg "c", "b", "bc", "abc", "cba", "ac", "ba"};
@@ -133,10 +139,6 @@ mod tests {
         let t = std::time::Instant::now();
         let dpa = super::infer_precise_dpa(&sample).into_dpa();
         let full_duration = t.elapsed().as_millis();
-        println!(
-            "{}",
-            dpa.build_transition_table(|q, c| format!("{}|{:?}", q, c))
-        );
 
         let expected = [
             (upw!("a"), true),
@@ -153,10 +155,9 @@ mod tests {
         let dpa = dpa_rpni(&sample);
         let paper_duration = t.elapsed().as_millis();
 
-        println!(
+        info!(
             "Full construction took {full_duration}ms, paper construction took {paper_duration}ms"
         );
-        dpa.display_rendered();
         for (w, c) in expected {
             let b = dpa.accepts_omega(&w);
             assert_eq!(b, c, "{:?} is classified {b}, expected {c}", w);

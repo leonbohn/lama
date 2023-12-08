@@ -241,10 +241,6 @@ pub trait Congruence: Deterministic + Pointed {
         let mut map = Map::default();
 
         for state in self.state_indices() {
-            if self.initial() == state {
-                map.insert(state, cong.initial());
-                continue;
-            }
             map.insert(state, cong.add_state(Class::epsilon()));
         }
 

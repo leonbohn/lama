@@ -471,7 +471,7 @@ mod tests {
     fn lstar_word_len_mod_k() {
         let alphabet = Simple::from_iter(vec!['a', 'b']);
 
-        for k in (30..=50) {
+        for k in (50..=100) {
             let time_start = std::time::Instant::now();
             let oracle = WordLenModk(alphabet.clone(), k);
             let mut lstar = super::LStar::for_moore(alphabet.clone(), oracle);
