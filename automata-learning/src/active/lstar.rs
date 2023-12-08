@@ -3,7 +3,7 @@ use std::{cell::RefCell, fmt::Debug};
 use automata::{prelude::*, word::Concat, Map, Set};
 use fixedbitset::FixedBitSet;
 use itertools::Itertools;
-use tracing::{info, trace};
+use tracing::{debug, info, trace};
 
 use super::oracle::LStarOracle;
 
@@ -68,8 +68,8 @@ impl<T: LStarOracle<DFA>> LStar<DFA, T> {
 }
 
 impl<T: LStarOracle<MealyMachine<Simple>>> LStar<MealyMachine<Simple>, T> {
-    pub fn mealy(alphabet: Simple, oracle: T) -> MealyMachine<Simple> {
-        Self::new(alphabet, oracle).infer()
+    pub fn mealy(oracle: T) -> MealyMachine<Simple> {
+        Self::new(oracle.alphabet(), oracle).infer()
     }
     pub fn for_mealy(alphabet: Simple, oracle: T) -> LStar<MealyMachine<Simple>, T> {
         Self::new(alphabet, oracle)
@@ -224,6 +224,8 @@ impl<D: LStarHypothesis, T: LStarOracle<D>> LStar<D, T> {
     }
 
     fn hypothesis(&self) -> D {
+        let start = std::time::Instant::now();
+
         let mut ts: DTS<_, _, _> = DTS::new_for_alphabet(self.alphabet.clone());
         let mut state_map = Map::default();
         let mut observations = Map::default();
@@ -255,6 +257,9 @@ impl<D: LStarHypothesis, T: LStarOracle<D>> LStar<D, T> {
                 assert!(added.is_none());
             }
         }
+
+        let duration = start.elapsed().as_micros();
+        debug!("Building hypothesis took {duration} microseconds");
 
         D::from_transition_system(ts, *state_map.get(&vec![]).unwrap())
     }
@@ -315,6 +320,8 @@ impl<D: LStarHypothesis, T: LStarOracle<D>> LStar<D, T> {
     }
 
     fn rows_to_promote(&self) -> Set<Word<D>> {
+        let start = std::time::Instant::now();
+
         let known = automata::Set::from_iter(self.base.iter().map(|b| {
             self.table.get(b).unwrap_or_else(|| {
                 panic!(
@@ -334,6 +341,11 @@ impl<D: LStarHypothesis, T: LStarOracle<D>> LStar<D, T> {
                 }
             }
         }
+
+        debug!(
+            "Finding rows to promote took {} microseconds",
+            start.elapsed().as_micros()
+        );
         out
     }
 }
@@ -367,6 +379,7 @@ impl<D: LStarHypothesis, T: LStarOracle<D>> std::fmt::Debug for LStar<D, T> {
 #[cfg(test)]
 mod tests {
     use automata::prelude::*;
+    use oracle::MealyOracle;
     use owo_colors::OwoColorize;
     use tracing_test::traced_test;
 
@@ -463,7 +476,6 @@ mod tests {
     }
 
     #[test]
-    #[traced_test]
     fn lstar_even_a_even_b() {
         let alphabet = Simple::from_iter(vec!['a', 'b']);
         let mut oracle = ModkAmodlB(alphabet.clone());
@@ -499,7 +511,7 @@ mod tests {
         dfa
     }
 
-    #[test]
+    #[test_log::test]
     fn lstar_dfa() {
         let oracle = DFAOracle::new(test_dfa());
         let dfa = LStar::dfa(oracle);
@@ -511,8 +523,32 @@ mod tests {
         }
     }
 
+    #[test_log::test]
+    fn lstar_mealy() {
+        let mm = NTS::builder()
+            .default_color(())
+            .with_transitions([
+                (0, 'a', 0, 0),
+                (0, 'b', 1, 1),
+                (0, 'c', 2, 2),
+                (1, 'a', 0, 1),
+                (1, 'b', 1, 0),
+                (1, 'c', 2, 1),
+                (2, 'a', 0, 0),
+                (2, 'b', 1, 1),
+                (2, 'c', 3, 0),
+            ])
+            .deterministic()
+            .with_initial(0)
+            .into_mealy();
+        let oracle = MealyOracle::new(mm.clone(), None);
+
+        let learned = LStar::mealy(oracle);
+
+        assert_eq!(learned.size(), 3);
+    }
+
     #[test]
-    #[traced_test]
     fn moore_vs_mealy() {
         let alphabet = alphabet!(simple 'a', 'b');
         let classified_words = [
