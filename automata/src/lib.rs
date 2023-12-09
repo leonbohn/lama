@@ -85,7 +85,7 @@ pub mod word;
 /// Module that contains definitions for dealing with mappings.
 pub mod mapping;
 
-mod algorithms;
+pub mod algorithms;
 
 #[feature(hoa)]
 pub mod hoa;
@@ -232,6 +232,12 @@ impl<I: Hash + Eq> Partition<I> {
                 .map(|it| it.into_iter().collect::<Set<_>>())
                 .collect(),
         )
+    }
+}
+
+impl<I: Hash + Eq> From<Vec<Set<I>>> for Partition<I> {
+    fn from(value: Vec<Set<I>>) -> Self {
+        Self(value)
     }
 }
 

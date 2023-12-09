@@ -14,6 +14,8 @@ pub struct MealyMachine<A = Simple, C = usize, Ts = WithInitial<DTS<A, NoColor, 
 
 pub type IntoMealyMachine<Ts> =
     MealyMachine<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::EdgeColor, Ts>;
+pub type AsMealyMachine<Ts> =
+    MealyMachine<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::EdgeColor>;
 
 impl<Ts: MealyLike + Deterministic> IntoMealyMachine<Ts> {
     pub fn restricted_inequivalence<
@@ -390,6 +392,10 @@ macro_rules! impl_mealy_automaton {
 /// Implemented by objects which can be viewed as a MealyMachine, i.e. a finite transition system
 /// which has outputs of type usize on its edges.
 pub trait MealyLike: Deterministic + Pointed {
+    fn minimized(&self) -> AsMealyMachine<Self> {
+        crate::algorithms::mealy_partition_refinement(self)
+    }
+
     fn mealy_bisimilar<M: MealyLike<Alphabet = Self::Alphabet, EdgeColor = Self::EdgeColor>>(
         &self,
         other: M,
@@ -405,6 +411,15 @@ pub trait MealyLike: Deterministic + Pointed {
     /// Self::EdgeColoronsumes `self`, returning a [`MealyMachine`] that uses the underlying transition system.
     fn into_mealy(self) -> MealyMachine<Self::Alphabet, Self::EdgeColor, Self> {
         MealyMachine::from(self)
+    }
+
+    fn collect_mealy(self) -> AsMealyMachine<Self> {
+        let initial = self.initial();
+        let ts = self.erase_state_colors().collect_with_initial();
+        MealyMachine {
+            ts,
+            _q: PhantomData,
+        }
     }
 
     /// Attempts to run the given finite word in `self`, returning the color of the last transition that

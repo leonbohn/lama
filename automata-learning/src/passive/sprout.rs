@@ -455,7 +455,6 @@ pub(crate) mod tests {
         Class, Pointed, RightCongruence, TransitionSystem,
     };
     use itertools::Itertools;
-    use tracing_test::traced_test;
 
     use crate::passive::{sample::OmegaSample, sprout::ConflictRelation, Sample};
 

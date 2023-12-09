@@ -34,10 +34,10 @@ pub struct Sample<A: Alphabet, W: LinearWord<A::Symbol> + Hash, C: Color = bool>
 
 /// Type alias for samples over the alphabet `A`, containing finite words which are classified with color `C`,
 /// which defaults to `bool`.
-pub type FiniteSample<A, C = bool> = Sample<A, Vec<<A as Alphabet>::Symbol>, C>;
+pub type FiniteSample<A = Simple, C = bool> = Sample<A, Vec<<A as Alphabet>::Symbol>, C>;
 /// Type alias for samples over alphabet `A` which contain infinite/omega words that are classified with `C`,
 /// which defaults to `bool`.
-pub type OmegaSample<A, C = bool> = Sample<A, Reduced<<A as Alphabet>::Symbol>, C>;
+pub type OmegaSample<A = Simple, C = bool> = Sample<A, Reduced<<A as Alphabet>::Symbol>, C>;
 
 impl<A: Alphabet> OmegaSample<A> {
     pub fn prefix_tree(&self) -> RightCongruence<A> {
@@ -145,7 +145,6 @@ mod tests {
     use automata::{prelude::*, ts::finite::ReachedColor, word::LinearWord};
     use itertools::Itertools;
     use tracing::info;
-    use tracing_test::traced_test;
 
     use crate::passive::Sample;
 

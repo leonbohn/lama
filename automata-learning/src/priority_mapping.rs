@@ -12,7 +12,7 @@ use automata::{
 
 /// A priority mapping is essentially a [`crate::MealyMachine`], i.e. it reads
 /// finite words and ouptuts a priority (which in this case is a `usize`).
-pub type PriorityMapping<A = Simple> = RightCongruence<A, (), usize>;
+pub type PriorityMapping<A = Simple> = MealyMachine<A, usize>;
 
 /// Stores information on classes/states of a [`RightCongruence`]. This may be
 /// extended in the futuer, but for now it simply stores whether a class c is

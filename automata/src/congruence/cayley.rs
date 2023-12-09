@@ -276,12 +276,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use tracing_test::traced_test;
 
     use crate::{tests::wiki_dfa, ts::ToDot};
 
     #[test]
-    #[traced_test]
     fn right_cayley_graph() {
         let dfa = wiki_dfa();
         let accumulating_cayley = super::Cayley::new_reducing(&dfa);

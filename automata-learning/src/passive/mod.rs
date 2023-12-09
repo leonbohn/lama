@@ -121,11 +121,16 @@ pub fn dpa_rpni(sample: &OmegaSample<Simple, bool>) -> DPA<Simple, (), MealyMach
     learned.into_dpa()
 }
 
+fn characterize_dpa(dpa: DPA) -> OmegaSample {
+    let cong = dpa.prefix_congruence();
+
+    todo!()
+}
+
 #[cfg(test)]
 mod tests {
     use automata::prelude::*;
     use tracing::info;
-    use tracing_test::traced_test;
 
     use crate::passive::dpa_rpni;
 

@@ -60,7 +60,7 @@ impl<D: DPALike> IntoDPA<D> {
         self.map_edge_colors(|c| c + 1).collect_dpa()
     }
 
-    fn prefix_congruence(&self) -> RightCongruence<D::Alphabet> {
+    pub fn prefix_congruence(&self) -> RightCongruence<D::Alphabet> {
         let mut it = self.reachable_state_indices();
         let fst = it.next();
         assert_eq!(fst, Some(self.initial()));

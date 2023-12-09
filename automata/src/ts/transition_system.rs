@@ -111,8 +111,29 @@ pub trait TransitionSystem: Sized {
 
     fn alphabet(&self) -> &Self::Alphabet;
 
+    fn symbols(&self) -> <Self::Alphabet as Alphabet>::Universe<'_> {
+        self.alphabet().universe()
+    }
+
+    fn state_indices_vec(&self) -> Vec<Self::StateIndex> {
+        self.state_indices().collect()
+    }
+
     /// Returns an iterator over the state indices of `self`.
     fn state_indices(&self) -> Self::StateIndices<'_>;
+
+    fn make_expression(&self, sym: SymbolOf<Self>) -> ExpressionOf<Self> {
+        <Self::Alphabet as Alphabet>::expression(sym)
+    }
+
+    fn edge_colors(&self) -> impl Iterator<Item = Self::EdgeColor> {
+        self.state_indices()
+            .flat_map(|q| {
+                self.edges_from(q)
+                    .expect("should return iterator for state that exists")
+            })
+            .map(|t| t.color())
+    }
 
     /// Returns an iterator over the transitions that start in the given `state`. If the state does
     /// not exist, `None` is returned.
@@ -1043,7 +1064,6 @@ impl<'a, Ts: TransitionSystem> DeterministicEdgesFrom<'a, Ts> {
 }
 #[cfg(test)]
 mod tests {
-    use tracing_test::traced_test;
 
     use super::TransitionSystem;
     use crate::{
@@ -1064,7 +1084,6 @@ mod tests {
     }
 
     #[test]
-    #[traced_test]
     fn run() {
         let mut ts = MealyTS::new(alphabet::Simple::from_iter(['a', 'b']));
         let s0 = ts.add_state(());

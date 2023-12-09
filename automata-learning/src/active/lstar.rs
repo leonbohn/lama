@@ -386,7 +386,6 @@ mod tests {
     use automata::prelude::*;
     use oracle::MealyOracle;
     use owo_colors::OwoColorize;
-    use tracing_test::traced_test;
 
     use crate::{
         active::{

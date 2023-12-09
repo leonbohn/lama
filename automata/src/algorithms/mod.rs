@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use crate::{prelude::*, ts::Quotient};
 
 mod partition_refinement;
+pub use partition_refinement::mealy_partition_refinement;
 use partition_refinement::partition_refinement;
 
 pub fn minimize_dfa<D: DFALike>(dfa: D) -> Quotient<D> {
