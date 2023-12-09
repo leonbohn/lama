@@ -9,7 +9,6 @@ use itertools::Itertools;
 use owo_colors::OwoColorize;
 
 use crate::{
-    algorithms::minimize_dfa,
     alphabet::{Alphabet, Symbol},
     prelude::Simple,
     prelude::*,
@@ -26,7 +25,7 @@ use crate::{
 
 #[macro_use]
 mod moore;
-pub use moore::{IntoMooreMachine, MooreLike, MooreMachine};
+pub use moore::{AsMooreMachine, IntoMooreMachine, MooreLike, MooreMachine};
 
 #[macro_use]
 mod mealy;

@@ -122,6 +122,13 @@ pub trait TransitionSystem: Sized {
     /// Returns an iterator over the state indices of `self`.
     fn state_indices(&self) -> Self::StateIndices<'_>;
 
+    fn state_indices_with_color(
+        &self,
+    ) -> impl Iterator<Item = (Self::StateIndex, Self::StateColor)> {
+        self.state_indices()
+            .map(|q| (q, self.state_color(q).expect("Every state must be colored")))
+    }
+
     fn make_expression(&self, sym: SymbolOf<Self>) -> ExpressionOf<Self> {
         <Self::Alphabet as Alphabet>::expression(sym)
     }

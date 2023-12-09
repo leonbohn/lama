@@ -392,7 +392,7 @@ macro_rules! impl_mealy_automaton {
 /// Implemented by objects which can be viewed as a MealyMachine, i.e. a finite transition system
 /// which has outputs of type usize on its edges.
 pub trait MealyLike: Deterministic + Pointed {
-    fn minimized(&self) -> AsMealyMachine<Self> {
+    fn mealy_minimized(&self) -> AsMealyMachine<Self> {
         crate::algorithms::mealy_partition_refinement(self)
     }
 
@@ -414,7 +414,6 @@ pub trait MealyLike: Deterministic + Pointed {
     }
 
     fn collect_mealy(self) -> AsMealyMachine<Self> {
-        let initial = self.initial();
         let ts = self.erase_state_colors().collect_with_initial();
         MealyMachine {
             ts,

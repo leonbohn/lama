@@ -8,8 +8,10 @@ use itertools::Itertools;
 use tracing::{debug, trace};
 
 use crate::{
-    automata::AsMealyMachine, prelude::*, ts::transition_system::IsTransition, Alphabet, Map,
-    Partition, Set,
+    automata::{AsMealyMachine, AsMooreMachine},
+    prelude::*,
+    ts::transition_system::IsTransition,
+    Alphabet, Map, Partition, Set,
 };
 
 pub fn mealy_partition_refinement<M: MealyLike>(mm: M) -> AsMealyMachine<M> {
@@ -60,10 +62,9 @@ pub fn mealy_partition_refinement<M: MealyLike>(mm: M) -> AsMealyMachine<M> {
     }
 
     debug!(
-        "Partition refinement execution took {} microseconds",
+        "Mealy partition refinement execution took {} microseconds",
         start.elapsed().as_micros()
     );
-
     trace!(
         "Building quotient with partition {{{}}}",
         partition
@@ -89,28 +90,29 @@ pub fn mealy_partition_refinement<M: MealyLike>(mm: M) -> AsMealyMachine<M> {
     out
 }
 
-pub fn partition_refinement<D: DFALike>(dfa: D) -> Partition<D::StateIndex> {
-    let accepting = dfa.accepting_states().collect::<Set<_>>();
-    let rejecting = dfa.rejecting_states().collect::<Set<_>>();
-    let mut p: Vec<_> = [rejecting, accepting]
-        .into_iter()
-        .filter(|o| !o.is_empty())
-        .collect();
-    let mut w = p.clone();
+pub fn moore_partition_refinement<D: MooreLike>(mm: D) -> AsMooreMachine<D> {
+    let start = Instant::now();
 
-    while let Some(a) = w.pop() {
-        for sym in dfa.alphabet().universe() {
-            let x = dfa
+    let mut presplit: Map<_, _> = Map::default();
+    for (q, c) in mm.state_indices_with_color() {
+        presplit.entry(c).or_insert(Set::default()).insert(q);
+    }
+    let mut partition: Vec<_> = presplit.into_values().collect();
+    let mut queue = partition.clone();
+
+    while let Some(a) = queue.pop() {
+        for sym in mm.symbols() {
+            let x = mm
                 .state_indices()
                 .filter(|q| {
-                    dfa.transition(*q, sym)
+                    mm.transition(*q, sym)
                         .map(|t| a.contains(&t.target()))
                         .unwrap_or(false)
                 })
                 .collect::<Set<_>>();
 
             let mut new_p = vec![];
-            for y in &p {
+            for y in &partition {
                 if x.intersection(y).next().is_none() || y.difference(&x).next().is_none() {
                     new_p.push(y.clone());
                     continue;
@@ -118,11 +120,11 @@ pub fn partition_refinement<D: DFALike>(dfa: D) -> Partition<D::StateIndex> {
                 let int = x.intersection(y).cloned().collect::<Set<_>>();
                 let diff = y.difference(&x).cloned().collect::<Set<_>>();
 
-                if let Some(pos) = w.iter().position(|o| o == y) {
-                    w.remove(pos);
-                    w.extend([int.clone(), diff.clone()]);
+                if let Some(pos) = queue.iter().position(|o| o == y) {
+                    queue.remove(pos);
+                    queue.extend([int.clone(), diff.clone()]);
                 } else {
-                    w.push(if int.len() <= diff.len() {
+                    queue.push(if int.len() <= diff.len() {
                         int.clone()
                     } else {
                         diff.clone()
@@ -131,25 +133,54 @@ pub fn partition_refinement<D: DFALike>(dfa: D) -> Partition<D::StateIndex> {
 
                 new_p.extend([int, diff]);
             }
-            p = new_p;
+            partition = new_p;
         }
     }
-    Partition(p)
+
+    debug!(
+        "Moore partition refinement execution took {} microseconds",
+        start.elapsed().as_micros()
+    );
+    trace!(
+        "Building quotient with partition {{{}}}",
+        partition
+            .iter()
+            .map(|set| format!("{{{}}}", set.iter().map(|c| c.to_string()).join(", ")))
+            .join(", ")
+    );
+
+    let start = Instant::now();
+
+    let out = mm
+        .quotient(partition.into())
+        .map_state_colors(|c| {
+            // assert!(c.iter().all_equal());
+            c[0].clone()
+        })
+        // TODO: Should we not get rid of the edge colors entirely?
+        .map_edge_colors(|c| c[0].clone())
+        .collect_moore();
+    debug!(
+        "Collecting into Moore machine took {} microseconds",
+        start.elapsed().as_micros()
+    );
+    out
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{alphabet::Fixed, prelude::*, tests::wiki_dfa, Partition};
 
-    use super::partition_refinement;
+    use super::moore_partition_refinement;
     use pretty_assertions::{assert_eq, assert_ne};
 
-    #[test]
-    fn partition_refinement_wiki() {
+    #[test_log::test]
+    fn partition_refinement_moore() {
         let dfa = wiki_dfa();
 
-        let p = partition_refinement(&dfa);
-        assert_eq!(p, Partition::new([vec![0, 1], vec![5], vec![2, 3, 4]]))
+        let p = moore_partition_refinement(&dfa);
+        assert_eq!(p.size(), 3);
+        assert!(p.moore_bisimilar(dfa));
     }
 
     #[test_log::test]
@@ -162,7 +193,7 @@ mod tests {
                 (1, 'b', 1, 0),
             ])
             .into_dpa(0);
-        let minimized = mm.minimized();
+        let minimized = mm.mealy_minimized();
         assert_eq!(minimized.size(), 1)
     }
 }

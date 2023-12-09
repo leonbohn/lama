@@ -34,6 +34,11 @@ pub type IntoMooreMachine<Ts> = MooreMachine<
     <Ts as TransitionSystem>::EdgeColor,
     Ts,
 >;
+pub type AsMooreMachine<Ts> = MooreMachine<
+    <Ts as TransitionSystem>::Alphabet,
+    <Ts as TransitionSystem>::StateColor,
+    <Ts as TransitionSystem>::EdgeColor,
+>;
 
 impl<A: Alphabet, Q: Color, C: Color> MooreMachine<A, Q, C> {
     /// Creates a new MooreMachine on a [`BTS`].
@@ -222,6 +227,7 @@ macro_rules! impl_moore_automaton {
         paste::paste! {
             /// See [`IntoMooreMachine`].
             pub type [< Into $name >]<Ts> = $name<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::EdgeColor, Ts>;
+            pub type [< As $name >]<Ts> = $name<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::EdgeColor>;
         }
 
         impl<A: Alphabet, C: Color>
@@ -417,6 +423,14 @@ pub trait MooreLike: Deterministic + Pointed {
             .collect()
     }
 
+    fn collect_moore(&self) -> AsMooreMachine<Self> {
+        let ts = self.collect_with_initial();
+        MooreMachine {
+            ts,
+            _q: std::marker::PhantomData,
+        }
+    }
+
     fn moore_bisimilar<M>(&self, other: M) -> bool
     where
         M: MooreLike<Alphabet = Self::Alphabet, StateColor = Self::StateColor>,
@@ -452,10 +466,8 @@ pub trait MooreLike: Deterministic + Pointed {
     fn color_or_below_dfa(&self, color: Self::StateColor) -> DFA<Self::Alphabet> {
         self.map_state_colors(|o| o <= color)
             .erase_edge_colors()
-            .minimize()
-            .erase_edge_colors()
-            .map_state_colors(|o| o.contains(&true))
-            .collect_with_initial()
+            .dfa_minimized()
+            .collect_dfa()
     }
 }
 impl<Ts: Deterministic + Pointed> MooreLike for Ts {}

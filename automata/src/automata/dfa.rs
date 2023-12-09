@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    algorithms::minimize_dfa,
+    algorithms::moore_partition_refinement,
     prelude::*,
     ts::{
         finite::ReachedColor,
@@ -10,7 +10,7 @@ use crate::{
     },
 };
 
-use super::{acceptor::FiniteWordAcceptor, StatesWithColor};
+use super::{acceptor::FiniteWordAcceptor, AsMooreMachine, StatesWithColor};
 
 impl_moore_automaton! {
     /// A deterministic finite automaton consists of a finite set of states, a finite set of input
@@ -96,8 +96,9 @@ pub trait DFALike: Deterministic<StateColor = bool> + Pointed
     }
 
     /// Minimizes `self` using Hopcroft's partition refinement algorithm.
-    fn minimize(self) -> Quotient<Self> {
-        minimize_dfa(self)
+    fn dfa_minimized(self) -> IntoDFA<AsMooreMachine<Self>> {
+        let min = moore_partition_refinement(self);
+        min.into_dfa()
     }
 
     /// Checks whether `self` is equivalent to `other`, i.e. whether the two DFAs accept
