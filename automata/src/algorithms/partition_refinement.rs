@@ -193,7 +193,7 @@ mod tests {
                 (1, 'b', 1, 0),
             ])
             .into_dpa(0);
-        let minimized = mm.mealy_minimized();
+        let minimized = mm.into_mealy().minimize();
         assert_eq!(minimized.size(), 1)
     }
 }

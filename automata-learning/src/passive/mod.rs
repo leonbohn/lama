@@ -77,7 +77,7 @@ pub fn infer_precise_dpa<A: Alphabet>(
     let forc = split.infer_forc();
     trace!("{}\n{:?}", "INFERRED FORC".bold(), forc);
 
-    let mut fwpm = FWPM::empty(&cong);
+    let mut fwpm = FWPM::empty(cong.clone());
     for (class, idx) in cong.classes() {
         let periodic_sample = split.get(idx).expect("Must exist!").to_periodic_sample();
         let annotated_prc =

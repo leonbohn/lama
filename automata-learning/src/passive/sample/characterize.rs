@@ -1,7 +1,8 @@
 use std::{
     cell::{Cell, RefCell},
     collections::{BTreeSet, VecDeque},
-    fmt::Debug,
+    fmt::{Debug, Display},
+    hash::Hash,
     sync::Arc,
 };
 
@@ -19,7 +20,7 @@ use tracing::{debug, trace};
 use crate::{
     active::{oracle::MealyOracle, LStar},
     passive::fwpm::FWPM,
-    priority_mapping::PriorityMapping,
+    priority_mapping::{CongruentPriorityMapping, PriorityMapping},
 };
 
 use super::{FiniteSample, OmegaSample, Sample};
@@ -88,17 +89,119 @@ fn right_congruence_by_omega_words<M: DPALike>(
     OmegaSample::new_omega_from_pos_neg(cong.alphabet().clone(), pos, neg)
 }
 
-fn build_priority_mapping<D: DPALike, I: IntoIterator<Item = D::StateIndex>>(
+fn for_mtr_mr_pairs<D: Deterministic + Pointed, F>(cong: D, mut f: F)
+where
+    F: FnMut(&[SymbolOf<D>], D::StateIndex, &[SymbolOf<D>], D::StateIndex),
+{
+    for mtr in cong.minimal_transition_representatives() {
+        let reached = cong
+            .reached_state_index(&mtr)
+            .expect("State must be present");
+        for (mr, idx) in cong.minimal_representatives() {
+            if reached == idx {
+                continue;
+            }
+            (f)(&mtr, reached, &mr, idx);
+        }
+    }
+}
+
+fn priority_mapping_by_omega_words<'ts, A: Alphabet>(
+    cpm: CongruentPriorityMapping<'ts, A>,
+) -> OmegaSample<A, bool> {
+    let start = std::time::Instant::now();
+
+    for_mtr_mr_pairs(cpm.mm(), |mtr, reached, mr, idx| {
+        trace!(
+            "Considering pair {}@{reached} and {}@{idx}",
+            Show::show(mtr),
+            mr.show()
+        );
+        todo!()
+    });
+
+    todo!()
+}
+
+trait StateCollection<Idx, C>: Hash + Eq + Clone {
+    fn pair_iter(&self) -> impl Iterator<Item = (Idx, C)>;
+    fn from_pair_iter(iter: impl IntoIterator<Item = (Idx, C)>) -> Self;
+    fn show(&self) -> String
+    where
+        Idx: Display,
+        C: Show,
+    {
+        format!(
+            "{{{}}}",
+            self.pair_iter()
+                .map(|(q, c)| format!("q{}|{}", q, c.show()))
+                .join(", ")
+        )
+    }
+}
+
+impl<Idx: IndexType, C: Color> StateCollection<Idx, C> for Vec<(Idx, C)> {
+    fn pair_iter(&self) -> impl Iterator<Item = (Idx, C)> {
+        self.iter().cloned()
+    }
+
+    fn from_pair_iter(iter: impl IntoIterator<Item = (Idx, C)>) -> Self {
+        iter.into_iter().collect()
+    }
+}
+
+impl<Idx: IndexType, C: Color> StateCollection<Idx, C> for BTreeSet<(Idx, C)> {
+    fn pair_iter(&self) -> impl Iterator<Item = (Idx, C)> {
+        self.iter().cloned()
+    }
+
+    fn from_pair_iter(iter: impl IntoIterator<Item = (Idx, C)>) -> Self {
+        iter.into_iter().collect()
+    }
+}
+
+fn priority_mapping_set_backed<D: DPALike, I: IntoIterator<Item = D::StateIndex>>(
     dpa: D,
     initial: I,
 ) -> MooreMachine<D::Alphabet, D::EdgeColor, D::EdgeColor> {
-    let print_state_set =
-        |set: &BTreeSet<D::StateIndex>| format!("{{{}}}", set.iter().map(|q| q.show()).join(", "));
+    let neutral_high = dpa
+        .edge_colors()
+        .max()
+        .expect("There needs to be at least one color");
+    build_generic_priority_mapping(
+        dpa,
+        initial
+            .into_iter()
+            .map(|q| (q, neutral_high))
+            .collect::<BTreeSet<_>>(),
+    )
+}
+fn priority_mapping_vec_backed<D: DPALike, I: IntoIterator<Item = D::StateIndex>>(
+    dpa: D,
+    initial: I,
+) -> MooreMachine<D::Alphabet, D::EdgeColor, D::EdgeColor> {
+    let neutral_high = dpa
+        .edge_colors()
+        .max()
+        .expect("There needs to be at least one color");
+    build_generic_priority_mapping(
+        dpa,
+        initial
+            .into_iter()
+            .map(|q| (q, neutral_high))
+            .collect::<Vec<_>>(),
+    )
+}
 
+fn build_generic_priority_mapping<D, Coll>(
+    dpa: D,
+    initial: Coll,
+) -> MooreMachine<D::Alphabet, D::EdgeColor, D::EdgeColor>
+where
+    D: DPALike,
+    Coll: StateCollection<D::StateIndex, D::EdgeColor>,
+{
     let start = std::time::Instant::now();
-
-    let mut cong = MooreMachine::new_for_alphabet(dpa.alphabet().clone());
-    let mut bimap: BiMap<usize, BTreeSet<D::StateIndex>> = BiMap::default();
 
     let neutral_high = dpa
         .edge_colors()
@@ -106,13 +209,14 @@ fn build_priority_mapping<D: DPALike, I: IntoIterator<Item = D::StateIndex>>(
         .expect("There needs to be at least one color");
     let neutral_low = dpa.edge_colors().min().unwrap();
 
-    let initial_idx = cong.add_state(neutral_high);
+    let mut cong = MooreMachine::new_for_alphabet(dpa.alphabet().clone());
+    let mut states = vec![initial];
+    let show_state = |state: &BTreeSet<(D::StateIndex, usize)>| {};
+
+    let initial_idx: usize = cong.add_state(neutral_high);
     assert_eq!(initial_idx, 0);
-    let initial_state: BTreeSet<_> = initial.into_iter().collect();
-    bimap.insert(initial_idx, initial_state);
 
     let mut iteration = 0;
-
     let mut queue = VecDeque::from_iter([initial_idx]);
     while let Some(source) = queue.pop_front() {
         iteration += 1;
@@ -120,55 +224,49 @@ fn build_priority_mapping<D: DPALike, I: IntoIterator<Item = D::StateIndex>>(
             panic!("Too many iterations");
         }
 
-        let state = bimap
-            .get_by_left(&source)
-            .expect("State must be present to have been added to the queue");
-        let color = cong.state_color(source).expect("state is present");
-        let mut to_add = vec![];
+        assert!(source < states.len(), "Wrong state index in queue");
+        let state_with_color = states.get(source).cloned().unwrap();
+        trace!(
+            "Processing state {} with signature {}",
+            owo_colors::OwoColorize::blue(&source.to_string()),
+            state_with_color.show(),
+        );
 
         'symbols: for sym in dpa.symbols() {
             // this updates a set of states
-            let (succ, c) =
-                state
-                    .iter()
-                    .fold((BTreeSet::default(), neutral_low), |(mut acc, c), q| {
-                        let t = dpa
-                            .transition(*q, sym)
-                            .expect("DPA must be deterministic and complete");
-                        acc.insert(t.target());
-                        (acc, std::cmp::max(c, t.color()))
-                    });
-            let succ_color = std::cmp::min(color, c);
-            trace!("Computed color {succ_color} as minimum of {color} and {c}");
+            let successor = Coll::from_pair_iter(state_with_color.pair_iter().map(|(q, c)| {
+                let t = dpa
+                    .transition(q, sym)
+                    .expect("DPA must be deterministic and complete");
+                (t.target(), std::cmp::min(c, t.color()))
+            }));
+            trace!("Computed successor on {}: {}", sym.show(), successor.show());
+            let max_color = successor.pair_iter().map(|(_, c)| c).max().unwrap();
 
-            if let Some(idx) = bimap.get_by_right(&succ) {
-                if cong.state_color(*idx).unwrap() == succ_color {
-                    trace!(
-                        "Adding transition {source}:{} --{}|{succ_color}--> {idx}{}",
-                        print_state_set(state),
-                        sym.show(),
-                        print_state_set(&succ)
-                    );
-                    cong.add_edge(source, dpa.make_expression(sym), *idx, succ_color);
-                    continue 'symbols;
-                }
+            if let Some(idx) = states.iter().position(|s| s == &successor) {
+                trace!("State already exists as {}", idx);
+                trace!(
+                    "Adding transition {source}:{} --{}|{max_color}--> {idx}{}",
+                    state_with_color.show(),
+                    sym.show(),
+                    successor.show()
+                );
+                cong.add_edge(source, dpa.make_expression(sym), idx, max_color);
+                continue 'symbols;
             }
 
-            let idx = cong.add_state(succ_color);
+            let idx = cong.add_state(max_color);
             trace!(
-                "Adding transition {source}:{} --{}|{succ_color}--> {idx}{}",
-                print_state_set(state),
+                "Adding transition {source}:{} --{}|{max_color}--> {idx}{}",
+                state_with_color.show(),
                 sym.show(),
-                print_state_set(&succ)
+                successor.show()
             );
-            cong.add_edge(source, dpa.make_expression(sym), idx, succ_color);
+            cong.add_edge(source, dpa.make_expression(sym), idx, max_color);
 
-            to_add.push((idx, succ));
+            assert_eq!(idx, states.len(), "Wrong state index");
+            states.push(successor);
             queue.push_back(idx);
-        }
-
-        for (idx, succ) in to_add {
-            bimap.insert(idx, succ);
         }
     }
 
@@ -202,13 +300,17 @@ pub fn actively_exchanged_words_mealy<D: MealyLike + Deterministic>(mm: D) -> Me
 #[cfg(test)]
 mod tests {
     use automata::{
-        automata::DPALike,
-        ts::{ToDot, NTS},
+        automata::{DPALike, MealyLike, MooreLike, DPA},
+        ts::{Deterministic, ToDot, NTS},
         TransitionSystem,
     };
 
-    use crate::passive::sample::characterize::{
-        build_priority_mapping, right_congruence_by_omega_words,
+    use crate::passive::{
+        fwpm::FWPM,
+        sample::characterize::{
+            build_generic_priority_mapping, priority_mapping_set_backed,
+            priority_mapping_vec_backed, right_congruence_by_omega_words,
+        },
     };
 
     #[test_log::test]
@@ -223,21 +325,34 @@ mod tests {
                 (2, 'b', 1, 0),
             ])
             .into_dpa(0);
+        mm.display_rendered().unwrap();
 
-        let pm = build_priority_mapping(&mm, mm.state_indices());
-        pm.display_rendered().unwrap();
+        let pmset = priority_mapping_set_backed(&mm, mm.state_indices());
+        let pmvec = priority_mapping_vec_backed(&mm, mm.state_indices());
+
+        let fwpm = FWPM::new(
+            mm.prefix_congruence().collect_right_congruence(),
+            [(0, pmset)].into_iter().collect(),
+        );
+        let precise = fwpm.into_precise_dpa();
+        precise.display_rendered().unwrap();
+        // pm.display_rendered().unwrap();
     }
 
-    #[test_log::test]
-    fn characterize_dpa_prefix_cong() {
-        let dpa = NTS::builder()
+    fn simple_dpa() -> DPA {
+        NTS::builder()
             .with_transitions([
                 (0, 'a', 0, 0),
                 (0, 'b', 1, 1),
                 (1, 'a', 3, 1),
                 (1, 'b', 1, 0),
             ])
-            .into_dpa(0);
+            .into_dpa(0)
+    }
+
+    #[test_log::test]
+    fn characterize_dpa_prefix_cong() {
+        let dpa = simple_dpa();
 
         assert!(dpa
             .as_ref()
@@ -249,5 +364,11 @@ mod tests {
         let cong = dpa.prefix_congruence();
         assert_eq!(cong.size(), 2);
         let sample = right_congruence_by_omega_words(cong);
+    }
+
+    #[test_log::test]
+    fn characterize_dpa_progress() {
+        let dpa = simple_dpa();
+        let cong = dpa.prefix_congruence();
     }
 }

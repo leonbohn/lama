@@ -58,6 +58,34 @@ impl<A: Alphabet, W: LinearWord<A::Symbol>> Sample<A, W, bool> {
 }
 
 impl<A: Alphabet, W: LinearWord<A::Symbol>, C: Color> Sample<A, W, C> {
+    pub fn into_joined(self, other: Sample<A, W, C>) -> Sample<A, W, C> {
+        let words = self
+            .words
+            .into_iter()
+            .chain(other.words.into_iter())
+            .collect();
+        Sample {
+            alphabet: self.alphabet,
+            words,
+        }
+    }
+
+    pub fn as_joined(&self, other: &Sample<A, W, C>) -> Sample<A, W, C>
+    where
+        W: Clone,
+    {
+        let words = self
+            .words
+            .iter()
+            .chain(other.words.iter())
+            .map(|(w, c)| (w.clone(), c.clone()))
+            .collect();
+        Sample {
+            alphabet: self.alphabet.clone(),
+            words,
+        }
+    }
+
     /// Returns a reference to the underlying alphabet.
     pub fn alphabet(&self) -> &A {
         &self.alphabet

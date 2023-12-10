@@ -14,6 +14,31 @@ use automata::{
 /// finite words and ouptuts a priority (which in this case is a `usize`).
 pub type PriorityMapping<A = Simple> = MealyMachine<A, usize>;
 
+#[derive(Debug, Clone)]
+pub struct CongruentPriorityMapping<'ts, A: Alphabet> {
+    ts: &'ts RightCongruence<A>,
+    class: usize,
+    mm: MealyMachine<A>,
+}
+
+impl<'ts, A: Alphabet> CongruentPriorityMapping<'ts, A> {
+    pub fn new(ts: &'ts RightCongruence<A>, class: usize, mm: MealyMachine<A>) -> Self {
+        Self { ts, class, mm }
+    }
+
+    pub fn cong(&self) -> &RightCongruence<A> {
+        self.ts
+    }
+
+    pub fn class(&self) -> usize {
+        self.class
+    }
+
+    pub fn mm(&self) -> &MealyMachine<A> {
+        &self.mm
+    }
+}
+
 /// Stores information on classes/states of a [`RightCongruence`]. This may be
 /// extended in the futuer, but for now it simply stores whether a class c is
 /// idempoten (meaning cc ~ c) and whether it is good (in the sense that the
@@ -119,7 +144,7 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
     /// Computes the canonic coloring on a given annotated congruence. This makes use
     /// of the dag of strongly connected components of the congruence. For more information
     /// on how the computation is done exactly, see [Section 5, Step 2](https://arxiv.org/pdf/2302.11043.pdf).
-    pub fn canonic_coloring(&self) -> MooreMachine<A, usize> {
+    pub fn canonic_coloring(&self) -> MooreMachine<A, usize, usize> {
         // we first need to decompose into sccs and mark them with the color of the
         // idempotent that it contains.
         let tjdag = self.0.tarjan_dag();
@@ -160,8 +185,12 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
         }
 
         (&self.0)
-            .erase_edge_colors()
-            .map_state_colors(move |q| {
+            .map_edge_colors_full(|_q, _e, _c, p| {
+                let scc = tjdag.get(p).expect("Must be in an SCC");
+                let info = dag.color(scc).expect("Must have worked on that SCC");
+                info.expect("Every SCC must have a color")
+            })
+            .map_state_colors(|q| {
                 let scc = tjdag.get(q).expect("Must be in an SCC");
                 let info = dag.color(scc).expect("Must have worked on that SCC");
 

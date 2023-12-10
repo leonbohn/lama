@@ -164,6 +164,26 @@ impl Show for () {
     }
 }
 
+impl<S: Show> Show for [S] {
+    fn show(&self) -> String {
+        format!(
+            "\"{}\"",
+            itertools::Itertools::join(&mut self.iter().map(|x| x.show()), "")
+        )
+    }
+
+    fn show_collection<'a, I: IntoIterator<Item = &'a Self>>(iter: I) -> String
+    where
+        Self: 'a,
+        I::IntoIter: DoubleEndedIterator,
+    {
+        format!(
+            "{{{}}}",
+            itertools::Itertools::join(&mut iter.into_iter().map(|x| x.show()), ", ")
+        )
+    }
+}
+
 impl<S: Show> Show for Vec<S> {
     fn show(&self) -> String {
         S::show_collection(self.iter())

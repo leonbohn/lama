@@ -264,6 +264,10 @@ impl<A: Alphabet, const N: usize> TransitionSystem for PreciseDPA<A, N> {
     ) -> Option<Self::EdgesFromIter<'_>> {
         Some(PreciseDPAEdgesFrom::new(self, state.to_index(self)?))
     }
+
+    fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
+        Some(self.initial())
+    }
 }
 
 impl<A: Alphabet, const N: usize> Deterministic for PreciseDPA<A, N> {
@@ -396,8 +400,8 @@ fn padding_universal_dfa<A: Alphabet>(alphabet: &A) -> DFA<A> {
     dfa
 }
 
-impl<'a, A: Alphabet, const N: usize> From<FWPM<'a, A>> for PreciseDPA<A, N> {
-    fn from(value: FWPM<'a, A>) -> Self {
+impl<A: Alphabet, const N: usize> From<FWPM<A>> for PreciseDPA<A, N> {
+    fn from(value: FWPM<A>) -> Self {
         let leading = value.leading().clone();
         let padding_dfa = padding_universal_dfa(leading.alphabet());
         let mut prc_dfas = Vec::with_capacity(leading.size());

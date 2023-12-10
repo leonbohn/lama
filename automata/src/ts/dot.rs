@@ -311,7 +311,7 @@ where
     fn header(&self) -> String {
         [
             "fontname=\"Helvetica,Arial,sans-serif\"\nrankdir=LR".to_string(),
-            "node [shape=circle]".into(),
+            "node [shape=box]".into(),
         ]
         .join("\n")
     }

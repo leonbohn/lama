@@ -18,6 +18,10 @@ pub type AsMealyMachine<Ts> =
     MealyMachine<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::EdgeColor>;
 
 impl<Ts: MealyLike + Deterministic> IntoMealyMachine<Ts> {
+    pub fn minimize(&self) -> AsMealyMachine<Ts> {
+        crate::algorithms::mealy_partition_refinement(self)
+    }
+
     pub fn restricted_inequivalence<
         O: MealyLike<Alphabet = Ts::Alphabet, EdgeColor = Ts::EdgeColor> + Deterministic,
     >(
@@ -392,10 +396,6 @@ macro_rules! impl_mealy_automaton {
 /// Implemented by objects which can be viewed as a MealyMachine, i.e. a finite transition system
 /// which has outputs of type usize on its edges.
 pub trait MealyLike: Deterministic + Pointed {
-    fn mealy_minimized(&self) -> AsMealyMachine<Self> {
-        crate::algorithms::mealy_partition_refinement(self)
-    }
-
     fn mealy_bisimilar<M: MealyLike<Alphabet = Self::Alphabet, EdgeColor = Self::EdgeColor>>(
         &self,
         other: M,
