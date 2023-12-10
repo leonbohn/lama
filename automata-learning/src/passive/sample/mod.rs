@@ -70,6 +70,10 @@ impl<A: Alphabet, W: LinearWord<A::Symbol>, C: Color> Sample<A, W, C> {
         }
     }
 
+    pub fn append(&mut self, other: Sample<A, W, C>) {
+        self.words.extend(other.words);
+    }
+
     pub fn as_joined(&self, other: &Sample<A, W, C>) -> Sample<A, W, C>
     where
         W: Clone,

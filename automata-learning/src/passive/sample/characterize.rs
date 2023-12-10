@@ -1,4 +1,5 @@
 use std::{
+    borrow::Borrow,
     cell::{Cell, RefCell},
     collections::{BTreeSet, VecDeque},
     fmt::{Debug, Display},
@@ -7,15 +8,15 @@ use std::{
 };
 
 use automata::{
-    automata::IntoDPA,
+    automata::{IntoDPA, OmegaAcceptanceCondition},
     prelude::*,
     ts::{reachable::ReachableStateIndices, Quotient},
     word::Concat,
-    Set,
+    Map, Set,
 };
 use bimap::BiMap;
 use itertools::Itertools;
-use tracing::{debug, trace};
+use tracing::{debug, info, trace};
 
 use crate::{
     active::{oracle::MealyOracle, LStar},
@@ -26,8 +27,31 @@ use crate::{
 use super::{FiniteSample, OmegaSample, Sample};
 type DFASample<D> = FiniteSample<<D as TransitionSystem>::Alphabet, bool>;
 
+fn dpa<M: DPALike>(dpa: IntoDPA<M>) -> OmegaSample<M::Alphabet, bool>
+where
+    M: Clone,
+{
+    let start = std::time::Instant::now();
+    let quot = dpa.prefix_congruence();
+    let cong = quot.collect_right_congruence();
+    let mut sample = right_congruence_by_omega_words(&quot);
+
+    for (i, class) in quot.partition().iter().enumerate() {
+        let class_pm = priority_mapping_set_backed(&dpa, class);
+        let cpm = CongruentPriorityMapping::new(&cong, i, class_pm.collect_mealy());
+        let class_sample = priority_mapping_by_omega_words(cpm);
+        sample.append(class_sample);
+    }
+
+    info!(
+        "Computation of right congruence by prefix words took {}μs",
+        start.elapsed().as_micros()
+    );
+    sample
+}
+
 fn right_congruence_by_omega_words<M: DPALike>(
-    cong: Quotient<IntoDPA<M>>,
+    cong: &Quotient<M>,
 ) -> OmegaSample<M::Alphabet, bool> {
     let start = std::time::Instant::now();
 
@@ -59,14 +83,15 @@ fn right_congruence_by_omega_words<M: DPALike>(
 
             let suffix = cong
                 .ts()
+                .as_dpa()
                 .separate(p, q)
                 .expect("Separation must be possible");
 
             let w1 = Concat(&mtr, &suffix).normalized();
             let w2 = Concat(&mr, suffix).normalized();
 
-            let b1 = cong.ts().accepts_omega(&w1);
-            let b2 = cong.ts().accepts_omega(&w2);
+            let b1 = cong.ts().as_dpa().accepts_omega(&w1);
+            let b2 = cong.ts().as_dpa().accepts_omega(&w2);
             assert_ne!(b1, b2);
 
             if b1 {
@@ -111,7 +136,21 @@ fn priority_mapping_by_omega_words<'ts, A: Alphabet>(
 ) -> OmegaSample<A, bool> {
     let start = std::time::Instant::now();
 
+    let idempotents = cpm.mm().minimal_representatives().filter_map(|(rep, q)| {
+        let Some(reached) = cpm.mm().reached_state_index_from(&rep, q) else {
+            panic!("Input must be deterministic");
+        };
+        if q == reached {
+            Some(rep)
+        } else {
+            None
+        }
+    });
+
     for_mtr_mr_pairs(cpm.mm(), |mtr, reached, mr, idx| {
+        if reached == idx || mtr == mr {
+            return; // from closure
+        }
         trace!(
             "Considering pair {}@{reached} and {}@{idx}",
             Show::show(mtr),
@@ -160,7 +199,7 @@ impl<Idx: IndexType, C: Color> StateCollection<Idx, C> for BTreeSet<(Idx, C)> {
     }
 }
 
-fn priority_mapping_set_backed<D: DPALike, I: IntoIterator<Item = D::StateIndex>>(
+fn priority_mapping_set_backed<D: DPALike, X: Borrow<D::StateIndex>, I: IntoIterator<Item = X>>(
     dpa: D,
     initial: I,
 ) -> MooreMachine<D::Alphabet, D::EdgeColor, D::EdgeColor> {
@@ -172,7 +211,7 @@ fn priority_mapping_set_backed<D: DPALike, I: IntoIterator<Item = D::StateIndex>
         dpa,
         initial
             .into_iter()
-            .map(|q| (q, neutral_high))
+            .map(|q| (*q.borrow(), neutral_high))
             .collect::<BTreeSet<_>>(),
     )
 }
@@ -351,7 +390,7 @@ mod tests {
     }
 
     #[test_log::test]
-    fn characterize_dpa_prefix_cong() {
+    fn characterize_prefix_cong() {
         let dpa = simple_dpa();
 
         assert!(dpa
@@ -363,12 +402,14 @@ mod tests {
 
         let cong = dpa.prefix_congruence();
         assert_eq!(cong.size(), 2);
-        let sample = right_congruence_by_omega_words(cong);
+        let sample = right_congruence_by_omega_words(&cong);
     }
 
     #[test_log::test]
-    fn characterize_dpa_progress() {
+    fn characterize_dpa() {
         let dpa = simple_dpa();
-        let cong = dpa.prefix_congruence();
+        dpa.display_rendered().unwrap();
+        let sample = super::dpa(dpa);
+        println!("{:?}", sample);
     }
 }

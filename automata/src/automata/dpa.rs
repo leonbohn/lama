@@ -77,7 +77,7 @@ impl<D: DPALike> IntoDPA<D> {
             .witness_inequivalence(&self.with_initial(q).into_dpa())
     }
 
-    pub fn prefix_congruence(self) -> Quotient<Self> {
+    pub fn prefix_congruence(&self) -> Quotient<&Self> {
         let mut it = self.reachable_state_indices();
         let fst = it.next();
         assert_eq!(fst, Some(self.initial()));

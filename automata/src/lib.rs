@@ -236,6 +236,15 @@ impl Show for bool {
 #[autoimpl(Deref using self.0)]
 pub struct Partition<I: Hash + Eq>(Vec<Set<I>>);
 
+impl<'a, I: Hash + Eq> IntoIterator for &'a Partition<I> {
+    type Item = &'a Set<I>;
+    type IntoIter = std::slice::Iter<'a, Set<I>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
 impl<I: Hash + Eq> PartialEq for Partition<I> {
     fn eq(&self, other: &Self) -> bool {
         self.len() == other.len() && self.iter().all(|o| other.contains(o))
