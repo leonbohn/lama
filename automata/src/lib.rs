@@ -224,6 +224,10 @@ impl<I: Hash + Eq> PartialEq for Partition<I> {
 impl<I: Hash + Eq> Eq for Partition<I> {}
 
 impl<I: Hash + Eq> Partition<I> {
+    pub fn size(&self) -> usize {
+        self.0.len()
+    }
+
     /// Builds a new congruence relation from an iterator that yields iterators
     /// which yield elements of type `I`.
     pub fn new<X: IntoIterator<Item = I>, Y: IntoIterator<Item = X>>(iter: Y) -> Self {

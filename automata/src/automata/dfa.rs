@@ -22,6 +22,31 @@ impl_moore_automaton! {
     DFA, bool
 }
 
+impl<D: DFALike> IntoDFA<D> {
+    fn separate<X, Y>(&self, left: X, right: Y) -> Option<Vec<SymbolOf<Self>>>
+    where
+        X: Indexes<Self>,
+        Y: Indexes<Self>,
+    {
+        let q = left.to_index(self)?;
+        let p = right.to_index(self)?;
+        if p == q {
+            return None;
+        }
+
+        self.with_initial(q)
+            .ts_product(self.with_initial(p))
+            .minimal_representatives()
+            .find_map(|(rep, ProductIndex(l, r))| {
+                if self.state_color(l).unwrap() != self.state_color(r).unwrap() {
+                    Some(rep)
+                } else {
+                    None
+                }
+            })
+    }
+}
+
 impl<Ts> FiniteWordAcceptor<SymbolOf<Self>> for DFA<Ts::Alphabet, Ts::EdgeColor, Ts>
 where
     Ts: DFALike,

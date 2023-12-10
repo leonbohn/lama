@@ -142,12 +142,13 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
     }
 
     pub fn maximal_word(&self) -> Option<Vec<SymbolOf<Ts>>> {
-        self.maximal_word_from(*self.states.first()?)
+        self.maximal_loop_from(*self.states.first()?)
     }
 
     /// Attempts to compute a maximal word (i.e. a word visiting all states in the scc). If such a
     /// word exists, it is returned, otherwise the function returns `None`.
-    pub fn maximal_word_from(&self, from: Ts::StateIndex) -> Option<Vec<SymbolOf<Ts>>> {
+    /// This ensures that the word ends back in the state that it started from.
+    pub fn maximal_loop_from(&self, from: Ts::StateIndex) -> Option<Vec<SymbolOf<Ts>>> {
         assert!(self.contains(&from));
         let ts = self.ts;
         debug_assert!(!self.is_empty());
@@ -212,6 +213,13 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
                 );
                 current = q;
             }
+        }
+
+        if current != from {
+            word.extend(
+                ts.word_from_to(current, from)
+                    .expect("they are in the same scc!"),
+            );
         }
 
         Some(word)

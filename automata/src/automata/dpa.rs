@@ -60,7 +60,24 @@ impl<D: DPALike> IntoDPA<D> {
         self.map_edge_colors(|c| c + 1).collect_dpa()
     }
 
-    pub fn prefix_congruence(&self) -> RightCongruence<D::Alphabet> {
+    pub fn separate<X, Y>(&self, left: X, right: Y) -> Option<Reduced<SymbolOf<Self>>>
+    where
+        X: Indexes<Self>,
+        Y: Indexes<Self>,
+    {
+        let p = left.to_index(self)?;
+        let q = right.to_index(self)?;
+
+        if p == q {
+            return None;
+        }
+
+        self.with_initial(p)
+            .into_dpa()
+            .witness_inequivalence(&self.with_initial(q).into_dpa())
+    }
+
+    pub fn prefix_congruence(self) -> Quotient<Self> {
         let mut it = self.reachable_state_indices();
         let fst = it.next();
         assert_eq!(fst, Some(self.initial()));
@@ -91,9 +108,28 @@ impl<D: DPALike> IntoDPA<D> {
             "size mismatch!"
         );
 
-        self.as_ref()
-            .quotient(Partition::new(partition))
-            .into_right_congruence(&self)
+        self.quotient(Partition::new(partition))
+    }
+
+    pub fn witness_color(&self, color: D::EdgeColor) -> Option<Reduced<SymbolOf<Self>>> {
+        let restrict = self.edge_color_restricted(color, usize::MAX);
+        let sccs = restrict.sccs();
+        for scc in sccs.iter() {
+            if scc.is_transient() {
+                continue;
+            }
+            if scc.interior_edge_colors().contains(&color) {
+                let (q, rep) = scc
+                    .minimal_representative()
+                    .as_ref()
+                    .expect("We know this is reachable");
+                let cycle = scc
+                    .maximal_loop_from(*q)
+                    .expect("This thing is non-transient");
+                return Some(Reduced::ultimately_periodic(rep, cycle));
+            }
+        }
+        None
     }
 
     pub fn witness_colors<O: DPALike<Alphabet = D::Alphabet>>(
@@ -120,7 +156,7 @@ impl<D: DPALike> IntoDPA<D> {
                     continue;
                 };
                 let cycle = scc
-                    .maximal_word_from(*mr)
+                    .maximal_loop_from(*mr)
                     .expect("This thing is non-transient");
                 return Some(Reduced::ultimately_periodic(spoke, cycle));
             }
@@ -307,7 +343,7 @@ mod tests {
                 (1, 'b', 0, 1),
             ])
             .into_dpa(0);
-        let cong = dpa.prefix_congruence();
+        let cong = dpa.prefix_congruence().collect_right_congruence();
         assert_eq!(cong.size(), 2);
         assert_eq!(cong.initial(), cong.reached("aa").unwrap());
         assert!(cong.congruent("", "aa"));

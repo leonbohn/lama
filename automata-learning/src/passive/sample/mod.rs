@@ -123,7 +123,12 @@ where
     C: Color + Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Sample with alphabet {:?}", self.alphabet)?;
+        write!(
+            f,
+            "Sample with alphabet {:?} and {} words",
+            self.alphabet,
+            self.words.len()
+        )?;
         for (word, color) in &self.words {
             write!(f, "\n\t{:?}\t{:?}", color, word)?;
         }

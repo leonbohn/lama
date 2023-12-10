@@ -64,6 +64,18 @@ pub trait Deterministic: TransitionSystem {
             .find_map(|(rep, p)| if p == q { Some(rep) } else { None })
     }
 
+    fn minimal_transition_representatives(&self) -> impl Iterator<Item = Vec<SymbolOf<Self>>>
+    where
+        Self: Pointed,
+    {
+        self.minimal_representatives()
+            .flat_map(|(rep, _)| {
+                self.symbols()
+                    .map(move |a| crate::word::Concat(&rep, [a]).to_vec())
+            })
+            .unique()
+    }
+
     /// Runs the given `word` on the transition system, starting from the initial state. The result is
     /// - [`Ok`] if the run is successful (i.e. for all symbols of `word` a suitable transition
     ///  can be taken),

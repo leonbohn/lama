@@ -30,6 +30,24 @@ impl<Ts: Deterministic + Pointed> Pointed for Quotient<Ts> {
 }
 
 impl<Ts: TransitionSystem> Quotient<Ts> {
+    pub fn partition(&self) -> &Partition<Ts::StateIndex> {
+        &self.partition
+    }
+
+    pub fn ts(&self) -> &Ts {
+        &self.ts
+    }
+
+    pub fn unwrap_class_representative(&self, id: usize) -> Ts::StateIndex {
+        self.partition
+            .get(id)
+            .expect("Class must exist")
+            .iter()
+            .next()
+            .expect("Class must not be empty")
+            .clone()
+    }
+
     /// Returns an iterator over the indices in the quotient class with the given `id`.
     /// If no such class exists, `None` is returned.
     pub fn class_iter_by_id(&self, id: usize) -> Option<impl Iterator<Item = Ts::StateIndex> + '_> {
@@ -65,7 +83,7 @@ impl<Ts: TransitionSystem> Quotient<Ts> {
         true
     }
 
-    pub fn into_right_congruence(self, ts: &Ts) -> RightCongruence<Ts::Alphabet>
+    pub fn underlying_right_congruence(self, ts: &Ts) -> RightCongruence<Ts::Alphabet>
     where
         Ts: Deterministic + Pointed,
     {
