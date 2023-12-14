@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use automata::{
-    automata::{MealyLike, MooreLike},
+    automaton::{MealyLike, MooreLike},
     congruence::ColoredClass,
     prelude::{Expression, IsTransition, DFA},
     ts::{reachable::ReachableStateIndices, Deterministic, IndexType, Sproutable},

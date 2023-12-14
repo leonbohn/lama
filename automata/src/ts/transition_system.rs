@@ -1,7 +1,7 @@
 use std::any::Any;
 
 use crate::{
-    automata::WithInitial,
+    automaton::WithInitial,
     congruence::ColoredClass,
     prelude::{Expression, Simple, Symbol},
     word::{FiniteWord, OmegaWord},

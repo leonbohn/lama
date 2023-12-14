@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::{
     alphabet::{Directional, InvertibleChar},
-    automata::WithInitial,
+    automaton::WithInitial,
     congruence::{ColoredClass, FORC},
     prelude::{Simple, Symbol, SymbolOf},
     Alphabet, Class, Color, Map, Pointed, RightCongruence, Show, TransitionSystem,

@@ -166,10 +166,12 @@ pub trait Deterministic: TransitionSystem {
         &self,
         word: W,
         origin: Idx,
-    ) -> Option<Set<Self::StateColor>> {
-        self.omega_run_from(word, origin)
-            .ok()
-            .map(|p| p.recurrent_state_colors(self))
+    ) -> Option<impl Iterator<Item = Self::StateColor>> {
+        Some(
+            self.omega_run_from(word, origin)
+                .ok()?
+                .recurrent_state_colors(self),
+        )
     }
 
     fn recurrent_state_colors<W: OmegaWord<SymbolOf<Self>>>(

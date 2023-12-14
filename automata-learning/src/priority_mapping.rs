@@ -4,7 +4,7 @@ use impl_tools::autoimpl;
 use owo_colors::OwoColorize;
 
 use automata::{
-    automata::MooreLike,
+    automaton::MooreLike,
     prelude::*,
     ts::dot::{DotStateAttribute, DotStateColorize},
     Set,

@@ -8,7 +8,7 @@ use std::{
 };
 
 use automata::{
-    automata::{IntoDPA, OmegaAcceptanceCondition},
+    automaton::{IntoDPA, OmegaAcceptanceCondition},
     prelude::*,
     ts::{reachable::ReachableStateIndices, Quotient},
     word::Concat,
@@ -339,7 +339,7 @@ pub fn actively_exchanged_words_mealy<D: MealyLike + Deterministic>(mm: D) -> Me
 #[cfg(test)]
 mod tests {
     use automata::{
-        automata::{DPALike, MealyLike, MooreLike, DPA},
+        automaton::{DPALike, MealyLike, MooreLike, DPA},
         ts::{Deterministic, ToDot, NTS},
         TransitionSystem,
     };

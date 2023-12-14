@@ -8,7 +8,7 @@ use itertools::Itertools;
 use tracing::{debug, trace};
 
 use crate::{
-    automata::{AsMealyMachine, AsMooreMachine},
+    automaton::{AsMealyMachine, AsMooreMachine},
     prelude::*,
     ts::transition_system::IsTransition,
     Alphabet, Map, Partition, Set,

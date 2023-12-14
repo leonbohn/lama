@@ -1,3 +1,6 @@
+pub mod input;
+pub mod output;
+
 use std::ops::Deref;
 
 use biodivine_lib_bdd::{Bdd, BddSatisfyingValuations, BddValuation, BddVariable, BddVariableSet};
@@ -8,76 +11,11 @@ use itertools::Itertools;
 use pretty_assertions::assert_eq;
 
 use crate::{
-    automata::{AcceptanceMask, OmegaAcceptanceCondition, OmegaAutomaton},
+    automaton::{AcceptanceMask, IntoDPA, OmegaAcceptanceCondition, OmegaAutomaton},
     prelude::{DPALike, Expression, WithInitial, DPA},
     ts::{Sproutable, DTS, NTS},
-    Alphabet, Map, Show, TransitionSystem,
+    Alphabet, Map, Pointed, Show, TransitionSystem,
 };
-
-pub fn hoa_to_ts(hoa: &str) -> Vec<OmegaAutomaton<HoaAlphabet>> {
-    let mut out = vec![];
-    for hoa_aut in hoars::parse_hoa_automata(hoa) {
-        match hoa_aut.try_into() {
-            Ok(aut) => out.push(aut),
-            Err(e) => tracing::warn!("Encountered parsing error {}", e),
-        }
-    }
-    out
-}
-
-impl TryFrom<&hoars::Header> for OmegaAcceptanceCondition {
-    type Error = String;
-
-    fn try_from(value: &hoars::Header) -> Result<Self, Self::Error> {
-        if !value.acceptance_name().is_parity() {
-            return Err("Unhandled acceptance type".to_string());
-        }
-        Ok(OmegaAcceptanceCondition::Parity)
-    }
-}
-
-impl TryFrom<HoaAutomaton> for OmegaAutomaton<HoaAlphabet> {
-    type Error = String;
-    fn try_from(value: HoaAutomaton) -> Result<Self, Self::Error> {
-        let acc = value.header().try_into()?;
-        let ts = hoa_automaton_to_nts(value);
-        Ok(Self::new(ts, acc))
-    }
-}
-
-pub fn hoa_automaton_to_nts(
-    aut: HoaAutomaton,
-) -> WithInitial<NTS<HoaAlphabet, usize, AcceptanceMask>> {
-    let aps = aut.num_aps();
-    assert!(aps < MAX_APS);
-    let mut ts = NTS::new_for_alphabet(HoaAlphabet::from_hoa_automaton(&aut));
-    for (id, state) in aut.body().iter().enumerate() {
-        assert_eq!(id, state.id() as usize);
-        assert_eq!(id, ts.add_state(state.id() as usize));
-    }
-    for state in aut.body().iter() {
-        for edge in state.edges() {
-            let target = edge
-                .state_conjunction()
-                .get_singleton()
-                .expect("Cannot yet deal with conjunctions of target states")
-                as usize;
-            let label = edge.label().deref().clone();
-            let expr = HoaExpression::new(label, aps);
-
-            let color: AcceptanceMask = edge.acceptance_signature().into();
-            ts.add_edge(state.id() as usize, expr, target, color);
-        }
-    }
-
-    let start = aut.start();
-    assert_eq!(start.len(), 1);
-    let initial = start[0]
-        .get_singleton()
-        .expect("Initial state must be a singleton") as usize;
-
-    ts.with_initial(initial)
-}
 
 /// A propositional alphabet, where a [`Symbol`] is a valuation of all propositional variables.
 ///
@@ -380,9 +318,7 @@ impl Alphabet for HoaAlphabet {
 
 #[cfg(test)]
 mod tests {
-    use crate::TransitionSystem;
-
-    use super::hoa_to_ts;
+    use crate::{hoa::input::hoa_to_ts, TransitionSystem};
 
     #[test]
     fn parse_generated_hoa() {

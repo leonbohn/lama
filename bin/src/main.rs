@@ -92,7 +92,7 @@ fn main() {
         }
         Some(("nop", nop_matches)) => {
             let hoa = from_file_or_stdin(nop_matches.get_one("input"));
-            let parsed_auts = automata::hoa::hoa_to_ts(&hoa);
+            let parsed_auts = automata::hoa::input::hoa_to_ts(&hoa);
             let mut auts = vec![];
             for nondet_aut in &parsed_auts {
                 if let Some(aut) = nondet_aut.to_deterministic() {

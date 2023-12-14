@@ -23,6 +23,8 @@ use crate::{
     Color, FiniteLength, InfiniteLength, Length,
 };
 
+mod semantics;
+
 #[macro_use]
 mod moore;
 pub use moore::{AsMooreMachine, IntoMooreMachine, MooreLike, MooreMachine};
@@ -287,7 +289,7 @@ impl<'a, Ts: TransitionSystem<StateColor = bool>> Iterator for StatesWithColor<'
 mod tests {
     use super::{DFALike, MooreLike, WithInitial};
     use crate::{
-        automata::{
+        automaton::{
             acceptor::{FiniteWordAcceptor, OmegaWordAcceptor},
             NoColor,
         },

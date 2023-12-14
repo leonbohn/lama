@@ -1,6 +1,6 @@
 use impl_tools::autoimpl;
 
-use crate::{automata::WithInitial, Alphabet, Color, RightCongruence, TransitionSystem};
+use crate::{automaton::WithInitial, Alphabet, Color, RightCongruence, TransitionSystem};
 
 use super::{
     nts::{NTEdge, NTSEdgesTo},

@@ -26,7 +26,7 @@ pub mod prelude {
     pub use super::{
         alphabet,
         alphabet::{Expression, Simple, Symbol},
-        automata::{
+        automaton::{
             DBALike, DFALike, DPALike, FiniteWordAcceptor, FiniteWordTransformer, IntoMealyMachine,
             IntoMooreMachine, MealyLike, MealyMachine, MooreLike, MooreMachine, NoColor,
             OmegaWordAcceptor, OmegaWordTransformer, StateBasedDBA, StateBasedDPA, WithInitial,
@@ -71,8 +71,8 @@ pub use ts::{Pointed, TransitionSystem};
 
 /// Defines automata and common types of combinations of transition system with acceptance condition.
 #[allow(clippy::upper_case_acronyms)]
-pub mod automata;
-use automata::{MealyMachine, MooreMachine, DBA, DFA, DPA};
+pub mod automaton;
+use automaton::{MealyMachine, MooreMachine, DBA, DFA, DPA};
 
 /// Defines congruence relations and congruence classes.
 pub mod congruence;

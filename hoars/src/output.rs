@@ -7,6 +7,16 @@ use crate::{
     AliasName, Edge, HeaderItem, HoaAutomaton, HoaBool, Label, Property, State, StateConjunction,
 };
 
+pub fn to_hoa(aut: &HoaAutomaton) -> String {
+    aut.header()
+        .into_iter()
+        .map(|header_item| header_item.to_string())
+        .chain(std::iter::once("--BODY--".to_string()))
+        .chain(aut.body().into_iter().map(|state| state.to_string()))
+        .chain(std::iter::once("--END--".to_string()))
+        .join("\n")
+}
+
 impl Display for HeaderItem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -169,21 +179,5 @@ impl Display for State {
             writeln!(f, "{}", edge)?;
         }
         Ok(())
-    }
-}
-
-impl Display for HoaAutomaton {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for item in self.header.iter() {
-            writeln!(f, "{}", item)?;
-        }
-
-        writeln!(f, "--BODY--")?;
-
-        for state in self.body.iter() {
-            write!(f, "{}", state)?;
-        }
-
-        writeln!(f, "--END--")
     }
 }
