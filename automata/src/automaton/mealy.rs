@@ -433,11 +433,10 @@ pub trait MealyLike: Deterministic + Pointed {
     }
 
     /// Returns a vector over all colors that can be emitted.
-    fn color_range(&self) -> Vec<Self::EdgeColor> {
+    fn color_range(&self) -> impl Iterator<Item = Self::EdgeColor> {
         self.reachable_state_indices()
             .flat_map(|o| self.edges_from(o).unwrap().map(|e| IsTransition::color(&e)))
             .unique()
-            .collect()
     }
 }
 impl<Ts: Deterministic + Pointed> MealyLike for Ts {}

@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use automata::{
+    automaton::MealyLike,
     congruence::FORC,
     prelude::{Indexes, MealyMachine, MooreMachine},
     Alphabet, Map, RightCongruence, TransitionSystem,
@@ -28,6 +29,13 @@ impl<A: Alphabet> FWPM<A> {
         }
     }
 
+    pub fn complexity(&self) -> usize {
+        self.pms()
+            .map(|(_, pm)| pm.color_range().count())
+            .max()
+            .unwrap_or(0)
+    }
+
     /// Returns a reference to the underlying right congruence.
     pub fn leading(&self) -> &RightCongruence<A> {
         &self.leading
@@ -49,17 +57,17 @@ impl<A: Alphabet> FWPM<A> {
     }
 
     /// Consumes self and builds a [`PreciseDPA`].
-    pub fn into_precise_dpa(self) -> PreciseDPA<A, { super::precise::PRECISE_DPA_COLORS }> {
+    pub fn into_precise_dpa<const N: usize>(self) -> PreciseDPA<A, N> {
         self.into()
     }
 
     /// Returns an iterator over the progress mealy machines, sorted by the index of the
     /// corresponding congruence class.
-    pub fn pms(&self) -> impl Iterator<Item = (&MooreMachine<A, usize, usize>, usize)> {
+    pub fn pms(&self) -> impl Iterator<Item = (usize, &MooreMachine<A, usize, usize>)> {
         self.pm
             .iter()
             .sorted_by(|x, y| x.0.cmp(y.0))
-            .map(|(i, pm)| (pm, *i))
+            .map(|(i, pm)| (*i, pm))
     }
 
     /// Constructs a new FWPM from a given right congruence and map associating each class of the congruence

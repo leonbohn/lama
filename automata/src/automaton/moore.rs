@@ -53,6 +53,12 @@ impl<A: Alphabet, Q: Color, C: Color> MooreMachine<A, Q, C> {
     }
 }
 
+impl<D: MooreLike + Deterministic> IntoMooreMachine<D> {
+    pub fn minimize(&self) -> AsMooreMachine<D> {
+        crate::algorithms::moore_partition_refinement(self)
+    }
+}
+
 // impl_ts_by_passthrough_on_wrapper!(MooreMachine <Ts, Q: Color>);
 
 impl<Ts: MooreLike> TransitionSystem

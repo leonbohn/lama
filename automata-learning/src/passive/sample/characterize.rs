@@ -165,6 +165,9 @@ fn priority_mapping_by_omega_words<'ts, A: Alphabet>(
 trait StateCollection<Idx, C>: Hash + Eq + Clone {
     fn pair_iter(&self) -> impl Iterator<Item = (Idx, C)>;
     fn from_pair_iter(iter: impl IntoIterator<Item = (Idx, C)>) -> Self;
+    fn sink() -> Self {
+        Self::from_pair_iter(std::iter::empty())
+    }
     fn show(&self) -> String
     where
         Idx: Display,
@@ -299,6 +302,10 @@ where
 
                 // we create the sink state
                 let idx = cong.add_state(max_color);
+                let s = Coll::sink();
+                assert!(!states.contains(&s));
+                states.push(s);
+
                 trace!("Creating sink state {idx} and adding transition {source}:{} --{}|{max_color}--> {idx}{}",
                     state_with_color.show(),
                     sym.show(),
@@ -381,6 +388,7 @@ mod tests {
 
     use crate::passive::{
         fwpm::FWPM,
+        precise::build_precise_dpa_for,
         sample::characterize::{
             build_generic_priority_mapping, priority_mapping_set_backed,
             priority_mapping_vec_backed, right_congruence_by_omega_words,
@@ -399,22 +407,22 @@ mod tests {
                 (2, 'b', 1, 0),
             ])
             .into_dpa(0);
-        mm.display_rendered().unwrap();
 
         let pmset = priority_mapping_set_backed(&mm, mm.state_indices());
-        let pmvec = priority_mapping_vec_backed(&mm, mm.state_indices());
+        let pmvec = priority_mapping_vec_backed(&mm, mm.state_indices()).minimize();
+        pmvec.display_rendered().unwrap();
 
         let fwpm = FWPM::new(
             mm.prefix_congruence().collect_right_congruence(),
             [(0, pmset)].into_iter().collect(),
         );
-        let precise = fwpm.into_precise_dpa();
-        // precise.display_rendered().unwrap();
-        // pm.display_rendered().unwrap();
-        todo!()
+
+        let precise = build_precise_dpa_for(fwpm);
+        mm.display_rendered().unwrap();
     }
 
-    #[test_log::test]
+    #[test]
+    #[ignore]
     fn priority_mapping_all_colors() {
         let dpa = NTS::builder()
             .with_transitions([

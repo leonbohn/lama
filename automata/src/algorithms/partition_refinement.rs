@@ -5,7 +5,7 @@ use std::{
 };
 
 use itertools::Itertools;
-use tracing::{debug, trace};
+use tracing::{debug, info, trace};
 
 use crate::{
     automaton::{AsMealyMachine, AsMooreMachine},
@@ -61,7 +61,7 @@ pub fn mealy_partition_refinement<M: MealyLike>(mm: M) -> AsMealyMachine<M> {
         }
     }
 
-    debug!(
+    info!(
         "Mealy partition refinement execution took {} microseconds",
         start.elapsed().as_micros()
     );
@@ -83,7 +83,7 @@ pub fn mealy_partition_refinement<M: MealyLike>(mm: M) -> AsMealyMachine<M> {
         })
         .erase_state_colors()
         .collect_mealy();
-    debug!(
+    info!(
         "Collecting into Mealy machine took {} microseconds",
         start.elapsed().as_micros()
     );

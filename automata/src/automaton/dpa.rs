@@ -164,7 +164,7 @@ impl<D: DPALike> IntoDPA<D> {
         None
     }
 
-    pub fn colors(&self) -> Vec<D::EdgeColor> {
+    pub fn colors(&self) -> impl Iterator<Item = D::EdgeColor> + '_ {
         MealyLike::color_range(self)
     }
 
@@ -195,9 +195,9 @@ impl<D: DPALike> IntoDPA<D> {
         &self,
         other: &IntoDPA<O>,
     ) -> Option<Reduced<SymbolOf<D>>> {
-        for i in self.colors().iter().filter(|x| x.is_even()) {
-            for j in other.colors().iter().filter(|x| x.is_odd()) {
-                if let Some(cex) = self.as_ref().witness_colors(*i, &other, *j) {
+        for i in self.colors().filter(|x| x.is_even()) {
+            for j in other.colors().filter(|x| x.is_odd()) {
+                if let Some(cex) = self.as_ref().witness_colors(i, &other, j) {
                     return Some(cex);
                 }
             }
