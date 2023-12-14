@@ -4,9 +4,11 @@ use itertools::Itertools;
 
 use crate::{
     alphabet::{Directional, InvertibleChar},
-    automaton::WithInitial,
+    automaton::{IntoDPA, WithInitial},
     congruence::{ColoredClass, FORC},
-    prelude::{Simple, Symbol, SymbolOf},
+    prelude::{
+        DPALike, IntoMealyMachine, IntoMooreMachine, MealyLike, MooreLike, Simple, Symbol, SymbolOf,
+    },
     Alphabet, Class, Color, Map, Pointed, RightCongruence, Show, TransitionSystem,
 };
 
@@ -15,215 +17,79 @@ use super::{
     Deterministic, IndexType, BTS,
 };
 
-/// Enum that abstracts attributes in the DOT format.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum DotStateAttribute {
-    /// The label of a node
-    Label(String),
-    /// The shape of a node
-    Shape(String),
-    /// The color of a node
-    Color(String),
-}
-
-impl Display for DotStateAttribute {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                DotStateAttribute::Label(s) => format!("label=\"{}\"", s),
-                DotStateAttribute::Shape(s) => format!("shape=\"{}\"", s),
-                DotStateAttribute::Color(c) => format!("color=\"{}\"", c),
-            }
-        )
-    }
-}
-
-/// Stores all necessary information for introducing and referencing a node in the DOT format.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct DotStateData {
-    prefix: Option<String>,
-    name: String,
-    attributes: Vec<DotStateAttribute>,
-}
-
-impl DotStateData {
-    fn dot_statement(&self) -> String {
-        format!(
-            "{} [{}]",
-            self.dot_name(),
-            self.attributes.iter().map(|o| o.to_string()).join(", ")
-        )
-    }
-
-    /// Appends the given attribute.
-    pub fn push_attribute(&mut self, attr: DotStateAttribute) {
-        self.attributes.push(attr);
-    }
-
-    fn dot_name(&self) -> String {
-        match &self.prefix {
-            Some(prefix) => format!("\"{prefix}|{}\"", self.name),
-            None => format!("\"{}\"", self.name),
-        }
-    }
-
-    /// Returns a pointer to the raw name of the node.
-    pub fn raw_name(&self) -> &str {
-        &self.name
-    }
-}
-
-impl<Idx: Display> From<(&str, Idx)> for DotStateData {
-    fn from((prefix, value): (&str, Idx)) -> Self {
-        match prefix.len() {
-            0 => Self {
-                name: value.to_string(),
-                prefix: None,
-                attributes: vec![],
-            },
-            _prefix_len => Self {
-                name: value.to_string(),
-                prefix: Some(prefix.to_string()),
-                attributes: vec![],
-            },
-        }
-    }
-}
-
-/// Trait that encapsulates the functionality of coloring/annotating a state in a transition system.
-pub trait DotStateColorize {
-    /// Takes a mutable reference to an instance of [`DotStateData`] and modifies it to reflect
-    /// the information provided by `self`. If `self` is, for example, a boolean, this has the effect
-    /// of drawing the node with a double circle. If `self` is a usize, this has the effect of
-    /// adding a label to the node.
-    fn dot_state_colorize(&self, base: &mut DotStateData);
-}
-
-impl DotStateColorize for bool {
-    fn dot_state_colorize(&self, base: &mut DotStateData) {
-        base.attributes.push(DotStateAttribute::Shape(
-            if *self { "doublecircle" } else { "circle" }.to_string(),
-        ));
-    }
-}
-
-impl DotStateColorize for usize {
-    fn dot_state_colorize(&self, base: &mut DotStateData) {
-        base.attributes
-            .push(DotStateAttribute::Label(format!("{}:{}", base.name, self)))
-    }
-}
-
-impl DotStateColorize for () {
-    fn dot_state_colorize(&self, base: &mut DotStateData) {}
-}
-
-impl<S: Symbol + Display, C: Color + DotStateColorize> DotStateColorize
-    for crate::congruence::ColoredClass<S, C>
-{
-    fn dot_state_colorize(&self, base: &mut DotStateData) {
-        base.name = format!("[{}]", self.class().mr_to_string());
-        base.attributes
-            .push(DotStateAttribute::Shape("box".to_string()));
-        self.color().dot_state_colorize(base);
-    }
-}
-
-pub trait MightDecorateDotTransition {
-    fn dot_transition_attribute(&self, statement: String) -> String;
-}
-
-impl MightDecorateDotTransition for char {
-    fn dot_transition_attribute(&self, statement: String) -> String {
-        statement
-    }
-}
-
-impl MightDecorateDotTransition for InvertibleChar {
-    fn dot_transition_attribute(&self, statement: String) -> String {
-        let mut s = statement;
-        if self.is_inverted() {
-            s.push_str(",color=red");
-        } else {
-            s.push_str(",color=blue");
-        }
-        s
-    }
-}
-
-/// Implemented for all types that can be used to draw a transition between two nodes in the DOT format.
-pub trait DotTransition {
-    /// Returns the actual DOT statement of the transition.
-    fn dot_transition_statement(&self) -> String;
-}
-
-/// Stores all necessary information for producing a DOT statement, which draws a singular
-/// transition between two nodes.
-pub struct DotTransitionInfo<C: Color, A: Alphabet> {
-    source_name: String,
-    target_name: String,
-    color: C,
-    expression: A::Expression,
-}
-
-impl<A> DotTransition for DotTransitionInfo<usize, A>
-where
-    A: Alphabet,
-    A::Expression: MightDecorateDotTransition,
-{
-    fn dot_transition_statement(&self) -> String {
-        format!(
-            "{} -> {} [{}]",
-            self.source_name,
-            self.target_name,
-            self.expression.dot_transition_attribute(format!(
-                "label=\"{}:{}\"",
-                self.expression.show(),
-                self.color
-            ))
-        )
-    }
-}
-
-impl<A> DotTransition for DotTransitionInfo<(), A>
-where
-    A: Alphabet,
-    A::Expression: MightDecorateDotTransition,
-{
-    fn dot_transition_statement(&self) -> String {
-        format!(
-            "{} -> {} [{}]",
-            self.source_name,
-            self.target_name,
-            self.expression
-                .dot_transition_attribute(format!("label=\"{}\"", self.expression.show(),))
-        )
-    }
-}
-
-/// Trait that encapsulates the functionality of converting an object
-/// into a [graphviz](https://graphviz.org/) representation.
-pub trait ToDot {
+pub trait Dottable: TransitionSystem {
     /// Compute the graphviz representation, for more information on the DOT format,
     /// see the [graphviz documentation](https://graphviz.org/doc/info/lang.html).
-    fn dot_representation(&self) -> String;
+    fn dot_representation(&self) -> String {
+        let header = std::iter::once(format!(
+            "digraph {} {{",
+            self.dot_name().unwrap_or("A".to_string())
+        ))
+        .chain(self.dot_header_statements());
 
-    /// Returns the header of the graphviz representation. This is the part that goes
-    /// right after the `digraph A {` part.
-    fn header(&self) -> String;
-    /// Returns the body of the graphviz representation. This is the part that goes
-    /// right after the header and before the closing `}`.
-    fn body(&self, prefix: &str) -> String;
+        let states = self.state_indices().map(|q| {
+            format!(
+                "{} [{}]",
+                self.dot_state_ident(q),
+                self.dot_state_attributes(q)
+                    .into_iter()
+                    .map(|attr| attr.to_string())
+                    .join(", ")
+            )
+        });
 
+        let transitions = self.state_indices().flat_map(|q| {
+            self.edges_from(q)
+                .expect("edges_from may not return none for state that exists")
+                .map(move |t| {
+                    format!(
+                        "{} -> {} [{}]",
+                        self.dot_state_ident(q),
+                        self.dot_state_ident(t.target()),
+                        self.dot_transition_attributes(t)
+                            .into_iter()
+                            .map(|attr| attr.to_string())
+                            .join(", ")
+                    )
+                })
+        });
+
+        let mut lines = header
+            .chain(states)
+            .chain(transitions)
+            .chain(std::iter::once("}".to_string()));
+        lines.join("\n")
+    }
+
+    fn dot_header_statements(&self) -> impl IntoIterator<Item = String> {
+        []
+    }
+
+    fn dot_name(&self) -> Option<String>;
+
+    fn dot_transition_attributes<'a>(
+        &'a self,
+        t: Self::TransitionRef<'a>,
+    ) -> impl IntoIterator<Item = DotTransitionAttribute> {
+        []
+    }
+    fn dot_state_ident(&self, idx: Self::StateIndex) -> String;
+    fn dot_state_attributes(
+        &self,
+        idx: Self::StateIndex,
+    ) -> impl IntoIterator<Item = DotStateAttribute> {
+        []
+    }
     /// Renders the object visually (as PNG) and returns a vec of bytes/u8s encoding
     /// the rendered image. This method is only available on the `graphviz` crate feature
     /// and makes use of temporary files.
     #[cfg(feature = "graphviz")]
     fn render(&self) -> Result<Vec<u8>, std::io::Error> {
         use std::io::{Read, Write};
+
+        use tracing::trace;
         let dot = self.dot_representation();
+        trace!("writing dot representation\n{}", dot);
 
         let mut child = std::process::Command::new("dot")
             .arg("-Tpng")
@@ -298,181 +164,331 @@ pub trait ToDot {
     }
 }
 
-impl<Ts> ToDot for Ts
-where
-    Ts: TransitionSystem,
-    Ts::StateColor: DotStateColorize,
-    DotTransitionInfo<Ts::EdgeColor, Ts::Alphabet>: DotTransition,
-{
-    fn dot_representation(&self) -> String {
-        format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""))
+impl<A: Alphabet> Dottable for crate::DFA<A> {
+    fn dot_name(&self) -> Option<String> {
+        Some("DFA".into())
     }
 
-    fn header(&self) -> String {
-        [
-            "fontname=\"Helvetica,Arial,sans-serif\"\nrankdir=LR".to_string(),
-            "node [shape=box]".into(),
+    fn dot_state_ident(&self, idx: Self::StateIndex) -> String {
+        format!("q{}", idx.show())
+    }
+
+    fn dot_transition_attributes<'a>(
+        &'a self,
+        t: Self::TransitionRef<'a>,
+    ) -> impl IntoIterator<Item = DotTransitionAttribute> {
+        [DotTransitionAttribute::Label(t.expression.show())].into_iter()
+    }
+
+    fn dot_state_attributes(
+        &self,
+        idx: Self::StateIndex,
+    ) -> impl IntoIterator<Item = DotStateAttribute> {
+        let shape = if self.state_color(idx).unwrap() {
+            "doublecircle"
+        } else {
+            "circle"
+        };
+        vec![
+            DotStateAttribute::Shape(shape.into()),
+            DotStateAttribute::Label(self.dot_state_ident(idx)),
         ]
-        .join("\n")
+    }
+}
+impl<A: Alphabet, Q: Color, C: Color> Dottable for crate::RightCongruence<A, Q, C> {
+    fn dot_name(&self) -> Option<String> {
+        Some("Congruence".into())
     }
 
-    fn body(&self, prefix: &str) -> String {
-        let mut state_map = self
-            .state_indices()
-            .map(|q| {
-                let mut info = (prefix, q).into();
-                self.state_color(q).unwrap().dot_state_colorize(&mut info);
-                (q, info)
-            })
-            .collect::<Map<_, DotStateData>>();
+    fn dot_state_ident(&self, idx: Self::StateIndex) -> String {
+        format!("c{}", idx.show())
+    }
 
-        let mut lines = state_map.values().map(|q| q.dot_statement()).collect_vec();
+    fn dot_transition_attributes<'a>(
+        &'a self,
+        t: Self::TransitionRef<'a>,
+    ) -> impl IntoIterator<Item = DotTransitionAttribute> {
+        [DotTransitionAttribute::Label(format!(
+            "{}|{}",
+            t.expression.show(),
+            t.color.show()
+        ))]
+        .into_iter()
+    }
 
-        for state in self.state_indices() {
-            let q = state_map.get(&state).unwrap();
-            if let Some(it) = self.edges_from(state) {
-                for e in it {
-                    let p = state_map.get(&e.target()).unwrap();
-                    let info = DotTransitionInfo {
-                        source_name: q.dot_name().to_string(),
-                        target_name: p.dot_name().to_string(),
-                        color: e.color(),
-                        expression: e.expression().clone(),
-                    };
-                    lines.push(info.dot_transition_statement());
-                }
+    fn dot_state_attributes(
+        &self,
+        idx: Self::StateIndex,
+    ) -> impl IntoIterator<Item = DotStateAttribute> {
+        vec![DotStateAttribute::Label(format!(
+            "{}|{}",
+            self.dot_state_ident(idx),
+            self.state_color(idx).unwrap().show()
+        ))]
+    }
+}
+
+impl<M: MooreLike> Dottable for IntoMooreMachine<M> {
+    fn dot_name(&self) -> Option<String> {
+        Some("DPA".into())
+    }
+
+    fn dot_state_attributes(
+        &self,
+        idx: Self::StateIndex,
+    ) -> impl IntoIterator<Item = DotStateAttribute> {
+        let color = self
+            .state_color(idx)
+            .map(|c| format!(" | {}", c.show()))
+            .unwrap_or("".to_string());
+        vec![DotStateAttribute::Label(format!(
+            "{}{color}",
+            self.dot_state_ident(idx)
+        ))]
+    }
+
+    fn dot_transition_attributes<'a>(
+        &'a self,
+        t: Self::TransitionRef<'a>,
+    ) -> impl IntoIterator<Item = DotTransitionAttribute> {
+        vec![DotTransitionAttribute::Label(format!(
+            "{}|{}",
+            t.expression().show(),
+            t.color().show()
+        ))]
+    }
+
+    fn dot_state_ident(&self, idx: Self::StateIndex) -> String {
+        format!("q{}", idx.show())
+    }
+}
+
+impl<M: MealyLike> Dottable for IntoMealyMachine<M> {
+    fn dot_name(&self) -> Option<String> {
+        Some("DPA".into())
+    }
+
+    fn dot_state_attributes(
+        &self,
+        idx: Self::StateIndex,
+    ) -> impl IntoIterator<Item = DotStateAttribute> {
+        let color = self
+            .state_color(idx)
+            .map(|c| format!(" | {}", c.show()))
+            .unwrap_or("".to_string());
+        vec![DotStateAttribute::Label(format!(
+            "{}{color}",
+            self.dot_state_ident(idx)
+        ))]
+    }
+
+    fn dot_transition_attributes<'a>(
+        &'a self,
+        t: Self::TransitionRef<'a>,
+    ) -> impl IntoIterator<Item = DotTransitionAttribute> {
+        vec![DotTransitionAttribute::Label(format!(
+            "{}|{}",
+            t.expression().show(),
+            t.color().show()
+        ))]
+    }
+
+    fn dot_state_ident(&self, idx: Self::StateIndex) -> String {
+        format!("q{}", idx.show())
+    }
+}
+
+impl<D: DPALike> Dottable for IntoDPA<D> {
+    fn dot_name(&self) -> Option<String> {
+        Some("DPA".into())
+    }
+
+    fn dot_state_attributes(
+        &self,
+        idx: Self::StateIndex,
+    ) -> impl IntoIterator<Item = DotStateAttribute> {
+        let color = self
+            .state_color(idx)
+            .map(|c| format!(" | {}", c.show()))
+            .unwrap_or("".to_string());
+        vec![DotStateAttribute::Label(format!(
+            "{}{color}",
+            self.dot_state_ident(idx)
+        ))]
+    }
+
+    fn dot_transition_attributes<'a>(
+        &'a self,
+        t: Self::TransitionRef<'a>,
+    ) -> impl IntoIterator<Item = DotTransitionAttribute> {
+        vec![DotTransitionAttribute::Label(format!(
+            "{}|{}",
+            t.expression().show(),
+            t.color().show()
+        ))]
+    }
+
+    fn dot_state_ident(&self, idx: Self::StateIndex) -> String {
+        format!("q{}", idx.show())
+    }
+}
+
+/// Enum that abstracts attributes in the DOT format.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum DotStateAttribute {
+    /// The label of a node
+    Label(String),
+    /// The shape of a node
+    Shape(String),
+    /// The color of a node
+    Color(String),
+}
+
+impl Display for DotStateAttribute {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                DotStateAttribute::Label(s) => format!("label=\"{}\"", s),
+                DotStateAttribute::Shape(s) => format!("shape=\"{}\"", s),
+                DotStateAttribute::Color(c) => format!("color=\"{}\"", c),
             }
-        }
-
-        // deal with the initial state if it exists
-        if let Some(initial) = self.maybe_initial_state() {
-            let q = state_map.get(&initial).unwrap();
-            lines.push("init [shape=\"none\", label=\" \"]".to_string());
-            lines.push(format!("init -> {}", q.dot_name()));
-        }
-
-        lines.join("\n")
+        )
     }
 }
 
-impl<A: Alphabet, Q: Color + Debug, C: Color + Debug> ToDot for Vec<RightCongruence<A, Q, C>>
-where
-    A::Symbol: Display,
-    Q: DotStateColorize,
-    DotTransitionInfo<C, A>: DotTransition,
-{
-    fn dot_representation(&self) -> String {
-        format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""),)
-    }
-
-    fn header(&self) -> String {
-        [
-            "compound=true".to_string(),
-            "fontname=\"Helvetica,Arial,sans-serif\"\nrankdir=LR".to_string(),
-            "init [label=\"\", shape=none]".into(),
-            "node [shape=rect]".into(),
-        ]
-        .join("\n")
-    }
-
-    fn body(&self, _prefix: &str) -> String {
-        self.iter()
-            .enumerate()
-            .map(|(i, cong)| {
-                format!(
-                    "subgraph cluster_{} {{\n{}\n{}\n}}\n",
-                    i,
-                    cong.header(),
-                    cong.body(&format!("{i}"))
-                )
-            })
-            .join("\n")
-    }
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum DotTransitionAttribute {
+    Label(String),
 }
 
-impl<A: Alphabet, Q: Color + Debug, C: Color + Debug> ToDot for FORC<A, Q, C>
-where
-    A::Symbol: Display,
-    Q: DotStateColorize,
-    DotTransitionInfo<C, A>: DotTransition,
-{
-    fn dot_representation(&self) -> String {
-        format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""),)
-    }
-
-    fn header(&self) -> String {
-        [
-            "compund=true".to_string(),
-            "fontname=\"Helvetica,Arial,sans-serif\"\nrankdir=LR".to_string(),
-            "init [label=\"\", shape=none]".into(),
-            "node [shape=rect]".into(),
-        ]
-        .join("\n")
-    }
-
-    fn body(&self, _prefix: &str) -> String {
-        let mut lines = self
-            .progress
-            .iter()
-            .map(|(class, prc)| {
-                format!(
-                    "subgraph cluster_{} {{\n{}\n{}\n}}\n",
-                    self.leading()
-                        .state_color(*class)
-                        .unwrap()
-                        .class()
-                        .mr_to_string(),
-                    prc.header(),
-                    prc.body(&class.to_string())
-                )
-            })
-            .collect_vec();
-
-        lines.push("init [label=\"\", shape=none]".to_string());
-        let eps_prc = self
-            .prc(&Class::epsilon())
-            .expect("Must have at least the epsilon prc");
-        lines.push(format!(
-            "init -> \"{},init\" [style=\"solid\"]",
-            eps_prc
-                .state_color(eps_prc.initial())
-                .expect("State should have a color")
-        ));
-
-        for state in self.leading.state_indices() {
-            for sym in self.leading.alphabet().universe() {
-                if let Some(edge) = self.leading.transition(state, sym) {
-                    let _source_prc = self
-                        .prc(
-                            self.leading
-                                .state_color(state)
-                                .expect("State should be colored")
-                                .class(),
-                        )
-                        .expect("Must have a prc for every state");
-                    let _target_prc = self
-                        .prc(
-                            self.leading
-                                .state_color(edge.target())
-                                .expect("State should be colored")
-                                .class(),
-                        )
-                        .expect("Must have a prc for every state");
-                    lines.push(format!(
-                        "\"{},init\" -> \"{},init\" [label = \"{}\", style=\"dashed\", ltail=\"cluster_{}\", lhead=\"cluster_{}\"]",
-                        self.leading.state_color(state).expect("State should be colored"),
-                        self.leading.state_color(edge.target()).expect("State should be colored"),
-                        sym,
-                        self.leading.state_color(state).expect("State should be colored").class().mr_to_string(),
-                        self.leading.state_color(edge.target()).expect("State should be colored").class().mr_to_string()
-                    ));
-                }
-            }
+impl Display for DotTransitionAttribute {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DotTransitionAttribute::Label(lbl) => write!(f, "label=\"{lbl}\""),
         }
-
-        lines.join("\n")
     }
 }
+
+// impl<A: Alphabet, Q: Color + Debug, C: Color + Debug> ToDot for Vec<RightCongruence<A, Q, C>>
+// where
+//     A::Symbol: Display,
+//     Q: DotStateColorize,
+//     DotTransitionInfo<C, A>: DotTransition,
+// {
+//     fn dot_representation(&self) -> String {
+//         format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""),)
+//     }
+
+//     fn header(&self) -> String {
+//         [
+//             "compound=true".to_string(),
+//             "fontname=\"Helvetica,Arial,sans-serif\"\nrankdir=LR".to_string(),
+//             "init [label=\"\", shape=none]".into(),
+//             "node [shape=rect]".into(),
+//         ]
+//         .join("\n")
+//     }
+
+//     fn body(&self, _prefix: &str) -> String {
+//         self.iter()
+//             .enumerate()
+//             .map(|(i, cong)| {
+//                 format!(
+//                     "subgraph cluster_{} {{\n{}\n{}\n}}\n",
+//                     i,
+//                     cong.header(),
+//                     cong.body(&format!("{i}"))
+//                 )
+//             })
+//             .join("\n")
+//     }
+// }
+
+// impl<A: Alphabet, Q: Color + Debug, C: Color + Debug> ToDot for FORC<A, Q, C>
+// where
+//     A::Symbol: Display,
+//     Q: DotStateColorize,
+//     DotTransitionInfo<C, A>: DotTransition,
+// {
+//     fn dot_representation(&self) -> String {
+//         format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""),)
+//     }
+
+//     fn header(&self) -> String {
+//         [
+//             "compund=true".to_string(),
+//             "fontname=\"Helvetica,Arial,sans-serif\"\nrankdir=LR".to_string(),
+//             "init [label=\"\", shape=none]".into(),
+//             "node [shape=rect]".into(),
+//         ]
+//         .join("\n")
+//     }
+
+//     fn body(&self, _prefix: &str) -> String {
+//         let mut lines = self
+//             .progress
+//             .iter()
+//             .map(|(class, prc)| {
+//                 format!(
+//                     "subgraph cluster_{} {{\n{}\n{}\n}}\n",
+//                     self.leading()
+//                         .state_color(*class)
+//                         .unwrap()
+//                         .class()
+//                         .mr_to_string(),
+//                     prc.header(),
+//                     prc.body(&class.to_string())
+//                 )
+//             })
+//             .collect_vec();
+
+//         lines.push("init [label=\"\", shape=none]".to_string());
+//         let eps_prc = self
+//             .prc(&Class::epsilon())
+//             .expect("Must have at least the epsilon prc");
+//         lines.push(format!(
+//             "init -> \"{},init\" [style=\"solid\"]",
+//             eps_prc
+//                 .state_color(eps_prc.initial())
+//                 .expect("State should have a color")
+//         ));
+
+//         for state in self.leading.state_indices() {
+//             for sym in self.leading.alphabet().universe() {
+//                 if let Some(edge) = self.leading.transition(state, sym) {
+//                     let _source_prc = self
+//                         .prc(
+//                             self.leading
+//                                 .state_color(state)
+//                                 .expect("State should be colored")
+//                                 .class(),
+//                         )
+//                         .expect("Must have a prc for every state");
+//                     let _target_prc = self
+//                         .prc(
+//                             self.leading
+//                                 .state_color(edge.target())
+//                                 .expect("State should be colored")
+//                                 .class(),
+//                         )
+//                         .expect("Must have a prc for every state");
+//                     lines.push(format!(
+//                         "\"{},init\" -> \"{},init\" [label = \"{}\", style=\"dashed\", ltail=\"cluster_{}\", lhead=\"cluster_{}\"]",
+//                         self.leading.state_color(state).expect("State should be colored"),
+//                         self.leading.state_color(edge.target()).expect("State should be colored"),
+//                         sym,
+//                         self.leading.state_color(state).expect("State should be colored").class().mr_to_string(),
+//                         self.leading.state_color(edge.target()).expect("State should be colored").class().mr_to_string()
+//                     ));
+//                 }
+//             }
+//         }
+
+//         lines.join("\n")
+//     }
+// }
 
 /// Renders the given dot string to a png file and displays it using the default
 /// image viewer on the system.
@@ -581,10 +597,28 @@ fn display_png(contents: Vec<u8>) -> Result<(), std::io::Error> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        alphabet, congruence::FORC, prelude::DPA, ts::Sproutable, Class, Pointed, RightCongruence,
+        alphabet,
+        congruence::FORC,
+        prelude::DPA,
+        ts::{Sproutable, NTS},
+        Class, Pointed, RightCongruence,
     };
 
-    use super::ToDot;
+    use super::Dottable;
+
+    #[test_log::test]
+    fn render_dfa() {
+        let dfa = NTS::builder()
+            .with_transitions([
+                (0, 'a', (), 0),
+                (0, 'b', (), 1),
+                (1, 'a', (), 1),
+                (1, 'b', (), 0),
+            ])
+            .with_colors([false, true])
+            .into_dfa(0);
+        dfa.display_rendered().unwrap();
+    }
 
     #[test]
     #[ignore]
@@ -624,7 +658,8 @@ mod tests {
         prc_a.add_edge(a3, 'b', a3, ());
 
         let forc = FORC::from_iter(cong, [(0, prc_e), (1, prc_a)].iter().cloned());
-        forc.render_to_file_name("/home/leon/test.png");
+        todo!()
+        // forc.render_to_file_name("/home/leon/test.png");
     }
 
     #[test]
@@ -641,7 +676,8 @@ mod tests {
 
         cong.display_rendered();
         let three_congs = vec![cong.clone(), cong.clone(), cong];
-        three_congs.display_rendered();
+        todo!()
+        // three_congs.display_rendered();
     }
 
     #[test]

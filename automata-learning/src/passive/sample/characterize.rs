@@ -255,6 +255,8 @@ where
     let initial_idx: usize = cong.add_state(neutral_high);
     assert_eq!(initial_idx, 0);
 
+    let mut sink = None;
+
     let mut iteration = 0;
     let mut queue = VecDeque::from_iter([initial_idx]);
     while let Some(source) = queue.pop_front() {
@@ -282,10 +284,34 @@ where
             trace!("Computed successor on {}: {}", sym.show(), successor.show());
             let max_color = successor.pair_iter().map(|(_, c)| c).max().unwrap();
 
+            if max_color == neutral_low {
+                // this can be redirected to the sink state, if it exists
+                if let Some(idx) = sink {
+                    trace!(
+                        "Adding edge to existing sink {idx}! {source}:{} --{}|{max_color}--> {idx}{}",
+                        state_with_color.show(),
+                        sym.show(),
+                        successor.show()
+                    );
+                    cong.add_edge(source, dpa.make_expression(sym), idx, max_color);
+                    continue 'symbols;
+                }
+
+                // we create the sink state
+                let idx = cong.add_state(max_color);
+                trace!("Creating sink state {idx} and adding transition {source}:{} --{}|{max_color}--> {idx}{}",
+                    state_with_color.show(),
+                    sym.show(),
+                    successor.show()
+                );
+                cong.add_edge(source, dpa.make_expression(sym), idx, max_color);
+                sink = Some(idx);
+                continue 'symbols;
+            }
+
             if let Some(idx) = states.iter().position(|s| s == &successor) {
-                trace!("State already exists as {}", idx);
                 trace!(
-                    "Adding transition {source}:{} --{}|{max_color}--> {idx}{}",
+                    "Knwon target {idx}. Adding transition {source}:{} --{}|{max_color}--> {idx}{}",
                     state_with_color.show(),
                     sym.show(),
                     successor.show()
@@ -306,6 +332,13 @@ where
             assert_eq!(idx, states.len(), "Wrong state index");
             states.push(successor);
             queue.push_back(idx);
+        }
+    }
+
+    if let Some(idx) = sink {
+        trace!("Completed sink {idx} with loops on all symbols, emitting colour {neutral_low}");
+        for sym in dpa.symbols() {
+            cong.add_edge(idx, dpa.make_expression(sym), idx, neutral_low);
         }
     }
 
@@ -338,9 +371,11 @@ pub fn actively_exchanged_words_mealy<D: MealyLike + Deterministic>(mm: D) -> Me
 
 #[cfg(test)]
 mod tests {
+    use std::time::Instant;
+
     use automata::{
         automaton::{DPALike, MealyLike, MooreLike, DPA},
-        ts::{Deterministic, ToDot, NTS},
+        ts::{Deterministic, Dottable, NTS},
         TransitionSystem,
     };
 
@@ -374,8 +409,40 @@ mod tests {
             [(0, pmset)].into_iter().collect(),
         );
         let precise = fwpm.into_precise_dpa();
-        precise.display_rendered().unwrap();
+        // precise.display_rendered().unwrap();
         // pm.display_rendered().unwrap();
+        todo!()
+    }
+
+    #[test_log::test]
+    fn priority_mapping_all_colors() {
+        let dpa = NTS::builder()
+            .with_transitions([
+                (0, 'a', 0, 1),
+                (0, 'b', 1, 0),
+                (0, 'c', 1, 0),
+                (1, 'a', 1, 1),
+                (1, 'b', 0, 2),
+                (1, 'c', 1, 1),
+                (2, 'a', 1, 2),
+                (2, 'b', 1, 2),
+                (2, 'c', 0, 0),
+            ])
+            .into_dpa(0);
+        let start = Instant::now();
+        let mm = priority_mapping_vec_backed(&dpa, dpa.state_indices());
+        println!(
+            "Vec backed took {} microseconds",
+            start.elapsed().as_micros()
+        );
+        let start = Instant::now();
+        let mm = priority_mapping_set_backed(&dpa, dpa.state_indices());
+        println!(
+            "Set backed took {} microseconds",
+            start.elapsed().as_micros()
+        );
+        mm.display_rendered();
+        mm.into_mealy().minimize().display_rendered().unwrap();
     }
 
     fn simple_dpa() -> DPA {

@@ -277,7 +277,7 @@ where
 #[cfg(test)]
 mod tests {
 
-    use crate::{tests::wiki_dfa, ts::ToDot};
+    use crate::{tests::wiki_dfa, ts::Dottable};
 
     #[test]
     fn right_cayley_graph() {

@@ -15,7 +15,7 @@ impl<A: Alphabet> ClassifiesIdempotents<A> for PeriodicOmegaSample<A> {
 
 #[cfg(test)]
 mod tests {
-    use automata::{ts::ToDot, RightCongruence, TransitionSystem};
+    use automata::{ts::Dottable, RightCongruence, TransitionSystem};
 
     use crate::{passive::sprout::tests::testing_larger_forc_sample, AnnotatedCongruence};
 

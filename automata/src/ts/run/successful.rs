@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use crate::ts::{
     finite::{InfinityColors, ReachedColor, ReachedState, SeenColors, TransitionColorSequence},
     infinite::InfinityStateColors,
+    path::PathIn,
     CanInduce, Deterministic, Path,
 };
 
@@ -10,17 +11,17 @@ use crate::ts::TransitionSystem;
 
 /// Represents a successful run through a transition system. It consists of a word, a transition system, a position
 /// in the word and a path through the transition system.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Successful<R, Ts: TransitionSystem> {
+#[derive(Clone)]
+pub struct Successful<R, Ts: Deterministic> {
     word: R,
     ts: Ts,
-    path: Path<Ts::Alphabet, Ts::StateIndex>,
+    path: PathIn<Ts>,
     loop_index: Option<usize>,
 }
 
-impl<R, Ts: TransitionSystem> Successful<R, Ts> {
+impl<R, Ts: Deterministic> Successful<R, Ts> {
     /// Returns a reference to the path underlying the successful run.
-    pub fn path(&self) -> &Path<Ts::Alphabet, Ts::StateIndex> {
+    pub fn path(&self) -> &PathIn<Ts> {
         &self.path
     }
 
@@ -37,7 +38,7 @@ where
     Ts::StateColor: Clone,
 {
     fn induce(&self) -> SeenColors<Ts::StateColor> {
-        SeenColors(self.path.state_colors(&self.ts).collect())
+        SeenColors(self.path.state_colors().cloned().collect())
     }
 }
 
@@ -47,7 +48,7 @@ where
     Ts::StateColor: Clone,
 {
     fn induce(&self) -> InfinityColors<Ts::EdgeColor> {
-        InfinityColors(self.path.edge_colors(&self.ts).collect())
+        InfinityColors(self.path.edge_colors().cloned().collect())
     }
 }
 
@@ -59,8 +60,9 @@ where
     fn induce(&self) -> InfinityStateColors<Ts::StateColor> {
         let state_colors: BTreeSet<_> = self
             .path
-            .state_colors(&self.ts)
+            .state_colors()
             .skip(self.loop_index.unwrap_or(0))
+            .cloned()
             .collect();
         debug_assert!(!state_colors.is_empty());
         InfinityStateColors(state_colors)
@@ -73,7 +75,7 @@ where
     Ts::StateColor: Clone,
 {
     fn induce(&self) -> ReachedColor<Ts::StateColor> {
-        ReachedColor(self.path.reached_state_color(&self.ts))
+        ReachedColor(self.path.reached_state_color())
     }
 }
 
@@ -85,18 +87,13 @@ impl<R, Ts: Deterministic> CanInduce<ReachedState<Ts::StateIndex>> for Successfu
 
 impl<R, Ts: Deterministic> CanInduce<TransitionColorSequence<Ts::EdgeColor>> for Successful<R, Ts> {
     fn induce(&self) -> TransitionColorSequence<Ts::EdgeColor> {
-        TransitionColorSequence(self.path.edge_colors(&self.ts).collect())
+        TransitionColorSequence(self.path.edge_colors().cloned().collect())
     }
 }
 
-impl<R, Ts: TransitionSystem> Successful<R, Ts> {
+impl<R, Ts: Deterministic> Successful<R, Ts> {
     /// Creates a new successful run from its constituent parts.
-    pub fn new(
-        word: R,
-        ts: Ts,
-        loop_index: Option<usize>,
-        path: Path<Ts::Alphabet, Ts::StateIndex>,
-    ) -> Self {
+    pub fn new(word: R, ts: Ts, loop_index: Option<usize>, path: PathIn<Ts>) -> Self {
         Self {
             word,
             ts,

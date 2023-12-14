@@ -306,7 +306,7 @@ impl<D: MooreLike> MooreOracle<D> {
 #[cfg(test)]
 mod tests {
     use automata::{
-        ts::{ToDot, NTS},
+        ts::{Dottable, NTS},
         TransitionSystem,
     };
 

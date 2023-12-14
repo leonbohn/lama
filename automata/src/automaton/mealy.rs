@@ -429,7 +429,7 @@ pub trait MealyLike: Deterministic + Pointed {
     {
         self.finite_run(input)
             .ok()
-            .and_then(|r| r.last_transition_color(self))
+            .and_then(|r| r.last_transition_color().cloned())
     }
 
     /// Returns a vector over all colors that can be emitted.

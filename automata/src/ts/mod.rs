@@ -217,7 +217,7 @@ pub trait Pointed: TransitionSystem {
 
 /// This module deals with transforming a transition system (or similar) into a representation in the dot (graphviz) format.
 pub mod dot;
-pub use dot::ToDot;
+pub use dot::Dottable;
 
 mod quotient;
 pub use quotient::Quotient;

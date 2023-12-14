@@ -6,7 +6,7 @@ use owo_colors::OwoColorize;
 use automata::{
     automaton::MooreLike,
     prelude::*,
-    ts::dot::{DotStateAttribute, DotStateColorize},
+    ts::dot::{DotStateAttribute, Dottable},
     Set,
 };
 
@@ -72,24 +72,6 @@ impl Show for Annotation {
     }
 }
 
-impl DotStateColorize for Annotation {
-    fn dot_state_colorize(&self, base: &mut automata::ts::dot::DotStateData) {
-        let i = if self.idempotent { "*" } else { "" };
-        base.push_attribute(DotStateAttribute::Label(format!(
-            "{}{}",
-            base.raw_name(),
-            i,
-        )));
-        if let Some(b) = self.good {
-            base.push_attribute(DotStateAttribute::Color(if b {
-                "green".to_string()
-            } else {
-                "red".to_string()
-            }));
-        }
-    }
-}
-
 impl std::fmt::Debug for Annotation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(b) = self.good {
@@ -119,24 +101,6 @@ pub trait ClassifiesIdempotents<A: Alphabet> {
 impl<A: Alphabet> Debug for AnnotatedCongruence<A> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.0)
-    }
-}
-
-impl<A> ToDot for AnnotatedCongruence<A>
-where
-    A: Alphabet,
-    RightCongruence<A, Annotation, ()>: ToDot,
-{
-    fn dot_representation(&self) -> String {
-        format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""))
-    }
-
-    fn header(&self) -> String {
-        self.0.header()
-    }
-
-    fn body(&self, prefix: &str) -> String {
-        self.0.body(prefix)
     }
 }
 

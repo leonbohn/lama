@@ -376,6 +376,12 @@ impl<Q, C> Default for NTSBuilder<Q, C> {
     }
 }
 
+impl NTSBuilder<bool, ()> {
+    pub fn into_dfa(mut self, initial: usize) -> DFA<Simple> {
+        self.deterministic().with_initial(initial).collect_dfa()
+    }
+}
+
 impl NTSBuilder<(), usize> {
     pub fn into_dpa(mut self, initial: usize) -> DPA<Simple> {
         self.default_color(())

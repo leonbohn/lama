@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use crate::{Alphabet, Partition, Pointed, RightCongruence, Set, TransitionSystem};
+use itertools::Itertools;
+
+use crate::{Alphabet, Partition, Pointed, RightCongruence, Set, Show, TransitionSystem};
 
 use super::{transition_system::IsTransition, Deterministic, ExpressionOf, SymbolOf};
 
@@ -219,8 +221,9 @@ impl<D: Deterministic> Deterministic for Quotient<D> {
         state: Idx,
         symbol: SymbolOf<Self>,
     ) -> Option<Self::TransitionRef<'_>> {
+        let origin = state.to_index(self)?;
         let (states, colors): (Set<_>, Vec<_>) = self
-            .class_iter_by_id(state.to_index(self)?)?
+            .class_iter_by_id(origin)?
             .filter_map(|q| {
                 self.ts.transition(q, symbol).map(|tt| {
                     (
@@ -230,17 +233,20 @@ impl<D: Deterministic> Deterministic for Quotient<D> {
                 })
             })
             .unzip();
-        assert_eq!(
-            states.len(),
-            1,
-            "More than one quotient class reached, partition was faulty"
-        );
-        let expression = self.expressions.get(&symbol).unwrap();
-        Some(QuotientTransition {
-            expression,
-            colors,
-            target: states.into_iter().next().unwrap(),
-        })
+
+        match states.len() {
+            0 => None,
+            1 => {
+
+                let expression = self.expressions.get(&symbol).unwrap();
+                Some(QuotientTransition {
+                    expression,
+                    colors,
+                    target: states.into_iter().next().unwrap(),
+                })
+            }
+            _ => panic!("From {origin}|{} on symbol {}, we reach {} while precisely one state should be reached!", self.class_iter_by_id(origin).unwrap().map(|c| c.to_string()).join(", "), symbol.show(), format!("{{{}}}", states.iter().map(|idx| idx.to_string()).join(", ")))
+        }
     }
 }
 
@@ -248,7 +254,7 @@ impl<D: Deterministic> Deterministic for Quotient<D> {
 mod tests {
     use crate::{
         tests::wiki_dfa,
-        ts::{Deterministic, ToDot},
+        ts::{Deterministic, Dottable},
         Partition, RightCongruence, TransitionSystem,
     };
 

@@ -20,6 +20,8 @@ use super::operations::ProductTransition;
 use super::operations::RestrictByStateIndex;
 use super::operations::StateIndexFilter;
 use super::path::Lasso;
+use super::path::LassoIn;
+use super::path::PathIn;
 use super::sproutable::{IndexedAlphabet, Sproutable};
 use super::Path;
 
@@ -85,7 +87,7 @@ pub trait Deterministic: TransitionSystem {
     fn finite_run<W: FiniteWord<SymbolOf<Self>>>(
         &self,
         word: W,
-    ) -> Result<Path<Self::Alphabet, Self::StateIndex>, Path<Self::Alphabet, Self::StateIndex>>
+    ) -> Result<PathIn<Self>, PathIn<Self>>
     where
         Self: Pointed,
     {
@@ -118,11 +120,7 @@ pub trait Deterministic: TransitionSystem {
     /// - [`Err`] if the run is unsuccessful, meaning a symbol is encountered for which no
     /// transition exists.
     #[allow(clippy::type_complexity)]
-    fn finite_run_from<W, Idx>(
-        &self,
-        word: W,
-        origin: Idx,
-    ) -> Result<Path<Self::Alphabet, Self::StateIndex>, Path<Self::Alphabet, Self::StateIndex>>
+    fn finite_run_from<W, Idx>(&self, word: W, origin: Idx) -> Result<PathIn<Self>, PathIn<Self>>
     where
         Self: Sized,
         W: FiniteWord<SymbolOf<Self>>,
@@ -131,13 +129,13 @@ pub trait Deterministic: TransitionSystem {
         let mut current = origin
             .to_index(self)
             .expect("run must start in state that exists");
-        let mut path = Path::with_capacity(current, word.len());
+        let mut path = Path::empty_in_with_capacity(self, current, word.len());
         for symbol in word.symbols() {
             if let Some(o) = path.extend_in(&self, symbol) {
                 current = o.target();
-            } else {
-                return Err(path);
+                continue;
             }
+            return Err(path);
         }
         Ok(path)
     }
@@ -146,16 +144,18 @@ pub trait Deterministic: TransitionSystem {
         &self,
         word: W,
         origin: Idx,
-    ) -> Option<Set<Self::StateIndex>> {
-        self.omega_run_from(word, origin)
-            .ok()
-            .map(|p| p.recurrent_state_indices())
+    ) -> Option<impl Iterator<Item = Self::StateIndex>> {
+        Some(
+            self.omega_run_from(word, origin)
+                .ok()?
+                .into_recurrent_state_indices(),
+        )
     }
 
     fn recurrent_state_indices<W: OmegaWord<SymbolOf<Self>>>(
         &self,
         word: W,
-    ) -> Option<Set<Self::StateIndex>>
+    ) -> Option<impl Iterator<Item = Self::StateIndex>>
     where
         Self: Pointed,
     {
@@ -170,36 +170,40 @@ pub trait Deterministic: TransitionSystem {
         Some(
             self.omega_run_from(word, origin)
                 .ok()?
-                .recurrent_state_colors(self),
+                .into_recurrent_state_colors(),
         )
     }
 
     fn recurrent_state_colors<W: OmegaWord<SymbolOf<Self>>>(
         &self,
         word: W,
-    ) -> Option<Set<Self::StateColor>>
+    ) -> Option<impl Iterator<Item = Self::StateColor>>
     where
         Self: Pointed,
     {
         self.recurrent_state_colors_from(word, self.initial())
     }
 
-    fn infinity_set_from<W, Idx>(&self, word: W, origin: Idx) -> Option<Set<Self::EdgeColor>>
+    fn recurrent_edge_colors_from<W, Idx>(
+        &self,
+        word: W,
+        origin: Idx,
+    ) -> Option<impl Iterator<Item = Self::EdgeColor>>
     where
         W: OmegaWord<SymbolOf<Self>>,
         Idx: Indexes<Self>,
     {
         self.omega_run_from(word, origin)
             .ok()
-            .map(|p| p.infinity_set(self))
+            .map(|p| p.into_recurrent_edge_colors())
     }
 
-    fn infinity_set<W>(&self, word: W) -> Option<Set<Self::EdgeColor>>
+    fn recurrent_edge_colors<W>(&self, word: W) -> Option<impl Iterator<Item = Self::EdgeColor>>
     where
         W: OmegaWord<SymbolOf<Self>>,
         Self: Pointed,
     {
-        self.infinity_set_from(word, self.initial())
+        self.recurrent_edge_colors_from(word, self.initial())
     }
 
     // Todo: once RTTIT is stabilized (1.72), we should return an iterator.
@@ -236,7 +240,7 @@ pub trait Deterministic: TransitionSystem {
     {
         self.finite_run_from(word, origin)
             .ok()
-            .map(|p| p.state_colors(self).collect())
+            .map(|p| p.state_colors().cloned().collect())
     }
 
     fn visited_state_colors<W>(&self, word: W) -> Option<Vec<Self::StateColor>>
@@ -254,7 +258,7 @@ pub trait Deterministic: TransitionSystem {
     {
         self.finite_run_from(word, origin)
             .ok()
-            .map(|p| p.edge_colors(self).collect())
+            .map(|p| p.edge_colors().cloned().collect())
     }
 
     fn visited_edge_colors<W>(&self, word: W) -> Option<Vec<Self::EdgeColor>>
@@ -272,7 +276,7 @@ pub trait Deterministic: TransitionSystem {
     {
         self.finite_run_from(word, origin.to_index(self)?)
             .ok()
-            .and_then(|p| p.last_transition_color(self))
+            .and_then(|p| p.last_transition_color().cloned())
     }
 
     fn last_edge_color<W>(&self, word: W) -> Option<Self::EdgeColor>
@@ -299,10 +303,7 @@ pub trait Deterministic: TransitionSystem {
     }
     /// Runs the given `word` on the transition system, starting in the initial state.
     #[allow(clippy::type_complexity)]
-    fn omega_run<W>(
-        &self,
-        word: W,
-    ) -> Result<Lasso<Self::Alphabet, Self::StateIndex>, Path<Self::Alphabet, Self::StateIndex>>
+    fn omega_run<W>(&self, word: W) -> Result<LassoIn<Self>, PathIn<Self>>
     where
         W: OmegaWord<SymbolOf<Self>>,
         Self: Pointed,
@@ -312,11 +313,7 @@ pub trait Deterministic: TransitionSystem {
 
     /// Runs the given `word` on the transition system, starting from `state`.
     #[allow(clippy::type_complexity)]
-    fn omega_run_from<W, Idx>(
-        &self,
-        word: W,
-        origin: Idx,
-    ) -> Result<Lasso<Self::Alphabet, Self::StateIndex>, Path<Self::Alphabet, Self::StateIndex>>
+    fn omega_run_from<W, Idx>(&self, word: W, origin: Idx) -> Result<LassoIn<Self>, PathIn<Self>>
     where
         Idx: Indexes<Self>,
         W: OmegaWord<SymbolOf<Self>>,
@@ -392,7 +389,7 @@ pub trait Deterministic: TransitionSystem {
     {
         self.finite_run_from(word, from)
             .ok()
-            .map(|p| p.reached_state_color(self))
+            .map(|p| p.reached_state_color())
     }
 
     fn reached_state_color<W>(&self, word: W) -> Option<Self::StateColor>

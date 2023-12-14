@@ -101,7 +101,8 @@ impl LStarHypothesis for DFA {
         experiments: &super::Experiments<Self>,
         row: &[Self::Color],
     ) -> Self::StateColor {
-        let Some(idx) = experiments.iter().position(|x| x == &vec![]) else {
+        let empty: Vec<SymbolOf<Self>> = vec![];
+        let Some(idx) = experiments.iter().position(|x| empty.eq(x)) else {
             panic!("empty experiment  must exist");
         };
         assert!(idx < row.len(), "not enough experiments");

@@ -39,7 +39,7 @@ impl<Ts: DPALike<EdgeColor = usize>> OmegaWordAcceptor<SymbolOf<Ts>>
     for DPA<Ts::Alphabet, Ts::StateColor, Ts>
 {
     fn accepts_omega<W: OmegaWord<SymbolOf<Ts>>>(&self, word: W) -> bool {
-        self.infinity_set(word)
+        self.recurrent_edge_colors(word)
             .map(|set| set.into_iter().min().unwrap_or(1) % 2 == 0)
             .unwrap_or(false)
     }

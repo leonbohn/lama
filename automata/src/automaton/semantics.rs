@@ -1,5 +1,8 @@
 use crate::{
-    ts::{path::Lasso, Deterministic},
+    ts::{
+        path::{Lasso, LassoIn},
+        Deterministic,
+    },
     Color, Set,
 };
 
@@ -12,19 +15,17 @@ pub trait OmegaSemantics<Q, C> {
 }
 
 pub trait ProvidesInfinitySets<Q, C> {
-    fn recurrent_edges(&self) -> impl Iterator<Item = C>;
-    fn recurrent_states(&self) -> impl Iterator<Item = Q>;
+    fn recurrent_edges(self) -> impl Iterator<Item = C>;
+    fn recurrent_states(self) -> impl Iterator<Item = Q>;
 }
 
-impl<D: Deterministic> ProvidesInfinitySets<D::StateColor, D::EdgeColor>
-    for (D, Lasso<D::Alphabet, D::StateIndex>)
-{
-    fn recurrent_edges(&self) -> impl Iterator<Item = D::EdgeColor> {
-        self.1.recurrent_edge_colors(&self.0)
+impl<D: Deterministic> ProvidesInfinitySets<D::StateColor, D::EdgeColor> for (D, LassoIn<D>) {
+    fn recurrent_edges(self) -> impl Iterator<Item = D::EdgeColor> {
+        self.1.into_recurrent_edge_colors()
     }
 
-    fn recurrent_states(&self) -> impl Iterator<Item = D::StateColor> {
-        self.1.recurrent_state_colors(&self.0)
+    fn recurrent_states(self) -> impl Iterator<Item = D::StateColor> {
+        self.1.into_recurrent_state_colors()
     }
 }
 

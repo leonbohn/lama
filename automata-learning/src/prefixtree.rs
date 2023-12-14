@@ -83,7 +83,7 @@ pub fn prefix_tree<A: Alphabet, W: Into<Reduced<A::Symbol>>, I: IntoIterator<Ite
 mod tests {
     use automata::{
         alphabet::Simple,
-        ts::{Deterministic, Sproutable, ToDot},
+        ts::{Deterministic, Dottable, Sproutable},
         upw,
         word::Periodic,
         TransitionSystem,
