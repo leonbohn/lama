@@ -10,7 +10,7 @@ tracing-test = { version = "0.2", features = ["no-env-filter"] }
 automata = { version = "0.2", path = "../automata", features = ["graphviz"] }
 itertools = "0.12"
 impl-tools = "0.10.0"
-tabled = { version = "0.14.0", features = ["color"] }
+tabled = { version = "0.15.0", features = ["color"] }
 owo-colors = "3.5"
 alea = "0.2"
 either = "1.9.0"
