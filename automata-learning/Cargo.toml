@@ -11,7 +11,7 @@ automata = { version = "0.2", path = "../automata", features = ["graphviz"] }
 itertools = "0.12"
 impl-tools = "0.10.0"
 tabled = { version = "0.14.0", features = ["color"] }
-owo-colors = "3.5"
+owo-colors = "4.0"
 alea = "0.2"
 either = "1.9.0"
 paste = "1.0"
