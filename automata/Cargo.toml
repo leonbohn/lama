@@ -9,7 +9,7 @@ tracing-subscriber = "0.3"
 fxhash = "0.2"
 itertools = "0.12"
 tabled = { version = "0.14.0", features = ["color"] }
-owo-colors = "3.5"
+owo-colors = "4.0"
 hoars = { version = "0.1", path = "../hoars", optional = true }
 tracing-test = "0.2"
 tempfile = { version = "3.8.0", optional = true }
