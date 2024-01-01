@@ -102,7 +102,7 @@ pub trait DFALike: Deterministic<StateColor = bool> + Pointed
     }
 
     fn collect_dfa(self) -> DFA<Self::Alphabet> {
-        DFA::from(self.erase_edge_colors().collect_initialized())
+        DFA::from(self.erase_edge_colors().collect_with_initial())
     }
 
     /// Uses a reference to `self` for creating a [`DFA`].

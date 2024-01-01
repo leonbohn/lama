@@ -94,7 +94,7 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
                     let p = edge.target();
                     for a in edge.expression().symbols() {
                         if self.states.contains(&p) {
-                            edges.insert((*q, a, edge.color(), p));
+                            edges.insert((*q, a, edge.color().clone(), p));
                         }
                     }
                 }

@@ -109,6 +109,7 @@ impl<Ts: TransitionSystem> Quotient<Ts> {
 }
 
 pub struct QuotientTransition<'a, Idx, E, C> {
+    source: Idx,
     expression: &'a E,
     colors: Vec<C>,
     target: Idx,
@@ -128,11 +129,16 @@ impl<'a, Idx: Copy, E, C: Clone> IsTransition<'a, E, Idx, Vec<C>>
     fn expression(&self) -> &'a E {
         &self.expression
     }
+
+    fn source(&self) -> Idx {
+        self.source
+    }
 }
 
 impl<'a, Idx, E, C> QuotientTransition<'a, Idx, E, C> {
-    pub fn new(expression: &'a E, colors: Vec<C>, target: Idx) -> Self {
+    pub fn new(source: Idx, expression: &'a E, colors: Vec<C>, target: Idx) -> Self {
         Self {
+            source,
             expression,
             colors,
             target,
@@ -228,7 +234,7 @@ impl<D: Deterministic> Deterministic for Quotient<D> {
                 self.ts.transition(q, symbol).map(|tt| {
                     (
                         self.find_id_by_state(tt.target()).expect("Unknown state"),
-                        tt.color(),
+                        tt.color().clone(),
                     )
                 })
             })
@@ -240,6 +246,7 @@ impl<D: Deterministic> Deterministic for Quotient<D> {
 
                 let expression = self.expressions.get(&symbol).unwrap();
                 Some(QuotientTransition {
+                    source: origin,
                     expression,
                     colors,
                     target: states.into_iter().next().unwrap(),

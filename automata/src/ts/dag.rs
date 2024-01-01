@@ -4,6 +4,8 @@ use itertools::Itertools;
 
 use crate::{ts::transition_system::IsTransition, Color, Set, TransitionSystem};
 
+use super::Index;
+
 /// Represents a directed acyclic graph. The nodes have usize indices and are
 /// colored with some type `C`. The edges are represented as a vector of pairs
 /// of indices.
@@ -104,6 +106,14 @@ impl<C> Dag<C> {
         for<'a> F: Fn(&'a C) -> D,
     {
         Dag::from_parts(self.colors.iter().map(f), self.edges.clone())
+    }
+}
+
+impl<C> std::ops::Index<usize> for Dag<C> {
+    type Output = C;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.colors[index]
     }
 }
 

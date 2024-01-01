@@ -143,6 +143,10 @@ where
         self.transition.target()
     }
 
+    fn source(&self) -> Idx {
+        self.from
+    }
+
     fn color(&self) -> D {
         (self.f)(
             self.from,
@@ -290,6 +294,10 @@ where
     F: Fn(C) -> D,
     T: IsTransition<'ts, E, Idx, C>,
 {
+    fn source(&self) -> Idx {
+        self.transition.source()
+    }
+
     fn target(&self) -> Idx {
         self.transition.target()
     }

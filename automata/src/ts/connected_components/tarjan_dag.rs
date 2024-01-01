@@ -10,6 +10,9 @@ use crate::{
 
 use super::{Scc, SccDecomposition};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SccIndex(usize);
+
 /// Represents a hierarchical view on the SCCs of a transition system.
 #[derive(Clone)]
 pub struct TarjanDAG<'a, Ts: TransitionSystem> {
@@ -18,6 +21,28 @@ pub struct TarjanDAG<'a, Ts: TransitionSystem> {
 }
 
 impl<'a, Ts: TransitionSystem> TarjanDAG<'a, Ts> {
+    pub fn transient_edges(&self) -> impl Iterator<Item = Ts::TransitionRef<'a>> + '_ {
+        self.ts.transitions().filter(move |t| {
+            let source = t.source();
+            let target = t.target();
+            self.scc_index(source) != self.scc_index(target)
+        })
+    }
+
+    pub fn scc_index(&self, state: Ts::StateIndex) -> Option<SccIndex> {
+        self.dag
+            .find(|scc| scc.contains(&state))
+            .map(|i| SccIndex(i))
+    }
+
+    pub fn scc_of(&self, state: Ts::StateIndex) -> Option<&Scc<'a, Ts>> {
+        self.scc_index(state).map(|i| &self.dag[i.0])
+    }
+
+    pub fn scc(&self, index: SccIndex) -> &Scc<'a, Ts> {
+        &self.dag[index.0]
+    }
+
     /// Folds the state colors of the SCCs of the transition system into a single value.
     pub fn fold_state_colors<F, D>(&self, init: D, f: F) -> Dag<D>
     where

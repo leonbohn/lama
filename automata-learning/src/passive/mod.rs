@@ -51,7 +51,7 @@ pub fn dfa_rpni<A: Alphabet>(sample: &FiniteSample<A, bool>) -> DFA<A> {
                 .expect("Class must be in the congruence!");
             accepting.contains(&idx)
         })
-        .collect_with_initial()
+        .collect_pointed()
 }
 
 /// Executes a variant of the RPNI algorithm for omega-words, producing a DBA.

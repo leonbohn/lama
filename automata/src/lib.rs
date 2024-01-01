@@ -39,7 +39,9 @@ pub mod prelude {
             finite::ReachedState,
             operations::{Product, ProductIndex},
             predecessors::{IsPreTransition, PredecessorIterable},
-            transition_system::{EdgeColorOf, Indexes, IsTransition, StateColorOf},
+            transition_system::{
+                EdgeColorOf, Indexes, IsTransition, StateColorOf, TransitionReference,
+            },
             Congruence, Deterministic, DeterministicEdgesFrom, EdgeColor, ExpressionOf, HasColor,
             HasColorMut, HasMutableStates, HasStates, IndexType, NTSBuilder, Sproutable,
             StateColor, SymbolOf, TransitionSystem, BTS, DTS, NTS,

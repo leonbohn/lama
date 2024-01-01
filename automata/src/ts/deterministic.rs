@@ -54,7 +54,7 @@ pub trait Deterministic: TransitionSystem {
         let mut symbols = expression.symbols();
         let sym = symbols.next().unwrap();
         assert_eq!(symbols.next(), None);
-        Some(self.transition(state, sym)?.color())
+        Some(self.transition(state, sym)?.color().clone())
     }
 
     fn minimal_representative<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Vec<SymbolOf<Self>>>
@@ -469,13 +469,13 @@ pub trait Deterministic: TransitionSystem {
         Self::Alphabet: IndexedAlphabet,
         Self::StateColor: Default,
     {
-        let mut out: WithInitial<DTS<_, _, _>> = self.collect_initialized();
+        let mut out: WithInitial<DTS<_, _, _>> = self.collect_with_initial();
         out.complete_with_colors(sink_color, edge_color);
         out
     }
 
     /// Variant of [`Self::collect()`] which also considers the initial state.
-    fn collect_with_initial<Ts>(&self) -> Ts
+    fn collect_pointed<Ts>(&self) -> Ts
     where
         Self: Pointed,
         Ts: TransitionSystem<
@@ -501,7 +501,7 @@ pub trait Deterministic: TransitionSystem {
                     q,
                     tt.expression().clone(),
                     *map.get(&tt.target()).unwrap(),
-                    tt.color(),
+                    tt.color().clone(),
                 );
             });
         }
@@ -530,21 +530,20 @@ pub trait Deterministic: TransitionSystem {
                     *map.get(idx).unwrap(),
                     edge.expression().clone(),
                     *map.get(&edge.target()).unwrap(),
-                    edge.color(),
+                    edge.color().clone(),
                 );
             }
         }
         ts.with_initial(*map.get(&self.initial()).unwrap())
     }
 
-    fn collect_initialized(
+    fn collect_with_initial(
         self,
     ) -> WithInitial<DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>
     where
         Self: Pointed,
-        Self::StateColor: Default,
     {
-        self.collect_with_initial()
+        self.collect_pointed()
     }
 
     /// Collects `self` into a new transition system of type `Ts` with the same alphabet, state indices
@@ -571,7 +570,7 @@ pub trait Deterministic: TransitionSystem {
                     q,
                     tt.expression().clone(),
                     *map.get(&tt.target()).unwrap(),
-                    tt.color(),
+                    tt.color().clone(),
                 );
             });
         }
@@ -670,9 +669,11 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Deterministic for BTS<A, Q
         state: X,
         symbol: SymbolOf<Self>,
     ) -> Option<Self::TransitionRef<'_>> {
+        let source = state.to_index(self)?;
         self.raw_state_map()
-            .get(&state.to_index(self)?)
+            .get(&source)
             .and_then(|o| A::search_edge(o.edge_map(), symbol))
+            .map(|(e, (q, c))| TransitionReference::new(source, e, c, *q))
     }
 }
 
@@ -704,9 +705,10 @@ where
         let ll = self.0.transition(l, symbol)?;
         let rr = self.1.transition(r, symbol)?;
         Some(ProductTransition::new(
+            ProductIndex(l, r),
             ll.expression(),
-            ProductIndex(ll.target(), rr.target()),
             (ll.color(), rr.color()),
+            ProductIndex(ll.target(), rr.target()),
         ))
     }
 }

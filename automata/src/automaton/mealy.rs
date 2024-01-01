@@ -414,7 +414,7 @@ pub trait MealyLike: Deterministic + Pointed {
     }
 
     fn collect_mealy(self) -> AsMealyMachine<Self> {
-        let ts = self.erase_state_colors().collect_with_initial();
+        let ts = self.erase_state_colors().collect_pointed();
         MealyMachine {
             ts,
             _q: PhantomData,

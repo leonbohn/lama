@@ -133,7 +133,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Path<A, Idx, Q, C> {
     {
         let transition = ts.transition(self.end, symbol)?;
         self.transitions
-            .push((self.end, symbol, transition.color()));
+            .push((self.end, symbol, transition.color().clone()));
         self.end = transition.target();
         Some(transition)
     }

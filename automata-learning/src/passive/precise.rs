@@ -194,6 +194,9 @@ pub struct PreciseDPATransition<'a, A: Alphabet, const N: usize> {
 impl<'a, A: Alphabet, const N: usize> IsTransition<'a, A::Expression, PState<N>, usize>
     for PreciseDPATransition<'a, A, N>
 {
+    fn source(&self) -> PState<N> {
+        self.source
+    }
     fn target(&self) -> PState<N> {
         self.target
     }

@@ -224,7 +224,7 @@ impl<Idx: IndexType, Q: Accumulates, C: Accumulates> RunSignature<Idx, Q, C> {
                 let target = tt.target();
                 let mut sc = Q::from_or_neutral(ts.state_color(target));
                 sc.update(self.sc());
-                let mut ec = C::from(tt.color());
+                let mut ec = C::from(tt.color().clone());
                 ec.update(self.ec());
 
                 Some(Self(target, sc, ec))

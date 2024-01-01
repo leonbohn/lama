@@ -44,6 +44,10 @@ impl<'a, E, C: Clone> IsTransition<'a, E, usize, C> for &'a NTEdge<E, C> {
     fn expression(&self) -> &'a E {
         &self.expression
     }
+
+    fn source(&self) -> usize {
+        self.source
+    }
 }
 
 impl<E, C> NTEdge<E, C> {

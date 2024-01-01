@@ -160,7 +160,7 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
 
                 info.expect("Every SCC must have a color")
             })
-            .collect_with_initial()
+            .collect_pointed()
     }
 
     /// Takes a reference to a right congruence and a function that classifies idempotents
@@ -182,7 +182,7 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
                         c.recolor(Annotation::new(false, None))
                     }
                 })
-                .collect_with_initial(),
+                .collect_pointed(),
         )
     }
 }

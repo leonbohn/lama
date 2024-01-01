@@ -121,14 +121,21 @@ impl<'a, L: TransitionSystem, R: TransitionSystem> ProductStatesIter<'a, L, R> {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ProductTransition<'a, LI, RI, E, LC, RC> {
     expression: &'a E,
+    source: ProductIndex<LI, RI>,
     target: ProductIndex<LI, RI>,
     color: (LC, RC),
 }
 
 #[allow(missing_docs)]
 impl<'a, LI, RI, E, LC, RC> ProductTransition<'a, LI, RI, E, LC, RC> {
-    pub fn new(expression: &'a E, target: ProductIndex<LI, RI>, color: (LC, RC)) -> Self {
+    pub fn new(
+        source: ProductIndex<LI, RI>,
+        expression: &'a E,
+        color: (LC, RC),
+        target: ProductIndex<LI, RI>,
+    ) -> Self {
         Self {
+            source,
             expression,
             target,
             color,
@@ -144,6 +151,10 @@ where
     C: Color,
     D: Color,
 {
+    fn source(&self) -> ProductIndex<Idx, Jdx> {
+        ProductIndex(self.source.0, self.source.1)
+    }
+
     fn target(&self) -> ProductIndex<Idx, Jdx> {
         self.target
     }
@@ -214,9 +225,10 @@ where
                     self.position += 1;
                     if l.expression() == r.expression() {
                         return Some(ProductTransition::new(
+                            ProductIndex(l.source(), r.source()),
                             l.expression(),
-                            ProductIndex(l.target(), r.target()),
                             (l.color(), r.color()),
+                            ProductIndex(l.target(), r.target()),
                         ));
                     }
                 }

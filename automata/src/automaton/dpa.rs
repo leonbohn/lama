@@ -204,6 +204,22 @@ impl<D: DPALike> IntoDPA<D> {
         }
         None
     }
+
+    pub fn normalize(&mut self) {
+        let mut ts = self.collect_with_initial();
+
+        let mut recoloring = Vec::new();
+        let mut remove_states = Vec::new();
+        let mut remove_edges = Vec::new();
+
+        let mut priority = 0;
+        'outer: loop {
+            let dag = ts.tarjan_dag();
+            for edge in dag.transient_edges() {
+                recoloring.push(((edge.source(), edge.expression()), priority));
+            }
+        }
+    }
 }
 
 #[cfg(test)]

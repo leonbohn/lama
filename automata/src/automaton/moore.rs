@@ -430,7 +430,7 @@ pub trait MooreLike: Deterministic + Pointed {
     }
 
     fn collect_moore(&self) -> AsMooreMachine<Self> {
-        let ts = self.collect_with_initial();
+        let ts = self.collect_pointed();
         MooreMachine {
             ts,
             _q: std::marker::PhantomData,

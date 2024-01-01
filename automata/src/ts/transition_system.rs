@@ -61,6 +61,10 @@ where
         self.target
     }
 
+    fn source(&self) -> Idx {
+        self.source
+    }
+
     fn color(&self) -> C {
         self.color.clone()
     }
@@ -122,6 +126,10 @@ pub trait TransitionSystem: Sized {
     /// Returns an iterator over the state indices of `self`.
     fn state_indices(&self) -> Self::StateIndices<'_>;
 
+    fn is_stateless(&self) -> bool {
+        self.state_indices().next().is_none()
+    }
+
     fn state_indices_with_color(
         &self,
     ) -> impl Iterator<Item = (Self::StateIndex, Self::StateColor)> {
@@ -133,13 +141,28 @@ pub trait TransitionSystem: Sized {
         <Self::Alphabet as Alphabet>::expression(sym)
     }
 
+    fn transitions(&self) -> impl Iterator<Item = Self::TransitionRef<'_>> {
+        self.state_indices().flat_map(move |q| {
+            self.edges_from(q)
+                .expect("should return iterator for state that exists")
+        })
+    }
+
+    fn is_edgeless(&self) -> bool {
+        self.state_indices().all(|q| {
+            self.edges_from(q)
+                .map(|mut it| it.next().is_none())
+                .unwrap_or(true)
+        })
+    }
+
     fn edge_colors(&self) -> impl Iterator<Item = Self::EdgeColor> {
         self.state_indices()
             .flat_map(|q| {
                 self.edges_from(q)
                     .expect("should return iterator for state that exists")
             })
-            .map(|t| t.color())
+            .map(|t| t.color().clone())
     }
 
     /// Returns an iterator over the transitions that start in the given `state`. If the state does
@@ -168,7 +191,7 @@ pub trait TransitionSystem: Sized {
         let idx = state.to_index(self)?;
         Some(self.edges_from(state)?.filter_map(move |t| {
             if t.expression().matches(sym) {
-                Some((idx, t.expression(), t.color(), t.target()))
+                Some((idx, t.expression(), t.color().clone(), t.target()))
             } else {
                 None
             }
@@ -567,6 +590,7 @@ impl<'a, Idx, S, C> FullTransition<Idx, S, C> for (&'a Idx, &'a S, &'a C, &'a Id
 /// This trait is implemented for references to transitions, so that they can be used in
 /// generic contexts. It is automatically implemented for (mutable) references.
 pub trait IsTransition<'ts, E, Idx, C> {
+    fn source(&self) -> Idx;
     /// Returns the target state of the transition.
     fn target(&self) -> Idx;
     /// Returns the color of the transition.
@@ -574,73 +598,105 @@ pub trait IsTransition<'ts, E, Idx, C> {
     /// Gives a reference to the expression that labels the transition.
     fn expression(&self) -> &'ts E;
     /// Destructures the transition into its components.
-    fn into_tuple(self) -> (&'ts E, Idx, C)
+    fn into_tuple(self) -> (Idx, &'ts E, Idx, C)
     where
         Self: Sized,
     {
-        (self.expression(), self.target(), self.color())
+        (
+            self.source(),
+            self.expression(),
+            self.target(),
+            self.color(),
+        )
     }
     /// Destructures `self` but into a slightly different form.
-    fn into_nested_tuple(self) -> (&'ts E, (Idx, C))
+    fn into_nested_tuple(self) -> (Idx, &'ts E, (Idx, C))
     where
         Self: Sized,
     {
-        (self.expression(), (self.target(), self.color()))
+        (
+            self.source(),
+            self.expression(),
+            (self.target(), self.color()),
+        )
     }
 }
 
-impl<'a, Idx: IndexType, E, C: Color> IsTransition<'a, E, Idx, C> for (&'a E, &'a (Idx, C)) {
-    fn target(&self) -> Idx {
-        self.1 .0
-    }
-
-    fn color(&self) -> C {
-        self.1 .1.clone()
-    }
-
-    fn expression(&self) -> &'a E {
-        self.0
-    }
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct TransitionReference<'ts, E, Idx, C> {
+    source: Idx,
+    target: Idx,
+    color: &'ts C,
+    expression: &'ts E,
 }
-impl<'a, Idx: IndexType, E, C: Color> IsTransition<'a, E, Idx, C> for (&'a E, Idx, &'a C) {
-    fn target(&self) -> Idx {
-        self.1
-    }
 
-    fn color(&self) -> C {
-        self.2.clone()
-    }
-
-    fn expression(&self) -> &'a E {
-        self.0
+impl<'ts, E, Idx, C> TransitionReference<'ts, E, Idx, C> {
+    pub fn new(source: Idx, expression: &'ts E, color: &'ts C, target: Idx) -> Self {
+        Self {
+            source,
+            target,
+            color,
+            expression,
+        }
     }
 }
 
-impl<'a, Idx: IndexType, E, C: Color> IsTransition<'a, E, Idx, C> for &'a (E, Idx, C) {
+impl<'ts, E, Idx: IndexType, C: Color> IsTransition<'ts, E, Idx, C>
+    for TransitionReference<'ts, E, Idx, C>
+{
+    fn source(&self) -> Idx {
+        self.source
+    }
+
     fn target(&self) -> Idx {
-        self.1
+        self.target
     }
 
     fn color(&self) -> C {
-        self.2.clone()
+        self.color.clone()
     }
 
-    fn expression(&self) -> &'a E {
-        &self.0
+    fn expression(&self) -> &'ts E {
+        self.expression
     }
 }
 
-impl<'a, Idx: IndexType, E, C: Color> IsTransition<'a, E, Idx, C> for (&'a E, Idx, C) {
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct TransitionOwned<'ts, E, Idx, C> {
+    source: Idx,
+    target: Idx,
+    color: C,
+    expression: &'ts E,
+}
+
+impl<'ts, E, Idx, C> TransitionOwned<'ts, E, Idx, C> {
+    pub fn new(source: Idx, expression: &'ts E, color: C, target: Idx) -> Self {
+        Self {
+            source,
+            target,
+            color,
+            expression,
+        }
+    }
+}
+
+impl<'ts, E, Idx: IndexType, C: Color> IsTransition<'ts, E, Idx, C>
+    for TransitionOwned<'ts, E, Idx, C>
+{
+    fn source(&self) -> Idx {
+        self.source
+    }
+
     fn target(&self) -> Idx {
-        self.1
+        self.target
     }
 
     fn color(&self) -> C {
-        self.2.clone()
+        self.color.clone()
     }
 
-    fn expression(&self) -> &'a E {
-        &self.0
+    fn expression(&self) -> &'ts E {
+        self.expression
     }
 }
 
@@ -671,7 +727,7 @@ impl<'a, D: TransitionSystem + 'a> Iterator for TransitionsFrom<'a, D> {
                     self.symbols = Some(it);
                     self.color = Some(color.clone());
                     self.target = Some(target);
-                    return Some((self.source, sym, color, target));
+                    return Some((self.source, sym, color.clone(), target));
                 }
             }
         }
@@ -857,10 +913,8 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A
     type StateColor = Q;
     type EdgeColor = C;
     type StateIndex = Idx;
-    type TransitionRef<'this> = (&'this A::Expression, &'this (Idx, C)) where Self: 'this;
-    type EdgesFromIter<'this> = std::collections::hash_map::Iter<'this, A::Expression, (Idx, C)>
-    where
-        Self: 'this;
+    type TransitionRef<'this> = TransitionReference<'this, A::Expression, Idx, C> where Self: 'this;
+    type EdgesFromIter<'this> = BTSEdgesFrom<'this, A::Expression, Idx, C> where Self: 'this;
     type StateIndices<'this> = std::iter::Cloned<std::collections::hash_map::Keys<'this, Idx, super::index_ts::BTState<A, Q, C, Idx>>> where Self: 'this;
 
     type Alphabet = A;
@@ -877,9 +931,37 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A
     }
 
     fn edges_from<X: Indexes<Self>>(&self, state: X) -> Option<Self::EdgesFromIter<'_>> {
-        self.raw_state_map()
-            .get(&state.to_index(self)?)
-            .map(|o| o.edge_map().iter())
+        let source = state.to_index(self)?;
+        Some(BTSEdgesFrom::new(
+            source,
+            self.raw_state_map()
+                .get(&source)
+                .map(|o| o.edge_map().iter())?,
+        ))
+    }
+}
+
+pub struct BTSEdgesFrom<'ts, E, Idx, C> {
+    edges: std::collections::hash_map::Iter<'ts, E, (Idx, C)>,
+    source: Idx,
+}
+
+impl<'ts, E, Idx, C> BTSEdgesFrom<'ts, E, Idx, C> {
+    pub fn new(source: Idx, edges: std::collections::hash_map::Iter<'ts, E, (Idx, C)>) -> Self {
+        Self { edges, source }
+    }
+}
+
+impl<'ts, E, Idx: IndexType, C> Iterator for BTSEdgesFrom<'ts, E, Idx, C> {
+    type Item = TransitionReference<'ts, E, Idx, C>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.edges.next().map(|(e, (t, c))| TransitionReference {
+            source: self.source,
+            target: *t,
+            color: c,
+            expression: e,
+        })
     }
 }
 

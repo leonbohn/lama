@@ -7,6 +7,7 @@ use super::{
 use crate::{
     alphabet::{Directional, InvertibleChar},
     prelude::*,
+    ts::transition_system::TransitionReference,
     Map,
 };
 
@@ -50,7 +51,7 @@ where
 
     type EdgeColor = ();
 
-    type TransitionRef<'this> = (&'this InvertibleChar, usize, ()) where Self: 'this;
+    type TransitionRef<'this> = TransitionReference<'this, InvertibleChar, usize, ()> where Self: 'this;
 
     type StateIndices<'this> = std::ops::Range<usize> where Self: 'this;
 
@@ -90,7 +91,12 @@ where
         let mut word = string.to_deque();
         symbol.mul(&mut word);
         let tp = self.monoid().profile_for(&word)?;
-        Some((self.expressions.get(&symbol).unwrap(), tp, ()))
+        Some(TransitionReference::new(
+            idx,
+            self.expressions.get(&symbol).unwrap(),
+            &(),
+            tp,
+        ))
     }
 }
 
@@ -186,7 +192,7 @@ where
 
     type EdgeColor = ();
 
-    type TransitionRef<'this> = (&'this ExpressionOf<Ts>, usize, ()) where Self: 'this;
+    type TransitionRef<'this> = TransitionReference<'this, ExpressionOf<Ts>, usize, ()> where Self: 'this;
 
     type StateIndices<'this> = std::ops::Range<usize> where Self: 'this;
 
@@ -225,7 +231,12 @@ where
         let mut word = string.to_vec();
         word.push(symbol);
         let tp = self.monoid().profile_for(&word)?;
-        Some((self.expressions.get(&symbol).unwrap(), tp, ()))
+        Some(TransitionReference::new(
+            idx,
+            self.expressions.get(&symbol).unwrap(),
+            &(),
+            tp,
+        ))
     }
 }
 
