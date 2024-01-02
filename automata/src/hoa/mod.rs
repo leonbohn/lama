@@ -314,6 +314,10 @@ impl Alphabet for HoaAlphabet {
     fn expression(symbol: Self::Symbol) -> Self::Expression {
         todo!()
     }
+
+    fn make_expression(&self, symbol: Self::Symbol) -> &Self::Expression {
+        todo!()
+    }
 }
 
 #[cfg(test)]

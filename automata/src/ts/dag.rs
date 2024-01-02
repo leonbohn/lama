@@ -2,7 +2,7 @@ use std::{collections::BTreeSet, fmt::Debug};
 
 use itertools::Itertools;
 
-use crate::{ts::transition_system::IsTransition, Color, Set, TransitionSystem};
+use crate::{ts::transition_system::IsEdge, Color, Set, TransitionSystem};
 
 use super::Index;
 
@@ -16,6 +16,10 @@ pub struct Dag<C = ()> {
 }
 
 impl<C> Dag<C> {
+    pub fn iter(&self) -> impl Iterator<Item = &C> + '_ {
+        self.colors.iter()
+    }
+
     /// Returns true iff the graph is empty, i.e. there are no nodes.
     pub fn is_empty(&self) -> bool {
         self.colors.is_empty()

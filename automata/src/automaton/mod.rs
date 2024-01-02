@@ -15,7 +15,7 @@ use crate::{
     ts::{
         finite::{InfinityColors, ReachedColor},
         operations::{MapStateColor, MatchingProduct, Product, ProductIndex, ProductTransition},
-        transition_system::IsTransition,
+        transition_system::IsEdge,
         EdgeColor, HasMutableStates, HasStates, IndexType, Pointed, Quotient, Sproutable,
         StateColor, SymbolOf, TransitionSystem, BTS,
     },
@@ -127,7 +127,7 @@ macro_rules! impl_automaton_type {
         impl<Ts: Pointed> std::fmt::Debug for $name<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 use itertools::Itertools;
-                use crate::prelude::IsTransition;
+                use crate::prelude::IsEdge;
                 writeln!(
                     f,
                     "Initial state {} with sdtates {} and transitions\n{}",

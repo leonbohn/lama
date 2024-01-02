@@ -353,7 +353,7 @@ pub trait Deterministic: TransitionSystem {
         SD: Fn(Self::StateIndex, StateColor<Self>) -> String,
     {
         let mut builder = tabled::builder::Builder::default();
-        builder.set_header(
+        builder.push_record(
             std::iter::once("State".to_string())
                 .chain(self.alphabet().universe().map(|s| format!("{:?}", s))),
         );
@@ -673,7 +673,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Deterministic for BTS<A, Q
         self.raw_state_map()
             .get(&source)
             .and_then(|o| A::search_edge(o.edge_map(), symbol))
-            .map(|(e, (q, c))| TransitionReference::new(source, e, c, *q))
+            .map(|(e, (q, c))| EdgeReference::new(source, e, c, *q))
     }
 }
 

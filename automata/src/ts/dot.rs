@@ -13,7 +13,7 @@ use crate::{
 };
 
 use super::{
-    transition_system::{Indexes, IsTransition},
+    transition_system::{Indexes, IsEdge},
     Deterministic, IndexType, BTS,
 };
 
@@ -537,60 +537,41 @@ fn render_dot_to_tempfile(dot: &str) -> Result<Vec<u8>, std::io::Error> {
     }
 }
 
-#[cfg(target_os = "linux")]
-fn start_linux(contents: Vec<u8>) {
-    use std::{
-        io::{Read, Stdin, Write},
-        process::Stdio,
-    };
-
-    let mut child = std::process::Command::new("display")
-        .stdin(Stdio::piped())
-        .spawn()
-        .unwrap();
-    let mut stdin = child.stdin.take().expect("Could not take stdin");
-    std::thread::spawn(move || {
-        stdin
-            .write_all(&contents)
-            .expect("Could not write file to stdin");
-    });
-}
-
-#[cfg(target_os = "macos")]
-fn start_macos(contents: Vec<u8>) {
-    use std::{
-        io::{Read, Stdin, Write},
-        process::Stdio,
-    };
-
-    let mut child = std::process::Command::new("open")
-        .arg("-a")
-        .arg("Preview.app")
-        .arg("-f")
-        .stdin(Stdio::piped())
-        .spawn()
-        .unwrap();
-    let mut stdin = child.stdin.take().expect("Could not take stdin");
-    std::thread::spawn(move || {
-        stdin
-            .write_all(&contents)
-            .expect("Could not write file to stdin");
-    });
-}
-
 #[cfg(feature = "graphviz")]
-fn display_png(contents: Vec<u8>) -> Result<(), std::io::Error> {
-    #[cfg(target_os = "linux")]
-    start_linux(contents);
-    #[cfg(target_os = "macos")]
-    start_macos(contents);
-    #[cfg(target_os = "windows")]
-    std::process::Command::new("cmd")
-        .arg("/c")
-        .arg(format!("start {}", rendered_path.display()))
-        .spawn()?;
-    #[cfg(target_os = "windows")]
-    std::thread::sleep(std::time::Duration::from_secs(2));
+fn display_png(contents: Vec<u8>) -> std::io::Result<()> {
+    use std::{
+        io::{Read, Stdin, Write},
+        process::Stdio,
+    };
+
+    use tracing::trace;
+    let mut child = if cfg!(target_os = "linux") || cfg!(target_os = "windows") {
+        std::process::Command::new("display")
+            .stdin(Stdio::piped())
+            .spawn()
+            .unwrap()
+    } else if cfg!(target_os = "macos") {
+        std::process::Command::new("open")
+            .arg("-a")
+            .arg("Preview.app")
+            .arg("-f")
+            .stdin(Stdio::piped())
+            .spawn()
+            .unwrap()
+    } else {
+        unreachable!("Platform not supported!")
+    };
+
+    let mut stdin = child.stdin.take().unwrap();
+    std::thread::spawn(move || {
+        stdin
+            .write_all(&contents)
+            .expect("Could not write file to stdin");
+    });
+
+    let output = child.wait_with_output()?;
+    trace!("png display command exited with {}", output.status);
+
     Ok(())
 }
 

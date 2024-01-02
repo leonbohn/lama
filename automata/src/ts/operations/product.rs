@@ -143,7 +143,7 @@ impl<'a, LI, RI, E, LC, RC> ProductTransition<'a, LI, RI, E, LC, RC> {
     }
 }
 
-impl<'a, Idx, Jdx, E, C, D> IsTransition<'a, E, ProductIndex<Idx, Jdx>, (C, D)>
+impl<'a, Idx, Jdx, E, C, D> IsEdge<'a, E, ProductIndex<Idx, Jdx>, (C, D)>
     for ProductTransition<'a, Idx, Jdx, E, C, D>
 where
     Idx: IndexType,
@@ -240,41 +240,52 @@ where
 
 /// Analogous to [`ProductTransition`]; encapsulates a pre-transition in a product transition system.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ProductPreTransition<LI, RI, E, LC, RC> {
+pub struct ProductPreTransition<'a, LI, RI, E, LC, RC> {
     source: ProductIndex<LI, RI>,
-    expression: E,
+    expression: &'a E,
     color: (LC, RC),
+    target: ProductIndex<LI, RI>,
+}
+
+impl<'a, LI, RI, E, LC, RC> IsEdge<'a, E, ProductIndex<LI, RI>, (LC, RC)>
+    for ProductPreTransition<'a, LI, RI, E, LC, RC>
+where
+    LC: Clone,
+    RC: Clone,
+    LI: IndexType,
+    RI: IndexType,
+{
+    fn color(&self) -> (LC, RC) {
+        self.color.clone()
+    }
+
+    fn source(&self) -> ProductIndex<LI, RI> {
+        self.source.clone()
+    }
+
+    fn target(&self) -> ProductIndex<LI, RI> {
+        self.target
+    }
+
+    fn expression(&self) -> &'a E {
+        &self.expression
+    }
 }
 
 #[allow(missing_docs)]
-impl<LI, RI, E, LC, RC> ProductPreTransition<LI, RI, E, LC, RC> {
-    pub fn new(source: ProductIndex<LI, RI>, expression: E, color: (LC, RC)) -> Self {
+impl<'a, LI, RI, E, LC, RC> ProductPreTransition<'a, LI, RI, E, LC, RC> {
+    pub fn new(
+        source: ProductIndex<LI, RI>,
+        expression: &'a E,
+        color: (LC, RC),
+        target: ProductIndex<LI, RI>,
+    ) -> Self {
         Self {
+            target,
             source,
             expression,
             color,
         }
-    }
-}
-
-impl<Idx, Jdx, E, C, D> IsPreTransition<ProductIndex<Idx, Jdx>, E, (C, D)>
-    for ProductPreTransition<Idx, Jdx, E, C, D>
-where
-    Idx: IndexType,
-    Jdx: IndexType,
-    C: Color,
-    D: Color,
-{
-    fn source(&self) -> ProductIndex<Idx, Jdx> {
-        self.source
-    }
-
-    fn color(&self) -> (C, D) {
-        self.color.clone()
-    }
-
-    fn expression(&self) -> &E {
-        &self.expression
     }
 }
 
@@ -296,6 +307,7 @@ where
     R::Alphabet: Alphabet<Symbol = SymbolOf<L>, Expression = ExpressionOf<L>>,
 {
     type Item = ProductPreTransition<
+        'a,
         L::StateIndex,
         R::StateIndex,
         ExpressionOf<L>,
@@ -316,8 +328,9 @@ where
                     if left.expression() == right.expression() {
                         return Some(ProductPreTransition::new(
                             ProductIndex(left.source(), right.source()),
-                            left.expression().clone(),
+                            left.expression(),
                             (left.color(), right.color()),
+                            ProductIndex(left.target(), right.target()),
                         ));
                     }
                 }

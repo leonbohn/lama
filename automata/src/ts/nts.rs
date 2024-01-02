@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, ffi::FromBytesUntilNulError};
 
 use crate::{prelude::*, Set};
 use itertools::Itertools;
@@ -32,7 +32,7 @@ pub struct NTEdge<E, C> {
     pub(super) next: Option<usize>,
 }
 
-impl<'a, E, C: Clone> IsTransition<'a, E, usize, C> for &'a NTEdge<E, C> {
+impl<'a, E, C: Clone> IsEdge<'a, E, usize, C> for &'a NTEdge<E, C> {
     fn target(&self) -> usize {
         self.target
     }
@@ -60,20 +60,6 @@ impl<E, C> NTEdge<E, C> {
             expression,
             next: None,
         }
-    }
-}
-
-impl<E, C: Color> IsPreTransition<usize, E, C> for NTEdge<E, C> {
-    fn source(&self) -> usize {
-        self.source
-    }
-
-    fn color(&self) -> C {
-        self.color.clone()
-    }
-
-    fn expression(&self) -> &E {
-        &self.expression
     }
 }
 
@@ -174,11 +160,55 @@ impl<Q, C> NTS<Simple, Q, C> {
 }
 
 impl<A: Alphabet, Q: Color, C: Color> NTS<A, Q, C> {
+    pub(crate) fn nts_remove_edge(
+        &mut self,
+        from: usize,
+        on: &ExpressionOf<Self>,
+    ) -> Option<(C, usize)> {
+        let pos = self.edge_position(from, on)?;
+        let (color, target) = (self.edges[pos].color.clone(), self.edges[pos].target);
+        self.remove_edge(from, pos);
+        Some((color, target))
+    }
+
+    pub(crate) fn nts_remove_transitions(
+        &mut self,
+        from: usize,
+        on: SymbolOf<Self>,
+    ) -> Set<(ExpressionOf<Self>, C, usize)> {
+        let mut set = Set::default();
+        let mut current = self.first_edge(from);
+        let mut to_remove = Vec::new();
+        while let Some(idx) = current {
+            let edge = &self.edges[idx];
+            if edge.expression.symbols().contains(&on) {
+                set.insert((edge.expression.clone(), edge.color.clone(), edge.target));
+                to_remove.push((from, idx));
+            }
+            current = edge.next;
+        }
+        for (from, idx) in to_remove {
+            self.remove_edge(from, idx);
+        }
+        set
+    }
+
+    pub(crate) fn nts_remove_state(&mut self, state: usize) -> Option<Q> {
+        // let mut current = self.first_edge(state);
+        // while let Some(idx) = current {
+        //     let edge = &self.edges[idx];
+        //     self.remove_edge(state, idx);
+        //     current = edge.next;
+        // }
+        // Some(self.states.remove(state).color)
+        todo!()
+    }
+
     fn edge_position(&self, from: usize, on: &A::Expression) -> Option<usize> {
         let mut idx = self.states.get(from)?.first_edge?;
         loop {
             // FIXME: Make this be a match
-            if self.edges[idx].expression() == on {
+            if (&self.edges[idx]).expression() == on {
                 return Some(idx);
             }
             idx = self.edges[idx].next?;

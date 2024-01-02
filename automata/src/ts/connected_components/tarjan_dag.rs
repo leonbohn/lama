@@ -3,7 +3,7 @@ use itertools::Itertools;
 use crate::{
     ts::{
         dag::{Dag, ReachableIter},
-        transition_system::{Indexes, IsTransition},
+        transition_system::{Indexes, IsEdge},
     },
     TransitionSystem,
 };
@@ -29,6 +29,19 @@ impl<'a, Ts: TransitionSystem> TarjanDAG<'a, Ts> {
         })
     }
 
+    pub fn transient_states(&self) -> impl Iterator<Item = Ts::StateIndex> + '_ {
+        self.dag
+            .iter()
+            .filter_map(|scc| {
+                if scc.is_transient() {
+                    Some(scc.iter().cloned())
+                } else {
+                    None
+                }
+            })
+            .flatten()
+    }
+
     pub fn scc_index(&self, state: Ts::StateIndex) -> Option<SccIndex> {
         self.dag
             .find(|scc| scc.contains(&state))
@@ -41,6 +54,10 @@ impl<'a, Ts: TransitionSystem> TarjanDAG<'a, Ts> {
 
     pub fn scc(&self, index: SccIndex) -> &Scc<'a, Ts> {
         &self.dag[index.0]
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Scc<'a, Ts>> + '_ {
+        self.dag.iter()
     }
 
     /// Folds the state colors of the SCCs of the transition system into a single value.

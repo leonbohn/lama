@@ -278,7 +278,7 @@ macro_rules! impl_mealy_automaton {
         impl<Ts: Pointed> std::fmt::Debug for $name<Ts::Alphabet,  Ts::StateColor, Ts> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 use itertools::Itertools;
-                use crate::prelude::IsTransition;
+                use crate::prelude::IsEdge;
                 writeln!(
                     f,
                     "Initial state {} with states {} and transitions\n{}",
@@ -435,7 +435,7 @@ pub trait MealyLike: Deterministic + Pointed {
     /// Returns a vector over all colors that can be emitted.
     fn color_range(&self) -> impl Iterator<Item = Self::EdgeColor> {
         self.reachable_state_indices()
-            .flat_map(|o| self.edges_from(o).unwrap().map(|e| IsTransition::color(&e)))
+            .flat_map(|o| self.edges_from(o).unwrap().map(|e| IsEdge::color(&e)))
             .unique()
     }
 }

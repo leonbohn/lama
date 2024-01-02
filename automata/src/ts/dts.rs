@@ -104,7 +104,7 @@ impl<A: Alphabet, Q: Color, C: Color> Deterministic for DTS<A, Q, C> {
         let mut it = self
             .0
             .edges_from(state.to_index(self)?)?
-            .filter(|e| IsTransition::expression(e).matches(symbol));
+            .filter(|e| IsEdge::expression(e).matches(symbol));
         let out = it.next();
         //todo: See if this has performance impact
         assert!(it.next().is_none());

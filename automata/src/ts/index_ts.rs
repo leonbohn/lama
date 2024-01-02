@@ -3,8 +3,8 @@ use itertools::Itertools;
 use crate::{alphabet::Alphabet, prelude::WithInitial, ts::Deterministic, Color, Map, Set, Show};
 
 use super::{
-    EdgeColor, HasColor, HasColorMut, HasMutableStates, HasStates, IndexType, Sproutable,
-    StateColor, TransitionSystem,
+    EdgeColor, ExpressionOf, HasColor, HasColorMut, HasMutableStates, HasStates, IndexType,
+    Sproutable, StateColor, SymbolOf, TransitionSystem,
 };
 
 /// A state in a transition system. This stores the color of the state and the index of the
@@ -51,6 +51,14 @@ impl<A: Alphabet, Q, C: Color, Idx: IndexType> BTState<A, Q, C, Idx> {
         self.predecessors.remove(&(from, on, color))
     }
 
+    pub fn remove_incoming_edges_from(&mut self, target: Idx) {
+        self.predecessors.retain(|(idx, _, _)| *idx != target);
+    }
+
+    pub fn remove_outgoing_edges_to(&mut self, target: Idx) {
+        self.edges.retain(|_, (idx, _)| *idx != target);
+    }
+
     pub fn edges(&self) -> impl Iterator<Item = (&A::Expression, &(Idx, C))> {
         self.edges.iter()
     }
@@ -63,8 +71,8 @@ impl<A: Alphabet, Q, C: Color, Idx: IndexType> BTState<A, Q, C, Idx> {
         self.edges.insert(on, (to, color))
     }
 
-    pub fn remove_edge(&mut self, on: A::Expression) -> Option<(Idx, C)> {
-        self.edges.remove(&on)
+    pub fn remove_edge(&mut self, on: &A::Expression) -> Option<(Idx, C)> {
+        self.edges.remove(on)
     }
 
     pub fn recolor<P: Color>(self, color: P) -> BTState<A, P, C, Idx> {
@@ -138,6 +146,44 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
             alphabet,
             states: Map::default(),
         }
+    }
+
+    pub(crate) fn bts_remove_state(&mut self, idx: Idx) -> Option<Q> {
+        let state = self.states.remove(&idx)?;
+        self.states.iter_mut().for_each(|(_, s)| {
+            s.remove_incoming_edges_from(idx);
+            s.remove_outgoing_edges_to(idx)
+        });
+        Some(state.color)
+    }
+
+    pub(crate) fn bts_remove_edge(&mut self, from: Idx, on: &A::Expression) -> Option<(C, Idx)> {
+        let (to, color) = self.states.get_mut(&from)?.remove_edge(on)?;
+        self.states
+            .get_mut(&to)?
+            .remove_pre_edge(from, on.clone(), color.clone());
+        Some((color, to))
+    }
+
+    pub(crate) fn bts_remove_transitions(
+        &mut self,
+        from: Idx,
+        symbol: SymbolOf<Self>,
+    ) -> Set<(ExpressionOf<Self>, C, Idx)> {
+        let mut edges = self
+            .states
+            .get_mut(&from)
+            .map(|s| s.edges.clone())
+            .unwrap_or_default();
+        edges
+            .drain()
+            .map(move |(on, (to, color))| {
+                self.states
+                    .get_mut(&to)
+                    .map(|s| s.remove_pre_edge(from, on.clone(), color.clone()));
+                (on, color, to)
+            })
+            .collect()
     }
 
     /// Creates a `BTS` from the given alphabet and states.
@@ -288,10 +334,7 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
         from: Self::StateIndex,
         on: <Self::Alphabet as Alphabet>::Expression,
     ) -> bool {
-        let target = self
-            .states
-            .get_mut(&from)
-            .and_then(|o| o.remove_edge(on.clone()));
+        let target = self.states.get_mut(&from).and_then(|o| o.remove_edge(&on));
         if let Some((target, color)) = target {
             let removed = self
                 .states
@@ -350,7 +393,7 @@ mod tests {
     use crate::{
         alphabet,
         ts::{
-            index_ts::MealyTS, transition_system::IsTransition, Deterministic, Sproutable,
+            index_ts::MealyTS, transition_system::IsEdge, Deterministic, Sproutable,
             TransitionSystem,
         },
     };

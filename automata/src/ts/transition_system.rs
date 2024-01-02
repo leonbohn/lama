@@ -44,36 +44,6 @@ pub type ExpressionOf<A> = <<A as TransitionSystem>::Alphabet as Alphabet>::Expr
 
 pub type FiniteInput<D> = Vec<SymbolOf<D>>;
 
-#[derive(Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
-pub struct EdgeReference<'ts, Idx, E, C> {
-    source: Idx,
-    color: &'ts C,
-    expression: &'ts E,
-    target: Idx,
-}
-
-impl<'ts, Idx, E, C> IsTransition<'ts, E, Idx, C> for EdgeReference<'ts, Idx, E, C>
-where
-    Idx: IndexType,
-    C: Color,
-{
-    fn target(&self) -> Idx {
-        self.target
-    }
-
-    fn source(&self) -> Idx {
-        self.source
-    }
-
-    fn color(&self) -> C {
-        self.color.clone()
-    }
-
-    fn expression(&self) -> &'ts E {
-        self.expression
-    }
-}
-
 /// Encapsulates the transition function δ of a (finite) transition system. This is the main trait that
 /// is used to query a transition system. Transitions are labeled with a [`Alphabet::Expression`], which
 /// determines on which [`Alphabet::Symbol`]s the transition can be taken. Additionally, every transition
@@ -96,12 +66,7 @@ pub trait TransitionSystem: Sized {
     /// The type of the colors of the edges of the transition system.
     type EdgeColor: Color;
     /// The type of the references to the transitions of the transition system.
-    type TransitionRef<'this>: IsTransition<
-        'this,
-        ExpressionOf<Self>,
-        Self::StateIndex,
-        EdgeColor<Self>,
-    >
+    type TransitionRef<'this>: IsEdge<'this, ExpressionOf<Self>, Self::StateIndex, EdgeColor<Self>>
     where
         Self: 'this;
     /// The type of the iterator over the transitions that start in a given state.
@@ -589,7 +554,7 @@ impl<'a, Idx, S, C> FullTransition<Idx, S, C> for (&'a Idx, &'a S, &'a C, &'a Id
 
 /// This trait is implemented for references to transitions, so that they can be used in
 /// generic contexts. It is automatically implemented for (mutable) references.
-pub trait IsTransition<'ts, E, Idx, C> {
+pub trait IsEdge<'ts, E, Idx, C> {
     fn source(&self) -> Idx;
     /// Returns the target state of the transition.
     fn target(&self) -> Idx;
@@ -623,14 +588,14 @@ pub trait IsTransition<'ts, E, Idx, C> {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct TransitionReference<'ts, E, Idx, C> {
+pub struct EdgeReference<'ts, E, Idx, C> {
     source: Idx,
     target: Idx,
     color: &'ts C,
     expression: &'ts E,
 }
 
-impl<'ts, E, Idx, C> TransitionReference<'ts, E, Idx, C> {
+impl<'ts, E, Idx, C> EdgeReference<'ts, E, Idx, C> {
     pub fn new(source: Idx, expression: &'ts E, color: &'ts C, target: Idx) -> Self {
         Self {
             source,
@@ -641,9 +606,7 @@ impl<'ts, E, Idx, C> TransitionReference<'ts, E, Idx, C> {
     }
 }
 
-impl<'ts, E, Idx: IndexType, C: Color> IsTransition<'ts, E, Idx, C>
-    for TransitionReference<'ts, E, Idx, C>
-{
+impl<'ts, E, Idx: IndexType, C: Color> IsEdge<'ts, E, Idx, C> for EdgeReference<'ts, E, Idx, C> {
     fn source(&self) -> Idx {
         self.source
     }
@@ -680,9 +643,7 @@ impl<'ts, E, Idx, C> TransitionOwned<'ts, E, Idx, C> {
     }
 }
 
-impl<'ts, E, Idx: IndexType, C: Color> IsTransition<'ts, E, Idx, C>
-    for TransitionOwned<'ts, E, Idx, C>
-{
+impl<'ts, E, Idx: IndexType, C: Color> IsEdge<'ts, E, Idx, C> for TransitionOwned<'ts, E, Idx, C> {
     fn source(&self) -> Idx {
         self.source
     }
@@ -913,7 +874,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A
     type StateColor = Q;
     type EdgeColor = C;
     type StateIndex = Idx;
-    type TransitionRef<'this> = TransitionReference<'this, A::Expression, Idx, C> where Self: 'this;
+    type TransitionRef<'this> = EdgeReference<'this, A::Expression, Idx, C> where Self: 'this;
     type EdgesFromIter<'this> = BTSEdgesFrom<'this, A::Expression, Idx, C> where Self: 'this;
     type StateIndices<'this> = std::iter::Cloned<std::collections::hash_map::Keys<'this, Idx, super::index_ts::BTState<A, Q, C, Idx>>> where Self: 'this;
 
@@ -953,10 +914,10 @@ impl<'ts, E, Idx, C> BTSEdgesFrom<'ts, E, Idx, C> {
 }
 
 impl<'ts, E, Idx: IndexType, C> Iterator for BTSEdgesFrom<'ts, E, Idx, C> {
-    type Item = TransitionReference<'ts, E, Idx, C>;
+    type Item = EdgeReference<'ts, E, Idx, C>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.edges.next().map(|(e, (t, c))| TransitionReference {
+        self.edges.next().map(|(e, (t, c))| EdgeReference {
             source: self.source,
             target: *t,
             color: c,

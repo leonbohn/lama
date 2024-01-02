@@ -7,7 +7,7 @@ use itertools::Itertools;
 
 use crate::prelude::*;
 
-use super::IsTransition;
+use super::IsEdge;
 
 mod scc;
 pub use scc::Scc;

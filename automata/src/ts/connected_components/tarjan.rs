@@ -1,6 +1,6 @@
 use crate::{
     prelude::Expression,
-    ts::{connected_components::Scc, transition_system::IsTransition, IndexType},
+    ts::{connected_components::Scc, transition_system::IsEdge, IndexType},
     Alphabet, Map, TransitionSystem,
 };
 

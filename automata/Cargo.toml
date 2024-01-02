@@ -8,14 +8,14 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 fxhash = "0.2"
 itertools = "0.12"
-tabled = { version = "0.14.0", features = ["color"] }
-owo-colors = "3.5"
+tabled = { version = "0.15.0", features = ["ansi"] }
+owo-colors = "4.0.0"
 hoars = { version = "0.1", path = "../hoars", optional = true }
 test-log = { version = "0.2.14", features = ["trace"] }
-tempfile = { version = "3.8.0", optional = true }
+tempfile = { version = "3.9.0", optional = true }
 impl-tools = "0.10"
 paste = "1.0.14"
-biodivine-lib-bdd = {version = "0.5", optional = true}
+biodivine-lib-bdd = { version = "0.5", optional = true }
 bit-set = "0.5.3"
 # fork = { version = "0.1", optional = true }
 # show-image = { version = "0.13", optional = true }
@@ -29,7 +29,6 @@ graphviz = ["dep:tempfile"]
 [dev-dependencies]
 lazy_static = "1.4"
 criterion = { version = "0.5", features = ["html_reports"] }
-pprof = { version = "0.12", features = ["flamegraph", "criterion"] }
 iai = { git = "https://github.com/sigaloid/iai", rev = "6c83e942" }
 pretty_assertions = "1.4"
 

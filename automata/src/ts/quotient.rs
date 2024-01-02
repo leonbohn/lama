@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::{Alphabet, Partition, Pointed, RightCongruence, Set, Show, TransitionSystem};
 
-use super::{transition_system::IsTransition, Deterministic, ExpressionOf, SymbolOf};
+use super::{transition_system::IsEdge, Deterministic, ExpressionOf, SymbolOf};
 
 /// A quotient takes a transition system and merges states which are in the same
 /// congruence class of some [`Partition`]. We assume that the [`Partition`] is
@@ -115,9 +115,7 @@ pub struct QuotientTransition<'a, Idx, E, C> {
     target: Idx,
 }
 
-impl<'a, Idx: Copy, E, C: Clone> IsTransition<'a, E, Idx, Vec<C>>
-    for QuotientTransition<'a, Idx, E, C>
-{
+impl<'a, Idx: Copy, E, C: Clone> IsEdge<'a, E, Idx, Vec<C>> for QuotientTransition<'a, Idx, E, C> {
     fn target(&self) -> Idx {
         self.target
     }

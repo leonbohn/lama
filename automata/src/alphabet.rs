@@ -46,6 +46,8 @@ pub trait Alphabet: Clone {
     /// The type of expressions in this alphabet.
     type Expression: Expression<Self::Symbol>;
 
+    fn make_expression(&self, symbol: Self::Symbol) -> &Self::Expression;
+
     fn expression_map(&self) -> crate::Map<Self::Symbol, Self::Expression> {
         self.universe()
             .map(|sym| (sym, Self::expression(sym)))
@@ -139,6 +141,10 @@ impl Alphabet for Empty {
 
     fn size(&self) -> usize {
         0
+    }
+
+    fn make_expression(&self, symbol: Self::Symbol) -> &Self::Expression {
+        &Empty
     }
 }
 
@@ -263,6 +269,13 @@ impl Alphabet for Simple {
     ) -> Option<(&Self::Expression, &X)> {
         map.get_key_value(&sym)
     }
+
+    fn make_expression(&self, symbol: Self::Symbol) -> &Self::Expression {
+        self.0
+            .iter()
+            .find(|c| c == &&symbol)
+            .expect("symbol does not exist")
+    }
 }
 
 /// An alphabet of fixed arity, uses const generics. This is more seen as a test
@@ -324,6 +337,13 @@ impl<S: Symbol + Expression<S>, const N: usize> Alphabet for Fixed<S, N> {
 
     fn expression(symbol: Self::Symbol) -> Self::Expression {
         symbol
+    }
+
+    fn make_expression(&self, symbol: Self::Symbol) -> &Self::Expression {
+        self.0
+            .iter()
+            .find(|c| c == &&symbol)
+            .expect("symbol does not exist")
     }
 }
 
@@ -424,6 +444,13 @@ impl Alphabet for Directional {
 
     fn expression(symbol: Self::Symbol) -> Self::Expression {
         symbol
+    }
+
+    fn make_expression(&self, symbol: Self::Symbol) -> &Self::Expression {
+        self.0
+            .iter()
+            .find(|c| c == &&symbol)
+            .expect("symbol does not exist")
     }
 }
 

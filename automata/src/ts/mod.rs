@@ -22,6 +22,9 @@ pub use path::Path;
 mod sproutable;
 pub use sproutable::{IndexedAlphabet, Sproutable};
 
+mod shrinkable;
+pub use shrinkable::Shrinkable;
+
 mod deterministic;
 pub use deterministic::Deterministic;
 
@@ -222,7 +225,7 @@ pub use dot::Dottable;
 mod quotient;
 pub use quotient::Quotient;
 
-use self::{operations::ProductIndex, transition_system::IsTransition};
+use self::{operations::ProductIndex, transition_system::IsEdge};
 
 /// A congruence is a [`TransitionSystem`], which additionally has a distinguished initial state. On top
 /// of that, a congruence does not have any coloring on either states or symbols. This

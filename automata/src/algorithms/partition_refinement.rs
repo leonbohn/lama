@@ -10,7 +10,7 @@ use tracing::{debug, info, trace};
 use crate::{
     automaton::{AsMealyMachine, AsMooreMachine},
     prelude::*,
-    ts::transition_system::IsTransition,
+    ts::transition_system::IsEdge,
     Alphabet, Map, Partition, Set,
 };
 

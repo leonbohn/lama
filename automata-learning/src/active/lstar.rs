@@ -363,7 +363,7 @@ impl<D: LStarHypothesis, T: LStarOracle<D>> std::fmt::Debug for LStar<D, T> {
         for e in &self.experiments {
             header.push(e.as_string());
         }
-        builder.set_header(header);
+        builder.push_record(header);
 
         for (i, mr) in self.base.iter().enumerate() {
             let mut row = vec![mr.as_string()];

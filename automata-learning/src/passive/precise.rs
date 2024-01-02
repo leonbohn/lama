@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use automata::{
     automaton::{DPALike, MealyLike, MooreLike, DPA},
     congruence::ColoredClass,
-    prelude::{Expression, IsTransition, DFA},
+    prelude::{Expression, IsEdge, DFA},
     ts::{
         dot::{DotStateAttribute, DotTransitionAttribute},
         reachable::ReachableStateIndices,
@@ -191,7 +191,7 @@ pub struct PreciseDPATransition<'a, A: Alphabet, const N: usize> {
     color: usize,
 }
 
-impl<'a, A: Alphabet, const N: usize> IsTransition<'a, A::Expression, PState<N>, usize>
+impl<'a, A: Alphabet, const N: usize> IsEdge<'a, A::Expression, PState<N>, usize>
     for PreciseDPATransition<'a, A, N>
 {
     fn source(&self) -> PState<N> {

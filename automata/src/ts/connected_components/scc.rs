@@ -9,7 +9,15 @@ use crate::{prelude::*, Map, Set};
 pub struct Scc<'a, Ts: TransitionSystem> {
     ts: &'a Ts,
     states: BTreeSet<Ts::StateIndex>,
-    edges: OnceCell<Set<(Ts::StateIndex, SymbolOf<Ts>, Ts::EdgeColor, Ts::StateIndex)>>,
+    transitions: OnceCell<Set<(Ts::StateIndex, SymbolOf<Ts>, Ts::EdgeColor, Ts::StateIndex)>>,
+    edges: OnceCell<
+        Set<(
+            Ts::StateIndex,
+            ExpressionOf<Ts>,
+            Ts::EdgeColor,
+            Ts::StateIndex,
+        )>,
+    >,
     edge_colors: OnceCell<Set<Ts::EdgeColor>>,
     minimal_representative: OnceCell<Option<(Ts::StateIndex, Vec<SymbolOf<Ts>>)>>,
 }
@@ -62,8 +70,9 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         let minimal_representative = OnceCell::new();
         Self {
             ts,
-            edges,
+            transitions: edges,
             states,
+            edges: OnceCell::new(),
             minimal_representative,
             edge_colors,
         }
@@ -83,10 +92,33 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         })
     }
 
+    pub fn interior_edges(
+        &self,
+    ) -> &Set<(
+        Ts::StateIndex,
+        ExpressionOf<Ts>,
+        Ts::EdgeColor,
+        Ts::StateIndex,
+    )> {
+        self.edges.get_or_init(|| {
+            let mut edges = Set::default();
+            for q in &self.states {
+                let mut it = self.ts.edges_from(*q).expect("State must exist");
+                for edge in it {
+                    let p = edge.target();
+                    if self.states.contains(&p) {
+                        edges.insert((*q, edge.expression().clone(), edge.color().clone(), p));
+                    }
+                }
+            }
+            edges
+        })
+    }
+
     pub fn interior_transitions(
         &self,
     ) -> &Set<(Ts::StateIndex, SymbolOf<Ts>, Ts::EdgeColor, Ts::StateIndex)> {
-        self.edges.get_or_init(|| {
+        self.transitions.get_or_init(|| {
             let mut edges = Set::default();
             for q in &self.states {
                 let mut it = self.ts.edges_from(*q).expect("State must exist");

@@ -1,7 +1,7 @@
 use crate::{alphabet::Alphabet, Color, Set};
 
 use super::{
-    transition_system::{Indexes, IsTransition},
+    transition_system::{Indexes, IsEdge},
     Deterministic, ExpressionOf, IndexType, SymbolOf, TransitionSystem,
 };
 

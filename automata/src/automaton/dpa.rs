@@ -5,9 +5,9 @@ use crate::{
     ts::{
         connected_components::Scc,
         operations::{MapEdgeColor, MapStateColor},
-        IntoInitialBTS, Quotient,
+        IntoInitialBTS, Quotient, Shrinkable,
     },
-    Parity, Partition,
+    Parity, Partition, Set,
 };
 
 use super::acceptor::OmegaWordAcceptor;
@@ -205,8 +205,9 @@ impl<D: DPALike> IntoDPA<D> {
         None
     }
 
-    pub fn normalize(&mut self) {
-        let mut ts = self.collect_with_initial();
+    pub fn normalized(&self) -> DPA<D::Alphabet, D::StateColor> {
+        let mut ts: WithInitial<BTS<_, _, _, _>> = self.collect_pointed();
+        let out = ts.clone();
 
         let mut recoloring = Vec::new();
         let mut remove_states = Vec::new();
@@ -214,11 +215,67 @@ impl<D: DPALike> IntoDPA<D> {
 
         let mut priority = 0;
         'outer: loop {
-            let dag = ts.tarjan_dag();
-            for edge in dag.transient_edges() {
-                recoloring.push(((edge.source(), edge.expression()), priority));
+            for state in remove_states.drain(..) {
+                assert!(ts.remove_state(state).is_some());
             }
+            for (source, expression) in remove_edges.drain(..) {
+                assert!(ts.remove_edge(source, &expression).is_some());
+            }
+
+            if ts.size() == 0 {
+                break 'outer;
+            }
+
+            let dag = ts.tarjan_dag();
+
+            let mut increment = 1;
+            'inner: for scc in dag.iter() {
+                if scc.is_transient() {
+                    trace!("Transient SCC: {:?}", scc);
+                    for state in scc.iter() {
+                        for edge in ts.edges_from(*state).unwrap() {
+                            recoloring.push(((*state, edge.expression().clone()), priority));
+                            remove_edges.push((edge.source(), edge.expression().clone()));
+                        }
+                        remove_states.push(*state);
+                    }
+                    continue 'inner;
+                }
+                let minimal_interior_edge_color = scc
+                    .interior_edge_colors()
+                    .iter()
+                    .min()
+                    .expect("We know this is not transient");
+
+                if priority % 2 != minimal_interior_edge_color % 2 {
+                    continue 'inner;
+                }
+
+                for (q, a, c, p) in scc
+                    .interior_edges()
+                    .iter()
+                    .filter(|(q, a, c, p)| c == minimal_interior_edge_color)
+                {
+                    recoloring.push(((*q, a.clone()), priority));
+                    remove_edges.push((*q, a.clone()));
+                }
+            }
+
+            assert!(increment <= 1);
+            priority += increment;
         }
+
+        out.map_edge_colors_full(|q, e, _, _| {
+            let Some(c) = recoloring
+                .iter()
+                .find(|((p, f), _)| *p == q && f == e)
+                .map(|(_, c)| *c)
+            else {
+                panic!("Could not find recoloring for edge ({}, {:?})", q, e);
+            };
+            c
+        })
+        .collect_dpa()
     }
 }
 
@@ -229,6 +286,28 @@ mod tests {
     pub use pretty_assertions::{assert_eq, assert_ne};
 
     use super::DPA;
+
+    #[test_log::test]
+    fn normalize_dpa() {
+        let mut dpa = NTS::builder()
+            .default_color(())
+            .with_transitions([
+                (0, 'a', 2, 0),
+                (0, 'b', 1, 1),
+                (1, 'a', 0, 0),
+                (1, 'b', 1, 1),
+            ])
+            .collect()
+            .into_deterministic()
+            .with_initial(0)
+            .collect_dpa();
+        let normalized = dpa.normalized();
+        assert!(normalized.language_equivalent(&dpa));
+
+        for (input, expected) in [("a", 0), ("b", 0), ("ba", 0), ("bb", 1)] {
+            assert_eq!(normalized.try_mealy_map(input), Some(expected))
+        }
+    }
 
     fn example_dpa() -> DPA {
         NTS::builder()

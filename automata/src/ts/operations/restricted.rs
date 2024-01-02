@@ -2,11 +2,7 @@ use std::marker::PhantomData;
 
 use crate::{
     prelude::*,
-    ts::{
-        predecessors::{IsPreTransition, PredecessorIterable},
-        transition_system::IsTransition,
-        IndexType,
-    },
+    ts::{predecessors::PredecessorIterable, transition_system::IsEdge, IndexType},
     Pointed, Set, TransitionSystem,
 };
 

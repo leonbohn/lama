@@ -3,7 +3,7 @@ use itertools::Itertools;
 
 use crate::{prelude::Simple, Alphabet, Pointed, TransitionSystem};
 
-use super::{transition_system::IsTransition, EdgeColor, StateColor};
+use super::{transition_system::IsEdge, EdgeColor, StateColor};
 
 pub trait IndexedAlphabet: Alphabet {
     fn symbol_to_index(&self, sym: Self::Symbol) -> usize;
