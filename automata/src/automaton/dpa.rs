@@ -1,5 +1,7 @@
 use std::{collections::VecDeque, marker::PhantomData};
 
+use tracing::{info, trace};
+
 use crate::{
     prelude::*,
     ts::{
@@ -206,6 +208,8 @@ impl<D: DPALike> IntoDPA<D> {
     }
 
     pub fn normalized(&self) -> DPA<D::Alphabet, D::StateColor> {
+        let start = std::time::Instant::now();
+
         let mut ts: WithInitial<BTS<_, _, _, _>> = self.collect_pointed();
         let out = ts.clone();
 
@@ -215,25 +219,34 @@ impl<D: DPALike> IntoDPA<D> {
 
         let mut priority = 0;
         'outer: loop {
-            for state in remove_states.drain(..) {
-                assert!(ts.remove_state(state).is_some());
-            }
             for (source, expression) in remove_edges.drain(..) {
-                assert!(ts.remove_edge(source, &expression).is_some());
+                ts.remove_edge(source, &expression).is_some();
+            }
+            for state in remove_states.drain(..) {
+                ts.remove_state(state).is_some();
             }
 
             if ts.size() == 0 {
+                trace!("no states left, terminating");
                 break 'outer;
             }
 
             let dag = ts.tarjan_dag();
 
-            let mut increment = 1;
             'inner: for scc in dag.iter() {
+                trace!("inner priority {priority} | scc {:?}", scc);
                 if scc.is_transient() {
-                    trace!("Transient SCC: {:?}", scc);
+                    trace!("scc is transient");
                     for state in scc.iter() {
                         for edge in ts.edges_from(*state).unwrap() {
+                            trace!(
+                                "recolouring and removing {} --{}|{}--> {} with priority {}",
+                                state,
+                                edge.expression().show(),
+                                edge.color().show(),
+                                edge.target(),
+                                priority
+                            );
                             recoloring.push(((*state, edge.expression().clone()), priority));
                             remove_edges.push((edge.source(), edge.expression().clone()));
                         }
@@ -248,34 +261,53 @@ impl<D: DPALike> IntoDPA<D> {
                     .expect("We know this is not transient");
 
                 if priority % 2 != minimal_interior_edge_color % 2 {
+                    trace!("minimal interior priority: {minimal_interior_edge_color}, skipping");
                     continue 'inner;
                 }
 
+                trace!(
+                    "minimal interior priority: {minimal_interior_edge_color}, recoloring edges"
+                );
                 for (q, a, c, p) in scc
                     .interior_edges()
                     .iter()
                     .filter(|(q, a, c, p)| c == minimal_interior_edge_color)
                 {
+                    trace!(
+                        "recolouring and removing {} --{}|{}--> {} with priority {}",
+                        q,
+                        a.show(),
+                        c.show(),
+                        p,
+                        priority
+                    );
                     recoloring.push(((*q, a.clone()), priority));
                     remove_edges.push((*q, a.clone()));
                 }
             }
 
-            assert!(increment <= 1);
-            priority += increment;
+            if remove_edges.is_empty() {
+                priority += 1;
+            }
         }
 
-        out.map_edge_colors_full(|q, e, _, _| {
-            let Some(c) = recoloring
-                .iter()
-                .find(|((p, f), _)| *p == q && f == e)
-                .map(|(_, c)| *c)
-            else {
-                panic!("Could not find recoloring for edge ({}, {:?})", q, e);
-            };
-            c
-        })
-        .collect_dpa()
+        let ret = out
+            .map_edge_colors_full(|q, e, _, _| {
+                let Some(c) = recoloring
+                    .iter()
+                    .find(|((p, f), _)| *p == q && f == e)
+                    .map(|(_, c)| *c)
+                else {
+                    panic!("Could not find recoloring for edge ({}, {:?})", q, e);
+                };
+                c
+            })
+            .collect_dpa();
+
+        info!("normalizing DPA took {} μs", start.elapsed().as_micros());
+
+        debug_assert!(self.language_equivalent(&ret));
+        ret
     }
 }
 
@@ -307,6 +339,7 @@ mod tests {
         for (input, expected) in [("a", 0), ("b", 0), ("ba", 0), ("bb", 1)] {
             assert_eq!(normalized.try_mealy_map(input), Some(expected))
         }
+        let n = example_dpa().normalized();
     }
 
     fn example_dpa() -> DPA {
