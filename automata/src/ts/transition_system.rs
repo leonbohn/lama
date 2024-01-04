@@ -358,7 +358,7 @@ pub trait TransitionSystem: Sized {
     /// strongly connected components of the transition system and the edges between them.
     fn tarjan_dag(&self) -> TarjanDAG<'_, Self>
     where
-        Self: Sized + Clone,
+        Self: Sized,
     {
         TarjanDAG::from(tarjan_scc(self))
     }

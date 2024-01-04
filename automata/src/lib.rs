@@ -91,6 +91,9 @@ pub mod algorithms;
 #[feature(hoa)]
 pub mod hoa;
 
+#[feature(random)]
+pub mod random;
+
 /// A color is simply a type that can be used to color states or transitions.
 pub trait Color: Clone + Eq + Ord + Hash + Show {
     /// Reduces a sequence of colors (of type `Self`) to a single color of type `Self`.

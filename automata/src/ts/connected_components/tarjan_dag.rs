@@ -91,9 +91,13 @@ impl<'a, Ts: TransitionSystem> TarjanDAG<'a, Ts> {
         let q = state.to_index(self.ts)?;
         self.dag.find(|c| c.contains(&q))
     }
+
+    pub fn size(&self) -> usize {
+        self.dag.size()
+    }
 }
 
-impl<'a, Ts: TransitionSystem + Clone> From<SccDecomposition<'a, Ts>> for TarjanDAG<'a, Ts> {
+impl<'a, Ts: TransitionSystem> From<SccDecomposition<'a, Ts>> for TarjanDAG<'a, Ts> {
     fn from(value: SccDecomposition<'a, Ts>) -> Self {
         let mut edges = Vec::new();
         for (l, ls) in value.1.iter().enumerate() {

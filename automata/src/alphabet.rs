@@ -97,6 +97,21 @@ pub trait Alphabet: Clone {
 #[derive(Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
 pub struct Simple(pub(crate) Vec<char>);
 
+impl Simple {
+    pub fn alphabetic(size: usize) -> Self {
+        assert!(size < 26, "Alphabet is too large");
+        Self((0..size).map(|i| ('a' as u8 + i as u8) as char).collect())
+    }
+}
+
+impl std::ops::Index<usize> for Simple {
+    type Output = char;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
 /// A special type of [`Alphabet`], which has no symbols.
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
 pub struct Empty;

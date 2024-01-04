@@ -25,6 +25,10 @@ impl<C> Dag<C> {
         self.colors.is_empty()
     }
 
+    pub fn size(&self) -> usize {
+        self.colors.len()
+    }
+
     /// Attempts to find the index of a node satisfying the given predicate.
     pub fn find<F: Fn(&C) -> bool>(&self, pred: F) -> Option<usize> {
         self.colors.iter().position(pred)

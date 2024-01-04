@@ -508,6 +508,13 @@ pub trait Deterministic: TransitionSystem {
         ts
     }
 
+    fn is_accessible(&self) -> bool
+    where
+        Self: Pointed,
+    {
+        self.size() == self.trim_collect().size()
+    }
+
     /// Collects into a transition system of type `Ts`, but only considers states that
     /// are reachable from the initial state. Naturally, this means that `self` must
     /// be a pointed transition system.

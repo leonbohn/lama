@@ -92,6 +92,15 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         })
     }
 
+    pub fn size(&self) -> usize {
+        assert!(!self.is_empty());
+        self.states.len()
+    }
+
+    pub fn is_trivial(&self) -> bool {
+        self.size() == 1
+    }
+
     pub fn interior_edges(
         &self,
     ) -> &Set<(
