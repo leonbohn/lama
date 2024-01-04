@@ -92,9 +92,8 @@ impl BenchmarkAverages {
         let nontrivial_count = non_trivial_scc_sizes.len();
         let nontrivial_average = non_trivial_scc_sizes
             .into_iter()
-            .map(|x| x as f64)
-            .sum::<f64>()
-            / nontrivial_count as f64;
+            .map(|x| x as f64 / nontrivial_count as f64)
+            .sum::<f64>();
 
         let factor = 1.0 / self.total_runs as f64;
         self.nontrivial_scc_size += factor * nontrivial_average;
@@ -138,7 +137,7 @@ pub(crate) fn print_random_ts_benchmark(
             }
 
             info!("Results for {symbol_count} symbols and probability 1/{reciprocal}.");
-            info!("States {:.2} | nontrivial SCCs {:.2}/{:.2} | average SCC size {:.2} | average maximal SCC size {:.2}", averages.states, averages.nontrivial_count, averages.scc_count, averages.nontrivial_scc_size, averages.maximal_scc_size);
+            info!("States {:.2} | nontrivial SCCs {:.2}/{:.2} | average SCC size {} | average maximal SCC size {:.2}", averages.states, averages.nontrivial_count, averages.scc_count, averages.nontrivial_scc_size, averages.maximal_scc_size);
         }
     }
 
