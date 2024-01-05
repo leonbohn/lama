@@ -22,7 +22,7 @@ impl<Q> NTState<Q> {
     }
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct NTEdge<E, C> {
     pub(super) prev: Option<usize>,
     pub(super) source: usize,

@@ -10,6 +10,9 @@ pub use restricted::*;
 mod subset;
 pub use subset::SubsetConstruction;
 
+mod reverse;
+pub use reverse::Reversed;
+
 #[cfg(test)]
 mod tests {
     use itertools::Itertools;

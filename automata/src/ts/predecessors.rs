@@ -7,7 +7,7 @@ use super::{
     operations::{
         MapEdgeColor, MapStateColor, MappedPreTransition, MappedTransitionsToIter, MatchingProduct,
         ProductEdgesTo, ProductPreTransition, RestrictByStateIndex, RestrictedEdgesToIter,
-        StateIndexFilter,
+        Reversed, StateIndexFilter,
     },
     transition_system::{EdgeReference, IsEdge},
     EdgeColor, ExpressionOf, IndexType, SymbolOf, BTS,
@@ -32,6 +32,10 @@ pub trait PredecessorIterable: TransitionSystem {
 
     /// Returns an iterator over the predecessors of the given `state`. Returns `None` if the state does not exist.
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>>;
+
+    fn reversed(self) -> Reversed<Self> {
+        Reversed(self)
+    }
 }
 
 impl<Ts, F> PredecessorIterable for RestrictByStateIndex<Ts, F>

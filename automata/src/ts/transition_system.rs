@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{
-    connected_components::{tarjan_scc, SccDecomposition, TarjanDAG},
+    connected_components::{tarjan_scc_recursive, SccDecomposition, TarjanDAG},
     index_ts::BTState,
     nts::{NTEdge, NTSEdgesFromIter},
     operations::{
@@ -351,7 +351,7 @@ pub trait TransitionSystem: Sized {
     where
         Self: Sized,
     {
-        tarjan_scc(self)
+        tarjan_scc_recursive(self)
     }
 
     /// Obtains the [`TarjanDAG`] of self, which is a directed acyclic graph that represents the
@@ -360,7 +360,7 @@ pub trait TransitionSystem: Sized {
     where
         Self: Sized,
     {
-        TarjanDAG::from(tarjan_scc(self))
+        TarjanDAG::from(tarjan_scc_recursive(self))
     }
 
     /// Returns `true` iff the given state is reachable from the initial state.
