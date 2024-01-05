@@ -9,7 +9,9 @@ use crate::{
 };
 
 use super::{
-    connected_components::{tarjan_scc_recursive, SccDecomposition, TarjanDAG},
+    connected_components::{
+        tarjan_scc_iterative, tarjan_scc_recursive, SccDecomposition, TarjanDAG,
+    },
     index_ts::BTState,
     nts::{NTEdge, NTSEdgesFromIter},
     operations::{
@@ -351,12 +353,30 @@ pub trait TransitionSystem: Sized {
     where
         Self: Sized,
     {
+        tarjan_scc_iterative(self)
+    }
+
+    /// Obtains the [`SccDecomposition`] of self, which is a partition of the states into strongly
+    /// connected components. Uses Tarjan's algorithm.
+    fn sccs_recursive(&self) -> SccDecomposition<'_, Self>
+    where
+        Self: Sized,
+    {
         tarjan_scc_recursive(self)
     }
 
     /// Obtains the [`TarjanDAG`] of self, which is a directed acyclic graph that represents the
     /// strongly connected components of the transition system and the edges between them.
     fn tarjan_dag(&self) -> TarjanDAG<'_, Self>
+    where
+        Self: Sized,
+    {
+        TarjanDAG::from(tarjan_scc_iterative(self))
+    }
+
+    /// Obtains the [`TarjanDAG`] of self, which is a directed acyclic graph that represents the
+    /// strongly connected components of the transition system and the edges between them.
+    fn tarjan_dag_recursive(&self) -> TarjanDAG<'_, Self>
     where
         Self: Sized,
     {
@@ -426,14 +446,17 @@ pub trait TransitionSystem: Sized {
     }
 
     /// Returns an iterator over the indices of the states that are reachable from the given `state`.
-    fn reachable_state_indices_from<I: Into<Self::StateIndex>>(
+    fn reachable_state_indices_from<I: Indexes<Self>>(
         &self,
         state: I,
     ) -> ReachableStateIndices<&Self>
     where
         Self: Sized,
     {
-        ReachableStateIndices::new(self, state.into())
+        let origin = state
+            .to_index(self)
+            .expect("Can only run this from a state that exists");
+        ReachableStateIndices::new(self, origin)
     }
 
     /// Returns an iterator over the states that are reachable from the given `state`.

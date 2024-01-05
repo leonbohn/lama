@@ -1,4 +1,4 @@
-use tracing::{info, trace};
+use tracing::{debug, info, trace};
 
 use crate::{prelude::*, Map};
 
@@ -127,7 +127,7 @@ pub(crate) fn print_random_ts_benchmark(
 
             for i in 0..experiment_count {
                 if i % 10 == 0 && i > 0 {
-                    trace!("{i}% done for {symbol_count} symbols and probability 1/{reciprocal}");
+                    debug!("{i}% done for {symbol_count} symbols and probability 1/{reciprocal}");
                 }
                 let probability = 1f64 / *reciprocal as f64;
                 let ts = generate_random_ts(*symbol_count, probability);
@@ -137,7 +137,7 @@ pub(crate) fn print_random_ts_benchmark(
             }
 
             info!("Results for {symbol_count} symbols and probability 1/{reciprocal}.");
-            info!("States {:.2} | nontrivial SCCs {:.2}/{:.2} | average SCC size {} | average maximal SCC size {:.2}", averages.states, averages.nontrivial_count, averages.scc_count, averages.nontrivial_scc_size, averages.maximal_scc_size);
+            info!("States {:.2} | nontrivial SCCs {:.2}/{:.2} | average SCC size {:.2} | average maximal SCC size {:.2}", averages.states, averages.nontrivial_count, averages.scc_count, averages.nontrivial_scc_size, averages.maximal_scc_size);
         }
     }
 
@@ -160,6 +160,6 @@ mod tests {
     #[test_log::test]
     fn bench_random_ts() {
         let recips_of_2: Vec<_> = (1..=6).map(|i| 2usize.saturating_pow(i)).collect();
-        print_random_ts_benchmark(&[2, 4, 6], &[2, 4, 8, 16, 32, 3200], 100);
+        print_random_ts_benchmark(&[2, 4, 6], &[2, 4, 8, 16, 32, 320], 100);
     }
 }

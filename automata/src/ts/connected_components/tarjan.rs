@@ -1,4 +1,4 @@
-use std::collections::{hash_map::RandomState, VecDeque};
+use std::collections::{hash_map::RandomState, BTreeSet, VecDeque};
 
 use fxhash::FxBuildHasher;
 use tracing::trace;
@@ -189,72 +189,90 @@ where
     SccDecomposition::new(ts, sccs)
 }
 
-pub(crate) fn tarjan_scc_broken<Ts>(ts: &Ts) -> SccDecomposition<'_, Ts>
+pub(crate) fn tarjan_scc_iterative<Ts>(ts: &Ts) -> SccDecomposition<'_, Ts>
 where
     Ts: TransitionSystem,
 {
-    let mut pre_count = 0;
-    let mut sccs = Vec::new();
+    let mut current = 0;
+    let mut sccs = vec![];
+
+    let mut indices = Map::default();
     let mut low = Map::default();
-    let mut visited = Set::default();
-    let mut stack = VecDeque::new();
+    let mut stack = vec![];
+    let mut on_stack = Set::default();
+    let mut unvisited = ts.state_indices().collect::<BTreeSet<_>>();
 
-    let mut min_stack = VecDeque::new();
-    let mut iterator_stack: VecDeque<VecDeque<_>> = VecDeque::new();
-    let mut it = ts.state_indices().collect::<VecDeque<_>>();
+    let Some(start) = unvisited.pop_first() else {
+        return SccDecomposition::new(ts, sccs);
+    };
+    let mut queue = vec![(start, ts.edges_from(start).unwrap())];
 
-    'outer: loop {
-        if let Some(v) = it.pop_front() {
-            if visited.insert(v) {
-                low.insert(v, pre_count);
-                stack.push_back(v);
-                min_stack.push_back(pre_count);
-                iterator_stack.push_back(it);
-                it = ts.edges_from(v).unwrap().map(|e| e.target()).collect();
-                pre_count += 1;
-            } else if !min_stack.is_empty() {
-                let mut min = min_stack.pop_back().unwrap();
-                if low.get(&v).unwrap() < &min {
-                    min = *low.get(&v).unwrap();
-                }
-                min_stack.push_back(min);
-            }
-            continue 'outer;
+    'outer: while let Some((q, mut edges)) = queue.pop() {
+        trace!(
+            "considering state {}\tstack: {:?}\ton_stack: {:?}",
+            q.show(),
+            stack,
+            on_stack
+        );
+        unvisited.remove(&q);
+
+        if on_stack.insert(q) {
+            stack.push(q);
         }
 
-        'inner: loop {
-            let Some(mut it) = iterator_stack.pop_back() else {
-                break 'outer;
-            };
-            let Some(v) = it.pop_front() else {
-                continue 'inner;
-            };
-            let Some(min) = min_stack.pop_back() else {
-                panic!("Stacks should have matching height!");
-            };
+        if !indices.contains_key(&q) {
+            trace!("assigning index {current} to state {}", q.show());
+            indices.insert(q, current);
+            low.insert(q, current);
+            current += 1;
+        }
 
-            if min < *low.get(&v).unwrap_or(&usize::MAX) {
-                low.insert(v, min);
-            } else {
-                let mut scc = Set::default();
-                'innermost: loop {
-                    let w = stack.pop_back().unwrap();
-                    scc.insert(w);
-                    low.insert(w, ts.size());
-                    if w == v {
-                        break 'innermost;
-                    }
-                }
-                sccs.push(Scc::new(ts, scc.into_iter()));
+        'inner: while let Some(edge) = edges.next() {
+            trace!(
+                "considering edge {} --{}--> {}",
+                edge.source().show(),
+                edge.expression().show(),
+                edge.target().show()
+            );
+            let target = edge.target();
+            if unvisited.contains(&target) {
+                trace!(
+                    "successor {} on {} has not been visited, descending",
+                    target.show(),
+                    edge.expression().show()
+                );
+                queue.push((q, edges));
+                queue.push((target, ts.edges_from(target).unwrap()));
+                continue 'outer;
             }
+            if on_stack.contains(&target) {
+                let new_low = std::cmp::min(*low.get(&q).unwrap(), *low.get(&target).unwrap());
+                *low.get_mut(&q).unwrap() = new_low;
+                trace!(
+                    "successor {} on {} was alread seen, assigning new minimum {new_low}",
+                    target.show(),
+                    edge.expression().show()
+                );
+            }
+        }
 
-            if !min_stack.is_empty() {
-                let mut min = min_stack.pop_back().unwrap();
-                if low.get(&v).unwrap() < &min {
-                    min = *low.get(&v).unwrap();
-                }
-                min_stack.push_back(min);
+        // reached when all edges have been explored
+        let low_q = *low.get(&q).unwrap();
+        if low_q == *indices.get(&q).unwrap() {
+            trace!(
+                "{} has matching index and low {low_q}, extracting scc",
+                q.show()
+            );
+            let mut scc = vec![];
+            while on_stack.contains(&q) {
+                let top = stack.pop().unwrap();
+                low.insert(top, low_q);
+                on_stack.remove(&top);
+                scc.push(top);
             }
+            let scc = Scc::new(ts, scc.into_iter());
+            trace!("identified scc {:?}", scc);
+            sccs.push(scc);
         }
     }
 
@@ -264,14 +282,18 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
+    use std::{collections::HashSet, time::Instant};
 
     use crate::{
-        ts::{connected_components::tarjan::kosaraju, predecessors::PredecessorIterable, NTS},
+        ts::{
+            connected_components::{tarjan::kosaraju, tarjan_scc_recursive},
+            predecessors::PredecessorIterable,
+            NTS,
+        },
         Pointed, TransitionSystem,
     };
 
-    use super::tarjan_scc_broken;
+    use super::tarjan_scc_iterative;
 
     #[test]
     fn tarjan_iterative() {
@@ -288,20 +310,30 @@ mod tests {
             .into_dpa(0);
 
         let rev = (&ts).reversed();
-        println!("{:?}", rev.edges_from(2usize).unwrap().collect::<Vec<_>>());
-        println!("{:?}", ts.edges_from(2usize).unwrap().collect::<Vec<_>>());
-        println!(
-            "{:?}",
-            rev.predecessors(2usize).unwrap().collect::<Vec<_>>()
-        );
-        println!("{:?}", ts.predecessors(2usize).unwrap().collect::<Vec<_>>());
         let reachable = rev
             .reachable_state_indices_from(3usize)
             .collect::<HashSet<_>>();
         assert!(reachable.contains(&3));
         assert!(reachable.contains(&2));
 
+        let start = Instant::now();
         let sccs = kosaraju(&ts, ts.initial());
+        println!("Kosaraju took {} microseconds", start.elapsed().as_micros());
+
+        let start = Instant::now();
+        let sccs = tarjan_scc_recursive(&ts);
+        println!(
+            "Tarjan recursive took {} microseconds",
+            start.elapsed().as_micros()
+        );
+
+        let start = Instant::now();
+        let sccs = tarjan_scc_iterative(&ts);
+        println!(
+            "Tarjan iterative took {} microseconds",
+            start.elapsed().as_micros()
+        );
+
         println!("{sccs:?}");
     }
 }
