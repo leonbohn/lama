@@ -1,6 +1,6 @@
 use std::io::Read;
 
-use automata::{automata::DeterministicOmegaAutomaton, hoa::HoaAlphabet, TransitionSystem};
+use automata::{automaton::DeterministicOmegaAutomaton, hoa::HoaAlphabet, TransitionSystem};
 use clap::ArgMatches;
 
 pub fn to_file_or_stdout(maybe_file_name: Option<&String>, output: &str) -> anyhow::Result<()> {
@@ -15,7 +15,7 @@ pub fn to_file_or_stdout(maybe_file_name: Option<&String>, output: &str) -> anyh
 
 pub fn hoa_deterministic(matches: &ArgMatches) -> Vec<DeterministicOmegaAutomaton<HoaAlphabet>> {
     let hoa = from_file_or_stdin(matches.get_one("input"));
-    let parsed_auts = automata::hoa::hoa_to_ts(&hoa);
+    let parsed_auts = automata::hoa::input::hoa_to_ts(&hoa);
     let mut auts = vec![];
     for nondet_aut in &parsed_auts {
         if let Some(aut) = nondet_aut.to_deterministic() {

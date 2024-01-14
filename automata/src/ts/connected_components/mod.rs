@@ -7,13 +7,13 @@ use itertools::Itertools;
 
 use crate::prelude::*;
 
-use super::IsTransition;
+use super::IsEdge;
 
 mod scc;
 pub use scc::Scc;
 
 mod tarjan;
-pub(crate) use tarjan::tarjan_scc;
+pub(crate) use tarjan::tarjan_scc_recursive;
 
 mod tarjan_dag;
 pub use tarjan_dag::TarjanDAG;

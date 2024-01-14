@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    algorithms::minimize_dfa,
+    algorithms::moore_partition_refinement,
     prelude::*,
     ts::{
         finite::ReachedColor,
@@ -10,7 +10,7 @@ use crate::{
     },
 };
 
-use super::{acceptor::FiniteWordAcceptor, StatesWithColor};
+use super::{acceptor::FiniteWordAcceptor, AsMooreMachine, StatesWithColor};
 
 impl_moore_automaton! {
     /// A deterministic finite automaton consists of a finite set of states, a finite set of input
@@ -20,6 +20,31 @@ impl_moore_automaton! {
     /// the Moore machine outputs `true` on the input), if the value of the state that it reaches upon
     /// reading the input is `true`.
     DFA, bool
+}
+
+impl<D: DFALike> IntoDFA<D> {
+    fn separate<X, Y>(&self, left: X, right: Y) -> Option<Vec<SymbolOf<Self>>>
+    where
+        X: Indexes<Self>,
+        Y: Indexes<Self>,
+    {
+        let q = left.to_index(self)?;
+        let p = right.to_index(self)?;
+        if p == q {
+            return None;
+        }
+
+        self.with_initial(q)
+            .ts_product(self.with_initial(p))
+            .minimal_representatives()
+            .find_map(|(rep, ProductIndex(l, r))| {
+                if self.state_color(l).unwrap() != self.state_color(r).unwrap() {
+                    Some(rep)
+                } else {
+                    None
+                }
+            })
+    }
 }
 
 impl<Ts> FiniteWordAcceptor<SymbolOf<Self>> for DFA<Ts::Alphabet, Ts::EdgeColor, Ts>
@@ -77,7 +102,7 @@ pub trait DFALike: Deterministic<StateColor = bool> + Pointed
     }
 
     fn collect_dfa(self) -> DFA<Self::Alphabet> {
-        DFA::from(self.erase_edge_colors().collect_initialized())
+        DFA::from(self.erase_edge_colors().collect_with_initial())
     }
 
     /// Uses a reference to `self` for creating a [`DFA`].
@@ -96,8 +121,9 @@ pub trait DFALike: Deterministic<StateColor = bool> + Pointed
     }
 
     /// Minimizes `self` using Hopcroft's partition refinement algorithm.
-    fn minimize(self) -> Quotient<Self> {
-        minimize_dfa(self)
+    fn dfa_minimized(self) -> IntoDFA<AsMooreMachine<Self>> {
+        let min = moore_partition_refinement(self);
+        min.into_dfa()
     }
 
     /// Checks whether `self` is equivalent to `other`, i.e. whether the two DFAs accept

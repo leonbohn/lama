@@ -145,6 +145,22 @@ fn item() -> impl Parser<Token, HeaderItem, Error = Simple<Token>> {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Header(Vec<HeaderItem>);
 
+impl From<Vec<HeaderItem>> for Header {
+    fn from(value: Vec<HeaderItem>) -> Self {
+        Self(value)
+    }
+}
+
+impl<'a> IntoIterator for &'a Header {
+    type Item = &'a HeaderItem;
+
+    type IntoIter = std::slice::Iter<'a, HeaderItem>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
 impl Header {
     /// Construts a new header parser.
     pub fn parser() -> impl Parser<Token, Self, Error = Simple<Token>> {

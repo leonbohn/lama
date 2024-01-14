@@ -1,10 +1,11 @@
 //! This crate provides a parser for the HOA format.
 // #![warn(missing_docs)]
 mod body;
-mod display;
 mod format;
 mod header;
+pub mod input;
 mod lexer;
+pub mod output;
 mod value;
 
 use biodivine_lib_bdd::{Bdd, BddVariable, BddVariableSet};
@@ -44,7 +45,7 @@ use ariadne::{Color, Fmt, ReportKind, Source};
 use chumsky::prelude::*;
 pub use format::*;
 
-use chumsky::{prelude::Simple, Parser, Stream};
+use chumsky::{prelude::Simple, Parser};
 pub use format::{
     AcceptanceCondition, AcceptanceInfo, AcceptanceName, AcceptanceSignature, AliasName, Property,
 };
@@ -101,7 +102,7 @@ impl Display for FromHoaError {
 /// a [`Header`] and a [`Body`].
 /// The header contains all the information about the automaton (e.g. the number of states, the
 /// acceptance condition, aliases etc.) and the body contains the actual transitions.
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct HoaAutomaton {
     header: Header,
     body: Body,
@@ -130,9 +131,17 @@ impl HoaAutomaton {
         &self.header
     }
 
+    pub fn header_mut(&mut self) -> &mut Header {
+        &mut self.header
+    }
+
     /// Returns the body of the HOA file.
     pub fn body(&self) -> &Body {
         &self.body
+    }
+
+    pub fn body_mut(&mut self) -> &mut Body {
+        &mut self.body
     }
 
     fn from_parsed((header, body): (Header, Body)) -> Self {
@@ -292,41 +301,19 @@ impl HoaAutomaton {
     }
 }
 
+impl Default for HoaAutomaton {
+    fn default() -> Self {
+        HoaAutomaton::from_parts(vec![HeaderItem::Version("v1".into())].into(), vec![].into())
+    }
+}
+
 // fn reporter<D: std::fmt::Display>(input: &str) -> impl Fn(D)
 
 impl TryFrom<&str> for HoaAutomaton {
     type Error = FromHoaError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        if value.contains("--ABORT--") {
-            return Err(FromHoaError::Abort);
-        }
-        let input = value;
-        let start = std::time::Instant::now();
-        let tokens = lexer::tokenizer()
-            .parse(input)
-            .map_err(|error_list| {
-                build_error_report(
-                    input,
-                    error_list.into_iter().map(|err| err.map(|c| c.to_string())),
-                )
-            })
-            .map_err(FromHoaError::LexerError)?;
-        tracing::debug!("Tokenization took {}ms", start.elapsed().as_millis());
-
-        let length = input.chars().count();
-        let start = std::time::Instant::now();
-        let out = HoaAutomaton::parser()
-            .parse(Stream::from_iter(length..length + 1, tokens.into_iter()))
-            .map_err(|error_list| {
-                build_error_report(
-                    input,
-                    error_list.into_iter().map(|err| err.map(|c| c.to_string())),
-                )
-            })
-            .map_err(FromHoaError::ParserError);
-        tracing::debug!("Actual parsing took {}ms", start.elapsed().as_millis());
-        out
+        input::from_hoa(value)
     }
 }
 

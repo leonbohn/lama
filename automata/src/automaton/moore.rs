@@ -19,7 +19,7 @@ use crate::prelude::*;
 /// is, however, prefered to use a [`MealyMachine`] for this purpose, as for infinite inputs
 /// switching to transition-based acceptance is preferable.
 #[derive(Clone)]
-pub struct MooreMachine<A, Q = usize, C: Color = NoColor, Ts = WithInitial<BTS<A, Q, C, usize>>> {
+pub struct MooreMachine<A, Q = usize, C: Color = NoColor, Ts = WithInitial<DTS<A, Q, C>>> {
     ts: Ts,
     _q: std::marker::PhantomData<(A, Q, C)>,
 }
@@ -34,17 +34,28 @@ pub type IntoMooreMachine<Ts> = MooreMachine<
     <Ts as TransitionSystem>::EdgeColor,
     Ts,
 >;
+pub type AsMooreMachine<Ts> = MooreMachine<
+    <Ts as TransitionSystem>::Alphabet,
+    <Ts as TransitionSystem>::StateColor,
+    <Ts as TransitionSystem>::EdgeColor,
+>;
 
 impl<A: Alphabet, Q: Color, C: Color> MooreMachine<A, Q, C> {
     /// Creates a new MooreMachine on a [`BTS`].
     pub fn new(
         alphabet: A,
         initial_state_output: Q,
-    ) -> IntoMooreMachine<WithInitial<BTS<A, Q, C, usize>>> {
+    ) -> IntoMooreMachine<WithInitial<DTS<A, Q, C>>> {
         Self {
             ts: WithInitial::with_initial_color(alphabet, initial_state_output),
             _q: std::marker::PhantomData,
         }
+    }
+}
+
+impl<D: MooreLike + Deterministic> IntoMooreMachine<D> {
+    pub fn minimize(&self) -> AsMooreMachine<D> {
+        crate::algorithms::moore_partition_refinement(self)
     }
 }
 
@@ -141,12 +152,12 @@ impl<Ts: Sproutable + MooreLike> Sproutable
         self.ts_mut().add_edge(from, on, to, color)
     }
 
-    fn remove_edge(
+    fn remove_edges(
         &mut self,
         from: Self::StateIndex,
         on: <Self::Alphabet as Alphabet>::Expression,
     ) -> bool {
-        self.ts_mut().remove_edge(from, on)
+        self.ts_mut().remove_edges(from, on)
     }
 }
 
@@ -214,7 +225,7 @@ macro_rules! impl_moore_automaton {
         pub struct $name<
             A = Simple,
             C = NoColor,
-            Ts = WithInitial<BTS<A, $color, C, usize>>,
+            Ts = WithInitial<DTS<A, $color, C>>,
         > {
             ts: Ts,
             _alphabet: std::marker::PhantomData<(A, $color, C)>,
@@ -222,13 +233,14 @@ macro_rules! impl_moore_automaton {
         paste::paste! {
             /// See [`IntoMooreMachine`].
             pub type [< Into $name >]<Ts> = $name<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::EdgeColor, Ts>;
+            pub type [< As $name >]<Ts> = $name<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::EdgeColor>;
         }
 
         impl<A: Alphabet, C: Color>
-            $name<A, C, WithInitial<BTS<A, $color, C, usize>>>
+            $name<A, C, WithInitial<DTS<A, $color, C>>>
         {
             /// Creates a new automaton.
-            pub fn new(alphabet: A) -> $name<A, C, WithInitial<BTS<A, $color, C, usize>>> {
+            pub fn new(alphabet: A) -> $name<A, C, WithInitial<DTS<A, $color, C>>> {
                 $name {
                     ts: WithInitial::new(alphabet),
                     _alphabet: std::marker::PhantomData,
@@ -267,7 +279,7 @@ macro_rules! impl_moore_automaton {
         impl<Ts: Pointed> std::fmt::Debug for $name<Ts::Alphabet,  Ts::EdgeColor, Ts> where Ts::StateColor: std::fmt::Display {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 use itertools::Itertools;
-                use crate::prelude::IsTransition;
+                use crate::prelude::IsEdge;
                 writeln!(
                     f,
                     "Initial state {} with states {} and transitions\n{}",
@@ -320,12 +332,12 @@ macro_rules! impl_moore_automaton {
             fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
                 self.ts_mut().add_state(color)
             }
-            fn remove_edge(
+            fn remove_edges(
                 &mut self,
                 from: Self::StateIndex,
                 on: <Self::Alphabet as Alphabet>::Expression,
             ) -> bool {
-                self.ts_mut().remove_edge(from, on)
+                self.ts_mut().remove_edges(from, on)
             }
         }
         impl<Ts: TransitionSystem> TransitionSystem
@@ -417,6 +429,35 @@ pub trait MooreLike: Deterministic + Pointed {
             .collect()
     }
 
+    fn collect_moore(&self) -> AsMooreMachine<Self> {
+        let ts = self.collect_pointed();
+        MooreMachine {
+            ts,
+            _q: std::marker::PhantomData,
+        }
+    }
+
+    fn moore_bisimilar<M>(&self, other: M) -> bool
+    where
+        M: MooreLike<Alphabet = Self::Alphabet, StateColor = Self::StateColor>,
+    {
+        self.moore_witness_non_bisimilarity(other).is_none()
+    }
+
+    fn moore_witness_non_bisimilarity<M>(&self, other: M) -> Option<Vec<SymbolOf<Self>>>
+    where
+        M: MooreLike<Alphabet = Self::Alphabet, StateColor = Self::StateColor>,
+    {
+        let prod = self.ts_product(other);
+        for (mr, idx) in prod.minimal_representatives() {
+            let (c, d) = prod.state_color(idx).unwrap();
+            if c != d {
+                return Some(mr);
+            }
+        }
+        None
+    }
+
     /// Decomposes `self` into a sequence of DFAs, where the i-th DFA accepts all words which
     /// produce a color less than or equal to i.
     fn decompose_dfa(&self) -> Vec<DFA<Self::Alphabet>> {
@@ -431,10 +472,8 @@ pub trait MooreLike: Deterministic + Pointed {
     fn color_or_below_dfa(&self, color: Self::StateColor) -> DFA<Self::Alphabet> {
         self.map_state_colors(|o| o <= color)
             .erase_edge_colors()
-            .minimize()
-            .erase_edge_colors()
-            .map_state_colors(|o| o.contains(&true))
-            .collect_with_initial()
+            .dfa_minimized()
+            .collect_dfa()
     }
 }
 impl<Ts: Deterministic + Pointed> MooreLike for Ts {}

@@ -7,7 +7,7 @@ use std::{
 
 use itertools::Itertools;
 
-use crate::{prelude::*, ts::dot::DotStateColorize, Map};
+use crate::{prelude::*, Map};
 
 pub trait HasNeutral {
     fn neutral() -> Self;
@@ -224,7 +224,7 @@ impl<Idx: IndexType, Q: Accumulates, C: Accumulates> RunSignature<Idx, Q, C> {
                 let target = tt.target();
                 let mut sc = Q::from_or_neutral(ts.state_color(target));
                 sc.update(self.sc());
-                let mut ec = C::from(tt.color());
+                let mut ec = C::from(tt.color().clone());
                 ec.update(self.ec());
 
                 Some(Self(target, sc, ec))
@@ -323,26 +323,6 @@ impl<Idx: IndexType, Q: Accumulates, C: Accumulates> RunProfile<Idx, Q, C> {
         ts.alphabet()
             .universe()
             .map(|sym| (self.extend_in(ts, sym), sym))
-    }
-}
-
-impl<Idx, Q, C> DotStateColorize for RunProfile<Idx, Q, C>
-where
-    Idx: IndexType,
-    Q: Accumulates,
-    Q::X: Show,
-    C: Accumulates,
-    C::X: Show,
-{
-    fn dot_state_colorize(&self, base: &mut crate::ts::dot::DotStateData) {
-        base.push_attribute(crate::ts::dot::DotStateAttribute::Label(
-            self.iter()
-                .map(|tp| format!("[{}|{}|{}]", tp.state(), tp.sc().show(), tp.ec().show()))
-                .join(" "),
-        ));
-        base.push_attribute(crate::ts::dot::DotStateAttribute::Shape(
-            "rectangle".to_string(),
-        ));
     }
 }
 

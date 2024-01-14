@@ -59,8 +59,8 @@ impl<Ts> DBALike for Ts where Ts: Deterministic<EdgeColor = bool> + Pointed {}
 
 impl<A: Alphabet> OmegaWordAcceptor<A::Symbol> for DBA<A> {
     fn accepts_omega<W: OmegaWord<A::Symbol>>(&self, word: W) -> bool {
-        self.infinity_set(word)
-            .map(|set| set.contains(&true))
+        self.recurrent_edge_colors(word)
+            .map(|mut set| set.any(|x| x))
             .unwrap_or(false)
     }
 }

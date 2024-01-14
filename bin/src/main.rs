@@ -1,6 +1,6 @@
 use automata::{
     congruence::FORC,
-    ts::{dot::display_dot, ToDot},
+    ts::{dot::display_dot, Dottable},
     Map, TransitionSystem,
 };
 use automata_learning::passive::{
@@ -92,7 +92,7 @@ fn main() {
         }
         Some(("nop", nop_matches)) => {
             let hoa = from_file_or_stdin(nop_matches.get_one("input"));
-            let parsed_auts = automata::hoa::hoa_to_ts(&hoa);
+            let parsed_auts = automata::hoa::input::hoa_to_ts(&hoa);
             let mut auts = vec![];
             for nondet_aut in &parsed_auts {
                 if let Some(aut) = nondet_aut.to_deterministic() {
@@ -130,9 +130,10 @@ fn main() {
                             passive_matches.get_one::<String>("conflicts")
                         {
                             debug!("Outputting conflict relation to {}", conflicts_target);
-                            conflicts
-                                .render_to_file_name(conflicts_target)
-                                .expect("Unable to render conflict relation to file");
+                            // conflicts
+                            //     .render_to_file_name(conflicts_target)
+                            //     .expect("Unable to render conflict relation to file");
+                            todo!()
                         }
 
                         let cong = sprout(conflicts, vec![], true);
@@ -140,7 +141,8 @@ fn main() {
                         if passive_matches.get_flag("nooutput") {
                             "".to_string()
                         } else {
-                            cong.dot_representation()
+                            // cong.dot_representation()
+                            todo!()
                         }
                     }
                     Some(("forc", _)) => {
@@ -164,9 +166,10 @@ fn main() {
                             for (class, conflicts) in &conflict_relations {
                                 let file_name =
                                     format!("{}-{}.dot", conflicts_target, class.mr_to_string());
-                                conflicts
-                                    .render_to_file_name(&file_name)
-                                    .expect("Unable to render conflict relation to file");
+                                // conflicts
+                                //     .render_to_file_name(&file_name)
+                                //     .expect("Unable to render conflict relation to file");
+                                todo!()
                             }
                         }
                         let progress: Vec<_> = conflict_relations
@@ -190,7 +193,8 @@ fn main() {
                         if passive_matches.get_flag("nooutput") {
                             "".to_string()
                         } else {
-                            forc.dot_representation()
+                            // forc.dot_representation()
+                            todo!()
                         }
                     }
                     _ => unreachable!(),

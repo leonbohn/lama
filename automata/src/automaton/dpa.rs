@@ -1,13 +1,15 @@
 use std::{collections::VecDeque, marker::PhantomData};
 
+use tracing::{info, trace};
+
 use crate::{
     prelude::*,
     ts::{
         connected_components::Scc,
         operations::{MapEdgeColor, MapStateColor},
-        IntoInitialBTS, Quotient,
+        IntoInitialBTS, Quotient, Shrinkable,
     },
-    Parity, Partition,
+    Parity, Partition, Set,
 };
 
 use super::acceptor::OmegaWordAcceptor;
@@ -26,7 +28,9 @@ pub trait DPALike: Deterministic<EdgeColor = usize> + Pointed {
         DPA::from(self)
     }
 
-    fn collect_dpa(self) -> IntoDPA<IntoInitialBTS<Self>> {
+    fn collect_dpa(
+        self,
+    ) -> IntoDPA<WithInitial<DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>> {
         DPA::from(self.trim_collect())
     }
 }
@@ -37,7 +41,7 @@ impl<Ts: DPALike<EdgeColor = usize>> OmegaWordAcceptor<SymbolOf<Ts>>
     for DPA<Ts::Alphabet, Ts::StateColor, Ts>
 {
     fn accepts_omega<W: OmegaWord<SymbolOf<Ts>>>(&self, word: W) -> bool {
-        self.infinity_set(word)
+        self.recurrent_edge_colors(word)
             .map(|set| set.into_iter().min().unwrap_or(1) % 2 == 0)
             .unwrap_or(false)
     }
@@ -58,7 +62,24 @@ impl<D: DPALike> IntoDPA<D> {
         self.map_edge_colors(|c| c + 1).collect_dpa()
     }
 
-    fn prefix_congruence(&self) -> RightCongruence<D::Alphabet> {
+    pub fn separate<X, Y>(&self, left: X, right: Y) -> Option<Reduced<SymbolOf<Self>>>
+    where
+        X: Indexes<Self>,
+        Y: Indexes<Self>,
+    {
+        let p = left.to_index(self)?;
+        let q = right.to_index(self)?;
+
+        if p == q {
+            return None;
+        }
+
+        self.with_initial(p)
+            .into_dpa()
+            .witness_inequivalence(&self.with_initial(q).into_dpa())
+    }
+
+    pub fn prefix_congruence(&self) -> Quotient<&Self> {
         let mut it = self.reachable_state_indices();
         let fst = it.next();
         assert_eq!(fst, Some(self.initial()));
@@ -68,7 +89,7 @@ impl<D: DPALike> IntoDPA<D> {
 
         'outer: while let Some(q) = queue.pop_front() {
             for i in 0..partition.len() {
-                let p = *partition[i]
+                let p = partition[i]
                     .first()
                     .expect("Class of partition must be non-empty");
                 if self
@@ -89,9 +110,28 @@ impl<D: DPALike> IntoDPA<D> {
             "size mismatch!"
         );
 
-        self.as_ref()
-            .quotient(Partition::new(partition))
-            .into_right_congruence(&self)
+        self.quotient(Partition::new(partition))
+    }
+
+    pub fn witness_color(&self, color: D::EdgeColor) -> Option<Reduced<SymbolOf<Self>>> {
+        let restrict = self.edge_color_restricted(color, usize::MAX);
+        let sccs = restrict.sccs();
+        for scc in sccs.iter() {
+            if scc.is_transient() {
+                continue;
+            }
+            if scc.interior_edge_colors().contains(&color) {
+                let (q, rep) = scc
+                    .minimal_representative()
+                    .as_ref()
+                    .expect("We know this is reachable");
+                let cycle = scc
+                    .maximal_loop_from(*q)
+                    .expect("This thing is non-transient");
+                return Some(Reduced::ultimately_periodic(rep, cycle));
+            }
+        }
+        None
     }
 
     pub fn witness_colors<O: DPALike<Alphabet = D::Alphabet>>(
@@ -118,7 +158,7 @@ impl<D: DPALike> IntoDPA<D> {
                     continue;
                 };
                 let cycle = scc
-                    .maximal_word_from(*mr)
+                    .maximal_loop_from(*mr)
                     .expect("This thing is non-transient");
                 return Some(Reduced::ultimately_periodic(spoke, cycle));
             }
@@ -126,7 +166,7 @@ impl<D: DPALike> IntoDPA<D> {
         None
     }
 
-    pub fn colors(&self) -> Vec<D::EdgeColor> {
+    pub fn colors(&self) -> impl Iterator<Item = D::EdgeColor> + '_ {
         MealyLike::color_range(self)
     }
 
@@ -157,14 +197,117 @@ impl<D: DPALike> IntoDPA<D> {
         &self,
         other: &IntoDPA<O>,
     ) -> Option<Reduced<SymbolOf<D>>> {
-        for i in self.colors().iter().filter(|x| x.is_even()) {
-            for j in other.colors().iter().filter(|x| x.is_odd()) {
-                if let Some(cex) = self.as_ref().witness_colors(*i, &other, *j) {
+        for i in self.colors().filter(|x| x.is_even()) {
+            for j in other.colors().filter(|x| x.is_odd()) {
+                if let Some(cex) = self.as_ref().witness_colors(i, &other, j) {
                     return Some(cex);
                 }
             }
         }
         None
+    }
+
+    pub fn normalized(&self) -> DPA<D::Alphabet, D::StateColor> {
+        let start = std::time::Instant::now();
+
+        let mut ts: WithInitial<BTS<_, _, _, _>> = self.collect_pointed();
+        let out = ts.clone();
+
+        let mut recoloring = Vec::new();
+        let mut remove_states = Vec::new();
+        let mut remove_edges = Vec::new();
+
+        let mut priority = 0;
+        'outer: loop {
+            for (source, expression) in remove_edges.drain(..) {
+                ts.remove_edge(source, &expression).is_some();
+            }
+            for state in remove_states.drain(..) {
+                ts.remove_state(state).is_some();
+            }
+
+            if ts.size() == 0 {
+                trace!("no states left, terminating");
+                break 'outer;
+            }
+
+            let dag = ts.tarjan_dag();
+
+            'inner: for scc in dag.iter() {
+                trace!("inner priority {priority} | scc {:?}", scc);
+                if scc.is_transient() {
+                    trace!("scc is transient");
+                    for state in scc.iter() {
+                        for edge in ts.edges_from(*state).unwrap() {
+                            trace!(
+                                "recolouring and removing {} --{}|{}--> {} with priority {}",
+                                state,
+                                edge.expression().show(),
+                                edge.color().show(),
+                                edge.target(),
+                                priority
+                            );
+                            recoloring.push(((*state, edge.expression().clone()), priority));
+                            remove_edges.push((edge.source(), edge.expression().clone()));
+                        }
+                        remove_states.push(*state);
+                    }
+                    continue 'inner;
+                }
+                let minimal_interior_edge_color = scc
+                    .interior_edge_colors()
+                    .iter()
+                    .min()
+                    .expect("We know this is not transient");
+
+                if priority % 2 != minimal_interior_edge_color % 2 {
+                    trace!("minimal interior priority: {minimal_interior_edge_color}, skipping");
+                    continue 'inner;
+                }
+
+                trace!(
+                    "minimal interior priority: {minimal_interior_edge_color}, recoloring edges"
+                );
+                for (q, a, c, p) in scc
+                    .interior_edges()
+                    .iter()
+                    .filter(|(q, a, c, p)| c == minimal_interior_edge_color)
+                {
+                    trace!(
+                        "recolouring and removing {} --{}|{}--> {} with priority {}",
+                        q,
+                        a.show(),
+                        c.show(),
+                        p,
+                        priority
+                    );
+                    recoloring.push(((*q, a.clone()), priority));
+                    remove_edges.push((*q, a.clone()));
+                }
+            }
+
+            if remove_edges.is_empty() {
+                priority += 1;
+            }
+        }
+
+        let ret = out
+            .map_edge_colors_full(|q, e, _, _| {
+                let Some(c) = recoloring
+                    .iter()
+                    .find(|((p, f), _)| *p == q && f == e)
+                    .map(|(_, c)| *c)
+                else {
+                    panic!("Could not find recoloring for edge ({}, {:?})", q, e);
+                };
+                c
+            })
+            .collect_dpa();
+
+        info!("normalizing DPA took {} μs", start.elapsed().as_micros());
+
+        debug_assert!(self.language_equivalent(&ret));
+        ret
     }
 }
 
@@ -176,10 +319,33 @@ mod tests {
 
     use super::DPA;
 
+    #[test_log::test]
+    fn normalize_dpa() {
+        let mut dpa = NTS::builder()
+            .default_color(())
+            .with_transitions([
+                (0, 'a', 2, 0),
+                (0, 'b', 1, 1),
+                (1, 'a', 0, 0),
+                (1, 'b', 1, 1),
+            ])
+            .collect()
+            .into_deterministic()
+            .with_initial(0)
+            .collect_dpa();
+        let normalized = dpa.normalized();
+        assert!(normalized.language_equivalent(&dpa));
+
+        for (input, expected) in [("a", 0), ("b", 0), ("ba", 0), ("bb", 1)] {
+            assert_eq!(normalized.try_mealy_map(input), Some(expected))
+        }
+        let n = example_dpa().normalized();
+    }
+
     fn example_dpa() -> DPA {
         NTS::builder()
             .default_color(())
-            .extend([
+            .with_transitions([
                 (0, 'a', 0, 0),
                 (0, 'b', 1, 1),
                 (0, 'c', 2, 2),
@@ -213,7 +379,7 @@ mod tests {
         let good = [
             NTS::builder()
                 .default_color(())
-                .extend([
+                .with_transitions([
                     (0, 'a', 0, 1),
                     (0, 'b', 1, 0),
                     (1, 'a', 1, 1),
@@ -224,7 +390,7 @@ mod tests {
                 .collect_dpa(),
             NTS::builder()
                 .default_color(())
-                .extend([
+                .with_transitions([
                     (0, 'a', 5, 1),
                     (0, 'b', 7, 0),
                     (1, 'a', 3, 1),
@@ -239,19 +405,19 @@ mod tests {
         let bad = [
             NTS::builder()
                 .default_color(())
-                .extend([(0, 'a', 1, 0), (0, 'b', 0, 0)])
+                .with_transitions([(0, 'a', 1, 0), (0, 'b', 0, 0)])
                 .deterministic()
                 .with_initial(0)
                 .collect_dpa(),
             NTS::builder()
                 .default_color(())
-                .extend([(0, 'a', 1, 0), (0, 'b', 2, 0)])
+                .with_transitions([(0, 'a', 1, 0), (0, 'b', 2, 0)])
                 .deterministic()
                 .with_initial(0)
                 .collect_dpa(),
             NTS::builder()
                 .default_color(())
-                .extend([
+                .with_transitions([
                     (0, 'a', 4, 1),
                     (0, 'b', 1, 0),
                     (1, 'a', 5, 0),
@@ -271,13 +437,13 @@ mod tests {
     fn dpa_inclusion() {
         let univ = NTS::builder()
             .default_color(())
-            .extend([(0, 'a', 0, 0), (0, 'b', 2, 0)])
+            .with_transitions([(0, 'a', 0, 0), (0, 'b', 2, 0)])
             .deterministic()
             .with_initial(0)
             .collect_dpa();
         let aomega = NTS::builder()
             .default_color(())
-            .extend([(0, 'a', 0, 0), (0, 'b', 1, 0)])
+            .with_transitions([(0, 'a', 0, 0), (0, 'b', 1, 0)])
             .deterministic()
             .with_initial(0)
             .collect_dpa();
@@ -288,7 +454,7 @@ mod tests {
     #[test]
     fn dpa_equivalence_clases() {
         let dpa = NTS::builder()
-            .extend([
+            .with_transitions([
                 (0, 'a', 0, 0),
                 (0, 'b', 0, 1),
                 (1, 'a', 0, 0),
@@ -298,14 +464,14 @@ mod tests {
         let cong = dpa.prefix_congruence();
         assert_eq!(cong.size(), 1);
         let dpa = NTS::builder()
-            .extend([
+            .with_transitions([
                 (0, 'a', 0, 1),
                 (0, 'b', 1, 0),
                 (1, 'a', 2, 0),
                 (1, 'b', 0, 1),
             ])
             .into_dpa(0);
-        let cong = dpa.prefix_congruence();
+        let cong = dpa.prefix_congruence().collect_right_congruence();
         assert_eq!(cong.size(), 2);
         assert_eq!(cong.initial(), cong.reached("aa").unwrap());
         assert!(cong.congruent("", "aa"));

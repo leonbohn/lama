@@ -7,6 +7,7 @@ use super::{
 use crate::{
     alphabet::{Directional, InvertibleChar},
     prelude::*,
+    ts::transition_system::EdgeReference,
     Map,
 };
 
@@ -50,7 +51,7 @@ where
 
     type EdgeColor = ();
 
-    type TransitionRef<'this> = (&'this InvertibleChar, usize, ()) where Self: 'this;
+    type TransitionRef<'this> = EdgeReference<'this, InvertibleChar, usize, ()> where Self: 'this;
 
     type StateIndices<'this> = std::ops::Range<usize> where Self: 'this;
 
@@ -90,7 +91,12 @@ where
         let mut word = string.to_deque();
         symbol.mul(&mut word);
         let tp = self.monoid().profile_for(&word)?;
-        Some((self.expressions.get(&symbol).unwrap(), tp, ()))
+        Some(EdgeReference::new(
+            idx,
+            self.expressions.get(&symbol).unwrap(),
+            &(),
+            tp,
+        ))
     }
 }
 
@@ -186,7 +192,7 @@ where
 
     type EdgeColor = ();
 
-    type TransitionRef<'this> = (&'this ExpressionOf<Ts>, usize, ()) where Self: 'this;
+    type TransitionRef<'this> = EdgeReference<'this, ExpressionOf<Ts>, usize, ()> where Self: 'this;
 
     type StateIndices<'this> = std::ops::Range<usize> where Self: 'this;
 
@@ -225,7 +231,12 @@ where
         let mut word = string.to_vec();
         word.push(symbol);
         let tp = self.monoid().profile_for(&word)?;
-        Some((self.expressions.get(&symbol).unwrap(), tp, ()))
+        Some(EdgeReference::new(
+            idx,
+            self.expressions.get(&symbol).unwrap(),
+            &(),
+            tp,
+        ))
     }
 }
 
@@ -276,12 +287,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use tracing_test::traced_test;
 
-    use crate::{tests::wiki_dfa, ts::ToDot};
+    use crate::{tests::wiki_dfa, ts::Dottable};
 
     #[test]
-    #[traced_test]
     fn right_cayley_graph() {
         let dfa = wiki_dfa();
         let accumulating_cayley = super::Cayley::new_reducing(&dfa);

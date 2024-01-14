@@ -1,8 +1,9 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, fmt::Write};
 
 use impl_tools::autoimpl;
+use itertools::Itertools;
 
-use crate::prelude::Symbol;
+use crate::{prelude::Symbol, Show};
 
 use super::{omega::Reduced, Concat, LinearWord, Periodic};
 
@@ -59,6 +60,34 @@ pub trait FiniteWord<S>: LinearWord<S> {
 
     fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    fn as_string(&self) -> String
+    where
+        S: Show,
+    {
+        let mut it = self.symbols().map(|a| a.show()).peekable();
+        if it.peek().is_none() {
+            "ε".into()
+        } else {
+            it.join("")
+        }
+    }
+}
+
+impl<S: Symbol, const N: usize> FiniteWord<S> for [S; N] {
+    type Symbols<'this> = std::iter::Cloned<std::slice::Iter<'this, S>>
+    where
+        Self: 'this;
+
+    fn symbols(&self) -> Self::Symbols<'_> {
+        self.iter().cloned()
+    }
+}
+
+impl<S: Symbol, const N: usize> LinearWord<S> for [S; N] {
+    fn nth(&self, position: usize) -> Option<S> {
+        self.get(position).cloned()
     }
 }
 

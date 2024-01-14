@@ -1,68 +1,25 @@
 use impl_tools::autoimpl;
 
-use crate::{automata::WithInitial, Alphabet, Color, RightCongruence, TransitionSystem};
+use crate::{automaton::WithInitial, Alphabet, Color, RightCongruence, TransitionSystem};
 
 use super::{
+    nts::{NTEdge, NTSEdgesTo},
     operations::{
         MapEdgeColor, MapStateColor, MappedPreTransition, MappedTransitionsToIter, MatchingProduct,
         ProductEdgesTo, ProductPreTransition, RestrictByStateIndex, RestrictedEdgesToIter,
-        StateIndexFilter,
+        Reversed, StateIndexFilter,
     },
+    transition_system::{EdgeReference, IsEdge},
     EdgeColor, ExpressionOf, IndexType, SymbolOf, BTS,
 };
-
-/// The counterpart to the [`super::transition_system::IsTransition`] trait for predecessors.
-#[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
-pub trait IsPreTransition<Idx, E, C> {
-    /// Return the source state of the pre-transition.
-    fn source(&self) -> Idx;
-    /// Return the color of the pre-transition.
-    fn color(&self) -> C;
-    /// Return the expression of the pre-transition.
-    fn expression(&self) -> &E;
-    /// Decompose `self` into a tuple of its components.
-    fn into_tuple(self) -> (Idx, E, C)
-    where
-        E: Clone,
-        Self: Sized,
-    {
-        (self.source(), self.expression().clone(), self.color())
-    }
-}
-
-impl<'a, Idx: IndexType, E, C: Color> IsPreTransition<Idx, E, C> for (Idx, &'a E, C) {
-    fn source(&self) -> Idx {
-        self.0
-    }
-
-    fn color(&self) -> C {
-        self.2.clone()
-    }
-
-    fn expression(&self) -> &E {
-        self.1
-    }
-}
-impl<Idx: IndexType, E, C: Color> IsPreTransition<Idx, E, C> for (Idx, E, C) {
-    fn source(&self) -> Idx {
-        self.0
-    }
-
-    fn color(&self) -> C {
-        self.2.clone()
-    }
-
-    fn expression(&self) -> &E {
-        &self.1
-    }
-}
 
 /// Implementors of this trait are [`TransitionSystem`]s which allow iterating over the predecessors of a state.
 pub trait PredecessorIterable: TransitionSystem {
     /// The type of pre-transition that the iterator yields.
-    type PreTransitionRef<'this>: IsPreTransition<
-        Self::StateIndex,
+    type PreTransitionRef<'this>: IsEdge<
+        'this,
         ExpressionOf<Self>,
+        Self::StateIndex,
         EdgeColor<Self>,
     >
     where
@@ -75,6 +32,10 @@ pub trait PredecessorIterable: TransitionSystem {
 
     /// Returns an iterator over the predecessors of the given `state`. Returns `None` if the state does not exist.
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>>;
+
+    fn reversed(self) -> Reversed<Self> {
+        Reversed(self)
+    }
 }
 
 impl<Ts, F> PredecessorIterable for RestrictByStateIndex<Ts, F>
@@ -144,7 +105,7 @@ where
     L::StateColor: Clone,
     R::StateColor: Clone,
 {
-    type PreTransitionRef<'this> = ProductPreTransition<L::StateIndex, R::StateIndex, ExpressionOf<L>, L::EdgeColor, R::EdgeColor> where Self: 'this;
+    type PreTransitionRef<'this> = ProductPreTransition<'this, L::StateIndex, R::StateIndex, ExpressionOf<L>, L::EdgeColor, R::EdgeColor> where Self: 'this;
     type EdgesToIter<'this> = ProductEdgesTo<'this, L, R> where Self: 'this;
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
         ProductEdgesTo::new(&self.0, &self.1, state)
@@ -152,18 +113,48 @@ where
 }
 
 impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> PredecessorIterable for BTS<A, Q, C, Idx> {
-    type PreTransitionRef<'this> = &'this (Idx, A::Expression, C) where Self: 'this;
-    type EdgesToIter<'this> = std::collections::hash_set::Iter<'this, (Idx, A::Expression, C)>
+    type PreTransitionRef<'this> = EdgeReference<'this, A::Expression, Idx, C> where Self: 'this;
+    type EdgesToIter<'this> = BTSPredecessors<'this, A, C, Idx>
     where
         Self: 'this;
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
-        Some(self.raw_state_map().get(&state)?.predecessors().iter())
+        Some(BTSPredecessors::new(
+            self.raw_state_map().get(&state)?.predecessors().iter(),
+            state,
+        ))
+    }
+}
+
+pub struct BTSPredecessors<'a, A: Alphabet, C: Color, Idx: IndexType> {
+    it: std::collections::hash_set::Iter<'a, (Idx, A::Expression, C)>,
+    state: Idx,
+}
+
+impl<'a, A: Alphabet, C: Color, Idx: IndexType> Iterator for BTSPredecessors<'a, A, C, Idx> {
+    type Item = EdgeReference<'a, A::Expression, Idx, C>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.it
+            .next()
+            .map(|(s, e, c)| EdgeReference::new(*s, e, c, self.state))
+    }
+}
+
+impl<'a, A: Alphabet, C: Color, Idx: IndexType> BTSPredecessors<'a, A, C, Idx> {
+    pub fn new(
+        it: std::collections::hash_set::Iter<'a, (Idx, A::Expression, C)>,
+        state: Idx,
+    ) -> Self {
+        Self { it, state }
     }
 }
 
 impl<A: Alphabet> PredecessorIterable for RightCongruence<A> {
-    type PreTransitionRef<'this> = &'this (usize, A::Expression, ()) where Self: 'this;
-    type EdgesToIter<'this> = std::collections::hash_set::Iter<'this, (usize, A::Expression, ())>
+    type PreTransitionRef<'this> = &'this NTEdge<A::Expression, ()>
+    where
+        Self: 'this;
+
+    type EdgesToIter<'this> = NTSEdgesTo<'this, A::Expression, ()>
     where
         Self: 'this;
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {

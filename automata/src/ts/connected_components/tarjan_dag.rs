@@ -3,12 +3,15 @@ use itertools::Itertools;
 use crate::{
     ts::{
         dag::{Dag, ReachableIter},
-        transition_system::{Indexes, IsTransition},
+        transition_system::{Indexes, IsEdge},
     },
     TransitionSystem,
 };
 
 use super::{Scc, SccDecomposition};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SccIndex(usize);
 
 /// Represents a hierarchical view on the SCCs of a transition system.
 #[derive(Clone)]
@@ -18,6 +21,45 @@ pub struct TarjanDAG<'a, Ts: TransitionSystem> {
 }
 
 impl<'a, Ts: TransitionSystem> TarjanDAG<'a, Ts> {
+    pub fn transient_edges(&self) -> impl Iterator<Item = Ts::TransitionRef<'a>> + '_ {
+        self.ts.transitions().filter(move |t| {
+            let source = t.source();
+            let target = t.target();
+            self.scc_index(source) != self.scc_index(target)
+        })
+    }
+
+    pub fn transient_states(&self) -> impl Iterator<Item = Ts::StateIndex> + '_ {
+        self.dag
+            .iter()
+            .filter_map(|scc| {
+                if scc.is_transient() {
+                    Some(scc.iter().cloned())
+                } else {
+                    None
+                }
+            })
+            .flatten()
+    }
+
+    pub fn scc_index(&self, state: Ts::StateIndex) -> Option<SccIndex> {
+        self.dag
+            .find(|scc| scc.contains(&state))
+            .map(|i| SccIndex(i))
+    }
+
+    pub fn scc_of(&self, state: Ts::StateIndex) -> Option<&Scc<'a, Ts>> {
+        self.scc_index(state).map(|i| &self.dag[i.0])
+    }
+
+    pub fn scc(&self, index: SccIndex) -> &Scc<'a, Ts> {
+        &self.dag[index.0]
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Scc<'a, Ts>> + '_ {
+        self.dag.iter()
+    }
+
     /// Folds the state colors of the SCCs of the transition system into a single value.
     pub fn fold_state_colors<F, D>(&self, init: D, f: F) -> Dag<D>
     where
@@ -49,9 +91,13 @@ impl<'a, Ts: TransitionSystem> TarjanDAG<'a, Ts> {
         let q = state.to_index(self.ts)?;
         self.dag.find(|c| c.contains(&q))
     }
+
+    pub fn size(&self) -> usize {
+        self.dag.size()
+    }
 }
 
-impl<'a, Ts: TransitionSystem + Clone> From<SccDecomposition<'a, Ts>> for TarjanDAG<'a, Ts> {
+impl<'a, Ts: TransitionSystem> From<SccDecomposition<'a, Ts>> for TarjanDAG<'a, Ts> {
     fn from(value: SccDecomposition<'a, Ts>) -> Self {
         let mut edges = Vec::new();
         for (l, ls) in value.1.iter().enumerate() {

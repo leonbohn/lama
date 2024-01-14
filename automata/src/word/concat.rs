@@ -28,7 +28,7 @@ impl<S: Symbol, X: FiniteWord<S>, Y: FiniteWord<S>> FiniteWord<S> for Concat<X, 
 
     fn to_vec(&self) -> Vec<S> {
         let mut repr = self.0.to_vec();
-        repr.extend(self.1.to_vec());
+        repr.extend(self.1.symbols());
         repr
     }
 

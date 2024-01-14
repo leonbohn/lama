@@ -46,6 +46,8 @@ pub trait Alphabet: Clone {
     /// The type of expressions in this alphabet.
     type Expression: Expression<Self::Symbol>;
 
+    fn make_expression(&self, symbol: Self::Symbol) -> &Self::Expression;
+
     fn expression_map(&self) -> crate::Map<Self::Symbol, Self::Expression> {
         self.universe()
             .map(|sym| (sym, Self::expression(sym)))
@@ -81,6 +83,8 @@ pub trait Alphabet: Clone {
 
     /// Creates an expression from a single symbol.
     fn expression(symbol: Self::Symbol) -> Self::Expression;
+
+    fn size(&self) -> usize;
 }
 
 /// A simple alphabet is an alphabet where a [`Symbol`] is just a single character.
@@ -91,7 +95,22 @@ pub trait Alphabet: Clone {
 /// Now an **expression** would also be just a single character, e.g. 'a'. Then such an expression is
 /// matched by a symbol if the expression equals the symbol.
 #[derive(Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
-pub struct Simple(Vec<char>);
+pub struct Simple(pub(crate) Vec<char>);
+
+impl Simple {
+    pub fn alphabetic(size: usize) -> Self {
+        assert!(size < 26, "Alphabet is too large");
+        Self((0..size).map(|i| ('a' as u8 + i as u8) as char).collect())
+    }
+}
+
+impl std::ops::Index<usize> for Simple {
+    type Output = char;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
 
 /// A special type of [`Alphabet`], which has no symbols.
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
@@ -133,6 +152,14 @@ impl Alphabet for Empty {
 
     fn expression(_symbol: Self::Symbol) -> Self::Expression {
         Empty
+    }
+
+    fn size(&self) -> usize {
+        0
+    }
+
+    fn make_expression(&self, symbol: Self::Symbol) -> &Self::Expression {
+        &Empty
     }
 }
 
@@ -230,6 +257,10 @@ impl Alphabet for Simple {
         where
             Self: 'this;
 
+    fn size(&self) -> usize {
+        self.0.len()
+    }
+
     fn matches(&self, expression: &Self::Expression, symbol: Self::Symbol) -> bool {
         expression == &symbol
     }
@@ -252,6 +283,13 @@ impl Alphabet for Simple {
         sym: Self::Symbol,
     ) -> Option<(&Self::Expression, &X)> {
         map.get_key_value(&sym)
+    }
+
+    fn make_expression(&self, symbol: Self::Symbol) -> &Self::Expression {
+        self.0
+            .iter()
+            .find(|c| c == &&symbol)
+            .expect("symbol does not exist")
     }
 }
 
@@ -292,6 +330,10 @@ impl<S: Symbol + Expression<S>, const N: usize> Alphabet for Fixed<S, N> {
         map.get_key_value(&sym)
     }
 
+    fn size(&self) -> usize {
+        N
+    }
+
     type Universe<'this> = std::iter::Cloned<std::slice::Iter<'this, S>>
     where
         Self: 'this;
@@ -310,6 +352,13 @@ impl<S: Symbol + Expression<S>, const N: usize> Alphabet for Fixed<S, N> {
 
     fn expression(symbol: Self::Symbol) -> Self::Expression {
         symbol
+    }
+
+    fn make_expression(&self, symbol: Self::Symbol) -> &Self::Expression {
+        self.0
+            .iter()
+            .find(|c| c == &&symbol)
+            .expect("symbol does not exist")
     }
 }
 
@@ -388,6 +437,10 @@ impl Alphabet for Directional {
         todo!()
     }
 
+    fn size(&self) -> usize {
+        self.0.len()
+    }
+
     type Universe<'this> = std::iter::Cloned<std::slice::Iter<'this, InvertibleChar>>
     where
         Self: 'this;
@@ -406,6 +459,13 @@ impl Alphabet for Directional {
 
     fn expression(symbol: Self::Symbol) -> Self::Expression {
         symbol
+    }
+
+    fn make_expression(&self, symbol: Self::Symbol) -> &Self::Expression {
+        self.0
+            .iter()
+            .find(|c| c == &&symbol)
+            .expect("symbol does not exist")
     }
 }
 

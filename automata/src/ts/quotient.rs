@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
-use crate::{Alphabet, Partition, Pointed, RightCongruence, Set, TransitionSystem};
+use itertools::Itertools;
 
-use super::{transition_system::IsTransition, Deterministic, ExpressionOf, SymbolOf};
+use crate::{Alphabet, Partition, Pointed, RightCongruence, Set, Show, TransitionSystem};
+
+use super::{transition_system::IsEdge, Deterministic, ExpressionOf, SymbolOf};
 
 /// A quotient takes a transition system and merges states which are in the same
 /// congruence class of some [`Partition`]. We assume that the [`Partition`] is
@@ -30,6 +32,24 @@ impl<Ts: Deterministic + Pointed> Pointed for Quotient<Ts> {
 }
 
 impl<Ts: TransitionSystem> Quotient<Ts> {
+    pub fn partition(&self) -> &Partition<Ts::StateIndex> {
+        &self.partition
+    }
+
+    pub fn ts(&self) -> &Ts {
+        &self.ts
+    }
+
+    pub fn unwrap_class_representative(&self, id: usize) -> Ts::StateIndex {
+        self.partition
+            .get(id)
+            .expect("Class must exist")
+            .iter()
+            .next()
+            .expect("Class must not be empty")
+            .clone()
+    }
+
     /// Returns an iterator over the indices in the quotient class with the given `id`.
     /// If no such class exists, `None` is returned.
     pub fn class_iter_by_id(&self, id: usize) -> Option<impl Iterator<Item = Ts::StateIndex> + '_> {
@@ -65,7 +85,7 @@ impl<Ts: TransitionSystem> Quotient<Ts> {
         true
     }
 
-    pub fn into_right_congruence(self, ts: &Ts) -> RightCongruence<Ts::Alphabet>
+    pub fn underlying_right_congruence(self, ts: &Ts) -> RightCongruence<Ts::Alphabet>
     where
         Ts: Deterministic + Pointed,
     {
@@ -89,14 +109,13 @@ impl<Ts: TransitionSystem> Quotient<Ts> {
 }
 
 pub struct QuotientTransition<'a, Idx, E, C> {
+    source: Idx,
     expression: &'a E,
     colors: Vec<C>,
     target: Idx,
 }
 
-impl<'a, Idx: Copy, E, C: Clone> IsTransition<'a, E, Idx, Vec<C>>
-    for QuotientTransition<'a, Idx, E, C>
-{
+impl<'a, Idx: Copy, E, C: Clone> IsEdge<'a, E, Idx, Vec<C>> for QuotientTransition<'a, Idx, E, C> {
     fn target(&self) -> Idx {
         self.target
     }
@@ -108,11 +127,16 @@ impl<'a, Idx: Copy, E, C: Clone> IsTransition<'a, E, Idx, Vec<C>>
     fn expression(&self) -> &'a E {
         &self.expression
     }
+
+    fn source(&self) -> Idx {
+        self.source
+    }
 }
 
 impl<'a, Idx, E, C> QuotientTransition<'a, Idx, E, C> {
-    pub fn new(expression: &'a E, colors: Vec<C>, target: Idx) -> Self {
+    pub fn new(source: Idx, expression: &'a E, colors: Vec<C>, target: Idx) -> Self {
         Self {
+            source,
             expression,
             colors,
             target,
@@ -201,28 +225,33 @@ impl<D: Deterministic> Deterministic for Quotient<D> {
         state: Idx,
         symbol: SymbolOf<Self>,
     ) -> Option<Self::TransitionRef<'_>> {
+        let origin = state.to_index(self)?;
         let (states, colors): (Set<_>, Vec<_>) = self
-            .class_iter_by_id(state.to_index(self)?)?
+            .class_iter_by_id(origin)?
             .filter_map(|q| {
                 self.ts.transition(q, symbol).map(|tt| {
                     (
                         self.find_id_by_state(tt.target()).expect("Unknown state"),
-                        tt.color(),
+                        tt.color().clone(),
                     )
                 })
             })
             .unzip();
-        assert_eq!(
-            states.len(),
-            1,
-            "More than one quotient class reached, partition was faulty"
-        );
-        let expression = self.expressions.get(&symbol).unwrap();
-        Some(QuotientTransition {
-            expression,
-            colors,
-            target: states.into_iter().next().unwrap(),
-        })
+
+        match states.len() {
+            0 => None,
+            1 => {
+
+                let expression = self.expressions.get(&symbol).unwrap();
+                Some(QuotientTransition {
+                    source: origin,
+                    expression,
+                    colors,
+                    target: states.into_iter().next().unwrap(),
+                })
+            }
+            _ => panic!("From {origin}|{} on symbol {}, we reach {} while precisely one state should be reached!", self.class_iter_by_id(origin).unwrap().map(|c| c.to_string()).join(", "), symbol.show(), format!("{{{}}}", states.iter().map(|idx| idx.to_string()).join(", ")))
+        }
     }
 }
 
@@ -230,7 +259,7 @@ impl<D: Deterministic> Deterministic for Quotient<D> {
 mod tests {
     use crate::{
         tests::wiki_dfa,
-        ts::{Deterministic, ToDot},
+        ts::{Deterministic, Dottable},
         Partition, RightCongruence, TransitionSystem,
     };
 

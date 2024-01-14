@@ -190,6 +190,16 @@ pub fn state() -> impl Parser<Token, State, Error = Simple<Token>> {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Body(Vec<State>);
 
+impl<'a> IntoIterator for &'a Body {
+    type Item = &'a State;
+
+    type IntoIter = std::slice::Iter<'a, State>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
 impl Body {
     /// Constructs a new empty body.
     pub fn new() -> Self {

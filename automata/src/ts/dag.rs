@@ -2,7 +2,9 @@ use std::{collections::BTreeSet, fmt::Debug};
 
 use itertools::Itertools;
 
-use crate::{ts::transition_system::IsTransition, Color, Set, TransitionSystem};
+use crate::{ts::transition_system::IsEdge, Color, Set, TransitionSystem};
+
+use super::Index;
 
 /// Represents a directed acyclic graph. The nodes have usize indices and are
 /// colored with some type `C`. The edges are represented as a vector of pairs
@@ -14,9 +16,17 @@ pub struct Dag<C = ()> {
 }
 
 impl<C> Dag<C> {
+    pub fn iter(&self) -> impl Iterator<Item = &C> + '_ {
+        self.colors.iter()
+    }
+
     /// Returns true iff the graph is empty, i.e. there are no nodes.
     pub fn is_empty(&self) -> bool {
         self.colors.is_empty()
+    }
+
+    pub fn size(&self) -> usize {
+        self.colors.len()
     }
 
     /// Attempts to find the index of a node satisfying the given predicate.
@@ -104,6 +114,14 @@ impl<C> Dag<C> {
         for<'a> F: Fn(&'a C) -> D,
     {
         Dag::from_parts(self.colors.iter().map(f), self.edges.clone())
+    }
+}
+
+impl<C> std::ops::Index<usize> for Dag<C> {
+    type Output = C;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.colors[index]
     }
 }
 

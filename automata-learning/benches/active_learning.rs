@@ -17,7 +17,7 @@ fn build_sample_oracle_last_sym() -> SampleOracle<Simple, Vec<char>, usize> {
 
 fn lstar_last_sym(sample: SampleOracle<Simple, Vec<char>, usize>) -> MooreMachine<Simple, usize> {
     let alphabet = sample.alphabet().clone();
-    let mut lstar = LStar::moore_unlogged(sample, alphabet);
+    let mut lstar = LStar::for_moore(alphabet, sample);
     lstar.infer()
 }
 
@@ -30,7 +30,7 @@ fn lstar_last_sym_mealy(
     sample: SampleOracle<Simple, Vec<char>, usize>,
 ) -> MealyMachine<Simple, usize> {
     let alphabet = sample.alphabet().clone();
-    let mut lstar = LStar::mealy_unlogged(sample, alphabet);
+    let mut lstar = LStar::for_mealy(alphabet, sample);
     lstar.infer()
 }
 

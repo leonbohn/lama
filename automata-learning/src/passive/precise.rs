@@ -1,16 +1,61 @@
 use std::fmt::Debug;
 
 use automata::{
-    automata::{MealyLike, MooreLike},
+    automaton::{DPALike, MealyLike, MooreLike, DPA},
     congruence::ColoredClass,
-    prelude::{Expression, IsTransition, DFA},
-    ts::{reachable::ReachableStateIndices, Deterministic, Sproutable},
+    prelude::{Expression, IsEdge, DFA},
+    ts::{
+        dot::{DotStateAttribute, DotTransitionAttribute},
+        reachable::ReachableStateIndices,
+        Deterministic, Dottable, IndexType, Sproutable,
+    },
     Alphabet, Map, Pointed, RightCongruence, Show, TransitionSystem,
 };
 use itertools::Itertools;
-use tracing::trace;
+use tracing::{info, trace};
 
 use super::fwpm::FWPM;
+
+const MAX_PRIORITIES: usize = 8;
+
+pub fn build_precise_dpa_for<A: Alphabet>(fwpm: FWPM<A>) -> DPA<A> {
+    match fwpm.complexity() {
+        0 => panic!("Precise DPA construction only makes sense if at least one color exists"),
+        1 => PreciseDPA::<A, 1>::from(fwpm)
+            .collect_mealy()
+            .minimize()
+            .collect_dpa(),
+        2 => PreciseDPA::<A, 2>::from(fwpm)
+            .collect_mealy()
+            .minimize()
+            .collect_dpa(),
+        3 => PreciseDPA::<A, 3>::from(fwpm)
+            .collect_mealy()
+            .minimize()
+            .collect_dpa(),
+        4 => PreciseDPA::<A, 4>::from(fwpm)
+            .collect_mealy()
+            .minimize()
+            .collect_dpa(),
+        5 => PreciseDPA::<A, 5>::from(fwpm)
+            .collect_mealy()
+            .minimize()
+            .collect_dpa(),
+        6 => PreciseDPA::<A, 6>::from(fwpm)
+            .collect_mealy()
+            .minimize()
+            .collect_dpa(),
+        7 => PreciseDPA::<A, 7>::from(fwpm)
+            .collect_mealy()
+            .minimize()
+            .collect_dpa(),
+        8 => PreciseDPA::<A, 8>::from(fwpm)
+            .collect_mealy()
+            .minimize()
+            .collect_dpa(),
+        _ => panic!("Too many priorities to construct precise DPA"),
+    }
+}
 
 type ClassId = usize;
 type StateId = usize;
@@ -28,6 +73,38 @@ pub struct PState<const N: usize> {
     class: usize,
     progress_classes: [usize; N],
     progress_states: [usize; N],
+}
+
+impl<const N: usize> IndexType for PState<N> {
+    fn first() -> Self {
+        Self {
+            class: 0,
+            progress_classes: [0; N],
+            progress_states: [0; N],
+        }
+    }
+}
+
+impl<const N: usize> Show for PState<N> {
+    fn show(&self) -> String {
+        format!(
+            "[{}||{}]",
+            self.class,
+            self.progress_classes()
+                .zip(self.progress_states())
+                .map(|(c, q)| format!("{c}:{q}"))
+                .join(", ")
+        )
+    }
+
+    fn show_collection<'a, I>(iter: I) -> String
+    where
+        Self: 'a,
+        I: IntoIterator<Item = &'a Self>,
+        I::IntoIter: DoubleEndedIterator,
+    {
+        format!("{{{}}}", iter.into_iter().map(|x| x.show()).join(", "))
+    }
 }
 
 impl<const N: usize> std::fmt::Display for PState<N> {
@@ -114,9 +191,12 @@ pub struct PreciseDPATransition<'a, A: Alphabet, const N: usize> {
     color: usize,
 }
 
-impl<'a, A: Alphabet, const N: usize> IsTransition<'a, A::Expression, PState<N>, usize>
+impl<'a, A: Alphabet, const N: usize> IsEdge<'a, A::Expression, PState<N>, usize>
     for PreciseDPATransition<'a, A, N>
 {
+    fn source(&self) -> PState<N> {
+        self.source
+    }
     fn target(&self) -> PState<N> {
         self.target
     }
@@ -231,6 +311,10 @@ impl<A: Alphabet, const N: usize> TransitionSystem for PreciseDPA<A, N> {
         state: Idx,
     ) -> Option<Self::EdgesFromIter<'_>> {
         Some(PreciseDPAEdgesFrom::new(self, state.to_index(self)?))
+    }
+
+    fn maybe_initial_state(&self) -> Option<Self::StateIndex> {
+        Some(self.initial())
     }
 }
 
@@ -364,12 +448,14 @@ fn padding_universal_dfa<A: Alphabet>(alphabet: &A) -> DFA<A> {
     dfa
 }
 
-impl<'a, A: Alphabet, const N: usize> From<FWPM<'a, A>> for PreciseDPA<A, N> {
-    fn from(value: FWPM<'a, A>) -> Self {
+impl<A: Alphabet, const N: usize> From<FWPM<A>> for PreciseDPA<A, N> {
+    fn from(value: FWPM<A>) -> Self {
+        let start = std::time::Instant::now();
+
         let leading = value.leading().clone();
         let padding_dfa = padding_universal_dfa(leading.alphabet());
         let mut prc_dfas = Vec::with_capacity(leading.size());
-        for (mm, idx) in value.pms() {
+        for (idx, mm) in value.pms() {
             let mut dfas = mm.decompose_dfa();
             assert!(dfas.len() <= N);
             while dfas.len() < N {
@@ -381,7 +467,48 @@ impl<'a, A: Alphabet, const N: usize> From<FWPM<'a, A>> for PreciseDPA<A, N> {
             prc_dfas.insert(idx, array_dfas);
         }
 
+        info!(
+            "Building precise DPA with {N} priorities took {} microseconds",
+            start.elapsed().as_micros()
+        );
+
         PreciseDPA::new(leading, prc_dfas)
+    }
+}
+
+impl<A: Alphabet, const N: usize> Dottable for PreciseDPA<A, N> {
+    fn dot_name(&self) -> Option<String> {
+        Some("PreciseDPA".to_string())
+    }
+
+    fn dot_state_ident(&self, idx: Self::StateIndex) -> String {
+        format!(
+            "p{}{}{}",
+            idx.class,
+            idx.progress_classes().map(|x| x.to_string()).join(""),
+            idx.progress_states().map(|x| x.to_string()).join(""),
+        )
+    }
+
+    fn dot_state_attributes(
+        &self,
+        idx: Self::StateIndex,
+    ) -> impl IntoIterator<Item = automata::ts::dot::DotStateAttribute> {
+        [
+            DotStateAttribute::Shape("box".to_string()),
+            DotStateAttribute::Label(idx.to_string()),
+        ]
+    }
+
+    fn dot_transition_attributes<'a>(
+        &'a self,
+        t: Self::TransitionRef<'a>,
+    ) -> impl IntoIterator<Item = automata::ts::dot::DotTransitionAttribute> {
+        [DotTransitionAttribute::Label(format!(
+            "{}|{}",
+            t.expression().show(),
+            t.color().show(),
+        ))]
     }
 }
 

@@ -38,7 +38,7 @@ pub fn prefix_tree<A: Alphabet, W: Into<Reduced<A::Symbol>>, I: IntoIterator<Ite
         );
     }
     let mut tree = RightCongruence::new(alphabet.clone());
-    let root = tree.initial();
+    let root = tree.add_state((vec![], ()));
 
     let mut queue = VecDeque::from_iter([(root, vec![], words.to_vec())]);
 
@@ -77,4 +77,33 @@ pub fn prefix_tree<A: Alphabet, W: Into<Reduced<A::Symbol>>, I: IntoIterator<Ite
     }
 
     tree
+}
+
+#[cfg(test)]
+mod tests {
+    use automata::{
+        alphabet::Simple,
+        ts::{Deterministic, Dottable, Sproutable},
+        upw,
+        word::Periodic,
+        TransitionSystem,
+    };
+
+    use super::prefix_tree;
+
+    #[test]
+    fn build_prefix_tree() {
+        let words = [upw!("aa"), upw!("aba"), upw!("bbaab"), upw!("bb")];
+        let alphabet = Simple::from_iter(['a', 'b']);
+        let pta = prefix_tree(alphabet, &words);
+        let completed = pta
+            .erase_state_colors()
+            .collect_complete_with_initial((), ());
+        let lead_to_sink = ["ba", "bbbbbbbbba", "ababababbbabaababa", "aaaaaaaaaaaaab"];
+        for w in &lead_to_sink {
+            for v in &lead_to_sink {
+                assert_eq!(completed.reached(w), completed.reached(v));
+            }
+        }
+    }
 }

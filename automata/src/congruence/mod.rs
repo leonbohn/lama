@@ -5,7 +5,7 @@ use itertools::{Itertools, MapInto};
 use crate::{
     alphabet::{Simple, Symbol},
     prelude::DFALike,
-    ts::{transition_system::Indexes, Deterministic, Sproutable, BTS},
+    ts::{transition_system::Indexes, Deterministic, Sproutable, DTS},
     word::FiniteWord,
     Alphabet, Color, FiniteLength, HasLength, Map, Pointed, Show, TransitionSystem, DFA,
 };
@@ -25,8 +25,8 @@ mod cayley;
 /// represent these as a transition system, where the states are the equivalence classes and the colors
 /// on edges are `()`.
 #[derive(Clone, Eq, PartialEq)]
-pub struct RightCongruence<A: Alphabet, Q = (), C: Color = ()> {
-    ts: BTS<A, ColoredClass<A::Symbol, Q>, C>,
+pub struct RightCongruence<A: Alphabet = Simple, Q = (), C: Color = ()> {
+    ts: DTS<A, ColoredClass<A::Symbol, Q>, C>,
 }
 
 impl<S: Symbol + Show, Q: Show> Show for ColoredClass<S, Q> {
@@ -46,7 +46,12 @@ impl<S: Symbol + Show, Q: Show> Show for ColoredClass<S, Q> {
 
 impl<A: Alphabet, Q: Color + Show, C: Color + Show> Debug for RightCongruence<A, Q, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "RightCongruence\n{:?}", self.ts)
+        write!(
+            f,
+            "{}",
+            self.ts
+                .build_transition_table(|q, c| format!("{}|{}", q.show(), c.show()))
+        )
     }
 }
 
@@ -85,17 +90,19 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
 
     /// Returns an iterator which yields pairs `(c, idx)` consisting of a reference `c` to the class name together
     /// with the corresponding index of the class.
-    pub fn classes(&self) -> impl Iterator<Item = (&Class<A::Symbol>, usize)> + '_ {
-        self.ts.indices_with_color().map(|(id, c)| (c.class(), id))
+    pub fn classes(&self) -> impl Iterator<Item = (Class<A::Symbol>, usize)> + '_ {
+        self.ts
+            .indices_with_color()
+            .map(|(id, c)| (c.class().clone(), id))
     }
 
     /// Returns a reference to the underlying [`TransitionSystem`].
-    pub fn ts(&self) -> &BTS<A, ColoredClass<A::Symbol, Q>, C> {
+    pub fn ts(&self) -> &DTS<A, ColoredClass<A::Symbol, Q>, C> {
         &self.ts
     }
 
     /// Returns a mutable reference to the underlying [`TransitionSystem`].
-    pub fn ts_mut(&mut self) -> &mut BTS<A, ColoredClass<A::Symbol, Q>, C> {
+    pub fn ts_mut(&mut self) -> &mut DTS<A, ColoredClass<A::Symbol, Q>, C> {
         &mut self.ts
     }
 
@@ -146,7 +153,7 @@ impl<A: Alphabet, Q: Color, C: Color> Pointed for RightCongruence<A, Q, C> {
     }
 }
 
-impl<A: Alphabet, Q: Color + Default, C: Color> Sproutable for RightCongruence<A, Q, C> {
+impl<A: Alphabet, Q: Color, C: Color> Sproutable for RightCongruence<A, Q, C> {
     fn add_state<X: Into<crate::ts::StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
         self.ts.add_state(color.into())
     }
@@ -160,8 +167,7 @@ impl<A: Alphabet, Q: Color + Default, C: Color> Sproutable for RightCongruence<A
     }
 
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
-        let mut ts = BTS::new_for_alphabet(alphabet);
-        let _initial = ts.add_state(ColoredClass::new(Class::epsilon(), Q::default()));
+        let mut ts = DTS::new_for_alphabet(alphabet);
         Self { ts }
     }
 
@@ -179,12 +185,12 @@ impl<A: Alphabet, Q: Color + Default, C: Color> Sproutable for RightCongruence<A
         self.ts.add_edge(from, on, to, color)
     }
 
-    fn remove_edge(
+    fn remove_edges(
         &mut self,
         from: Self::StateIndex,
         on: <Self::Alphabet as Alphabet>::Expression,
     ) -> bool {
-        self.ts.remove_edge(from, on)
+        self.ts.remove_edges(from, on)
     }
 
     type ExtendStateIndexIter = std::ops::Range<usize>;

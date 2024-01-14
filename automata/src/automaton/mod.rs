@@ -9,14 +9,13 @@ use itertools::Itertools;
 use owo_colors::OwoColorize;
 
 use crate::{
-    algorithms::minimize_dfa,
     alphabet::{Alphabet, Symbol},
     prelude::Simple,
     prelude::*,
     ts::{
         finite::{InfinityColors, ReachedColor},
         operations::{MapStateColor, MatchingProduct, Product, ProductIndex, ProductTransition},
-        transition_system::IsTransition,
+        transition_system::IsEdge,
         EdgeColor, HasMutableStates, HasStates, IndexType, Pointed, Quotient, Sproutable,
         StateColor, SymbolOf, TransitionSystem, BTS,
     },
@@ -24,13 +23,15 @@ use crate::{
     Color, FiniteLength, InfiniteLength, Length,
 };
 
+mod semantics;
+
 #[macro_use]
 mod moore;
-pub use moore::{IntoMooreMachine, MooreLike, MooreMachine};
+pub use moore::{AsMooreMachine, IntoMooreMachine, MooreLike, MooreMachine};
 
 #[macro_use]
 mod mealy;
-pub use mealy::{IntoMealyMachine, MealyLike, MealyMachine};
+pub use mealy::{AsMealyMachine, IntoMealyMachine, MealyLike, MealyMachine};
 
 mod dfa;
 pub use dfa::{DFALike, IntoDFA, DFA};
@@ -78,16 +79,16 @@ macro_rules! impl_automaton_type {
             A = Simple,
             Q = $color,
             C = $edgecolor,
-            Ts = WithInitial<BTS<A, Q, C, usize>>,
+            Ts = WithInitial<DTS<A, Q, C>>,
         > {
             ts: Ts,
             _alphabet: PhantomData<(A, Q, C)>,
         }
         impl<A: Alphabet>
-            $name<A, $color, $edgecolor, WithInitial<BTS<A, $color, $edgecolor, usize>>>
+            $name<A, $color, $edgecolor, WithInitial<DTS<A, $color, $edgecolor>>>
         {
             /// Creates a new automaton from a given alphabet.
-            pub fn new(alphabet: A) -> $name<A, $color, $edgecolor, WithInitial<BTS<A, $color, $edgecolor, usize>>> {
+            pub fn new(alphabet: A) -> $name<A, $color, $edgecolor, WithInitial<DTS<A, $color, $edgecolor>>> {
                 $name {
                     ts: WithInitial::new(alphabet),
                     _alphabet: PhantomData,
@@ -126,7 +127,7 @@ macro_rules! impl_automaton_type {
         impl<Ts: Pointed> std::fmt::Debug for $name<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 use itertools::Itertools;
-                use crate::prelude::IsTransition;
+                use crate::prelude::IsEdge;
                 writeln!(
                     f,
                     "Initial state {} with sdtates {} and transitions\n{}",
@@ -175,12 +176,12 @@ macro_rules! impl_automaton_type {
             fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
                 self.ts_mut().add_state(color)
             }
-            fn remove_edge(
+            fn remove_edges(
                 &mut self,
                 from: Self::StateIndex,
                 on: <Self::Alphabet as Alphabet>::Expression,
             ) -> bool {
-                self.ts_mut().remove_edge(from, on)
+                self.ts_mut().remove_edges(from, on)
             }
         }
         impl<Ts: TransitionSystem> TransitionSystem
@@ -288,7 +289,7 @@ impl<'a, Ts: TransitionSystem<StateColor = bool>> Iterator for StatesWithColor<'
 mod tests {
     use super::{DFALike, MooreLike, WithInitial};
     use crate::{
-        automata::{
+        automaton::{
             acceptor::{FiniteWordAcceptor, OmegaWordAcceptor},
             NoColor,
         },

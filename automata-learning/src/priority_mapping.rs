@@ -4,15 +4,40 @@ use impl_tools::autoimpl;
 use owo_colors::OwoColorize;
 
 use automata::{
-    automata::MooreLike,
+    automaton::MooreLike,
     prelude::*,
-    ts::dot::{DotStateAttribute, DotStateColorize},
+    ts::dot::{DotStateAttribute, Dottable},
     Set,
 };
 
 /// A priority mapping is essentially a [`crate::MealyMachine`], i.e. it reads
 /// finite words and ouptuts a priority (which in this case is a `usize`).
-pub type PriorityMapping<A = Simple> = RightCongruence<A, (), usize>;
+pub type PriorityMapping<A = Simple> = MealyMachine<A, usize>;
+
+#[derive(Debug, Clone)]
+pub struct CongruentPriorityMapping<'ts, A: Alphabet> {
+    ts: &'ts RightCongruence<A>,
+    class: usize,
+    mm: MealyMachine<A>,
+}
+
+impl<'ts, A: Alphabet> CongruentPriorityMapping<'ts, A> {
+    pub fn new(ts: &'ts RightCongruence<A>, class: usize, mm: MealyMachine<A>) -> Self {
+        Self { ts, class, mm }
+    }
+
+    pub fn cong(&self) -> &RightCongruence<A> {
+        self.ts
+    }
+
+    pub fn class(&self) -> usize {
+        self.class
+    }
+
+    pub fn mm(&self) -> &MealyMachine<A> {
+        &self.mm
+    }
+}
 
 /// Stores information on classes/states of a [`RightCongruence`]. This may be
 /// extended in the futuer, but for now it simply stores whether a class c is
@@ -44,24 +69,6 @@ impl Show for Annotation {
         I::IntoIter: DoubleEndedIterator,
     {
         todo!()
-    }
-}
-
-impl DotStateColorize for Annotation {
-    fn dot_state_colorize(&self, base: &mut automata::ts::dot::DotStateData) {
-        let i = if self.idempotent { "*" } else { "" };
-        base.push_attribute(DotStateAttribute::Label(format!(
-            "{}{}",
-            base.raw_name(),
-            i,
-        )));
-        if let Some(b) = self.good {
-            base.push_attribute(DotStateAttribute::Color(if b {
-                "green".to_string()
-            } else {
-                "red".to_string()
-            }));
-        }
     }
 }
 
@@ -97,29 +104,11 @@ impl<A: Alphabet> Debug for AnnotatedCongruence<A> {
     }
 }
 
-impl<A> ToDot for AnnotatedCongruence<A>
-where
-    A: Alphabet,
-    RightCongruence<A, Annotation, ()>: ToDot,
-{
-    fn dot_representation(&self) -> String {
-        format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""))
-    }
-
-    fn header(&self) -> String {
-        self.0.header()
-    }
-
-    fn body(&self, prefix: &str) -> String {
-        self.0.body(prefix)
-    }
-}
-
 impl<A: Alphabet> AnnotatedCongruence<A> {
     /// Computes the canonic coloring on a given annotated congruence. This makes use
     /// of the dag of strongly connected components of the congruence. For more information
     /// on how the computation is done exactly, see [Section 5, Step 2](https://arxiv.org/pdf/2302.11043.pdf).
-    pub fn canonic_coloring(&self) -> MooreMachine<A, usize> {
+    pub fn canonic_coloring(&self) -> MooreMachine<A, usize, usize> {
         // we first need to decompose into sccs and mark them with the color of the
         // idempotent that it contains.
         let tjdag = self.0.tarjan_dag();
@@ -160,14 +149,18 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
         }
 
         (&self.0)
-            .erase_edge_colors()
-            .map_state_colors(move |q| {
+            .map_edge_colors_full(|_q, _e, _c, p| {
+                let scc = tjdag.get(p).expect("Must be in an SCC");
+                let info = dag.color(scc).expect("Must have worked on that SCC");
+                info.expect("Every SCC must have a color")
+            })
+            .map_state_colors(|q| {
                 let scc = tjdag.get(q).expect("Must be in an SCC");
                 let info = dag.color(scc).expect("Must have worked on that SCC");
 
                 info.expect("Every SCC must have a color")
             })
-            .collect_with_initial()
+            .collect_pointed()
     }
 
     /// Takes a reference to a right congruence and a function that classifies idempotents
@@ -189,7 +182,7 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
                         c.recolor(Annotation::new(false, None))
                     }
                 })
-                .collect_with_initial(),
+                .collect_pointed(),
         )
     }
 }

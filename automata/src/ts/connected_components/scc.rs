@@ -9,7 +9,15 @@ use crate::{prelude::*, Map, Set};
 pub struct Scc<'a, Ts: TransitionSystem> {
     ts: &'a Ts,
     states: BTreeSet<Ts::StateIndex>,
-    edges: OnceCell<Set<(Ts::StateIndex, SymbolOf<Ts>, Ts::EdgeColor, Ts::StateIndex)>>,
+    transitions: OnceCell<Set<(Ts::StateIndex, SymbolOf<Ts>, Ts::EdgeColor, Ts::StateIndex)>>,
+    edges: OnceCell<
+        Set<(
+            Ts::StateIndex,
+            ExpressionOf<Ts>,
+            Ts::EdgeColor,
+            Ts::StateIndex,
+        )>,
+    >,
     edge_colors: OnceCell<Set<Ts::EdgeColor>>,
     minimal_representative: OnceCell<Option<(Ts::StateIndex, Vec<SymbolOf<Ts>>)>>,
 }
@@ -62,8 +70,9 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         let minimal_representative = OnceCell::new();
         Self {
             ts,
-            edges,
+            transitions: edges,
             states,
+            edges: OnceCell::new(),
             minimal_representative,
             edge_colors,
         }
@@ -83,10 +92,42 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         })
     }
 
+    pub fn size(&self) -> usize {
+        assert!(!self.is_empty());
+        self.states.len()
+    }
+
+    pub fn is_trivial(&self) -> bool {
+        self.size() == 1
+    }
+
+    pub fn interior_edges(
+        &self,
+    ) -> &Set<(
+        Ts::StateIndex,
+        ExpressionOf<Ts>,
+        Ts::EdgeColor,
+        Ts::StateIndex,
+    )> {
+        self.edges.get_or_init(|| {
+            let mut edges = Set::default();
+            for q in &self.states {
+                let mut it = self.ts.edges_from(*q).expect("State must exist");
+                for edge in it {
+                    let p = edge.target();
+                    if self.states.contains(&p) {
+                        edges.insert((*q, edge.expression().clone(), edge.color().clone(), p));
+                    }
+                }
+            }
+            edges
+        })
+    }
+
     pub fn interior_transitions(
         &self,
     ) -> &Set<(Ts::StateIndex, SymbolOf<Ts>, Ts::EdgeColor, Ts::StateIndex)> {
-        self.edges.get_or_init(|| {
+        self.transitions.get_or_init(|| {
             let mut edges = Set::default();
             for q in &self.states {
                 let mut it = self.ts.edges_from(*q).expect("State must exist");
@@ -94,7 +135,7 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
                     let p = edge.target();
                     for a in edge.expression().symbols() {
                         if self.states.contains(&p) {
-                            edges.insert((*q, a, edge.color(), p));
+                            edges.insert((*q, a, edge.color().clone(), p));
                         }
                     }
                 }
@@ -142,12 +183,13 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
     }
 
     pub fn maximal_word(&self) -> Option<Vec<SymbolOf<Ts>>> {
-        self.maximal_word_from(*self.states.first()?)
+        self.maximal_loop_from(*self.states.first()?)
     }
 
     /// Attempts to compute a maximal word (i.e. a word visiting all states in the scc). If such a
     /// word exists, it is returned, otherwise the function returns `None`.
-    pub fn maximal_word_from(&self, from: Ts::StateIndex) -> Option<Vec<SymbolOf<Ts>>> {
+    /// This ensures that the word ends back in the state that it started from.
+    pub fn maximal_loop_from(&self, from: Ts::StateIndex) -> Option<Vec<SymbolOf<Ts>>> {
         assert!(self.contains(&from));
         let ts = self.ts;
         debug_assert!(!self.is_empty());
@@ -212,6 +254,13 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
                 );
                 current = q;
             }
+        }
+
+        if current != from {
+            word.extend(
+                ts.word_from_to(current, from)
+                    .expect("they are in the same scc!"),
+            );
         }
 
         Some(word)
@@ -280,7 +329,7 @@ mod tests {
         .collect::<Set<_>>();
         let ts = NTS::builder()
             .default_color(())
-            .extend(&transitions)
+            .with_transitions(&transitions)
             .deterministic()
             .with_initial(0);
         let sccs = ts.sccs();
@@ -290,7 +339,6 @@ mod tests {
         assert_eq!(first.interior_edge_colors(), &Set::from_iter([0, 1, 2]));
 
         let color_restricted = (&ts).edge_color_restricted(1, 2);
-        println!("{:?}", color_restricted.collect_ts());
         let sccs = color_restricted.sccs();
         assert_eq!(sccs[0].interior_transitions(), &Set::default());
         assert_eq!(

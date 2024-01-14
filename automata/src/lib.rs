@@ -26,7 +26,7 @@ pub mod prelude {
     pub use super::{
         alphabet,
         alphabet::{Expression, Simple, Symbol},
-        automata::{
+        automaton::{
             DBALike, DFALike, DPALike, FiniteWordAcceptor, FiniteWordTransformer, IntoMealyMachine,
             IntoMooreMachine, MealyLike, MealyMachine, MooreLike, MooreMachine, NoColor,
             OmegaWordAcceptor, OmegaWordTransformer, StateBasedDBA, StateBasedDPA, WithInitial,
@@ -35,13 +35,14 @@ pub mod prelude {
         mapping::Morphism,
         ts::{
             dag::Dag,
+            dot::Dottable,
             finite::ReachedState,
             operations::{Product, ProductIndex},
-            predecessors::{IsPreTransition, PredecessorIterable},
-            transition_system::{EdgeColorOf, Indexes, IsTransition, StateColorOf},
+            predecessors::PredecessorIterable,
+            transition_system::{EdgeColorOf, EdgeReference, Indexes, IsEdge, StateColorOf},
             Congruence, Deterministic, DeterministicEdgesFrom, EdgeColor, ExpressionOf, HasColor,
             HasColorMut, HasMutableStates, HasStates, IndexType, NTSBuilder, Sproutable,
-            StateColor, SymbolOf, ToDot, TransitionSystem, BTS, DTS, NTS,
+            StateColor, SymbolOf, TransitionSystem, BTS, DTS, NTS,
         },
         upw,
         word::{FiniteWord, LinearWord, OmegaWord, Periodic, Reduced, ReducedParseError},
@@ -71,8 +72,8 @@ pub use ts::{Pointed, TransitionSystem};
 
 /// Defines automata and common types of combinations of transition system with acceptance condition.
 #[allow(clippy::upper_case_acronyms)]
-pub mod automata;
-use automata::{MealyMachine, MooreMachine, DBA, DFA, DPA};
+pub mod automaton;
+use automaton::{MealyMachine, MooreMachine, DBA, DFA, DPA};
 
 /// Defines congruence relations and congruence classes.
 pub mod congruence;
@@ -85,10 +86,13 @@ pub mod word;
 /// Module that contains definitions for dealing with mappings.
 pub mod mapping;
 
-mod algorithms;
+pub mod algorithms;
 
 #[feature(hoa)]
 pub mod hoa;
+
+#[feature(random)]
+pub mod random;
 
 /// A color is simply a type that can be used to color states or transitions.
 pub trait Color: Clone + Eq + Ord + Hash + Show {
@@ -164,6 +168,26 @@ impl Show for () {
     }
 }
 
+impl<S: Show> Show for [S] {
+    fn show(&self) -> String {
+        format!(
+            "\"{}\"",
+            itertools::Itertools::join(&mut self.iter().map(|x| x.show()), "")
+        )
+    }
+
+    fn show_collection<'a, I: IntoIterator<Item = &'a Self>>(iter: I) -> String
+    where
+        Self: 'a,
+        I::IntoIter: DoubleEndedIterator,
+    {
+        format!(
+            "{{{}}}",
+            itertools::Itertools::join(&mut iter.into_iter().map(|x| x.show()), ", ")
+        )
+    }
+}
+
 impl<S: Show> Show for Vec<S> {
     fn show(&self) -> String {
         S::show_collection(self.iter())
@@ -216,6 +240,15 @@ impl Show for bool {
 #[autoimpl(Deref using self.0)]
 pub struct Partition<I: Hash + Eq>(Vec<Set<I>>);
 
+impl<'a, I: Hash + Eq> IntoIterator for &'a Partition<I> {
+    type Item = &'a Set<I>;
+    type IntoIter = std::slice::Iter<'a, Set<I>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
 impl<I: Hash + Eq> PartialEq for Partition<I> {
     fn eq(&self, other: &Self) -> bool {
         self.len() == other.len() && self.iter().all(|o| other.contains(o))
@@ -224,6 +257,10 @@ impl<I: Hash + Eq> PartialEq for Partition<I> {
 impl<I: Hash + Eq> Eq for Partition<I> {}
 
 impl<I: Hash + Eq> Partition<I> {
+    pub fn size(&self) -> usize {
+        self.0.len()
+    }
+
     /// Builds a new congruence relation from an iterator that yields iterators
     /// which yield elements of type `I`.
     pub fn new<X: IntoIterator<Item = I>, Y: IntoIterator<Item = X>>(iter: Y) -> Self {
@@ -232,6 +269,12 @@ impl<I: Hash + Eq> Partition<I> {
                 .map(|it| it.into_iter().collect::<Set<_>>())
                 .collect(),
         )
+    }
+}
+
+impl<I: Hash + Eq> From<Vec<Set<I>>> for Partition<I> {
+    fn from(value: Vec<Set<I>>) -> Self {
+        Self(value)
     }
 }
 

@@ -120,65 +120,6 @@ impl<A: Alphabet> ConflictRelation<A> {
     }
 }
 
-impl<A: Alphabet> ToDot for ConflictRelation<A>
-where
-    RightCongruence<A>: ToDot,
-{
-    fn dot_representation(&self) -> String {
-        format!("digraph A {{\n{}\n{}\n}}\n", self.header(), self.body(""),)
-    }
-
-    fn header(&self) -> String {
-        [
-            "compund=true".to_string(),
-            "fontname=\"Helvetica,Arial,sans-serif\"\nrankdir=LR".to_string(),
-            "init [label=\"\", shape=none]".into(),
-            "node [shape=rect]".into(),
-        ]
-        .join("\n")
-    }
-
-    fn body(&self, prefix: &str) -> String {
-        let left = format!(
-            "subgraph cluster_left {{\nlabel=\"A\"\n{}\n{}\n}}",
-            self.dfas[0].header(),
-            self.dfas[0].body("A"),
-        );
-        let right = format!(
-            "subgraph cluster_right {{\nlabel=\"B\"\n{}\n{}\n}}",
-            self.dfas[1].header(),
-            self.dfas[1].body("B"),
-        );
-        #[allow(clippy::unwrap_or_default)]
-        let conflicts = self
-            .conflicts
-            .iter()
-            .fold(Map::default(), |mut acc, (l, r)| {
-                acc.entry(*l).or_insert(BTreeSet::new()).insert(*r);
-                acc
-            });
-        format!(
-            "label=\"Conflicts:\n{}\";\n{}\n{}\n",
-            conflicts
-                .into_iter()
-                .map(|(l, rs)| format!(
-                    "{}:{{{}}}",
-                    self.dfas[0]
-                        .state_color(l)
-                        .expect("Every state must be colored"),
-                    rs.into_iter()
-                        .map(|i| self.dfas[1]
-                            .state_color(i)
-                            .expect("Every state must be colored"))
-                        .join(",")
-                ))
-                .join("\\l"),
-            left,
-            right
-        )
-    }
-}
-
 /// Computes a conflict relation encoding iteration consistency. For more details on the construction,
 /// see Lemma 29 in [this paper](https://arxiv.org/pdf/2302.11043.pdf).
 pub fn iteration_consistency_conflicts<A: Alphabet>(
@@ -358,7 +299,7 @@ where
     C: ConsistencyCheck<A>,
 {
     let mut cong = RightCongruence::new(conflicts.alphabet().clone());
-    let initial = cong.initial();
+    let initial = cong.add_state((vec![], ()));
     let threshold = conflicts.threshold();
 
     // We maintain a set of missing transitions and go through them in order of creation for the states and in order
@@ -370,11 +311,12 @@ where
         .collect();
     'outer: while let Some((source, sym)) = queue.pop_front() {
         trace!(
-            "Trying to add transition from {} on {}",
+            "Trying to add transition from {} on {}, cong size is {}",
             cong.state_color(source)
                 .expect("Every state must be colored!")
                 .blue(),
-            sym.show().blue()
+            sym.show().blue(),
+            cong.size(),
         );
 
         // FIXME: This is a hack to avoid lifetime issues, find a better way...
@@ -410,9 +352,7 @@ where
                         .expect("We expect every state to be colored")
                         .red()
                 );
-                if let Some((old_target, _)) = old_edge {
-                    cong.remove_edge(source, A::expression(sym));
-                }
+                cong.remove_edges(source, A::expression(sym));
             }
         }
 
@@ -451,12 +391,11 @@ pub(crate) mod tests {
         prelude::*,
         ts::{
             finite::{ReachedColor, ReachedState},
-            Sproutable, ToDot,
+            Dottable, Sproutable,
         },
         Class, Pointed, RightCongruence, TransitionSystem,
     };
     use itertools::Itertools;
-    use tracing_test::traced_test;
 
     use crate::passive::{sample::OmegaSample, sprout::ConflictRelation, Sample};
 
@@ -568,7 +507,8 @@ pub(crate) mod tests {
     fn conflicts_inf_aba() {
         let (alphabet, sample) = inf_aba_sample();
         let conflicts = super::prefix_consistency_conflicts(sample);
-        conflicts.display_rendered();
+        // conflicts.deprecated_display_rendered();
+        todo!()
     }
 
     #[test]
@@ -576,7 +516,8 @@ pub(crate) mod tests {
     fn display_conflict_relation() {
         let (alphabet, sample) = testing_larger_forc_sample();
         let conflicts = super::prefix_consistency_conflicts(sample);
-        conflicts.display_rendered();
+        // conflicts.deprecated_display_rendered();
+        todo!()
     }
 
     #[test]
@@ -592,8 +533,8 @@ pub(crate) mod tests {
 
         let conflicts: ConflictRelation<Simple> =
             super::iteration_consistency_conflicts(&split_sample, eps);
-        conflicts.dfas[0].display_rendered();
-        conflicts.dfas[1].display_rendered();
+        // conflicts.dfas[0].deprecated_display_rendered();
+        // conflicts.dfas[1].deprecated_display_rendered();
         println!(
             "{}",
             conflicts
@@ -603,7 +544,8 @@ pub(crate) mod tests {
                 .join(", ")
         );
         let prc_eps = super::sprout(conflicts, vec![], false);
-        prc_eps.display_rendered();
+        // prc_eps.deprecated_display_rendered();
+        todo!()
     }
 
     #[test]

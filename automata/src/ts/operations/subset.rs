@@ -2,7 +2,11 @@ use std::{cell::RefCell, f32::consts::E, fmt::Debug};
 
 use itertools::Itertools;
 
-use crate::{prelude::*, ts::reachable::ReachableStateIndices, Set};
+use crate::{
+    prelude::*,
+    ts::{reachable::ReachableStateIndices, transition_system::TransitionOwned},
+    Set,
+};
 
 #[derive(Clone, Eq)]
 pub struct StateSet<Ts: TransitionSystem>(Set<Ts::StateIndex>);
@@ -61,10 +65,11 @@ impl<Ts: TransitionSystem> Deterministic for SubsetConstruction<Ts> {
         state: Idx,
         symbol: SymbolOf<Self>,
     ) -> Option<Self::TransitionRef<'_>> {
+        let source = state.to_index(self)?;
         let (colorset, stateset): (Vec<Ts::EdgeColor>, StateSet<Ts>) = self
             .states
             .borrow()
-            .get(state.to_index(self)?)?
+            .get(source)?
             .iter()
             .flat_map(|q| {
                 self.ts.transitions_from(*q).filter_map(|(q, a, c, p)| {
@@ -77,14 +82,20 @@ impl<Ts: TransitionSystem> Deterministic for SubsetConstruction<Ts> {
             })
             .unzip();
         if let Some(pos) = self.states.borrow().iter().position(|s| stateset.eq(s)) {
-            return Some((self.expressions.get(&symbol).unwrap(), pos, colorset));
+            return Some(TransitionOwned::new(
+                source,
+                self.expressions.get(&symbol).unwrap(),
+                colorset,
+                pos,
+            ));
         }
 
         self.states.borrow_mut().push(stateset);
-        Some((
+        Some(TransitionOwned::new(
+            source,
             self.expressions.get(&symbol).unwrap(),
-            self.states.borrow().len(),
             colorset,
+            self.states.borrow().len(),
         ))
     }
 }
@@ -103,7 +114,7 @@ impl<Ts: TransitionSystem> TransitionSystem for SubsetConstruction<Ts> {
 
     type EdgeColor = Vec<Ts::EdgeColor>;
 
-    type TransitionRef<'this> = (&'this ExpressionOf<Ts>, usize, Self::EdgeColor)
+    type TransitionRef<'this> = TransitionOwned<'this, ExpressionOf<Ts>, usize, Self::EdgeColor>
     where
         Self: 'this;
 
@@ -194,7 +205,7 @@ mod tests {
     fn subset_construction() {
         let nts = NTS::builder()
             .default_color(false)
-            .extend([
+            .with_transitions([
                 (0, 'a', (), 0),
                 (0, 'a', (), 1),
                 (0, 'b', (), 1),

@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use crate::{prelude::Expression, ts::StateColor, Alphabet, Set, TransitionSystem};
 
-use super::{transition_system::IsTransition, Deterministic, SymbolOf};
+use super::{transition_system::IsEdge, Deterministic, SymbolOf};
 
 /// Struct that can return the minimal representatives of a transition system. A minimal representative
 /// for a state `q` of some transition system is the length-lexicographically minimal string with which

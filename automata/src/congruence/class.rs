@@ -215,10 +215,10 @@ impl<S: Symbol, J: Into<Class<S>>> From<J> for ColoredClass<S, ()> {
     }
 }
 
-impl<S: Symbol, Q: Color> From<(Class<S>, Q)> for ColoredClass<S, Q> {
-    fn from(value: (Class<S>, Q)) -> Self {
+impl<S: Symbol, W: FiniteWord<S>, Q: Color> From<(W, Q)> for ColoredClass<S, Q> {
+    fn from(value: (W, Q)) -> Self {
         Self {
-            class: value.0,
+            class: value.0.to_vec().into(),
             color: value.1,
         }
     }

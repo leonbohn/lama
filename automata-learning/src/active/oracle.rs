@@ -2,6 +2,8 @@ use automata::{prelude::*, ts::operations::MapStateColor, word::LinearWord};
 
 use crate::passive::Sample;
 
+use super::LStarHypothesis;
+
 /// A trait that encapsulates a minimally adequate teacher (MAT) for active learning. This is mainly used by
 /// L*-esque algorithms and can be implemented by wildly different types, for example an automaton, a function
 /// or even a collection of words.
@@ -10,19 +12,19 @@ use crate::passive::Sample;
 /// non-empty finite words a value of type `Output`. This means we can learn a Mealy machine by using priorities as
 /// the `Output` type, but it also enables us to learn a regular language/deterministic finite automaton by using
 /// `bool` as the `Output` type.
-pub trait LStarOracle<H: Deterministic> {
+pub trait LStarOracle<H: LStarHypothesis> {
     /// The length type of the words that this oracle can handle.
     type Length: Length;
-    /// The output type, for a DFA that would be a boolean, but a Mealy Machine might output a priority instead.
-    type Output: Color;
 
     /// Query the desired output for the given word.
-    fn output<W: FiniteWord<SymbolOf<H>>>(&self, word: W) -> Self::Output;
+    fn output<W: FiniteWord<SymbolOf<H>>>(&self, word: W) -> H::Color;
+
+    fn alphabet(&self) -> H::Alphabet;
 
     /// Test the given hypothesis for equivalence, returning `Ok(())` if it is equivalent and `Err((word, color))` otherwise.
     /// In the latter case, `word` is a counterexample from the symmetric difference of the target and the hypothesis,
     /// meaning it produces a different output in the hypothesis compared to the target.
-    fn equivalence(&self, hypothesis: &H) -> Result<(), (Vec<SymbolOf<H>>, Self::Output)>;
+    fn equivalence(&self, hypothesis: &H) -> Result<(), (Vec<SymbolOf<H>>, H::Color)>;
 }
 
 /// An oracle/minimally adequate teacher based on a [`Sample`]. It answers membership queries by looking up the
@@ -42,12 +44,14 @@ impl<A: Alphabet, W: LinearWord<A::Symbol>, C: Color> SampleOracle<A, W, C> {
     }
 }
 
-impl<A: Alphabet, C: Color> LStarOracle<MooreMachine<A, C>> for SampleOracle<A, Vec<A::Symbol>, C> {
+impl<C: Color> LStarOracle<MooreMachine<Simple, C>> for SampleOracle<Simple, Vec<char>, C> {
     type Length = FiniteLength;
 
-    type Output = C;
+    fn alphabet(&self) -> Simple {
+        self.sample.alphabet().clone()
+    }
 
-    fn output<V: FiniteWord<SymbolOf<MooreMachine<A, C>>>>(&self, word: V) -> Self::Output {
+    fn output<V: FiniteWord<SymbolOf<MooreMachine<Simple, C>>>>(&self, word: V) -> C {
         self.sample
             .entries()
             .find_map(|(w, c)| {
@@ -62,8 +66,8 @@ impl<A: Alphabet, C: Color> LStarOracle<MooreMachine<A, C>> for SampleOracle<A, 
 
     fn equivalence(
         &self,
-        hypothesis: &MooreMachine<A, C>,
-    ) -> Result<(), (Vec<SymbolOf<MooreMachine<A, C>>>, Self::Output)> {
+        hypothesis: &MooreMachine<Simple, C>,
+    ) -> Result<(), (Vec<SymbolOf<MooreMachine<Simple, C>>>, C)> {
         for (w, c) in self.sample.entries() {
             if hypothesis.reached_state_color(w).as_ref() != Some(c) {
                 return Err((w.to_vec(), c.clone()));
@@ -73,10 +77,14 @@ impl<A: Alphabet, C: Color> LStarOracle<MooreMachine<A, C>> for SampleOracle<A, 
     }
 }
 
-impl<A: Alphabet, C: Color> LStarOracle<MealyMachine<A, C>> for SampleOracle<A, Vec<A::Symbol>, C> {
+impl<C: Color> LStarOracle<MealyMachine<Simple, C>> for SampleOracle<Simple, Vec<char>, C> {
     type Length = FiniteLength;
-    type Output = C;
-    fn output<W: FiniteWord<SymbolOf<MealyMachine<A, C>>>>(&self, word: W) -> Self::Output {
+
+    fn alphabet(&self) -> Simple {
+        self.sample.alphabet().clone()
+    }
+
+    fn output<W: FiniteWord<SymbolOf<MealyMachine<Simple, C>>>>(&self, word: W) -> C {
         self.sample
             .entries()
             .find_map(|(w, c)| {
@@ -90,8 +98,8 @@ impl<A: Alphabet, C: Color> LStarOracle<MealyMachine<A, C>> for SampleOracle<A, 
     }
     fn equivalence(
         &self,
-        hypothesis: &MealyMachine<A, C>,
-    ) -> Result<(), (Vec<SymbolOf<MealyMachine<A, C>>>, Self::Output)> {
+        hypothesis: &MealyMachine<Simple, C>,
+    ) -> Result<(), (Vec<SymbolOf<MealyMachine<Simple, C>>>, C)> {
         let Some(cex) = self.sample.entries().find_map(|(w, c)| {
             if hypothesis.last_edge_color(w).as_ref() != Some(c) {
                 Some((w.to_vec(), c.clone()))
@@ -139,19 +147,14 @@ impl<D: DFALike + Clone> DFAOracle<D> {
     }
 }
 
-impl<D: DFALike> LStarOracle<MooreMachine<D::Alphabet, bool>> for DFAOracle<D> {
+impl<D: DFALike<Alphabet = Simple>> LStarOracle<DFA> for DFAOracle<D> {
     type Length = FiniteLength;
 
-    type Output = bool;
-
-    fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> Self::Output {
+    fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> bool {
         (&self.automaton).into_dfa().accepts_finite(word)
     }
 
-    fn equivalence(
-        &self,
-        hypothesis: &MooreMachine<D::Alphabet, bool>,
-    ) -> Result<(), (Vec<SymbolOf<D>>, Self::Output)> {
+    fn equivalence(&self, hypothesis: &DFA) -> Result<(), (Vec<SymbolOf<D>>, bool)> {
         let dfa = (&self.negated).intersection(&hypothesis).into_dfa();
         match dfa.dfa_give_word() {
             Some(w) => {
@@ -161,40 +164,106 @@ impl<D: DFALike> LStarOracle<MooreMachine<D::Alphabet, bool>> for DFAOracle<D> {
             None => Ok(()),
         }
     }
+
+    fn alphabet(&self) -> Simple {
+        self.automaton.alphabet().clone()
+    }
+}
+
+impl<D: DFALike<Alphabet = Simple>> LStarOracle<MooreMachine<Simple, bool>> for DFAOracle<D> {
+    type Length = FiniteLength;
+
+    fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> bool {
+        (&self.automaton).into_dfa().accepts_finite(word)
+    }
+
+    fn equivalence(
+        &self,
+        hypothesis: &MooreMachine<D::Alphabet, bool>,
+    ) -> Result<(), (Vec<SymbolOf<D>>, bool)> {
+        let dfa = (&self.negated).intersection(&hypothesis).into_dfa();
+        match dfa.dfa_give_word() {
+            Some(w) => {
+                let should_be_accepted = (&self.automaton).into_dfa().accepts_finite(&w);
+                Err((w, should_be_accepted))
+            }
+            None => Ok(()),
+        }
+    }
+
+    fn alphabet(&self) -> Simple {
+        self.automaton.alphabet().clone()
+    }
 }
 
 /// An oracle based on a [`MealyMachine`].
 #[derive(Debug, Clone)]
-pub struct MealyOracle<C: Color, D: MealyLike<C>> {
-    automaton: D,
-    _color: std::marker::PhantomData<C>,
+pub struct MealyOracle<D: MealyLike + Deterministic> {
+    automaton: IntoMealyMachine<D>,
+    default: Option<D::EdgeColor>,
 }
 
-impl<C: Color, D: MealyLike<C>> LStarOracle<MealyMachine<D::Alphabet, C>> for MealyOracle<C, D> {
+impl<D: MealyLike + Deterministic<Alphabet = Simple>>
+    LStarOracle<MealyMachine<Simple, D::EdgeColor>> for MealyOracle<D>
+{
     type Length = FiniteLength;
 
-    type Output = C;
-
-    fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> Self::Output {
+    fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> D::EdgeColor {
         self.automaton
             .try_mealy_map(word)
+            .or(self.default.clone())
             .expect("The oracle must be total!")
     }
     fn equivalence(
         &self,
-        hypothesis: &MealyMachine<D::Alphabet, C>,
-    ) -> Result<(), (Vec<SymbolOf<MealyMachine<D::Alphabet, C>>>, Self::Output)> {
-        todo!()
+        hypothesis: &MealyMachine<D::Alphabet, D::EdgeColor>,
+    ) -> Result<
+        (),
+        (
+            Vec<SymbolOf<MealyMachine<D::Alphabet, D::EdgeColor>>>,
+            D::EdgeColor,
+        ),
+    > {
+        match self.automaton.restricted_inequivalence(hypothesis) {
+            Some(w) => {
+                let expected = self
+                    .automaton
+                    .try_mealy_map(&w)
+                    .or(self.default.clone())
+                    .expect("Target must be complete!");
+                if hypothesis.try_mealy_map(&w).as_ref() == Some(&expected) {
+                    panic!(
+                        "Misclassified example {:?}, should be {} but is {:?}",
+                        w,
+                        expected.show(),
+                        hypothesis
+                            .try_mealy_map(&w)
+                            .map(|c| c.show())
+                            .unwrap_or("-".to_string())
+                    );
+                }
+                Err((w, expected))
+            }
+            None => Ok(()),
+        }
+    }
+
+    fn alphabet(&self) -> Simple {
+        self.automaton.alphabet().clone()
     }
 }
 
-impl<C: Color, D: MealyLike<C>> MealyOracle<C, D> {
+impl<D: MealyLike + Deterministic> MealyOracle<D> {
     /// Creates a new [`MealyOracle`] based on an instance of [`MealyLike`].
-    pub fn new(automaton: D) -> Self {
+    pub fn new(automaton: D, default: Option<D::EdgeColor>) -> Self {
         Self {
-            automaton,
-            _color: std::marker::PhantomData,
+            automaton: automaton.into_mealy(),
+            default,
         }
+    }
+
+    pub fn alphabet(&self) -> &D::Alphabet {
+        self.automaton.alphabet()
     }
 }
 
@@ -204,12 +273,16 @@ pub struct MooreOracle<D: MooreLike> {
     automaton: D,
 }
 
-impl<D: MooreLike> LStarOracle<MooreMachine<D::Alphabet, D::StateColor>> for MooreOracle<D> {
+impl<D: MooreLike<Alphabet = Simple>> LStarOracle<MooreMachine<Simple, D::StateColor>>
+    for MooreOracle<D>
+{
     type Length = FiniteLength;
 
-    type Output = D::StateColor;
+    fn alphabet(&self) -> Simple {
+        self.automaton.alphabet().clone()
+    }
 
-    fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> Self::Output {
+    fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> D::StateColor {
         self.automaton
             .try_moore_map(word)
             .expect("The oracle must be total!")
@@ -218,7 +291,7 @@ impl<D: MooreLike> LStarOracle<MooreMachine<D::Alphabet, D::StateColor>> for Moo
     fn equivalence(
         &self,
         hypothesis: &MooreMachine<D::Alphabet, D::StateColor>,
-    ) -> Result<(), (Vec<SymbolOf<D>>, Self::Output)> {
+    ) -> Result<(), (Vec<SymbolOf<D>>, D::StateColor)> {
         todo!()
     }
 }
@@ -227,5 +300,36 @@ impl<D: MooreLike> MooreOracle<D> {
     /// Creates a new [`MooreOracle`] based on an instance of [`MooreLike`].
     pub fn new(automaton: D) -> Self {
         Self { automaton }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use automata::{
+        ts::{Dottable, NTS},
+        TransitionSystem,
+    };
+
+    use crate::active::LStar;
+
+    use super::MealyOracle;
+
+    #[test]
+    fn mealy_al() {
+        let target = NTS::builder()
+            .with_transitions([
+                (0, 'a', 1, 1),
+                (0, 'b', 1, 0),
+                (0, 'c', 1, 0),
+                (1, 'a', 0, 0),
+                (1, 'b', 1, 0),
+                (1, 'c', 1, 0),
+            ])
+            .into_mealy_machine(0);
+        let oracle = MealyOracle::new(target, Some(0));
+        let alphabet = oracle.alphabet().clone();
+        let mut learner = LStar::for_mealy(alphabet, oracle);
+        let mm = learner.infer();
+        mm.display_rendered();
     }
 }

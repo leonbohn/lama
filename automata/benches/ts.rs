@@ -83,7 +83,10 @@ fn random_dts(
     let bts = ts.with_initial(0);
 
     let it = (0..n).flat_map(|i| [(i, 'a', (), (i + 1) % n), (i, 'b', (), (i + 2) % n)]);
-    let nts = NTS::builder().default_color(()).extend(it).collect();
+    let nts = NTS::builder()
+        .default_color(())
+        .with_transitions(it)
+        .collect();
 
     let dts: DTS<_, _, _> = nts.clone().try_into().unwrap();
 
@@ -100,7 +103,7 @@ fn random_nts(n: usize) -> Vec<WithInitial<NTS<Simple, (), ()>>> {
     });
     vec![NTS::builder()
         .default_color(())
-        .extend(it)
+        .with_transitions(it)
         .collect()
         .with_initial(0)]
 }

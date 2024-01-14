@@ -18,16 +18,20 @@ pub struct MappedPreEdge<Idx, T, F, C> {
     _old_color: PhantomData<C>,
 }
 
-impl<Idx, E, C, D, F, T> IsPreTransition<Idx, E, D> for MappedPreEdge<Idx, T, F, C>
+impl<'a, Idx, E: 'a, C, D, F, T> IsEdge<'a, E, Idx, D> for MappedPreEdge<Idx, T, F, C>
 where
     Idx: IndexType,
     C: Color,
     D: Color,
     F: Fn(Idx, &E, C, Idx) -> D,
-    T: IsPreTransition<Idx, E, C>,
+    T: IsEdge<'a, E, Idx, C>,
 {
     fn source(&self) -> Idx {
         self.pre_transition.source()
+    }
+
+    fn target(&self) -> Idx {
+        self.target
     }
 
     fn color(&self) -> D {
@@ -39,7 +43,7 @@ where
         )
     }
 
-    fn expression(&self) -> &E {
+    fn expression(&self) -> &'a E {
         self.pre_transition.expression()
     }
 }
@@ -131,16 +135,20 @@ impl<Idx, T, F, C> MappedEdge<Idx, T, F, C> {
     }
 }
 
-impl<'ts, Idx, E: 'ts, C, D, F, T> IsTransition<'ts, E, Idx, D> for MappedEdge<Idx, T, F, C>
+impl<'ts, Idx, E: 'ts, C, D, F, T> IsEdge<'ts, E, Idx, D> for MappedEdge<Idx, T, F, C>
 where
     Idx: IndexType,
     C: Color,
     D: Color,
     F: Fn(Idx, &E, C, Idx) -> D,
-    T: IsTransition<'ts, E, Idx, C>,
+    T: IsEdge<'ts, E, Idx, C>,
 {
     fn target(&self) -> Idx {
         self.transition.target()
+    }
+
+    fn source(&self) -> Idx {
+        self.from
     }
 
     fn color(&self) -> D {
@@ -282,14 +290,18 @@ impl<T, F, C> MappedTransition<T, F, C> {
     }
 }
 
-impl<'ts, Idx, E, C, D, F, T> IsTransition<'ts, E, Idx, D> for MappedTransition<T, F, C>
+impl<'ts, Idx, E, C, D, F, T> IsEdge<'ts, E, Idx, D> for MappedTransition<T, F, C>
 where
     Idx: IndexType,
     C: Color,
     D: Color,
     F: Fn(C) -> D,
-    T: IsTransition<'ts, E, Idx, C>,
+    T: IsEdge<'ts, E, Idx, C>,
 {
+    fn source(&self) -> Idx {
+        self.transition.source()
+    }
+
     fn target(&self) -> Idx {
         self.transition.target()
     }
@@ -343,18 +355,22 @@ pub struct MappedPreTransition<T, F, C> {
 
 // impl<Idx: IndexType, E, C: Color, D: Color, F: Fn(C) -> D, T: IsTransition<E, Idx, C>>
 // IsTransition<E, Idx, D> for MappedTransition<T, F, C>
-impl<Idx: IndexType, E, C: Color, D: Color, F: Fn(C) -> D, T: IsPreTransition<Idx, E, C>>
-    IsPreTransition<Idx, E, D> for MappedPreTransition<T, F, C>
+impl<'a, Idx: IndexType, E, C: Color, D: Color, F: Fn(C) -> D, T: IsEdge<'a, E, Idx, C>>
+    IsEdge<'a, E, Idx, D> for MappedPreTransition<T, F, C>
 {
     fn source(&self) -> Idx {
         self.pre_transition.source()
+    }
+
+    fn target(&self) -> Idx {
+        self.pre_transition.target()
     }
 
     fn color(&self) -> D {
         (self.f)(self.pre_transition.color())
     }
 
-    fn expression(&self) -> &E {
+    fn expression(&self) -> &'a E {
         self.pre_transition.expression()
     }
 }
