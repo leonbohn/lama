@@ -25,9 +25,9 @@ ouroboros = "0.18.2"
 criterion = { version = "0.5", features = ["html_reports"] }
 iai = { git = "https://github.com/sigaloid/iai", rev = "6c83e942" }
 
-[[bench]]
-name = "forc_inference"
-harness = false
+# [[bench]]
+# name = "forc_inference"
+# harness = false
 
 [[bench]]
 name = "active_learning"

@@ -1,7 +1,8 @@
 use std::collections::{hash_map::RandomState, BTreeSet, VecDeque};
 
 use fxhash::FxBuildHasher;
-use tracing::trace;
+use itertools::Itertools;
+use tracing::{error, trace};
 
 use crate::{
     prelude::Expression,
@@ -202,82 +203,127 @@ where
     let mut on_stack = Set::default();
     let mut unvisited = ts.state_indices().collect::<BTreeSet<_>>();
 
-    let Some(start) = unvisited.pop_first() else {
+    if unvisited.is_empty() {
         return SccDecomposition::new(ts, sccs);
     };
-    let mut queue = vec![(start, ts.edges_from(start).unwrap())];
+    let mut queue = Vec::with_capacity(ts.size());
 
-    'outer: while let Some((q, mut edges)) = queue.pop() {
-        trace!(
-            "considering state {}\tstack: {:?}\ton_stack: {:?}",
-            q.show(),
-            stack,
-            on_stack
-        );
-        unvisited.remove(&q);
+    // we do an outermost loop that executes as long as states have not seen all states
+    'reachable: while let Some(&next) = unvisited.first() {
+        assert!(queue.is_empty());
+        trace!("adding {} to queue", next.show());
+        current = 0;
+        queue.push((
+            next,
+            ts.edges_from(next).expect("state is known to exist"),
+            current,
+        ));
 
-        if on_stack.insert(q) {
-            stack.push(q);
-        }
-
-        if !indices.contains_key(&q) {
-            trace!("assigning index {current} to state {}", q.show());
-            indices.insert(q, current);
-            low.insert(q, current);
-            current += 1;
-        }
-
-        'inner: while let Some(edge) = edges.next() {
+        // loop through the current queue
+        'outer: while let Some((q, mut edges, min)) = queue.pop() {
             trace!(
-                "considering edge {} --{}--> {}",
-                edge.source().show(),
-                edge.expression().show(),
-                edge.target().show()
+                "considering state {} with stored min {min}\nstack: {{{}}}\ton_stack: {{{}}}\nlows:{}",
+                q.show(),
+                stack
+                    .iter()
+                    .map(|idx: &Ts::StateIndex| idx.show())
+                    .join(", "),
+                on_stack
+                    .iter()
+                    .map(|idx: &Ts::StateIndex| idx.show())
+                    .join(", "),
+                low.iter()
+                    .map(|(k, v): (&Ts::StateIndex, &usize)| format!("{} -> {v}", k.show()))
+                    .join(", ")
             );
-            let target = edge.target();
-            if unvisited.contains(&target) {
-                trace!(
-                    "successor {} on {} has not been visited, descending",
-                    target.show(),
-                    edge.expression().show()
-                );
-                queue.push((q, edges));
-                queue.push((target, ts.edges_from(target).unwrap()));
-                continue 'outer;
-            }
-            if on_stack.contains(&target) {
-                let new_low = std::cmp::min(*low.get(&q).unwrap(), *low.get(&target).unwrap());
-                *low.get_mut(&q).unwrap() = new_low;
-                trace!(
-                    "successor {} on {} was alread seen, assigning new minimum {new_low}",
-                    target.show(),
-                    edge.expression().show()
-                );
-            }
-        }
+            unvisited.remove(&q);
 
-        // reached when all edges have been explored
-        let low_q = *low.get(&q).unwrap();
-        if low_q == *indices.get(&q).unwrap() {
-            trace!(
-                "{} has matching index and low {low_q}, extracting scc",
-                q.show()
-            );
-            let mut scc = vec![];
-            while on_stack.contains(&q) {
-                let top = stack.pop().unwrap();
-                low.insert(top, low_q);
-                on_stack.remove(&top);
-                scc.push(top);
+            if on_stack.insert(q) {
+                stack.push(q);
             }
-            let scc = Scc::new(ts, scc.into_iter());
-            trace!("identified scc {:?}", scc);
-            sccs.push(scc);
+
+            if !indices.contains_key(&q) {
+                trace!("assigning index {current} to state {}", q.show());
+                indices.insert(q, current);
+                low.insert(q, current);
+                current += 1;
+            }
+
+            'inner: while let Some(edge) = edges.next() {
+                // we skip self loops
+                if edge.target() == q {
+                    continue 'inner;
+                }
+
+                trace!(
+                    "considering edge {} --{}--> {}",
+                    edge.source().show(),
+                    edge.expression().show(),
+                    edge.target().show()
+                );
+                let target = edge.target();
+                if unvisited.contains(&target) {
+                    trace!(
+                        "successor {} on {} has not been visited, descending",
+                        target.show(),
+                        edge.expression().show()
+                    );
+                    queue.push((q, edges, min));
+                    queue.push((target, ts.edges_from(target).unwrap(), current));
+                    continue 'outer;
+                }
+                if on_stack.contains(&target) {
+                    let new_low = std::cmp::min(*low.get(&q).unwrap(), *low.get(&target).unwrap());
+                    let (it, itt) = stack.iter().skip_while(|&x| x != &target).tee();
+
+                    // TODO: Could there be a more performant way of doing this?
+                    for x in it {
+                        *low.get_mut(x).unwrap() = new_low;
+                    }
+                    trace!(
+                        "successor {} on {} was alread seen, assigning new minimum {new_low} to states {}",
+                        target.show(),
+                        edge.expression().show(),
+                        itt.into_iter().map(|x| x.show()).join(", ")
+                    );
+                }
+            }
+
+            // reached when all edges have been explored
+            let low_q = *low.get(&q).unwrap();
+            if low_q == *indices.get(&q).unwrap() {
+                trace!(
+                    "{} has matching index and low {low_q}, extracting scc",
+                    q.show()
+                );
+                let mut scc = vec![];
+                while on_stack.contains(&q) {
+                    let top = stack.pop().unwrap();
+                    low.insert(top, low_q);
+                    on_stack.remove(&top);
+                    scc.push(top);
+                }
+                let scc = Scc::new(ts, scc.into_iter());
+                trace!("identified scc {:?}", scc);
+                sccs.push(scc);
+            }
         }
     }
 
     sccs.sort();
-    SccDecomposition::new(ts, sccs)
+    let out = SccDecomposition::new(ts, sccs);
+
+    if cfg!(debug_assertions) {
+        // here we verify against the recursive impl if the ts is not too large
+        if ts.size() < 100 {
+            let rec_sccs = tarjan_scc_recursive(ts);
+            if !rec_sccs.isomorphic(&out) {
+                panic!("iterative gave a different result than recursive!\n{out:?}{rec_sccs:?}");
+            }
+        }
+    }
+
+    out
 }
 
 #[cfg(test)]

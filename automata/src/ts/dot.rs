@@ -17,6 +17,19 @@ use super::{
     Deterministic, IndexType, BTS,
 };
 
+fn sanitize_dot_ident(name: &str) -> String {
+    name.chars()
+        .filter_map(|chr| match chr {
+            c if c.is_alphanumeric() => Some(c),
+            '|' => Some('_'),
+            '(' => None,
+            ')' => None,
+            w if w.is_whitespace() => None,
+            u => panic!("unexpected symbol {u} in identifier"),
+        })
+        .join("")
+}
+
 pub trait Dottable: TransitionSystem {
     /// Compute the graphviz representation, for more information on the DOT format,
     /// see the [graphviz documentation](https://graphviz.org/doc/info/lang.html).
@@ -30,7 +43,7 @@ pub trait Dottable: TransitionSystem {
         let states = self.state_indices().map(|q| {
             format!(
                 "{} [{}]",
-                self.dot_state_ident(q),
+                sanitize_dot_ident(&self.dot_state_ident(q)),
                 self.dot_state_attributes(q)
                     .into_iter()
                     .map(|attr| attr.to_string())
@@ -44,8 +57,8 @@ pub trait Dottable: TransitionSystem {
                 .map(move |t| {
                     format!(
                         "{} -> {} [{}]",
-                        self.dot_state_ident(q),
-                        self.dot_state_ident(t.target()),
+                        sanitize_dot_ident(&self.dot_state_ident(q)),
+                        sanitize_dot_ident(&self.dot_state_ident(t.target())),
                         self.dot_transition_attributes(t)
                             .into_iter()
                             .map(|attr| attr.to_string())
@@ -159,7 +172,6 @@ pub trait Dottable: TransitionSystem {
     #[cfg(feature = "graphviz")]
     fn display_rendered(&self) -> Result<(), std::io::Error> {
         display_png(self.render()?)?;
-        std::thread::sleep(std::time::Duration::from_secs(1));
         Ok(())
     }
 }
@@ -537,6 +549,10 @@ fn render_dot_to_tempfile(dot: &str) -> Result<Vec<u8>, std::io::Error> {
     }
 }
 
+/// Displays a png given as a vector of bytes by calling an image viewer.
+/// On Macos, that is the Preview app, while on Linux and Windows this can be configured by
+/// setting the IMAGE_VIEWER environment variable. If it is not set, then the display command
+/// of ImageMagick will be used.
 #[cfg(feature = "graphviz")]
 fn display_png(contents: Vec<u8>) -> std::io::Result<()> {
     use std::{
@@ -546,7 +562,9 @@ fn display_png(contents: Vec<u8>) -> std::io::Result<()> {
 
     use tracing::trace;
     let mut child = if cfg!(target_os = "linux") || cfg!(target_os = "windows") {
-        std::process::Command::new("display")
+        let image_viewer = std::env::var("IMAGE_VIEWER").unwrap_or("display".to_string());
+
+        std::process::Command::new(&image_viewer)
             .stdin(Stdio::piped())
             .spawn()
             .unwrap()
@@ -567,10 +585,11 @@ fn display_png(contents: Vec<u8>) -> std::io::Result<()> {
         stdin
             .write_all(&contents)
             .expect("Could not write file to stdin");
+        let output = child
+            .wait_with_output()
+            .expect("Error in display child process!");
+        trace!("png display command exited with {}", output.status);
     });
-
-    let output = child.wait_with_output()?;
-    trace!("png display command exited with {}", output.status);
 
     Ok(())
 }
@@ -588,6 +607,7 @@ mod tests {
     use super::Dottable;
 
     #[test_log::test]
+    #[ignore]
     fn render_dfa() {
         let dfa = NTS::builder()
             .with_transitions([

@@ -330,6 +330,6 @@ mod tests {
         let alphabet = oracle.alphabet().clone();
         let mut learner = LStar::for_mealy(alphabet, oracle);
         let mm = learner.infer();
-        mm.display_rendered();
+        assert_eq!(mm.size(), 2);
     }
 }

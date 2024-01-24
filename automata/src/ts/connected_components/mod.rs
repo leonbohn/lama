@@ -4,6 +4,7 @@ use std::{
 };
 
 use itertools::Itertools;
+use tracing::trace;
 
 use crate::prelude::*;
 
@@ -48,18 +49,33 @@ impl<'a, Ts: TransitionSystem> SccDecomposition<'a, Ts> {
             .enumerate()
             .find_map(|(i, scc)| if scc.contains(&state) { Some(i) } else { None })
     }
+
+    pub fn isomorphic(&self, other: &SccDecomposition<'a, Ts>) -> bool {
+        for scc in &self.1 {
+            if !other.1.iter().any(|other_scc| scc == other_scc) {
+                trace!("found no scc matching {scc:?} in other");
+                return false;
+            }
+        }
+        for scc in &other.1 {
+            if !self.1.iter().any(|other_scc| scc == other_scc) {
+                trace!("found no scc matching {scc:?} in self");
+                return false;
+            }
+        }
+        true
+    }
 }
 
-impl<'a, Ts: TransitionSystem + Debug> std::fmt::Debug for SccDecomposition<'a, Ts> {
+impl<'a, Ts: TransitionSystem> std::fmt::Debug for SccDecomposition<'a, Ts> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(
             f,
-            "SCC decomposition:  {{{}}} in\n{:?}",
+            "{{{}}}",
             self.1
                 .iter()
-                .map(|scc| format!("[{}]", scc.iter().map(|q| format!("{:?}", q)).join(", ")))
+                .map(|scc| format!("[{}]", scc.iter().map(|q| q.show()).join(", ")))
                 .join(", "),
-            self.0
         )
     }
 }
@@ -78,9 +94,11 @@ mod tests {
         Pointed, RightCongruence, Set, TransitionSystem,
     };
 
+    use super::NTS;
+
     pub(super) fn ts() -> RightCongruence<Simple> {
         let mut cong = RightCongruence::new(alphabet!(simple 'a', 'b'));
-        let q0 = cong.initial();
+        let q0 = cong.add_state(vec![]);
         let q1 = cong.add_state(vec!['a']);
         let q2 = cong.add_state(vec!['b']);
         let q3 = cong.add_state(vec!['b', 'b']);
@@ -99,7 +117,6 @@ mod tests {
     fn tarjan_scc_decomposition() {
         let cong = ts();
         let sccs = cong.sccs();
-        println!("{:?}", sccs);
 
         let scc1 = Scc::new(&cong, vec![0]);
         let scc2 = Scc::new(&cong, vec![1]);

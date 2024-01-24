@@ -135,6 +135,8 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Path<A, Idx, Q, C> {
         self.transitions
             .push((self.end, symbol, transition.color().clone()));
         self.end = transition.target();
+        self.state_colors
+            .push(ts.state_color(self.end).expect("The state must be colored"));
         Some(transition)
     }
 
@@ -142,7 +144,8 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Path<A, Idx, Q, C> {
     pub fn extend_with(&mut self, other: Path<A, Idx, Q, C>) {
         assert_eq!(self.reached(), other.origin(), "Start and end must match!");
         self.transitions.extend(other.transitions);
-        self.state_colors.extend(other.state_colors);
+        self.state_colors
+            .extend(other.state_colors.into_iter().skip(1));
 
         assert_eq!(self.state_colors.len() - 1, self.transitions.len());
         self.end = other.end;

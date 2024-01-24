@@ -1,5 +1,6 @@
 use std::{collections::VecDeque, marker::PhantomData};
 
+use itertools::Itertools;
 use tracing::{info, trace};
 
 use crate::{
@@ -80,14 +81,28 @@ impl<D: DPALike> IntoDPA<D> {
     }
 
     pub fn prefix_congruence(&self) -> Quotient<&Self> {
+        fn print<X: Show>(part: &[Vec<X>]) -> String {
+            format!(
+                "{{{}}}",
+                part.iter()
+                    .map(|class| format!("[{}]", part.iter().map(|x| x.show()).join(", ")))
+                    .join(", ")
+            )
+        }
         let mut it = self.reachable_state_indices();
         let fst = it.next();
         assert_eq!(fst, Some(self.initial()));
+
         let mut partition = vec![vec![fst.unwrap()]];
         let mut queue: VecDeque<_> = it.collect();
         let expected_size = queue.len() + 1;
 
         'outer: while let Some(q) = queue.pop_front() {
+            trace!(
+                "considering state {}, current partition: {}",
+                q.show(),
+                print(&partition)
+            );
             for i in 0..partition.len() {
                 let p = partition[i]
                     .first()
@@ -98,10 +113,15 @@ impl<D: DPALike> IntoDPA<D> {
                     .as_dpa()
                     .language_equivalent(&self.as_ref().with_initial(q).as_dpa())
                 {
+                    trace!(
+                        "it is language equivalent to {}, adding it to the equivalence class",
+                        p.show()
+                    );
                     partition.get_mut(i).unwrap().push(q);
                     continue 'outer;
                 }
             }
+            trace!("not equivalent to any known states, creating a new equivalence class");
             partition.push(vec![q]);
         }
         debug_assert_eq!(
@@ -140,6 +160,7 @@ impl<D: DPALike> IntoDPA<D> {
         other: &IntoDPA<O>,
         l: usize,
     ) -> Option<Reduced<SymbolOf<Self>>> {
+        trace!("attempting to witness colors {k} and {l}");
         let t1 = self.edge_color_restricted(k, usize::MAX);
         let t2 = other.edge_color_restricted(l, usize::MAX);
         let prod = t1.ts_product(t2);
@@ -200,7 +221,13 @@ impl<D: DPALike> IntoDPA<D> {
         for i in self.colors().filter(|x| x.is_even()) {
             for j in other.colors().filter(|x| x.is_odd()) {
                 if let Some(cex) = self.as_ref().witness_colors(i, &other, j) {
+                    trace!(
+                        "found counterexample {:?}, witnessing colors {i} and {j}",
+                        cex
+                    );
                     return Some(cex);
+                } else {
+                    trace!("colors {i} and {j} are not witnessed by any word");
                 }
             }
         }
@@ -374,8 +401,8 @@ mod tests {
         assert_eq!(d13.edges_from(0).unwrap().count(), 2);
     }
 
-    #[test]
-    fn dpa_equivalence() {
+    #[test_log::test]
+    fn dpa_equivalences() {
         let good = [
             NTS::builder()
                 .default_color(())
@@ -427,8 +454,16 @@ mod tests {
                 .with_initial(0)
                 .collect_dpa(),
         ];
+
+        let l = &good[0];
+        let r = &bad[2];
+        let prod = l.ts_product(r);
+        let sccs = prod.sccs();
+        assert!(!good[0].language_equivalent(&bad[2]));
+
         for g in &good {
             for b in &bad {
+                println!("GUT");
                 assert!(!g.language_equivalent(b));
             }
         }
@@ -451,8 +486,25 @@ mod tests {
         assert!(!univ.included_in(&aomega));
     }
 
-    #[test]
+    #[test_log::test]
     fn dpa_equivalence_clases() {
+        let dpa = NTS::builder()
+            .with_transitions([
+                (0, 'a', 0, 1),
+                (0, 'b', 1, 0),
+                (1, 'a', 2, 0),
+                (1, 'b', 0, 1),
+            ])
+            .into_dpa(0);
+        let a = (&dpa).with_initial(1).into_dpa();
+        assert!(!dpa.language_equivalent(&a));
+
+        let cong = dpa.prefix_congruence().collect_right_congruence();
+        assert_eq!(cong.size(), 2);
+        assert_eq!(cong.initial(), cong.reached("aa").unwrap());
+        assert!(cong.congruent("", "aa"));
+        assert!(cong.congruent("ab", "baaba"));
+
         let dpa = NTS::builder()
             .with_transitions([
                 (0, 'a', 0, 0),
@@ -463,18 +515,5 @@ mod tests {
             .into_dpa(0);
         let cong = dpa.prefix_congruence();
         assert_eq!(cong.size(), 1);
-        let dpa = NTS::builder()
-            .with_transitions([
-                (0, 'a', 0, 1),
-                (0, 'b', 1, 0),
-                (1, 'a', 2, 0),
-                (1, 'b', 0, 1),
-            ])
-            .into_dpa(0);
-        let cong = dpa.prefix_congruence().collect_right_congruence();
-        assert_eq!(cong.size(), 2);
-        assert_eq!(cong.initial(), cong.reached("aa").unwrap());
-        assert!(cong.congruent("", "aa"));
-        assert!(cong.congruent("ab", "baaba"));
     }
 }

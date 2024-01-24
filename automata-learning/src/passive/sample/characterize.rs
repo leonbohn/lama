@@ -483,7 +483,6 @@ mod tests {
     #[test_log::test]
     fn characterize_dpa() {
         let dpa = simple_dpa();
-        dpa.display_rendered().unwrap();
         let sample = super::dpa(dpa);
         println!("{:?}", sample);
     }

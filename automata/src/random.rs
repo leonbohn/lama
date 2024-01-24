@@ -150,14 +150,8 @@ mod tests {
 
     use super::{generate_random_dfa, print_random_ts_benchmark};
 
-    #[test]
-    fn random_ts() {
-        let dfa = generate_random_dfa(3, 0.3);
-        println!("{:?}", dfa);
-        dfa.display_rendered().unwrap();
-    }
-
     #[test_log::test]
+    #[ignore]
     fn bench_random_ts() {
         let recips_of_2: Vec<_> = (1..=6).map(|i| 2usize.saturating_pow(i)).collect();
         print_random_ts_benchmark(&[2, 4, 6], &[2, 4, 8, 16, 32, 320], 100);
