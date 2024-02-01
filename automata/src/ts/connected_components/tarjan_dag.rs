@@ -43,9 +43,7 @@ impl<'a, Ts: TransitionSystem> TarjanDAG<'a, Ts> {
     }
 
     pub fn scc_index(&self, state: Ts::StateIndex) -> Option<SccIndex> {
-        self.dag
-            .find(|scc| scc.contains(&state))
-            .map(|i| SccIndex(i))
+        self.dag.find(|scc| scc.contains(&state)).map(SccIndex)
     }
 
     pub fn scc_of(&self, state: Ts::StateIndex) -> Option<&Scc<'a, Ts>> {

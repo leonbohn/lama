@@ -12,7 +12,7 @@ use pretty_assertions::assert_eq;
 
 use crate::{
     automaton::{AcceptanceMask, IntoDPA, OmegaAcceptanceCondition, OmegaAutomaton},
-    prelude::{DPALike, Expression, WithInitial, DPA},
+    prelude::{DPALike, Expression, Initialized, DPA},
     ts::{Sproutable, DTS, NTS},
     Alphabet, Map, Pointed, Show, TransitionSystem,
 };
@@ -63,10 +63,7 @@ impl HoaAlphabet {
 }
 
 pub(crate) fn bdd_valuation_to_hoa_symbol(valuation: &BddValuation) -> HoaSymbol {
-    let aps: usize = valuation
-        .num_vars()
-        .try_into()
-        .expect("Too many variables!");
+    let aps: usize = valuation.num_vars().into();
     assert!(
         aps <= MAX_APS,
         "We have {aps}, which is more than the maximum of {MAX_APS}"

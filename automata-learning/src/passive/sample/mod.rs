@@ -59,11 +59,7 @@ impl<A: Alphabet, W: LinearWord<A::Symbol>> Sample<A, W, bool> {
 
 impl<A: Alphabet, W: LinearWord<A::Symbol>, C: Color> Sample<A, W, C> {
     pub fn into_joined(self, other: Sample<A, W, C>) -> Sample<A, W, C> {
-        let words = self
-            .words
-            .into_iter()
-            .chain(other.words.into_iter())
-            .collect();
+        let words = self.words.into_iter().chain(other.words).collect();
         Sample {
             alphabet: self.alphabet,
             words,

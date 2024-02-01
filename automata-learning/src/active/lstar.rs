@@ -115,7 +115,7 @@ impl<D: LStarHypothesis, T: LStarOracle<D>> LStar<D, T> {
             if stored_experiment_count < experiment_count {
                 for i in stored_experiment_count..experiment_count {
                     let concat = Concat(&mr, &self.experiments[i]).to_vec();
-                    let output = self.output(&&concat).clone();
+                    let output = self.output(&concat).clone();
                     trace!(
                         "Adding update that {} maps to {}",
                         concat.as_string(),
@@ -135,7 +135,7 @@ impl<D: LStarHypothesis, T: LStarOracle<D>> LStar<D, T> {
 
         for (mr, i, output) in updates {
             assert!(i < self.experiments.len());
-            let mut row = self.table.entry(mr).or_insert(vec![]);
+            let mut row = self.table.entry(mr).or_default();
             row.push(output);
         }
 
@@ -175,7 +175,7 @@ impl<D: LStarHypothesis, T: LStarOracle<D>> LStar<D, T> {
                 todo.iter().map(FiniteWord::as_string).join(", ")
             );
 
-            while !todo.is_empty() {
+            if !todo.is_empty() {
                 let mut queries = Set::default();
                 for r in todo {
                     self.base.push(r.clone());
@@ -204,7 +204,7 @@ impl<D: LStarHypothesis, T: LStarOracle<D>> LStar<D, T> {
 
     fn process_counterexample(&mut self, word: Word<D>, color: D::Color) {
         for i in 0..(word.len()) {
-            let suffix = (&word[i..]).to_vec();
+            let suffix = word[i..].to_vec();
             assert!(!suffix.is_empty());
             if !self.experiments.contains(&suffix) {
                 trace!("Adding counterexample {}", suffix.as_string());
@@ -340,10 +340,8 @@ impl<D: LStarHypothesis, T: LStarOracle<D>> LStar<D, T> {
         for word in self.one_letter_extensions() {
             trace!("Considering one letter extension {}", word.as_string());
             let seq = self.table.get(&word).unwrap();
-            if !known.contains(seq) {
-                if seen.insert(seq) {
-                    out.insert(word);
-                }
+            if !known.contains(seq) && seen.insert(seq) {
+                out.insert(word);
             }
         }
 

@@ -7,7 +7,7 @@ use crate::prelude::*;
 use super::MooreLike;
 
 #[derive(Clone)]
-pub struct MealyMachine<A = Simple, C = usize, Ts = WithInitial<DTS<A, NoColor, C>>> {
+pub struct MealyMachine<A = Simple, C = usize, Ts = Initialized<DTS<A, NoColor, C>>> {
     ts: Ts,
     _q: PhantomData<(A, C)>,
 }
@@ -67,7 +67,7 @@ impl<Ts: MealyLike + Deterministic> IntoMealyMachine<Ts> {
 impl<A: Alphabet> MealyMachine<A> {
     pub fn new(alphabet: A) -> Self {
         Self {
-            ts: WithInitial::new(alphabet),
+            ts: Initialized::new(alphabet),
             _q: PhantomData,
         }
     }
@@ -231,16 +231,16 @@ macro_rules! impl_mealy_automaton {
         pub struct $name<
             A = Simple,
             Q = (),
-            Ts = WithInitial<DTS<A, Q, $color>>,
+            Ts = Initialized<DTS<A, Q, $color>>,
         > {
             ts: Ts,
             _alphabet: std::marker::PhantomData<(A, Q, $color)>,
         }
         impl<A: Alphabet, Q: Color + Default>
-            $name<A, Q, WithInitial<DTS<A, Q, $color>>>
+            $name<A, Q, Initialized<DTS<A, Q, $color>>>
         {
-            pub fn new(alphabet: A, initial_state_color: Q) -> $name<A, Q, WithInitial<DTS<A, Q, $color>>> {
-                let mut ts = WithInitial::new(alphabet);
+            pub fn new(alphabet: A, initial_state_color: Q) -> $name<A, Q, Initialized<DTS<A, Q, $color>>> {
+                let mut ts = Initialized::new(alphabet);
                 ts.set_initial_color(initial_state_color);
                 $name {
                     ts,

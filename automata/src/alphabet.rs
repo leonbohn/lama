@@ -100,7 +100,7 @@ pub struct Simple(pub(crate) Vec<char>);
 impl Simple {
     pub fn alphabetic(size: usize) -> Self {
         assert!(size < 26, "Alphabet is too large");
-        Self((0..size).map(|i| ('a' as u8 + i as u8) as char).collect())
+        Self((0..size).map(|i| (b'a' + i as u8) as char).collect())
     }
 }
 

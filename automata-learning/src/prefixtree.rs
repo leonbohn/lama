@@ -95,7 +95,7 @@ mod tests {
     fn build_prefix_tree() {
         let words = [upw!("aa"), upw!("aba"), upw!("bbaab"), upw!("bb")];
         let alphabet = Simple::from_iter(['a', 'b']);
-        let pta = prefix_tree(alphabet, &words);
+        let pta = prefix_tree(alphabet, words);
         let completed = pta
             .erase_state_colors()
             .collect_complete_with_initial((), ());

@@ -5,9 +5,9 @@ use std::fmt::Debug;
 
 /// Wrapper around a [`TransitionSystem`] with a designated initial state.
 #[derive(Clone, PartialEq)]
-pub struct WithInitial<Ts: TransitionSystem>(Ts, Ts::StateIndex);
+pub struct Initialized<Ts: TransitionSystem>(Ts, Ts::StateIndex);
 
-impl<Ts: TransitionSystem> WithInitial<Ts> {
+impl<Ts: TransitionSystem> Initialized<Ts> {
     /// Gives a reference to the underlying transition system.
     pub fn ts(&self) -> &Ts {
         &self.0
@@ -23,13 +23,14 @@ impl<Ts: TransitionSystem> WithInitial<Ts> {
     }
 }
 
-impl<Ts: TransitionSystem> Pointed for WithInitial<Ts> {
+impl<Ts: TransitionSystem> Pointed for Initialized<Ts> {
     fn initial(&self) -> Self::StateIndex {
+        assert!(!self.0.is_empty());
         self.1
     }
 }
 
-impl<Ts> std::fmt::Debug for WithInitial<Ts>
+impl<Ts> std::fmt::Debug for Initialized<Ts>
 where
     Ts: Deterministic + Debug,
     Ts::StateColor: Show,
@@ -51,13 +52,13 @@ where
     }
 }
 
-impl<Ts: TransitionSystem> From<(Ts, Ts::StateIndex)> for WithInitial<Ts> {
+impl<Ts: TransitionSystem> From<(Ts, Ts::StateIndex)> for Initialized<Ts> {
     fn from(value: (Ts, Ts::StateIndex)) -> Self {
         Self(value.0, value.1)
     }
 }
 
-impl<A, C, Q> WithInitial<DTS<A, Q, C>>
+impl<A, C, Q> Initialized<DTS<A, Q, C>>
 where
     A: Alphabet,
     C: Color,
@@ -90,7 +91,7 @@ where
     }
 }
 
-impl<Ts: TransitionSystem + Sproutable> Sproutable for WithInitial<Ts> {
+impl<Ts: TransitionSystem + Sproutable> Sproutable for Initialized<Ts> {
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
         let mut ts = Ts::new_for_alphabet(alphabet);
         Self(ts, <Ts::StateIndex as IndexType>::first())
@@ -134,7 +135,7 @@ impl<Ts: TransitionSystem + Sproutable> Sproutable for WithInitial<Ts> {
         self.ts_mut().extend_states(iter)
     }
 }
-impl<Ts: TransitionSystem + HasStates> HasStates for WithInitial<Ts> {
+impl<Ts: TransitionSystem + HasStates> HasStates for Initialized<Ts> {
     type State<'this> = Ts::State<'this>
         where
             Self: 'this;
@@ -151,7 +152,7 @@ impl<Ts: TransitionSystem + HasStates> HasStates for WithInitial<Ts> {
         self.ts().states_iter()
     }
 }
-impl<Ts: TransitionSystem + HasMutableStates> HasMutableStates for WithInitial<Ts> {
+impl<Ts: TransitionSystem + HasMutableStates> HasMutableStates for Initialized<Ts> {
     type StateMut<'this>  = Ts::StateMut<'this> where Self:'this;
 
     fn state_mut(&mut self, index: Self::StateIndex) -> Option<Self::StateMut<'_>> {

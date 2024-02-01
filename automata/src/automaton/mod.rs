@@ -53,7 +53,7 @@ pub use acceptor::{
 };
 
 mod with_initial;
-pub use with_initial::WithInitial;
+pub use with_initial::Initialized;
 
 /// Type alias for the unit type. Purpose is mainly to be used in Macros, as `()` is more difficult to
 /// handle than a simple alphabetic identifier.
@@ -79,18 +79,18 @@ macro_rules! impl_automaton_type {
             A = Simple,
             Q = $color,
             C = $edgecolor,
-            Ts = WithInitial<DTS<A, Q, C>>,
+            Ts = Initialized<DTS<A, Q, C>>,
         > {
             ts: Ts,
             _alphabet: PhantomData<(A, Q, C)>,
         }
         impl<A: Alphabet>
-            $name<A, $color, $edgecolor, WithInitial<DTS<A, $color, $edgecolor>>>
+            $name<A, $color, $edgecolor, Initialized<DTS<A, $color, $edgecolor>>>
         {
             /// Creates a new automaton from a given alphabet.
-            pub fn new(alphabet: A) -> $name<A, $color, $edgecolor, WithInitial<DTS<A, $color, $edgecolor>>> {
+            pub fn new(alphabet: A) -> $name<A, $color, $edgecolor, Initialized<DTS<A, $color, $edgecolor>>> {
                 $name {
-                    ts: WithInitial::new(alphabet),
+                    ts: Initialized::new(alphabet),
                     _alphabet: PhantomData,
                 }
             }
@@ -287,7 +287,7 @@ impl<'a, Ts: TransitionSystem<StateColor = bool>> Iterator for StatesWithColor<'
 
 #[cfg(test)]
 mod tests {
-    use super::{DFALike, MooreLike, WithInitial};
+    use super::{DFALike, Initialized, MooreLike};
     use crate::{
         automaton::{
             acceptor::{FiniteWordAcceptor, OmegaWordAcceptor},

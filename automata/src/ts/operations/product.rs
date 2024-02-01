@@ -164,7 +164,7 @@ where
     }
 
     fn expression(&self) -> &'a E {
-        &self.expression
+        self.expression
     }
 }
 
@@ -260,7 +260,7 @@ where
     }
 
     fn source(&self) -> ProductIndex<LI, RI> {
-        self.source.clone()
+        self.source
     }
 
     fn target(&self) -> ProductIndex<LI, RI> {
@@ -268,7 +268,7 @@ where
     }
 
     fn expression(&self) -> &'a E {
-        &self.expression
+        self.expression
     }
 }
 

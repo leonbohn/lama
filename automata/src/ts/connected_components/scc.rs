@@ -2,24 +2,30 @@ use std::{cell::OnceCell, collections::BTreeSet, fmt::Debug};
 
 use itertools::Itertools;
 
-use crate::{prelude::*, Map, Set};
+use crate::{prelude::*, ts::reachable::MinimalRepresentative, Map, Set};
+
+type InteriorEdgeSet<Ts> = Set<(
+    <Ts as TransitionSystem>::StateIndex,
+    ExpressionOf<Ts>,
+    <Ts as TransitionSystem>::EdgeColor,
+    <Ts as TransitionSystem>::StateIndex,
+)>;
+type InteriorTransitionSet<Ts> = Set<(
+    <Ts as TransitionSystem>::StateIndex,
+    SymbolOf<Ts>,
+    <Ts as TransitionSystem>::EdgeColor,
+    <Ts as TransitionSystem>::StateIndex,
+)>;
 
 /// Represents a strongly connected component of a transition system.
 #[derive(Clone)]
 pub struct Scc<'a, Ts: TransitionSystem> {
     ts: &'a Ts,
     states: BTreeSet<Ts::StateIndex>,
-    transitions: OnceCell<Set<(Ts::StateIndex, SymbolOf<Ts>, Ts::EdgeColor, Ts::StateIndex)>>,
-    edges: OnceCell<
-        Set<(
-            Ts::StateIndex,
-            ExpressionOf<Ts>,
-            Ts::EdgeColor,
-            Ts::StateIndex,
-        )>,
-    >,
+    transitions: OnceCell<InteriorTransitionSet<Ts>>,
+    edges: OnceCell<InteriorEdgeSet<Ts>>,
     edge_colors: OnceCell<Set<Ts::EdgeColor>>,
-    minimal_representative: OnceCell<Option<(Ts::StateIndex, Vec<SymbolOf<Ts>>)>>,
+    minimal_representative: OnceCell<Option<MinimalRepresentative<Ts>>>,
 }
 
 impl<'a, Ts: TransitionSystem> IntoIterator for Scc<'a, Ts> {
@@ -101,14 +107,7 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         self.size() == 1
     }
 
-    pub fn interior_edges(
-        &self,
-    ) -> &Set<(
-        Ts::StateIndex,
-        ExpressionOf<Ts>,
-        Ts::EdgeColor,
-        Ts::StateIndex,
-    )> {
+    pub fn interior_edges(&self) -> &InteriorEdgeSet<Ts> {
         self.edges.get_or_init(|| {
             let mut edges = Set::default();
             for q in &self.states {
@@ -124,9 +123,7 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         })
     }
 
-    pub fn interior_transitions(
-        &self,
-    ) -> &Set<(Ts::StateIndex, SymbolOf<Ts>, Ts::EdgeColor, Ts::StateIndex)> {
+    pub fn interior_transitions(&self) -> &InteriorTransitionSet<Ts> {
         self.transitions.get_or_init(|| {
             let mut edges = Set::default();
             for q in &self.states {
@@ -145,14 +142,14 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
     }
 
     /// Computes the minimal word on which a state of this SCC may be reached.
-    pub fn minimal_representative(&self) -> &Option<(Ts::StateIndex, Vec<SymbolOf<Ts>>)>
+    pub fn minimal_representative(&self) -> &Option<MinimalRepresentative<Ts>>
     where
         Ts: Pointed,
     {
         self.minimal_representative.get_or_init(|| {
             self.ts.minimal_representatives().find_map(|(access, q)| {
                 if self.states.contains(&q) {
-                    Some((q, access))
+                    Some((access, q))
                 } else {
                     None
                 }
@@ -199,7 +196,7 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         for (p, a, _, q) in self.interior_transitions() {
             queue
                 .entry(*p)
-                .or_insert_with(|| Set::default())
+                .or_insert_with(Set::default)
                 .insert((*a, *q));
         }
         if queue.is_empty() {
@@ -298,11 +295,7 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
 
 impl<'a, Ts: TransitionSystem> Debug for Scc<'a, Ts> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "[{}]",
-            self.states.iter().map(|q| q.to_string()).join(", ")
-        )
+        write!(f, "[{}]", self.states.iter().map(|q| q.show()).join(", "))
     }
 }
 

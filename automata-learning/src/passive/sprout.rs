@@ -571,7 +571,7 @@ pub(crate) mod tests {
             ],
         );
         let mut expected_cong = RightCongruence::new(alphabet!(simple 'a', 'b'));
-        let q0 = expected_cong.initial();
+        let q0 = expected_cong.add_state(vec![]);
         let q1 = expected_cong.add_state(vec!['b']);
         expected_cong.add_edge(q0, 'b', q1, ());
         expected_cong.add_edge(q1, 'b', q0, ());

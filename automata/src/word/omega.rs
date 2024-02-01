@@ -147,6 +147,30 @@ pub struct Reduced<S> {
     pub(crate) loop_index: usize,
 }
 
+impl<S: Symbol> Show for Reduced<S> {
+    fn show(&self) -> String {
+        format!(
+            "{},({})",
+            self.word[0..self.loop_index]
+                .iter()
+                .map(|chr| chr.show())
+                .join(""),
+            self.word[self.loop_index..]
+                .iter()
+                .map(|chr| chr.show())
+                .join("")
+        )
+    }
+    fn show_collection<'a, I>(iter: I) -> String
+    where
+        Self: 'a,
+        I: IntoIterator<Item = &'a Self>,
+        I::IntoIter: DoubleEndedIterator,
+    {
+        unimplemented!()
+    }
+}
+
 impl<S: Symbol> LinearWord<S> for Reduced<S> {
     fn nth(&self, position: usize) -> Option<S> {
         if position >= self.word.len() {

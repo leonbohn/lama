@@ -5,6 +5,12 @@ use super::nts::{NTEdge, NTSEdgesFromIter, NTSEdgesTo};
 #[derive(Clone, Eq, PartialEq)]
 pub struct DTS<A: Alphabet = Simple, Q = NoColor, C = NoColor>(pub(crate) NTS<A, Q, C>);
 
+pub type CollectDTS<Ts> = DTS<
+    <Ts as TransitionSystem>::Alphabet,
+    <Ts as TransitionSystem>::StateColor,
+    <Ts as TransitionSystem>::EdgeColor,
+>;
+
 impl<A: Alphabet, Q: Color, C: Color> TryFrom<NTS<A, Q, C>> for DTS<A, Q, C> {
     type Error = ();
 
@@ -16,15 +22,15 @@ impl<A: Alphabet, Q: Color, C: Color> TryFrom<NTS<A, Q, C>> for DTS<A, Q, C> {
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> TryFrom<WithInitial<NTS<A, Q, C>>>
-    for WithInitial<DTS<A, Q, C>>
+impl<A: Alphabet, Q: Color, C: Color> TryFrom<Initialized<NTS<A, Q, C>>>
+    for Initialized<DTS<A, Q, C>>
 {
     /// Only fails if nts is not deterministic.
     type Error = ();
 
-    fn try_from(value: WithInitial<NTS<A, Q, C>>) -> Result<Self, Self::Error> {
+    fn try_from(value: Initialized<NTS<A, Q, C>>) -> Result<Self, Self::Error> {
         let (nts, initial) = value.into_parts();
-        Ok(WithInitial::from((nts.try_into()?, initial)))
+        Ok(Initialized::from((nts.try_into()?, initial)))
     }
 }
 
@@ -39,15 +45,15 @@ impl<A: Alphabet, Q: Color, C: Color> TryFrom<&NTS<A, Q, C>> for DTS<A, Q, C> {
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> TryFrom<&WithInitial<NTS<A, Q, C>>>
-    for WithInitial<DTS<A, Q, C>>
+impl<A: Alphabet, Q: Color, C: Color> TryFrom<&Initialized<NTS<A, Q, C>>>
+    for Initialized<DTS<A, Q, C>>
 {
     /// Only fails if nts is not deterministic.
     type Error = ();
 
-    fn try_from(value: &WithInitial<NTS<A, Q, C>>) -> Result<Self, Self::Error> {
+    fn try_from(value: &Initialized<NTS<A, Q, C>>) -> Result<Self, Self::Error> {
         let (nts, initial) = value.clone().into_parts();
-        Ok(WithInitial::from((nts.try_into()?, initial)))
+        Ok(Initialized::from((nts.try_into()?, initial)))
     }
 }
 

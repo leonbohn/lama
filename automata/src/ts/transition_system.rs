@@ -1,7 +1,7 @@
 use std::any::Any;
 
 use crate::{
-    automaton::WithInitial,
+    automaton::Initialized,
     congruence::ColoredClass,
     prelude::{Expression, Simple, Symbol},
     word::{FiniteWord, OmegaWord},
@@ -9,7 +9,9 @@ use crate::{
 };
 
 use super::{
-    connected_components::{tarjan_scc_recursive, SccDecomposition, TarjanDAG},
+    connected_components::{
+        tarjan_scc_iterative, tarjan_scc_recursive, SccDecomposition, TarjanDAG,
+    },
     index_ts::BTState,
     nts::{NTEdge, NTSEdgesFromIter},
     operations::{
@@ -222,6 +224,11 @@ pub trait TransitionSystem: Sized {
         self.state_indices().count()
     }
 
+    /// Returns `true` if and only if there exists at least one state.
+    fn is_empty(&self) -> bool {
+        self.size() == 0
+    }
+
     /// Returns true if and only if the given state `index` exists.
     fn contains_state_index(&self, index: Self::StateIndex) -> bool {
         self.state_indices().contains(&index)
@@ -253,10 +260,14 @@ pub trait TransitionSystem: Sized {
     /// Returns a [`WithInitial`] wrapper around `self`, which designates the given `initial` state.
     /// Note that this function does not (yet) ensure that the index actually exists!
     // FIXME: Ensure that the index actually exists.
-    fn with_initial(self, initial: Self::StateIndex) -> WithInitial<Self>
+    fn with_initial(self, initial: Self::StateIndex) -> Initialized<Self>
     where
         Self: Sized,
     {
+        assert!(
+            self.contains_state_index(initial),
+            "Cannot set initial state that does not exist"
+        );
         (self, initial).into()
     }
 
@@ -351,12 +362,30 @@ pub trait TransitionSystem: Sized {
     where
         Self: Sized,
     {
+        tarjan_scc_iterative(self)
+    }
+
+    /// Obtains the [`SccDecomposition`] of self, which is a partition of the states into strongly
+    /// connected components. Uses Tarjan's algorithm.
+    fn sccs_recursive(&self) -> SccDecomposition<'_, Self>
+    where
+        Self: Sized,
+    {
         tarjan_scc_recursive(self)
     }
 
     /// Obtains the [`TarjanDAG`] of self, which is a directed acyclic graph that represents the
     /// strongly connected components of the transition system and the edges between them.
     fn tarjan_dag(&self) -> TarjanDAG<'_, Self>
+    where
+        Self: Sized,
+    {
+        TarjanDAG::from(tarjan_scc_iterative(self))
+    }
+
+    /// Obtains the [`TarjanDAG`] of self, which is a directed acyclic graph that represents the
+    /// strongly connected components of the transition system and the edges between them.
+    fn tarjan_dag_recursive(&self) -> TarjanDAG<'_, Self>
     where
         Self: Sized,
     {
@@ -426,14 +455,17 @@ pub trait TransitionSystem: Sized {
     }
 
     /// Returns an iterator over the indices of the states that are reachable from the given `state`.
-    fn reachable_state_indices_from<I: Into<Self::StateIndex>>(
+    fn reachable_state_indices_from<I: Indexes<Self>>(
         &self,
         state: I,
     ) -> ReachableStateIndices<&Self>
     where
         Self: Sized,
     {
-        ReachableStateIndices::new(self, state.into())
+        let origin = state
+            .to_index(self)
+            .expect("Can only run this from a state that exists");
+        ReachableStateIndices::new(self, origin)
     }
 
     /// Returns an iterator over the states that are reachable from the given `state`.
@@ -680,7 +712,7 @@ impl<'a, D: TransitionSystem + 'a> Iterator for TransitionsFrom<'a, D> {
                 self.target.unwrap(),
             ));
         } else {
-            while let Some(t) = self.edges.next() {
+            for t in self.edges.by_ref() {
                 let mut it = t.expression().symbols();
                 if let Some(sym) = it.next() {
                     let target = t.target();
@@ -777,7 +809,7 @@ macro_rules! impl_ts_by_passthrough_on_wrapper {
     };
 }
 
-impl_ts_by_passthrough_on_wrapper!(WithInitial<TransitionSystem>);
+impl_ts_by_passthrough_on_wrapper!(Initialized<TransitionSystem>);
 
 impl<Ts: TransitionSystem> TransitionSystem for &Ts {
     type StateIndex = Ts::StateIndex;

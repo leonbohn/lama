@@ -149,6 +149,7 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
 
 impl<A: Alphabet, Q: Color, C: Color> Pointed for RightCongruence<A, Q, C> {
     fn initial(&self) -> Self::StateIndex {
+        assert!(!self.is_empty());
         0
     }
 }

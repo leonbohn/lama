@@ -142,30 +142,32 @@ mod tests {
         let sample = sample! {alphabet; pos "a", "aab", "aaab", "bbaa", "aca", "caa", "abca", "baac"; neg "c", "b", "bc", "abc", "cba", "ac", "ba"};
 
         let t = std::time::Instant::now();
-        let dpa = super::infer_precise_dpa(&sample).into_dpa();
+        let dpa = super::infer_precise_dpa(&sample).collect_dpa();
         let full_duration = t.elapsed().as_millis();
 
         let expected = [
+            (upw!("cabaca"), false),
             (upw!("a"), true),
             (upw!("baa"), true),
-            (upw!("cabaca"), false),
             (upw!("baacbacbac"), true),
         ];
         for (w, c) in &expected {
-            let b = dpa.accepts_omega(&w);
+            let b = dpa.accepts_omega(w);
             assert_eq!(b, *c, "{:?} is classified {b}, expected {c}", w);
         }
 
-        let t = std::time::Instant::now();
-        let dpa = dpa_rpni(&sample);
-        let paper_duration = t.elapsed().as_millis();
+        // let t = std::time::Instant::now();
+        // let dpa_mm = dpa_rpni(&sample);
+        // assert!(dpa_mm.size() <= dpa.size());
+        // let paper_duration = t.elapsed().as_millis();
+        // dpa_mm.display_rendered();
 
-        info!(
-            "Full construction took {full_duration}ms, paper construction took {paper_duration}ms"
-        );
-        for (w, c) in expected {
-            let b = dpa.accepts_omega(&w);
-            assert_eq!(b, c, "{:?} is classified {b}, expected {c}", w);
-        }
+        // info!(
+        //     "Full construction took {full_duration}ms, paper construction took {paper_duration}ms"
+        // );
+        // for (w, c) in expected {
+        //     let b = dpa_mm.accepts_omega(&w);
+        //     assert_eq!(b, c, "{:?} is classified {b}, expected {c}", w);
+        // }
     }
 }

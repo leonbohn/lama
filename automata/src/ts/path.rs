@@ -1,4 +1,6 @@
-use crate::{alphabet::Alphabet, Color, Set};
+use itertools::Itertools;
+
+use crate::{alphabet::Alphabet, Color, Set, Show};
 
 use super::{
     transition_system::{Indexes, IsEdge},
@@ -12,7 +14,7 @@ use super::{
 ///
 /// A path consists of an `origin`, which is simply the index of the state where the path starts. It stores
 /// a sequence of transitions and the colors of the states it visits.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Clone, PartialEq, Hash)]
 pub struct Path<A: Alphabet, Idx, Q, C> {
     end: Idx,
     state_colors: Vec<Q>,
@@ -73,7 +75,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Path<A, Idx, Q, C> {
 
     /// Returns the color of the last transition if `self` is viewed as a path in the given `ts`, if it exists.
     /// If the path is empty or not contiguous in `ts`, `None` is returned.
-    pub fn last_transition_color<'a>(&self) -> Option<&C> {
+    pub fn last_transition_color(&self) -> Option<&C> {
         self.transitions.last().map(|t| &t.2)
     }
 
@@ -135,6 +137,8 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Path<A, Idx, Q, C> {
         self.transitions
             .push((self.end, symbol, transition.color().clone()));
         self.end = transition.target();
+        self.state_colors
+            .push(ts.state_color(self.end).expect("The state must be colored"));
         Some(transition)
     }
 
@@ -142,7 +146,8 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Path<A, Idx, Q, C> {
     pub fn extend_with(&mut self, other: Path<A, Idx, Q, C>) {
         assert_eq!(self.reached(), other.origin(), "Start and end must match!");
         self.transitions.extend(other.transitions);
-        self.state_colors.extend(other.state_colors);
+        self.state_colors
+            .extend(other.state_colors.into_iter().skip(1));
 
         assert_eq!(self.state_colors.len() - 1, self.transitions.len());
         self.end = other.end;
@@ -192,8 +197,21 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Path<A, Idx, Q, C> {
     }
 }
 
+impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Show for Path<A, Idx, Q, C> {
+    fn show(&self) -> String {
+        format!(
+            "{}{}",
+            self.transitions
+                .iter()
+                .map(|(p, a, c)| format!("{} -{}|{}-> ", p.show(), a.show(), c.show()))
+                .join(""),
+            self.end.show()
+        )
+    }
+}
+
 /// A lasso represents an infinite path, which after it ends loops back to some previous position.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Lasso<A: Alphabet, Idx, Q, C> {
     base: Path<A, Idx, Q, C>,
     cycle: Path<A, Idx, Q, C>,
@@ -234,5 +252,11 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Lasso<A, Idx, Q, C> {
 
     pub fn into_recurrent_edge_colors(self) -> impl Iterator<Item = C> {
         self.cycle.into_edge_colors()
+    }
+}
+
+impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Show for Lasso<A, Idx, Q, C> {
+    fn show(&self) -> String {
+        format!("{}({})", self.base.show(), self.cycle.show())
     }
 }

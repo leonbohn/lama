@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::{alphabet::Alphabet, prelude::WithInitial, ts::Deterministic, Color, Map, Set, Show};
+use crate::{alphabet::Alphabet, prelude::Initialized, ts::Deterministic, Color, Map, Set, Show};
 
 use super::{
     EdgeColor, ExpressionOf, HasColor, HasColorMut, HasMutableStates, HasStates, IndexType,
@@ -112,7 +112,7 @@ pub type IntoBTS<Ts> = BTS<
     <Ts as TransitionSystem>::EdgeColor,
 >;
 
-pub type IntoInitialBTS<Ts> = WithInitial<
+pub type IntoInitialBTS<Ts> = Initialized<
     BTS<
         <Ts as TransitionSystem>::Alphabet,
         <Ts as TransitionSystem>::StateColor,

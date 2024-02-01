@@ -4,6 +4,8 @@ use crate::{prelude::Expression, ts::StateColor, Alphabet, Set, TransitionSystem
 
 use super::{transition_system::IsEdge, Deterministic, SymbolOf};
 
+pub type MinimalRepresentative<Ts> = (Vec<SymbolOf<Ts>>, <Ts as TransitionSystem>::StateIndex);
+
 /// Struct that can return the minimal representatives of a transition system. A minimal representative
 /// for a state `q` of some transition system is the length-lexicographically minimal string with which
 /// `q` can be reached from a given state.
@@ -12,7 +14,7 @@ pub struct MinimalRepresentatives<Ts: TransitionSystem> {
     ts: Ts,
     origin: Ts::StateIndex,
     seen: Set<Ts::StateIndex>,
-    queue: VecDeque<(Vec<SymbolOf<Ts>>, Ts::StateIndex)>,
+    queue: VecDeque<MinimalRepresentative<Ts>>,
 }
 
 #[allow(missing_docs)]
@@ -36,7 +38,7 @@ impl<Ts> Iterator for MinimalRepresentatives<Ts>
 where
     Ts: TransitionSystem,
 {
-    type Item = (Vec<SymbolOf<Ts>>, Ts::StateIndex);
+    type Item = MinimalRepresentative<Ts>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some((access, q)) = self.queue.pop_front() {
