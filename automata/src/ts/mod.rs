@@ -32,7 +32,7 @@ mod nts;
 pub use nts::{NTSBuilder, NTS};
 
 mod dts;
-pub use dts::DTS;
+pub use dts::{CollectDTS, DTS};
 
 mod induces;
 pub use induces::{finite, infinite, CanInduce, Induced};

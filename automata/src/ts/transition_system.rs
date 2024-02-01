@@ -1,7 +1,7 @@
 use std::any::Any;
 
 use crate::{
-    automaton::WithInitial,
+    automaton::Initialized,
     congruence::ColoredClass,
     prelude::{Expression, Simple, Symbol},
     word::{FiniteWord, OmegaWord},
@@ -224,6 +224,11 @@ pub trait TransitionSystem: Sized {
         self.state_indices().count()
     }
 
+    /// Returns `true` if and only if there exists at least one state.
+    fn is_empty(&self) -> bool {
+        self.size() == 0
+    }
+
     /// Returns true if and only if the given state `index` exists.
     fn contains_state_index(&self, index: Self::StateIndex) -> bool {
         self.state_indices().contains(&index)
@@ -255,10 +260,14 @@ pub trait TransitionSystem: Sized {
     /// Returns a [`WithInitial`] wrapper around `self`, which designates the given `initial` state.
     /// Note that this function does not (yet) ensure that the index actually exists!
     // FIXME: Ensure that the index actually exists.
-    fn with_initial(self, initial: Self::StateIndex) -> WithInitial<Self>
+    fn with_initial(self, initial: Self::StateIndex) -> Initialized<Self>
     where
         Self: Sized,
     {
+        assert!(
+            self.contains_state_index(initial),
+            "Cannot set initial state that does not exist"
+        );
         (self, initial).into()
     }
 
@@ -703,7 +712,7 @@ impl<'a, D: TransitionSystem + 'a> Iterator for TransitionsFrom<'a, D> {
                 self.target.unwrap(),
             ));
         } else {
-            while let Some(t) = self.edges.next() {
+            for t in self.edges.by_ref() {
                 let mut it = t.expression().symbols();
                 if let Some(sym) = it.next() {
                     let target = t.target();
@@ -800,7 +809,7 @@ macro_rules! impl_ts_by_passthrough_on_wrapper {
     };
 }
 
-impl_ts_by_passthrough_on_wrapper!(WithInitial<TransitionSystem>);
+impl_ts_by_passthrough_on_wrapper!(Initialized<TransitionSystem>);
 
 impl<Ts: TransitionSystem> TransitionSystem for &Ts {
     type StateIndex = Ts::StateIndex;

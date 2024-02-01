@@ -41,13 +41,13 @@ impl<Ts: TransitionSystem> Quotient<Ts> {
     }
 
     pub fn unwrap_class_representative(&self, id: usize) -> Ts::StateIndex {
-        self.partition
+        *self
+            .partition
             .get(id)
             .expect("Class must exist")
             .iter()
             .next()
             .expect("Class must not be empty")
-            .clone()
     }
 
     /// Returns an iterator over the indices in the quotient class with the given `id`.
@@ -91,7 +91,7 @@ impl<Ts: TransitionSystem> Quotient<Ts> {
     {
         self.erase_edge_colors()
             .erase_state_colors()
-            .collect_right_congruence()
+            .collect_right_congruence_bare()
     }
 
     /// Creates a new quotient of the given transition system by the give [`Partition`].
@@ -125,7 +125,7 @@ impl<'a, Idx: Copy, E, C: Clone> IsEdge<'a, E, Idx, Vec<C>> for QuotientTransiti
     }
 
     fn expression(&self) -> &'a E {
-        &self.expression
+        self.expression
     }
 
     fn source(&self) -> Idx {
@@ -241,7 +241,6 @@ impl<D: Deterministic> Deterministic for Quotient<D> {
         match states.len() {
             0 => None,
             1 => {
-
                 let expression = self.expressions.get(&symbol).unwrap();
                 Some(QuotientTransition {
                     source: origin,
@@ -250,7 +249,13 @@ impl<D: Deterministic> Deterministic for Quotient<D> {
                     target: states.into_iter().next().unwrap(),
                 })
             }
-            _ => panic!("From {origin}|{} on symbol {}, we reach {} while precisely one state should be reached!", self.class_iter_by_id(origin).unwrap().map(|c| c.to_string()).join(", "), symbol.show(), format!("{{{}}}", states.iter().map(|idx| idx.to_string()).join(", ")))
+            _ => {
+                let string = format!(
+                    "{{{}}}",
+                    states.iter().map(|idx| idx.to_string()).join(", ")
+                );
+                panic!("From {origin}|{} on symbol {}, we reach {} while precisely one state should be reached!", self.class_iter_by_id(origin).unwrap().map(|c| c.to_string()).join(", "), symbol.show(), string)
+            }
         }
     }
 }

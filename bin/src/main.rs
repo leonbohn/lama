@@ -1,8 +1,4 @@
-use automata::{
-    congruence::FORC,
-    ts::{dot::display_dot, Dottable},
-    Map, TransitionSystem,
-};
+use automata::{congruence::FORC, ts::dot::display_dot, Map, TransitionSystem};
 use automata_learning::passive::{
     sprout::{iteration_consistency_conflicts, prefix_consistency_conflicts, sprout},
     OmegaSample,
@@ -136,7 +132,7 @@ fn main() {
                             todo!()
                         }
 
-                        let cong = sprout(conflicts, vec![], true);
+                        let _cong = sprout(conflicts, vec![], true);
 
                         if passive_matches.get_flag("nooutput") {
                             "".to_string()
@@ -164,7 +160,8 @@ fn main() {
                         {
                             debug!("Outputting conflict relations to {}", conflicts_target);
                             for (class, conflicts) in &conflict_relations {
-                                let file_name =
+                                println!("{:?}", conflicts);
+                                let _file_name =
                                     format!("{}-{}.dot", conflicts_target, class.mr_to_string());
                                 // conflicts
                                 //     .render_to_file_name(&file_name)
@@ -188,7 +185,7 @@ fn main() {
                                 )
                             })
                             .collect();
-                        let forc = FORC::from_iter(cong, progress);
+                        let _forc = FORC::from_iter(cong, progress);
 
                         if passive_matches.get_flag("nooutput") {
                             "".to_string()

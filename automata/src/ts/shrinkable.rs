@@ -1,4 +1,4 @@
-use crate::{automaton::WithInitial, Alphabet, Color, Set, TransitionSystem};
+use crate::{automaton::Initialized, Alphabet, Color, Set, TransitionSystem};
 
 use super::{transition_system::Indexes, ExpressionOf, IndexType, SymbolOf, BTS, DTS, NTS};
 
@@ -9,6 +9,7 @@ pub trait Shrinkable: TransitionSystem {
         source: Idx,
         expression: &ExpressionOf<Self>,
     ) -> Option<(Self::EdgeColor, Self::StateIndex)>;
+    #[allow(clippy::type_complexity)]
     fn remove_transitions<Idx: Indexes<Self>>(
         &mut self,
         source: Idx,
@@ -82,7 +83,7 @@ impl<A: Alphabet, Q: Color, C: Color> Shrinkable for DTS<A, Q, C> {
     }
 }
 
-impl<Ts: Shrinkable> Shrinkable for WithInitial<Ts> {
+impl<Ts: Shrinkable> Shrinkable for Initialized<Ts> {
     fn remove_state<Idx: Indexes<Self>>(&mut self, state: Idx) -> Option<Self::StateColor> {
         let q = state.to_index(self)?;
         self.ts_mut().remove_state(q)

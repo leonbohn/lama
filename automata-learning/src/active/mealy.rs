@@ -32,7 +32,6 @@ impl<A: Alphabet, C: Color> LStarHypothesis for MooreMachine<A, C> {
         experiments: &super::Experiments<Self>,
         row: &[Self::Color],
     ) -> Self::EdgeColor {
-        ()
     }
 
     fn mandatory_experiments(
@@ -57,7 +56,6 @@ impl<C: Color> LStarHypothesis for MealyMachine<Simple, C> {
         experiments: &super::Experiments<Self>,
         row: &[Self::Color],
     ) -> Self::StateColor {
-        ()
     }
 
     fn give_transition_color(
@@ -106,7 +104,7 @@ impl LStarHypothesis for DFA {
             panic!("empty experiment  must exist");
         };
         assert!(idx < row.len(), "not enough experiments");
-        row[idx].clone()
+        row[idx]
     }
 
     fn give_transition_color(

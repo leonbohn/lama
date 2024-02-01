@@ -19,7 +19,7 @@ use crate::prelude::*;
 /// is, however, prefered to use a [`MealyMachine`] for this purpose, as for infinite inputs
 /// switching to transition-based acceptance is preferable.
 #[derive(Clone)]
-pub struct MooreMachine<A, Q = usize, C: Color = NoColor, Ts = WithInitial<DTS<A, Q, C>>> {
+pub struct MooreMachine<A, Q = usize, C: Color = NoColor, Ts = Initialized<DTS<A, Q, C>>> {
     ts: Ts,
     _q: std::marker::PhantomData<(A, Q, C)>,
 }
@@ -45,9 +45,9 @@ impl<A: Alphabet, Q: Color, C: Color> MooreMachine<A, Q, C> {
     pub fn new(
         alphabet: A,
         initial_state_output: Q,
-    ) -> IntoMooreMachine<WithInitial<DTS<A, Q, C>>> {
+    ) -> IntoMooreMachine<Initialized<DTS<A, Q, C>>> {
         Self {
-            ts: WithInitial::with_initial_color(alphabet, initial_state_output),
+            ts: Initialized::with_initial_color(alphabet, initial_state_output),
             _q: std::marker::PhantomData,
         }
     }
@@ -225,7 +225,7 @@ macro_rules! impl_moore_automaton {
         pub struct $name<
             A = Simple,
             C = NoColor,
-            Ts = WithInitial<DTS<A, $color, C>>,
+            Ts = Initialized<DTS<A, $color, C>>,
         > {
             ts: Ts,
             _alphabet: std::marker::PhantomData<(A, $color, C)>,
@@ -237,12 +237,12 @@ macro_rules! impl_moore_automaton {
         }
 
         impl<A: Alphabet, C: Color>
-            $name<A, C, WithInitial<DTS<A, $color, C>>>
+            $name<A, C, Initialized<DTS<A, $color, C>>>
         {
             /// Creates a new automaton.
-            pub fn new(alphabet: A) -> $name<A, C, WithInitial<DTS<A, $color, C>>> {
+            pub fn new(alphabet: A) -> $name<A, C, Initialized<DTS<A, $color, C>>> {
                 $name {
-                    ts: WithInitial::new(alphabet),
+                    ts: Initialized::new(alphabet),
                     _alphabet: std::marker::PhantomData,
                 }
             }

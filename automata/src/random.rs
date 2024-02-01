@@ -2,7 +2,7 @@ use tracing::{debug, info, trace};
 
 use crate::{prelude::*, Map};
 
-pub fn generate_random_ts(symbols: usize, probability: f64) -> WithInitial<DTS> {
+pub fn generate_random_ts(symbols: usize, probability: f64) -> Initialized<DTS> {
     let alphabet = Simple::alphabetic(symbols);
     let mut dts = DTS::new_for_alphabet(alphabet.clone());
 

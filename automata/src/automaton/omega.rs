@@ -7,7 +7,7 @@ use crate::{congruence::FORC, hoa::HoaAlphabet, prelude::*, Set};
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 
-use super::WithInitial;
+use super::Initialized;
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct AcceptanceMask(BitSet);
@@ -87,18 +87,18 @@ impl OmegaAcceptanceCondition {
 }
 
 pub struct OmegaAutomaton<A: Alphabet> {
-    pub(super) ts: WithInitial<NTS<A, usize, AcceptanceMask>>,
+    pub(super) ts: Initialized<NTS<A, usize, AcceptanceMask>>,
     pub(super) acc: OmegaAcceptanceCondition,
 }
 
 pub struct DeterministicOmegaAutomaton<A: Alphabet> {
-    pub(super) ts: WithInitial<DTS<A, usize, AcceptanceMask>>,
+    pub(super) ts: Initialized<DTS<A, usize, AcceptanceMask>>,
     pub(super) acc: OmegaAcceptanceCondition,
 }
 
 impl<A: Alphabet> OmegaAutomaton<A> {
     pub fn new(
-        ts: WithInitial<NTS<A, usize, AcceptanceMask>>,
+        ts: Initialized<NTS<A, usize, AcceptanceMask>>,
         acc: OmegaAcceptanceCondition,
     ) -> Self {
         Self { ts, acc }
@@ -119,7 +119,7 @@ impl<A: Alphabet> OmegaAutomaton<A> {
 
 impl<A: Alphabet> DeterministicOmegaAutomaton<A> {
     pub fn new(
-        ts: WithInitial<DTS<A, usize, AcceptanceMask>>,
+        ts: Initialized<DTS<A, usize, AcceptanceMask>>,
         acc: OmegaAcceptanceCondition,
     ) -> Self {
         Self { ts, acc }
@@ -286,7 +286,5 @@ impl<A: Alphabet> OmegaWordAcceptor<A::Symbol> for DeterministicOmegaAutomaton<A
 #[cfg(test)]
 mod tests {
     #[test]
-    fn omega_acceptance_conditions() {
-        assert!(true)
-    }
+    fn omega_acceptance_conditions() {}
 }

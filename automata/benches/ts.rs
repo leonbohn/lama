@@ -11,7 +11,7 @@ static ref DATA: (
     Automata,
     Words,
     Loops,
-    Vec<WithInitial<NTS<Simple, (), ()>>>
+    Vec<Initialized<NTS<Simple, (), ()>>>
     ) = data();
 }
 const BENCH_SIZE: usize = 3;
@@ -22,7 +22,7 @@ fn data() -> (
     Vec<MooreMachine<Simple, usize>>,
     Vec<Vec<char>>,
     Vec<Reduced<char>>,
-    Vec<WithInitial<NTS<Simple, (), ()>>>,
+    Vec<Initialized<NTS<Simple, (), ()>>>,
 ) {
     let random_automata = random_automata(&RANDOM);
     let words = vec![
@@ -68,9 +68,9 @@ fn random_automata(rand: &[usize]) -> Vec<MooreMachine<Simple, usize>> {
 fn random_dts(
     n: usize,
 ) -> (
-    WithInitial<BTS<Simple, (), ()>>,
-    WithInitial<NTS<Simple, (), ()>>,
-    WithInitial<DTS<Simple, (), ()>>,
+    Initialized<BTS<Simple, (), ()>>,
+    Initialized<NTS<Simple, (), ()>>,
+    Initialized<DTS<Simple, (), ()>>,
 ) {
     let mut ts = BTS::new(Simple::from_iter(['a', 'b']));
     for _ in 0..n {
@@ -93,7 +93,7 @@ fn random_dts(
     (bts, nts.with_initial(0), dts.with_initial(0))
 }
 
-fn random_nts(n: usize) -> Vec<WithInitial<NTS<Simple, (), ()>>> {
+fn random_nts(n: usize) -> Vec<Initialized<NTS<Simple, (), ()>>> {
     let it = (0..50).flat_map(|i| {
         [
             (i, 'a', (), (i + 17) * n % 50),
@@ -122,19 +122,19 @@ fn predecessor_computation(aut: &[MooreMachine<Simple, usize>]) {
     }
 }
 
-fn bts_predecessors(bts: WithInitial<BTS<Simple, (), ()>>) {
+fn bts_predecessors(bts: Initialized<BTS<Simple, (), ()>>) {
     for x in bts.state_indices() {
         let _ = bts.predecessors(x).unwrap().count();
     }
 }
 
-fn nts_predecessors(bts: WithInitial<NTS<Simple, (), ()>>) {
+fn nts_predecessors(bts: Initialized<NTS<Simple, (), ()>>) {
     for x in bts.state_indices() {
         let _ = bts.predecessors(x).unwrap().count();
     }
 }
 
-fn powerset(aut: &[WithInitial<NTS<Simple, (), ()>>]) {
+fn powerset(aut: &[Initialized<NTS<Simple, (), ()>>]) {
     for a in aut {
         let det = a.subset_construction();
         let _ = det.size();
@@ -142,15 +142,15 @@ fn powerset(aut: &[WithInitial<NTS<Simple, (), ()>>]) {
     }
 }
 
-fn bts_reachable(dts: WithInitial<BTS<Simple, (), ()>>) {
+fn bts_reachable(dts: Initialized<BTS<Simple, (), ()>>) {
     let x = dts.reachable_state_indices().count();
     let _ = x % 3;
 }
-fn nts_reachable(nts: WithInitial<NTS<Simple, (), ()>>) {
+fn nts_reachable(nts: Initialized<NTS<Simple, (), ()>>) {
     let y = nts.reachable_state_indices().count();
     let _ = y % 2;
 }
-fn dts_reachable(nts: WithInitial<DTS<Simple, (), ()>>) {
+fn dts_reachable(nts: Initialized<DTS<Simple, (), ()>>) {
     let y = nts.reachable_state_indices().count();
     let _ = y % 2;
 }

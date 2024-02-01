@@ -8,7 +8,7 @@ use crate::{
     ts::{
         connected_components::Scc,
         operations::{MapEdgeColor, MapStateColor},
-        IntoInitialBTS, Quotient, Shrinkable,
+        CollectDTS, IntoInitialBTS, Quotient, Shrinkable,
     },
     Parity, Partition, Set,
 };
@@ -29,9 +29,7 @@ pub trait DPALike: Deterministic<EdgeColor = usize> + Pointed {
         DPA::from(self)
     }
 
-    fn collect_dpa(
-        self,
-    ) -> IntoDPA<WithInitial<DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>> {
+    fn collect_dpa(self) -> IntoDPA<Initialized<CollectDTS<Self>>> {
         DPA::from(self.trim_collect())
     }
 }
@@ -42,7 +40,8 @@ impl<Ts: DPALike<EdgeColor = usize>> OmegaWordAcceptor<SymbolOf<Ts>>
     for DPA<Ts::Alphabet, Ts::StateColor, Ts>
 {
     fn accepts_omega<W: OmegaWord<SymbolOf<Ts>>>(&self, word: W) -> bool {
-        self.recurrent_edge_colors(word)
+        self.ts()
+            .recurrent_edge_colors(word)
             .map(|set| set.into_iter().min().unwrap_or(1) % 2 == 0)
             .unwrap_or(false)
     }
@@ -146,9 +145,9 @@ impl<D: DPALike> IntoDPA<D> {
                     .as_ref()
                     .expect("We know this is reachable");
                 let cycle = scc
-                    .maximal_loop_from(*q)
+                    .maximal_loop_from(*rep)
                     .expect("This thing is non-transient");
-                return Some(Reduced::ultimately_periodic(rep, cycle));
+                return Some(Reduced::ultimately_periodic(q, cycle));
             }
         }
         None
@@ -179,9 +178,9 @@ impl<D: DPALike> IntoDPA<D> {
                     continue;
                 };
                 let cycle = scc
-                    .maximal_loop_from(*mr)
+                    .maximal_loop_from(*spoke)
                     .expect("This thing is non-transient");
-                return Some(Reduced::ultimately_periodic(spoke, cycle));
+                return Some(Reduced::ultimately_periodic(mr, cycle));
             }
         }
         None
@@ -220,7 +219,7 @@ impl<D: DPALike> IntoDPA<D> {
     ) -> Option<Reduced<SymbolOf<D>>> {
         for i in self.colors().filter(|x| x.is_even()) {
             for j in other.colors().filter(|x| x.is_odd()) {
-                if let Some(cex) = self.as_ref().witness_colors(i, &other, j) {
+                if let Some(cex) = self.as_ref().witness_colors(i, other, j) {
                     trace!(
                         "found counterexample {:?}, witnessing colors {i} and {j}",
                         cex
@@ -237,7 +236,7 @@ impl<D: DPALike> IntoDPA<D> {
     pub fn normalized(&self) -> DPA<D::Alphabet, D::StateColor> {
         let start = std::time::Instant::now();
 
-        let mut ts: WithInitial<BTS<_, _, _, _>> = self.collect_pointed();
+        let mut ts: Initialized<BTS<_, _, _, _>> = self.collect_pointed();
         let out = ts.clone();
 
         let mut recoloring = Vec::new();
@@ -468,6 +467,23 @@ mod tests {
             }
         }
     }
+
+    #[test_log::test]
+    fn dpa_run() {
+        let dpa = NTS::builder()
+            .with_transitions([
+                (0, 'a', 1, 1),
+                (0, 'b', 1, 0),
+                (0, 'c', 1, 0),
+                (1, 'a', 0, 0),
+                (1, 'b', 1, 0),
+                (1, 'c', 1, 0),
+            ])
+            .default_color(())
+            .into_dpa(0);
+        assert!(!dpa.accepts_omega(upw!("cabaca")))
+    }
+
     #[test]
     fn dpa_inclusion() {
         let univ = NTS::builder()
@@ -499,7 +515,7 @@ mod tests {
         let a = (&dpa).with_initial(1).into_dpa();
         assert!(!dpa.language_equivalent(&a));
 
-        let cong = dpa.prefix_congruence().collect_right_congruence();
+        let cong = dpa.prefix_congruence().collect_right_congruence_bare();
         assert_eq!(cong.size(), 2);
         assert_eq!(cong.initial(), cong.reached("aa").unwrap());
         assert!(cong.congruent("", "aa"));

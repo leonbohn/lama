@@ -1,6 +1,7 @@
 #[cfg(test)]
 use pretty_assertions::{assert_eq, assert_ne};
 use std::marker::PhantomData;
+use tracing::trace;
 
 use itertools::Itertools;
 
@@ -318,25 +319,35 @@ pub trait Deterministic: TransitionSystem {
         Idx: Indexes<Self>,
         W: OmegaWord<SymbolOf<Self>>,
     {
+        println!("SIZE {}", self.size());
+        println!("STATES: {:?}", self.state_indices_vec());
+        trace!("computing omega run on {}", word.normalized().show());
         assert!(!word.cycle().is_empty(), "word must be infinite");
         let origin = origin
             .to_index(self)
             .expect("run must start in state that exists");
         let mut path = self.finite_run_from(word.spoke(), origin)?;
+        trace!("on finite prefix we get the path {}", path.show());
         let mut position = path.len();
         let mut seen = Map::default();
 
         loop {
             match seen.insert(path.reached(), position) {
                 Some(p) => {
+                    trace!("reached loop back point {p}");
                     return Ok(path.loop_back_to(p));
                 }
                 None => match self.finite_run_from(word.cycle(), path.reached()) {
                     Ok(p) => {
+                        trace!(
+                            "computed another successful run segment {} on cycle",
+                            p.show()
+                        );
                         position += p.len();
                         path.extend_with(p);
                     }
                     Err(p) => {
+                        trace!("got failed run segment {} on cycle", p.show());
                         path.extend_with(p);
                         return Err(path);
                     }
@@ -423,11 +434,20 @@ pub trait Deterministic: TransitionSystem {
         self.finite_run_from(word, origin).ok().map(|p| p.reached())
     }
 
-    fn collect_right_congruence(&self) -> RightCongruence<Self::Alphabet>
+    fn collect_right_congruence_bare(&self) -> RightCongruence<Self::Alphabet>
     where
         Self: Pointed,
     {
         RightCongruence::from_ts(self.erase_state_colors().erase_edge_colors())
+    }
+
+    fn collect_right_congruence(
+        &self,
+    ) -> RightCongruence<Self::Alphabet, Self::StateColor, Self::EdgeColor>
+    where
+        Self: Pointed,
+    {
+        RightCongruence::from_ts(self)
     }
 
     /// Collects `self` into a new [`BTS`] with the same alphabet, state colors and edge colors.
@@ -463,13 +483,13 @@ pub trait Deterministic: TransitionSystem {
         &self,
         sink_color: Self::StateColor,
         edge_color: Self::EdgeColor,
-    ) -> WithInitial<DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>
+    ) -> Initialized<DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>
     where
         Self: Pointed,
         Self::Alphabet: IndexedAlphabet,
         Self::StateColor: Default,
     {
-        let mut out: WithInitial<DTS<_, _, _>> = self.collect_with_initial();
+        let mut out: Initialized<DTS<_, _, _>> = self.collect_with_initial();
         out.complete_with_colors(sink_color, edge_color);
         out
     }
@@ -518,7 +538,7 @@ pub trait Deterministic: TransitionSystem {
     /// Collects into a transition system of type `Ts`, but only considers states that
     /// are reachable from the initial state. Naturally, this means that `self` must
     /// be a pointed transition system.
-    fn trim_collect(&self) -> WithInitial<DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>
+    fn trim_collect(&self) -> Initialized<DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>
     where
         Self: Pointed,
     {
@@ -546,7 +566,7 @@ pub trait Deterministic: TransitionSystem {
 
     fn collect_with_initial(
         self,
-    ) -> WithInitial<DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>
+    ) -> Initialized<DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>
     where
         Self: Pointed,
     {

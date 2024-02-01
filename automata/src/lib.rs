@@ -16,7 +16,6 @@
 //! - [`Deterministic`], a marker trait that disambiguates between nondeterministic and deterministic TS. As [`TransitionSystem`] only provides iterators over the outgoing edges, it can be used to deal with nondeterministic TS, that have multiple overlapping edges. By implementing `Deterministic`, we guarantee, that there is always a single unique outgoing transition for each state.
 //! - [`Sproutable`] enables growing a TS state by state and edge/transition by edge/transition. Naturally, this is only implemented for the basic building blocks, i.e. `BTS`, `DTS` and `NTS`.
 //!
-#![allow(missing_docs)]
 #![allow(unused)]
 #![allow(clippy::pedantic)]
 
@@ -27,10 +26,10 @@ pub mod prelude {
         alphabet,
         alphabet::{Expression, Simple, Symbol},
         automaton::{
-            DBALike, DFALike, DPALike, FiniteWordAcceptor, FiniteWordTransformer, IntoMealyMachine,
-            IntoMooreMachine, MealyLike, MealyMachine, MooreLike, MooreMachine, NoColor,
-            OmegaWordAcceptor, OmegaWordTransformer, StateBasedDBA, StateBasedDPA, WithInitial,
-            DBA, DFA, DPA,
+            DBALike, DFALike, DPALike, FiniteWordAcceptor, FiniteWordTransformer, Initialized,
+            IntoMealyMachine, IntoMooreMachine, MealyLike, MealyMachine, MooreLike, MooreMachine,
+            NoColor, OmegaWordAcceptor, OmegaWordTransformer, StateBasedDBA, StateBasedDPA, DBA,
+            DFA, DPA,
         },
         mapping::Morphism,
         ts::{
@@ -118,7 +117,10 @@ pub trait Show {
     where
         Self: 'a,
         I: IntoIterator<Item = &'a Self>,
-        I::IntoIter: DoubleEndedIterator;
+        I::IntoIter: DoubleEndedIterator,
+    {
+        unimplemented!("This operation makes no sense")
+    }
 }
 
 impl Show for Option<usize> {

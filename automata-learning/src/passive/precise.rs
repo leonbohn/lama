@@ -206,7 +206,7 @@ impl<'a, A: Alphabet, const N: usize> IsEdge<'a, A::Expression, PState<N>, usize
     }
 
     fn expression(&self) -> &'a A::Expression {
-        &self.expression
+        self.expression
     }
 }
 
@@ -521,58 +521,68 @@ mod tests {
     #[test]
     fn precise_dpa() {
         let alph = alphabet!(simple 'a', 'b', 'c');
-        let mut cong = RightCongruence::new(alph.clone());
-        let e = cong.initial();
-        let a = cong.add_state(vec!['a']);
-        cong.add_edge(e, 'a', a, ());
-        cong.add_edge(e, 'b', e, ());
-        cong.add_edge(e, 'c', e, ());
-        cong.add_edge(a, 'a', e, ());
-        cong.add_edge(a, 'b', a, ());
-        cong.add_edge(a, 'c', a, ());
 
-        let mut de0 = DFA::new(alph.clone());
-        let de0e = de0.initial();
-        let de0t = de0.add_state(true);
-        de0.add_edge(de0e, 'a', de0e, ());
-        de0.add_edge(de0e, 'b', de0t, ());
-        de0.add_edge(de0e, 'c', de0e, ());
-        de0.add_edge(de0t, 'a', de0t, ());
-        de0.add_edge(de0t, 'b', de0t, ());
-        de0.add_edge(de0t, 'c', de0t, ());
-        let mut da0 = DFA::new(alph.clone());
-        let da0e = da0.initial();
-        let da0t = da0.add_state(true);
-        da0.add_edge(da0e, 'a', da0e, ());
-        da0.add_edge(da0e, 'b', da0e, ());
-        da0.add_edge(da0e, 'c', da0t, ());
-        da0.add_edge(da0t, 'a', da0t, ());
-        da0.add_edge(da0t, 'b', da0t, ());
-        da0.add_edge(da0t, 'c', da0t, ());
+        let cong = NTS::builder()
+            .with_transitions([
+                (0, 'a', (), 1),
+                (0, 'b', (), 0),
+                (0, 'c', (), 0),
+                (1, 'a', (), 0),
+                (1, 'b', (), 1),
+                (1, 'c', (), 1),
+            ])
+            .default_color(())
+            .into_right_congruence_bare(0);
 
-        let mut de1 = DFA::new(alph.clone());
-        let de1e = de1.initial();
-        let de1c = de1.add_state(false);
-        let de1t = de1.add_state(true);
-        de1.add_edge(de1e, 'a', de1e, ());
-        de1.add_edge(de1e, 'b', de1t, ());
-        de1.add_edge(de1e, 'c', de1c, ());
-        de1.add_edge(de1c, 'a', de1e, ());
-        de1.add_edge(de1c, 'b', de1t, ());
-        de1.add_edge(de1c, 'c', de1t, ());
-        de1.add_edge(de1t, 'a', de1t, ());
-        de1.add_edge(de1t, 'b', de1t, ());
-        de1.add_edge(de1t, 'c', de1t, ());
+        let de0 = NTS::builder()
+            .with_transitions([
+                (0, 'a', (), 0),
+                (0, 'b', (), 1),
+                (0, 'c', (), 0),
+                (1, 'a', (), 1),
+                (1, 'b', (), 1),
+                (1, 'c', (), 1),
+            ])
+            .with_colors([false, true])
+            .into_dfa(0);
+        let da0 = NTS::builder()
+            .with_transitions([
+                (0, 'a', (), 0),
+                (0, 'b', (), 0),
+                (0, 'c', (), 1),
+                (1, 'a', (), 1),
+                (1, 'b', (), 1),
+                (1, 'c', (), 1),
+            ])
+            .with_colors([false, true])
+            .into_dfa(0);
 
-        let mut full = DFA::new(alph);
-        let full0 = full.initial();
-        let full1 = full.add_state(true);
-        full.add_edge(full0, 'a', full1, ());
-        full.add_edge(full0, 'b', full1, ());
-        full.add_edge(full0, 'c', full1, ());
-        full.add_edge(full1, 'a', full1, ());
-        full.add_edge(full1, 'b', full1, ());
-        full.add_edge(full1, 'c', full1, ());
+        let de1 = NTS::builder()
+            .with_transitions([
+                (0, 'a', (), 0),
+                (0, 'b', (), 2),
+                (0, 'c', (), 1),
+                (1, 'a', (), 0),
+                (1, 'b', (), 2),
+                (1, 'c', (), 2),
+                (2, 'a', (), 2),
+                (2, 'b', (), 2),
+                (2, 'c', (), 2),
+            ])
+            .with_colors([false, false, true])
+            .into_dfa(0);
+
+        let full = NTS::builder()
+            .with_transitions([
+                (0, 'a', (), 1),
+                (0, 'b', (), 1),
+                (0, 'c', (), 1),
+                (1, 'a', (), 1),
+                (1, 'b', (), 1),
+                (1, 'c', (), 1),
+            ])
+            .with_colors([false, true])
+            .into_dfa(0);
 
         let dfas_e = [de0, de1, full.clone()];
         let dfas_a = [da0, full.clone(), full];

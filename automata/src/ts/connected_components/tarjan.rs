@@ -1,4 +1,7 @@
-use std::collections::{hash_map::RandomState, BTreeSet, VecDeque};
+use std::collections::{
+    hash_map::{Entry, RandomState},
+    BTreeSet, VecDeque,
+};
 
 use fxhash::FxBuildHasher;
 use itertools::Itertools;
@@ -242,9 +245,9 @@ where
                 stack.push(q);
             }
 
-            if !indices.contains_key(&q) {
+            if let Entry::Vacant(e) = indices.entry(q) {
                 trace!("assigning index {current} to state {}", q.show());
-                indices.insert(q, current);
+                e.insert(current);
                 low.insert(q, current);
                 current += 1;
             }

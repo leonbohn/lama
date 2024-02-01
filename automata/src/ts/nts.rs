@@ -394,7 +394,7 @@ impl<A: Alphabet, Q: Color, C: Color> PredecessorIterable for NTS<A, Q, C> {
     }
 }
 
-pub struct NTSBuilder<Q, C> {
+pub struct NTSBuilder<Q = (), C = ()> {
     edges: Vec<(usize, char, C, usize)>,
     default: Option<Q>,
     colors: Vec<(usize, Q)>,
@@ -468,6 +468,18 @@ impl<Q: Color, C: Color> NTSBuilder<Q, C> {
         self
     }
 
+    pub fn into_right_congruence(self, initial: usize) -> RightCongruence<Simple, Q, C> {
+        self.deterministic()
+            .with_initial(initial)
+            .collect_right_congruence()
+    }
+
+    pub fn into_right_congruence_bare(self, initial: usize) -> RightCongruence<Simple> {
+        self.deterministic()
+            .with_initial(initial)
+            .collect_right_congruence_bare()
+    }
+
     pub fn collect(mut self) -> NTS<Simple, Q, C>
     where
         Q: Color,
@@ -489,9 +501,12 @@ impl<Q: Color, C: Color> NTSBuilder<Q, C> {
             {
                 color
             } else {
-                self.default
-                    .clone()
-                    .expect("Default is needed as some states have no color")
+                self.default.clone().unwrap_or_else(|| {
+                    panic!(
+                        "Default is needed as some states (specifically {}) have no color",
+                        x.show()
+                    )
+                })
             }
         });
         let created_states_number = ts.extend_states(colors_it).count();

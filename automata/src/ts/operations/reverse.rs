@@ -60,11 +60,7 @@ where
         &self,
         state: Idx,
     ) -> Option<Self::EdgesFromIter<'_>> {
-        Some(
-            self.0
-                .predecessors(state.to_index(self)?)?
-                .map(|e| Reversed(e)),
-        )
+        Some(self.0.predecessors(state.to_index(self)?)?.map(Reversed))
     }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
@@ -85,6 +81,6 @@ where
         Self: 'this;
 
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
-        Some(self.0.edges_from(state)?.map(|e| Reversed(e)))
+        Some(self.0.edges_from(state)?.map(Reversed))
     }
 }

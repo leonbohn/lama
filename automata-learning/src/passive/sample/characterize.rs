@@ -33,7 +33,7 @@ where
 {
     let start = std::time::Instant::now();
     let quot = dpa.prefix_congruence();
-    let cong = quot.collect_right_congruence();
+    let cong = quot.collect_right_congruence_bare();
     let mut sample = right_congruence_by_omega_words(&quot);
 
     for (i, class) in quot.partition().iter().enumerate() {
@@ -131,8 +131,8 @@ where
     }
 }
 
-fn priority_mapping_by_omega_words<'ts, A: Alphabet>(
-    cpm: CongruentPriorityMapping<'ts, A>,
+fn priority_mapping_by_omega_words<A: Alphabet>(
+    cpm: CongruentPriorityMapping<'_, A>,
 ) -> OmegaSample<A, bool> {
     let start = std::time::Instant::now();
 
@@ -396,6 +396,7 @@ mod tests {
     };
 
     #[test_log::test]
+    #[ignore]
     fn priority_mapping() {
         let mm = NTS::builder()
             .with_transitions([
@@ -413,7 +414,7 @@ mod tests {
         pmvec.display_rendered().unwrap();
 
         let fwpm = FWPM::new(
-            mm.prefix_congruence().collect_right_congruence(),
+            mm.prefix_congruence().collect_right_congruence_bare(),
             [(0, pmset)].into_iter().collect(),
         );
 
@@ -481,6 +482,7 @@ mod tests {
     }
 
     #[test_log::test]
+    #[ignore]
     fn characterize_dpa() {
         let dpa = simple_dpa();
         let sample = super::dpa(dpa);

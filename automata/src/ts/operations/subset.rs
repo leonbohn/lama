@@ -196,7 +196,7 @@ impl<Ts: TransitionSystem> SubsetConstruction<Ts> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        prelude::WithInitial,
+        prelude::Initialized,
         ts::{Deterministic, BTS, NTS},
         TransitionSystem,
     };

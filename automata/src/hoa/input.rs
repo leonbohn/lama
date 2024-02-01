@@ -5,7 +5,7 @@ use hoars::{HoaAutomaton, MAX_APS};
 use crate::{
     automaton::{AcceptanceMask, OmegaAcceptanceCondition, OmegaAutomaton},
     hoa::HoaExpression,
-    prelude::WithInitial,
+    prelude::Initialized,
     ts::{Sproutable, NTS},
     TransitionSystem,
 };
@@ -45,7 +45,7 @@ impl TryFrom<HoaAutomaton> for OmegaAutomaton<HoaAlphabet> {
 
 pub fn hoa_automaton_to_nts(
     aut: HoaAutomaton,
-) -> WithInitial<NTS<HoaAlphabet, usize, AcceptanceMask>> {
+) -> Initialized<NTS<HoaAlphabet, usize, AcceptanceMask>> {
     let aps = aut.num_aps();
     assert!(aps < MAX_APS);
     let mut ts = NTS::new_for_alphabet(HoaAlphabet::from_hoa_automaton(&aut));

@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::{
     alphabet::{Directional, InvertibleChar},
-    automaton::{IntoDPA, WithInitial},
+    automaton::{Initialized, IntoDPA},
     congruence::{ColoredClass, FORC},
     prelude::{
         DPALike, IntoMealyMachine, IntoMooreMachine, MealyLike, MooreLike, Simple, Symbol, SymbolOf,
@@ -24,8 +24,12 @@ fn sanitize_dot_ident(name: &str) -> String {
             '|' => Some('_'),
             '(' => None,
             ')' => None,
+            '[' => None,
+            ']' => None,
+            ':' => Some('_'),
+            ',' => Some('_'),
             w if w.is_whitespace() => None,
-            u => panic!("unexpected symbol {u} in identifier"),
+            u => panic!("unexpected symbol {u} in identifier \"{name}\""),
         })
         .join("")
 }
@@ -564,7 +568,7 @@ fn display_png(contents: Vec<u8>) -> std::io::Result<()> {
     let mut child = if cfg!(target_os = "linux") || cfg!(target_os = "windows") {
         let image_viewer = std::env::var("IMAGE_VIEWER").unwrap_or("display".to_string());
 
-        std::process::Command::new(&image_viewer)
+        std::process::Command::new(image_viewer)
             .stdin(Stdio::piped())
             .spawn()
             .unwrap()
