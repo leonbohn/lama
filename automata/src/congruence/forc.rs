@@ -46,6 +46,7 @@ impl<A: Alphabet, Q: Color, C: Color> FORC<A, Q, C> {
         self.progress.get(&idx)
     }
 
+    /// Returns an iterator over the progress congruences.
     pub fn prc_iter(&self) -> impl Iterator<Item = (&'_ usize, &'_ RightCongruence<A, Q, C>)> + '_ {
         self.progress.iter()
     }

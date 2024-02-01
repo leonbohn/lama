@@ -13,6 +13,7 @@ impl<Ts: TransitionSystem> Initialized<Ts> {
         &self.0
     }
 
+    /// Consumes and decomposes self into a tuple of the underlying transition system and the initial state.
     pub fn into_parts(self) -> (Ts, Ts::StateIndex) {
         (self.0, self.1)
     }

@@ -10,10 +10,13 @@ use crate::{
 
 use super::{Scc, SccDecomposition};
 
+/// Newtype wrapper for storing indices of SCCs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SccIndex(usize);
 
-/// Represents a hierarchical view on the SCCs of a transition system.
+/// Represents a hierarchical view on the SCCs of a transition system. It stores a reference ot the
+/// original transition system and a [`Dag`] of SCCs. The SCCs are stored in topological order, i.e.,
+/// the first SCC is the root of the DAG and all other SCCs are reachable from it.
 #[derive(Clone)]
 pub struct TarjanDAG<'a, Ts: TransitionSystem> {
     ts: &'a Ts,
@@ -21,6 +24,8 @@ pub struct TarjanDAG<'a, Ts: TransitionSystem> {
 }
 
 impl<'a, Ts: TransitionSystem> TarjanDAG<'a, Ts> {
+    /// Returns an iterator over all transient edges in the transition system. An edge is transient
+    /// if its source and target are in different SCCs.
     pub fn transient_edges(&self) -> impl Iterator<Item = Ts::TransitionRef<'a>> + '_ {
         self.ts.transitions().filter(move |t| {
             let source = t.source();
@@ -29,9 +34,12 @@ impl<'a, Ts: TransitionSystem> TarjanDAG<'a, Ts> {
         })
     }
 
+    /// Returns an iterator over all transient states in the transition system. A state is transient
+    /// if it is in a singleton SCC and there are no self loops. This means that from the state, there
+    /// is no way to reach itself.
     pub fn transient_states(&self) -> impl Iterator<Item = Ts::StateIndex> + '_ {
         self.dag
-            .iter()
+            .nodes()
             .filter_map(|scc| {
                 if scc.is_transient() {
                     Some(scc.iter().cloned())
@@ -42,20 +50,24 @@ impl<'a, Ts: TransitionSystem> TarjanDAG<'a, Ts> {
             .flatten()
     }
 
+    /// Returns the index of the SCC containing the given state, if it exists.
     pub fn scc_index(&self, state: Ts::StateIndex) -> Option<SccIndex> {
         self.dag.find(|scc| scc.contains(&state)).map(SccIndex)
     }
 
+    /// Returns the SCC containing the given state, if it exists.
     pub fn scc_of(&self, state: Ts::StateIndex) -> Option<&Scc<'a, Ts>> {
         self.scc_index(state).map(|i| &self.dag[i.0])
     }
 
+    /// Returns the SCC with the given index.
     pub fn scc(&self, index: SccIndex) -> &Scc<'a, Ts> {
         &self.dag[index.0]
     }
 
+    /// Returns an iterator over all SCCs in the transition system.
     pub fn iter(&self) -> impl Iterator<Item = &Scc<'a, Ts>> + '_ {
-        self.dag.iter()
+        self.dag.nodes()
     }
 
     /// Folds the state colors of the SCCs of the transition system into a single value.
@@ -90,6 +102,8 @@ impl<'a, Ts: TransitionSystem> TarjanDAG<'a, Ts> {
         self.dag.find(|c| c.contains(&q))
     }
 
+    /// Returns the number of SCCs in the transition system which is equal to the size
+    /// of the DAG.
     pub fn size(&self) -> usize {
         self.dag.size()
     }

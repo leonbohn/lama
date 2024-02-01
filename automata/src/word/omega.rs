@@ -3,18 +3,36 @@ use std::{fmt::Debug, marker::PhantomData};
 use impl_tools::autoimpl;
 use itertools::Itertools;
 
-use crate::{prelude::Symbol, Alphabet, Show};
+use crate::{prelude::Symbol, ts::Deterministic, Alphabet, Show};
 
 use super::{FiniteWord, LinearWord};
 
+/// An omega word is an infinite word that can be indexed by a `usize`. We assume that all
+/// omega words can be represented as a concatenation of a finite prefix which we call spoke
+/// and a finite loop which we call cycle. The loop index is the length of the spoke.
+///
+/// # Example
+/// ```
+/// use automata::word::{Reduced, OmegaWord, LinearWord};
+/// let word = Reduced::ultimately_periodic("abc", "def"); // represents abc(def)^𝜔 = abcdefdefdef...
+/// assert_eq!(word.loop_index(), 3);
+/// assert_eq!(word.cycle_length(), 3);
+/// ```
 pub trait OmegaWord<S>: LinearWord<S> {
+    /// The type of finite word representing the spoke, i.e. the finite prefix of the word
+    /// before the loop index.  
     type Spoke<'this>: FiniteWord<S>
     where
         Self: 'this;
+    /// The type of finite word that represents the cycle of th omega word, i.e. the
+    /// finite loop that is repeated infinitely often.
     type Cycle<'this>: FiniteWord<S>
     where
         Self: 'this;
 
+    /// Returns a normalized ultimately periodic word that is equal to `self`. This is done by
+    /// first folding the prefix into the loop as far as possible and then deduplicating the
+    /// loop.
     fn normalized(&self) -> Reduced<S>
     where
         S: Symbol,
@@ -22,12 +40,21 @@ pub trait OmegaWord<S>: LinearWord<S> {
         Reduced::ultimately_periodic(self.spoke(), self.cycle())
     }
 
+    /// Returns the spoke of the word, i.e. the finite prefix of the word before the loop index.
     fn spoke(&self) -> Self::Spoke<'_>;
+    /// Returns the cycle of the word, i.e. the finite loop that is repeated infinitely often.
     fn cycle(&self) -> Self::Cycle<'_>;
 
+    /// Returns the loop index of the word, i.e. the length of the spoke. This can be zero if
+    /// the word is periodic.
     fn loop_index(&self) -> usize {
         self.spoke().len()
     }
+
+    /// Gives the length of the cycle of the word, i.e. the length of the loop that is repeated
+    /// infinitely often. Note that if the word is not normalized, then there might be a shorter
+    /// representation of the cycle that is repeated, e.g. a cycle of `aaa` could also be
+    /// represented by the cycle `a`.
     fn cycle_length(&self) -> usize {
         self.cycle().len()
     }
@@ -70,6 +97,9 @@ fn deduplicate<S: Eq>(input: Vec<S>) -> Vec<S> {
     input
 }
 
+/// A periodic omega word has no finite prefix and consists only of a finite loop that is
+/// repeated infinitely often. Note, that the loop cannot be empty.
+/// TODO: make non-empty word into a new type
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct Periodic<S> {
     representation: Vec<S>,
@@ -106,6 +136,17 @@ impl<S: Symbol> From<&Reduced<S>> for Reduced<S> {
 }
 
 impl<S: Symbol> Periodic<S> {
+    /// Creates a new periodic omega word from a finite word. The word must not be empty and
+    /// it is deduplicated.
+    ///
+    /// # Example
+    /// ```
+    /// use automata::word::{Periodic, OmegaWord};
+    /// let word = Periodic::new("abcabcabc");
+    /// assert_eq!(word.cycle_length(), 3);
+    /// assert_eq!(word.loop_index(), 0);
+    /// assert_eq!(word, Periodic { representation: vec!['a', 'b', 'c'] });
+    /// ```
     pub fn new<W: FiniteWord<S>>(word: W) -> Self {
         let mut representation = word.to_vec();
         deduplicate_inplace(&mut representation);
@@ -200,6 +241,7 @@ impl<S: Symbol> OmegaWord<S> for Reduced<S> {
 }
 
 impl<S: Symbol> Reduced<S> {
+    /// Creates a new reduced omega word from a finite word. The input is deduplicated.
     pub fn periodic<W: FiniteWord<S>>(representation: W) -> Self {
         let representation = deduplicate(representation.to_vec());
         Self {
@@ -208,6 +250,10 @@ impl<S: Symbol> Reduced<S> {
         }
     }
 
+    /// Removes the first symbol from the word. If the spoke is not empty (i.e. the loop index
+    /// is greater than zero), we simply pop the first symbol of the prefix and decrease the
+    /// loop index by one. Otherwise, if the spoke is empty, then the loop is rotated
+    /// by one symbol.
     pub fn pop_front(&mut self) -> S {
         assert!(self.loop_index < self.word.len());
         if self.loop_index() > 0 {
@@ -217,12 +263,17 @@ impl<S: Symbol> Reduced<S> {
             self.loop_index -= 1;
             out
         } else {
-            let out = *self.cycle().first().unwrap();
+            let out = *self
+                .cycle()
+                .first()
+                .expect("this is an infinite word, loop must be non-empty");
             self.word.rotate_left(1);
             out
         }
     }
 
+    /// Creates a new reduced omega word from a finite word representing the spoke and a finite
+    /// word representing the cycle. The spoke must not be empty.
     pub fn ultimately_periodic<Spoke: FiniteWord<S>, Cycle: FiniteWord<S>>(
         spoke: Spoke,
         cycle: Cycle,

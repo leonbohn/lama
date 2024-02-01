@@ -153,7 +153,7 @@ mod tests {
                 (1, 'a', 0, 0),
             ])
             .deterministic();
-        assert_eq!(partial.reached_from("aaacb", 0), None);
+        assert_eq!(partial.reached_state_index_from("aaacb", 0), None);
         partial.complete_with_colors((), 2);
         println!("{}", partial.build_transition_table(|q, c| format!("{q}")));
         for w in ["abbaccababcab", "bbcca", "cc", "aababbabbabbccbabba"] {

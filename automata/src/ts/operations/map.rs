@@ -125,6 +125,7 @@ pub struct MappedEdge<Idx, T, F, C> {
 }
 
 impl<Idx, T, F, C> MappedEdge<Idx, T, F, C> {
+    /// Create a new mapped edge instance.
     pub fn new(transition: T, from: Idx, f: F) -> Self {
         Self {
             transition,

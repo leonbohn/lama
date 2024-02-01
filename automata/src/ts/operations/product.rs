@@ -380,9 +380,9 @@ mod tests {
             .with_transitions([(0, 'a', 0, 0)])
             .deterministic()
             .with_initial(0);
-        assert!((&l).ts_product(&l).reached("b").is_some());
+        assert!((&l).ts_product(&l).reached_state_index("b").is_some());
         let prod = l.ts_product(r);
-        assert!(prod.reached("a").is_some());
-        assert!(prod.reached("b").is_none());
+        assert!(prod.reached_state_index("a").is_some());
+        assert!(prod.reached_state_index("b").is_none());
     }
 }

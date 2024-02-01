@@ -33,6 +33,8 @@ pub trait PredecessorIterable: TransitionSystem {
     /// Returns an iterator over the predecessors of the given `state`. Returns `None` if the state does not exist.
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>>;
 
+    /// Reverses the directions of all transitions in the transition system. This consumes the transition system.
+    /// See also [`Reversed`].
     fn reversed(self) -> Reversed<Self> {
         Reversed(self)
     }
@@ -125,6 +127,8 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> PredecessorIterable for BT
     }
 }
 
+/// Iterator over the predecessors of a state in a BTS.
+#[derive(Clone)]
 pub struct BTSPredecessors<'a, A: Alphabet, C: Color, Idx: IndexType> {
     it: std::collections::hash_set::Iter<'a, (Idx, A::Expression, C)>,
     state: Idx,
@@ -141,6 +145,7 @@ impl<'a, A: Alphabet, C: Color, Idx: IndexType> Iterator for BTSPredecessors<'a,
 }
 
 impl<'a, A: Alphabet, C: Color, Idx: IndexType> BTSPredecessors<'a, A, C, Idx> {
+    /// Creates a new instance from an iterator and a state.
     pub fn new(
         it: std::collections::hash_set::Iter<'a, (Idx, A::Expression, C)>,
         state: Idx,

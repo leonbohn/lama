@@ -2,9 +2,13 @@ use crate::prelude::*;
 
 use super::nts::{NTEdge, NTSEdgesFromIter, NTSEdgesTo};
 
+/// A deterministic transition system. This is a thin wrapper around [`NTS`] and is only used to
+/// enforce that the underlying NTS is deterministic.
 #[derive(Clone, Eq, PartialEq)]
 pub struct DTS<A: Alphabet = Simple, Q = NoColor, C = NoColor>(pub(crate) NTS<A, Q, C>);
 
+/// Type alias to create a deterministic transition with the same alphabet, state and edge color
+/// as the given [`TransitionsSystem`] `Ts`.
 pub type CollectDTS<Ts> = DTS<
     <Ts as TransitionSystem>::Alphabet,
     <Ts as TransitionSystem>::StateColor,
@@ -182,6 +186,7 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for DTS<A, Q, C> {
 }
 
 impl<A: Alphabet, Q: Color, C: Color> DTS<A, Q, C> {
+    /// Creates an empty [`DTS`] with the given alphabet and capacity for at least `cap` states.
     pub fn with_capacity(alphabet: A, cap: usize) -> Self {
         Self(NTS::with_capacity(alphabet, cap))
     }

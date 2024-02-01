@@ -11,45 +11,57 @@ use super::Index;
 /// of indices.
 #[derive(Clone)]
 pub struct Dag<C = ()> {
-    colors: Vec<C>,
+    nodes: Vec<C>,
     edges: Vec<(usize, usize)>,
 }
 
 impl<C> Dag<C> {
-    pub fn iter(&self) -> impl Iterator<Item = &C> + '_ {
-        self.colors.iter()
+    /// Returns an iterator over the nodes of the DAG.
+    pub fn nodes(&self) -> impl Iterator<Item = &C> + '_ {
+        self.nodes.iter()
+    }
+
+    /// Returns an iterator of all pairs of node index and node in the DAG.
+    pub fn iter(&self) -> impl Iterator<Item = (usize, &C)> + '_ {
+        self.nodes.iter().enumerate()
+    }
+
+    /// Returns an iterator over the indices of all nodes in the DAG.
+    pub fn node_indices(&self) -> impl Iterator<Item = usize> + '_ {
+        (0..self.nodes.len()).into_iter()
     }
 
     /// Returns true iff the graph is empty, i.e. there are no nodes.
     pub fn is_empty(&self) -> bool {
-        self.colors.is_empty()
+        self.nodes.is_empty()
     }
 
+    /// Gives the size of the DAG, i.e. the number of nodes.
     pub fn size(&self) -> usize {
-        self.colors.len()
+        self.nodes.len()
     }
 
     /// Attempts to find the index of a node satisfying the given predicate.
     pub fn find<F: Fn(&C) -> bool>(&self, pred: F) -> Option<usize> {
-        self.colors.iter().position(pred)
+        self.nodes.iter().position(pred)
     }
 
     /// Masks the nodes given in the set and returns true iff all nodes are masked,
     /// i.e. no nodes are left unmasked.
     pub fn masked_is_empty(&self, mask: &Set<usize>) -> bool {
-        debug_assert!(mask.iter().all(|i| i < &self.colors.len()));
-        mask.len() == self.colors.len()
+        debug_assert!(mask.iter().all(|i| i < &self.nodes.len()));
+        mask.len() == self.nodes.len()
     }
 
     /// Tries to return the color associated with a node. Returns `None` if no node
     /// with the given index exists.
     pub fn color(&self, node: usize) -> Option<&C> {
-        self.colors.get(node)
+        self.nodes.get(node)
     }
 
     /// Does the same as [`Self::color()`], but returning a mutable reference instead.
     pub fn color_mut(&mut self, node: usize) -> Option<&mut C> {
-        self.colors.get_mut(node)
+        self.nodes.get_mut(node)
     }
 
     /// Returns an iterator over the _immediate_ successors of a node. An immediate
@@ -66,7 +78,7 @@ impl<C> Dag<C> {
         &'a self,
         mask: &'a Set<usize>,
     ) -> impl Iterator<Item = usize> + 'a {
-        (0..self.colors.len()).filter(|i| {
+        (0..self.nodes.len()).filter(|i| {
             !mask.contains(i)
                 && self
                     .edges
@@ -84,7 +96,7 @@ impl<C> Dag<C> {
     /// that are incident to the node. If the node does not exist, this function
     /// does nothing.
     pub fn remove_node(&mut self, id: usize) {
-        self.colors.remove(id);
+        self.nodes.remove(id);
         self.edges.retain(|(x, y)| x != &id && y != &id);
     }
 
@@ -99,7 +111,10 @@ impl<C> Dag<C> {
                     .max()
                     .unwrap_or(0)
         );
-        Self { colors, edges }
+        Self {
+            nodes: colors,
+            edges,
+        }
     }
 
     /// Returns an iterator yielding the indices of all nodes which are reachable
@@ -113,7 +128,7 @@ impl<C> Dag<C> {
     where
         for<'a> F: Fn(&'a C) -> D,
     {
-        Dag::from_parts(self.colors.iter().map(f), self.edges.clone())
+        Dag::from_parts(self.nodes.iter().map(f), self.edges.clone())
     }
 }
 
@@ -121,14 +136,14 @@ impl<C> std::ops::Index<usize> for Dag<C> {
     type Output = C;
 
     fn index(&self, index: usize) -> &Self::Output {
-        &self.colors[index]
+        &self.nodes[index]
     }
 }
 
 impl<C> Default for Dag<C> {
     fn default() -> Self {
         Self {
-            colors: Default::default(),
+            nodes: Default::default(),
             edges: Default::default(),
         }
     }
@@ -139,7 +154,7 @@ impl<C: Debug> Debug for Dag<C> {
         write!(
             f,
             "{}\n{}",
-            self.colors
+            self.nodes
                 .iter()
                 .enumerate()
                 .map(|(i, x)| format!("{i}:{:?}", x))

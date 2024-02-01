@@ -53,6 +53,9 @@ impl<Ts: TransitionSystem> StateSet<Ts> {
     }
 }
 
+/// Represents the subset construction applied to a transition system. This is a deterministic
+/// transition system, which resolves the non-determinism by operating on sets of states.
+#[derive(Clone)]
 pub struct SubsetConstruction<Ts: TransitionSystem> {
     ts: Ts,
     states: RefCell<Vec<StateSet<Ts>>>,
@@ -176,6 +179,7 @@ impl<Ts: TransitionSystem> Debug for SubsetConstruction<Ts> {
 }
 
 impl<Ts: TransitionSystem> SubsetConstruction<Ts> {
+    /// Creates a new subset construction from the given transition system starting from the given index.
     pub fn new_from(ts: Ts, idx: Ts::StateIndex) -> Self {
         Self {
             expressions: ts.alphabet().expression_map(),
@@ -184,6 +188,8 @@ impl<Ts: TransitionSystem> SubsetConstruction<Ts> {
         }
     }
 
+    /// Creates a new subset construction from the given transition system starting from the given
+    /// indices.
     pub fn new<I: IntoIterator<Item = Ts::StateIndex>>(ts: Ts, iter: I) -> Self {
         Self {
             expressions: ts.alphabet().expression_map(),

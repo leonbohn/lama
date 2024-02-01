@@ -62,7 +62,7 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
         W: FiniteWord<A::Symbol>,
         V: FiniteWord<A::Symbol>,
     {
-        self.reached(word).unwrap() == self.reached(other).unwrap()
+        self.reached_state_index(word).unwrap() == self.reached_state_index(other).unwrap()
     }
 
     /// Turns the given transition system into a right congruence.
@@ -92,7 +92,7 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
     /// with the corresponding index of the class.
     pub fn classes(&self) -> impl Iterator<Item = (Class<A::Symbol>, usize)> + '_ {
         self.ts
-            .indices_with_color()
+            .state_indices_with_color()
             .map(|(id, c)| (c.class().clone(), id))
     }
 
@@ -126,11 +126,16 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
     #[inline(always)]
     /// Returns the index of the class containing the given word.
     pub fn class_to_index(&self, class: &Class<A::Symbol>) -> Option<usize> {
-        self.ts
-            .indices_with_color()
-            .find_map(|(id, c)| if c.class() == class { Some(id) } else { None })
+        self.ts.state_indices_with_color().find_map(|(id, c)| {
+            if c.class() == class {
+                Some(id)
+            } else {
+                None
+            }
+        })
     }
 
+    /// Returns the [`ColoredClass`] that is referenced by `index`.
     pub fn class_name<Idx: Indexes<Self>>(&self, index: Idx) -> Option<ColoredClass<A::Symbol, Q>> {
         self.ts().state_color(index.to_index(self)?)
     }

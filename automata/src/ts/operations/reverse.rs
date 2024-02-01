@@ -3,6 +3,7 @@ use crate::{
     TransitionSystem,
 };
 
+/// Reverses the direction of all transitions in a given [`TransitionSystem`].
 #[derive(Clone, Debug)]
 pub struct Reversed<Ts>(pub Ts);
 

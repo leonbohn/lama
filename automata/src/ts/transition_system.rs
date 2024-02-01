@@ -44,8 +44,6 @@ pub type SymbolOf<A> = <<A as TransitionSystem>::Alphabet as Alphabet>::Symbol;
 /// Helper trait for extracting the [`Expression`] type from an an object which implements [`HasAlphabet`].
 pub type ExpressionOf<A> = <<A as TransitionSystem>::Alphabet as Alphabet>::Expression;
 
-pub type FiniteInput<D> = Vec<SymbolOf<D>>;
-
 /// Encapsulates the transition function δ of a (finite) transition system. This is the main trait that
 /// is used to query a transition system. Transitions are labeled with a [`Alphabet::Expression`], which
 /// determines on which [`Alphabet::Symbol`]s the transition can be taken. Additionally, every transition
@@ -60,6 +58,7 @@ pub type FiniteInput<D> = Vec<SymbolOf<D>>;
 /// the expression). So a transition is a concrete edge that is taken (usually by the run on a word), while
 /// an edge may represent any different number of transitions.
 pub trait TransitionSystem: Sized {
+    /// The type of the underlying [`Alphabet`].
     type Alphabet: Alphabet;
     /// The type of the indices of the states of the transition system.
     type StateIndex: IndexType;
@@ -80,12 +79,18 @@ pub trait TransitionSystem: Sized {
     where
         Self: 'this;
 
+    /// Returns a reference to the alphabet of `self`.
     fn alphabet(&self) -> &Self::Alphabet;
 
+    /// Calls the [`Alphabet::universe`] method on the alphabet of `self`, returning
+    /// an iterator of all symbols.
     fn symbols(&self) -> <Self::Alphabet as Alphabet>::Universe<'_> {
         self.alphabet().universe()
     }
 
+    /// Returns a vector of all state indices of `self`. By default, this is simply a helper
+    /// calling to [`Self::state_indices`], but it can be overridden to provide a more
+    /// efficient implementation.
     fn state_indices_vec(&self) -> Vec<Self::StateIndex> {
         self.state_indices().collect()
     }
@@ -93,10 +98,12 @@ pub trait TransitionSystem: Sized {
     /// Returns an iterator over the state indices of `self`.
     fn state_indices(&self) -> Self::StateIndices<'_>;
 
+    /// Returns true if the transition system has no states.
     fn is_stateless(&self) -> bool {
         self.state_indices().next().is_none()
     }
 
+    /// Returns an iterator over pairs consisting of a state index and the corresponding state color.
     fn state_indices_with_color(
         &self,
     ) -> impl Iterator<Item = (Self::StateIndex, Self::StateColor)> {
@@ -104,10 +111,13 @@ pub trait TransitionSystem: Sized {
             .map(|q| (q, self.state_color(q).expect("Every state must be colored")))
     }
 
+    /// Helper function which creates an expression from the given symbol.
+    /// This is a convenience function that simply calls [`Alphabet::expression`].
     fn make_expression(&self, sym: SymbolOf<Self>) -> ExpressionOf<Self> {
         <Self::Alphabet as Alphabet>::expression(sym)
     }
 
+    /// Gives an iterator over all transitions of `self`.
     fn transitions(&self) -> impl Iterator<Item = Self::TransitionRef<'_>> {
         self.state_indices().flat_map(move |q| {
             self.edges_from(q)
@@ -115,6 +125,9 @@ pub trait TransitionSystem: Sized {
         })
     }
 
+    /// Returns true if the transition system has no edges. This is rather costly, as it
+    /// simply iterates over all states and checks whether they have any outgoing edges.
+    /// Should be overridden if a more efficient implementation is available.
     fn is_edgeless(&self) -> bool {
         self.state_indices().all(|q| {
             self.edges_from(q)
@@ -123,6 +136,13 @@ pub trait TransitionSystem: Sized {
         })
     }
 
+    /// Returns an iterator giving all colors that are used by the edges of `self`.
+    /// Note that this **may output the same color multiple times**, if it is used by multiple
+    /// edges. If that is not desired, use [`Self::edge_colors_unique()`] instead.
+    ///
+    /// A call is rather costly, as it simply iterates over all states and collects the
+    /// colors of the outgoing edges. Should be overridden if a more efficient implementation
+    /// is available.
     fn edge_colors(&self) -> impl Iterator<Item = Self::EdgeColor> {
         self.state_indices()
             .flat_map(|q| {
@@ -132,14 +152,17 @@ pub trait TransitionSystem: Sized {
             .map(|t| t.color().clone())
     }
 
+    /// Returns an iterator giving all **unique** colors that are used by the edges of `self`.
+    /// By default, a call is rather costly as it simply iterates over all states and collects
+    /// the colors of the outgoing edges. Should be overridden if a more efficient implementation
+    /// is available.
+    fn edge_colors_unique(&self) -> impl Iterator<Item = Self::EdgeColor> {
+        self.edge_colors().unique()
+    }
+
     /// Returns an iterator over the transitions that start in the given `state`. If the state does
     /// not exist, `None` is returned.
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>>;
-
-    fn indices_with_color(&self) -> impl Iterator<Item = (Self::StateIndex, Self::StateColor)> {
-        self.state_indices()
-            .map(|i| (i, self.state_color(i).unwrap()))
-    }
 
     fn edges_matching<Idx: Indexes<Self>>(
         &self,

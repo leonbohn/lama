@@ -32,14 +32,18 @@ impl<Ts: Deterministic + Pointed> Pointed for Quotient<Ts> {
 }
 
 impl<Ts: TransitionSystem> Quotient<Ts> {
+    /// Returns a reference to the [`Partition`] underlying the quotient.
     pub fn partition(&self) -> &Partition<Ts::StateIndex> {
         &self.partition
     }
 
+    /// Gives a reference to the underlying transition system.
     pub fn ts(&self) -> &Ts {
         &self.ts
     }
 
+    /// Indexes into the underlying partition and tries to get a representative for the indexed class.
+    /// Panics if the class does not exist or is empty.
     pub fn unwrap_class_representative(&self, id: usize) -> Ts::StateIndex {
         *self
             .partition
@@ -85,6 +89,8 @@ impl<Ts: TransitionSystem> Quotient<Ts> {
         true
     }
 
+    /// Extracts the underlying right congruence by erasing the state and edge colors and then collecting
+    /// into a [`RightCongruence`].
     pub fn underlying_right_congruence(self, ts: &Ts) -> RightCongruence<Ts::Alphabet>
     where
         Ts: Deterministic + Pointed,

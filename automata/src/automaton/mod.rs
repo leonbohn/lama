@@ -42,6 +42,7 @@ pub use dpa::{DPALike, IntoDPA, DPA};
 mod dba;
 pub use dba::{DBALike, IntoDBA, DBA};
 
+#[allow(missing_docs)]
 mod omega;
 pub use omega::{
     AcceptanceMask, DeterministicOmegaAutomaton, OmegaAcceptanceCondition, OmegaAutomaton,

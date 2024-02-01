@@ -1,3 +1,10 @@
+//! Partition refinement algorithms for determinsitic finite automata. This module implements the
+//! Hopcroft and Moore algorithms for minimizing deterministic finite automata. There are two main
+//! variants of the algorithm, one for Moore machines and one for Mealy machines. They differ only
+//! on the way they handle the output of the automaton. Specifically, for Moore machines, we consider
+//! the output of the state, whereas for Mealy machines, we consider the output of the transition.
+//! It is necessary to have two distinct algorithms (so with different names) as there might be
+//! transition systems which have outputs on both the states and the transitions.
 use std::{
     collections::{BTreeSet, VecDeque},
     hash::Hash,
@@ -14,11 +21,15 @@ use crate::{
     Alphabet, Map, Partition, Set,
 };
 
-pub fn mealy_partition_refinement<M: MealyLike>(mm: M) -> AsMealyMachine<M> {
+/// Computes the maximal bisimulation of the given [`MealyLike`] deterministic machine. The returned
+/// partition is a [`Partition`] of the state indices, where any states in the same class of the
+/// returned partition are pairwise bisimilar. This means for any *non-empty* input, they produce
+/// the same sequence of outputs.
+pub fn mealy_greatest_bisimulation<M: MealyLike>(mm: M) -> Partition<M::StateIndex> {
     let start = Instant::now();
-    let mut queue: Vec<Set<_>> = vec![mm.state_indices().collect()];
+    let mut queue: Vec<BTreeSet<_>> = vec![mm.state_indices().collect()];
 
-    let mut partition = vec![mm.state_indices().collect()];
+    let mut partition: Vec<BTreeSet<_>> = vec![mm.state_indices().collect()];
 
     while let Some(set) = queue.pop() {
         for sym in mm.symbols() {
@@ -28,7 +39,7 @@ pub fn mealy_partition_refinement<M: MealyLike>(mm: M) -> AsMealyMachine<M> {
                     if set.contains(&t.target()) {
                         splitter
                             .entry(t.color())
-                            .or_insert(Set::default())
+                            .or_insert(BTreeSet::default())
                             .insert(q);
                     }
                 }
@@ -41,8 +52,8 @@ pub fn mealy_partition_refinement<M: MealyLike>(mm: M) -> AsMealyMachine<M> {
                         new_partition.push(y.clone());
                         continue;
                     }
-                    let int = x.intersection(y).cloned().collect::<Set<_>>();
-                    let diff = y.difference(&x).cloned().collect::<Set<_>>();
+                    let int = x.intersection(y).cloned().collect::<BTreeSet<_>>();
+                    let diff = y.difference(&x).cloned().collect::<BTreeSet<_>>();
 
                     if let Some(pos) = queue.iter().position(|o| o == y) {
                         queue.remove(pos);
@@ -62,9 +73,17 @@ pub fn mealy_partition_refinement<M: MealyLike>(mm: M) -> AsMealyMachine<M> {
     }
 
     info!(
-        "Mealy partition refinement execution took {} microseconds",
+        "computing greatest bisimulation for Mealy Machine took {} microseconds",
         start.elapsed().as_micros()
     );
+    partition.into()
+}
+
+/// Partition refinement algorithm for deterministic finite automata that have outputs on the edges.
+/// Runs in O(n log n) time, where n is the number of states of the automaton and returns the unique
+/// minimal automaton that is bisimilar to the input.
+pub fn mealy_partition_refinement<M: MealyLike>(mm: M) -> AsMealyMachine<M> {
+    let partition = mealy_greatest_bisimulation(&mm);
     trace!(
         "Building quotient with partition {{{}}}",
         partition
@@ -76,7 +95,7 @@ pub fn mealy_partition_refinement<M: MealyLike>(mm: M) -> AsMealyMachine<M> {
     let start = Instant::now();
 
     let out = mm
-        .quotient(partition.into())
+        .quotient(partition)
         .map_edge_colors(|c| {
             // assert!(c.iter().all_equal());
             c[0].clone()
@@ -90,12 +109,18 @@ pub fn mealy_partition_refinement<M: MealyLike>(mm: M) -> AsMealyMachine<M> {
     out
 }
 
-pub fn moore_partition_refinement<D: MooreLike>(mm: D) -> AsMooreMachine<D> {
+/// Computes the maximal bisimulation for a given Moore machine. This is mainly used for
+/// executing the partition refinement algorithm for Moore machines, see [`moore_partition_refinement`].
+///
+/// Two states of a mealy machine are considered to be bisimilar if and only if they have the same
+/// output on all words. This gives a [`Partition`] of the state indices, where any states in the
+/// same class of the returned partition are pairwise bisimilar.
+pub fn moore_greatest_bisimulation<M: MooreLike>(mm: M) -> Partition<M::StateIndex> {
     let start = Instant::now();
 
     let mut presplit: Map<_, _> = Map::default();
     for (q, c) in mm.state_indices_with_color() {
-        presplit.entry(c).or_insert(Set::default()).insert(q);
+        presplit.entry(c).or_insert(BTreeSet::default()).insert(q);
     }
     let mut partition: Vec<_> = presplit.into_values().collect();
     let mut queue = partition.clone();
@@ -109,7 +134,7 @@ pub fn moore_partition_refinement<D: MooreLike>(mm: D) -> AsMooreMachine<D> {
                         .map(|t| a.contains(&t.target()))
                         .unwrap_or(false)
                 })
-                .collect::<Set<_>>();
+                .collect::<BTreeSet<_>>();
 
             let mut new_p = vec![];
             for y in &partition {
@@ -117,8 +142,8 @@ pub fn moore_partition_refinement<D: MooreLike>(mm: D) -> AsMooreMachine<D> {
                     new_p.push(y.clone());
                     continue;
                 }
-                let int = x.intersection(y).cloned().collect::<Set<_>>();
-                let diff = y.difference(&x).cloned().collect::<Set<_>>();
+                let int = x.intersection(y).cloned().collect::<BTreeSet<_>>();
+                let diff = y.difference(&x).cloned().collect::<BTreeSet<_>>();
 
                 if let Some(pos) = queue.iter().position(|o| o == y) {
                     queue.remove(pos);
@@ -138,9 +163,19 @@ pub fn moore_partition_refinement<D: MooreLike>(mm: D) -> AsMooreMachine<D> {
     }
 
     debug!(
-        "Moore partition refinement execution took {} microseconds",
+        "computed greatest bisimulation for Moore machine in {} microseconds",
         start.elapsed().as_micros()
     );
+    partition.into()
+}
+
+/// Partition refinement algorithm for deterministic finite automata that have outputs on the states.
+/// Runs in O(n log n) time, where n is the number of states of the automaton and returns the unique
+/// minimal automaton that is bisimilar to the input. This method computes the maximal bisimulation
+/// by using [`moore_greatest_bisimulation`] and then uses the partition to compute the quotient
+/// automaton.
+pub fn moore_partition_refinement<D: MooreLike>(mm: D) -> AsMooreMachine<D> {
+    let partition = moore_greatest_bisimulation(&mm);
     trace!(
         "Building quotient with partition {{{}}}",
         partition
@@ -152,7 +187,7 @@ pub fn moore_partition_refinement<D: MooreLike>(mm: D) -> AsMooreMachine<D> {
     let start = Instant::now();
 
     let out = mm
-        .quotient(partition.into())
+        .quotient(partition)
         .map_state_colors(|c| {
             // assert!(c.iter().all_equal());
             c[0].clone()

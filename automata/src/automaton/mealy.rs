@@ -224,9 +224,11 @@ impl<Ts: Deterministic> std::fmt::Debug for MealyMachine<Ts::Alphabet, Ts::EdgeC
 macro_rules! impl_mealy_automaton {
     ($name:ident, $color:ident) => {
         paste::paste! {
+            /// Type alias for considering `Ts` as an automaton.
             pub type [< Into $name >]<Ts> = $name<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::StateColor, Ts>;
         }
 
+        #[allow(missing_docs)]
         #[derive(Clone)]
         pub struct $name<
             A = Simple,
@@ -239,6 +241,7 @@ macro_rules! impl_mealy_automaton {
         impl<A: Alphabet, Q: Color + Default>
             $name<A, Q, Initialized<DTS<A, Q, $color>>>
         {
+            #[allow(missing_docs)]
             pub fn new(alphabet: A, initial_state_color: Q) -> $name<A, Q, Initialized<DTS<A, Q, $color>>> {
                 let mut ts = Initialized::new(alphabet);
                 ts.set_initial_color(initial_state_color);
@@ -248,6 +251,7 @@ macro_rules! impl_mealy_automaton {
                 }
             }
         }
+        #[allow(missing_docs)]
         impl<Ts: TransitionSystem> $name<Ts::Alphabet, Ts::StateColor, Ts> {
             pub fn ts(&self) -> &Ts {
                 &self.ts

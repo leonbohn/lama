@@ -7,6 +7,8 @@ use pretty_assertions::assert_eq;
 
 use super::transition_system::FullTransition;
 
+/// Stores information characterizing a state in a non-deterministic transition system, see [`NTS`].
+/// It stores a color and a pointer to the index of the first edge leaving the state.
 #[derive(Clone, Eq, PartialEq)]
 pub struct NTState<Q> {
     pub(super) color: Q,
@@ -22,6 +24,9 @@ impl<Q> NTState<Q> {
     }
 }
 
+/// Represents an edge in a non-deterministic transition system, see [`NTS`]. It stores a color, an
+/// expression, as well as a source and target state index. Moreover, it stores the indices of the
+/// next and previous edge in the list of edges leaving the source state.
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct NTEdge<E, C> {
     pub(super) prev: Option<usize>,
@@ -63,6 +68,8 @@ impl<E, C> NTEdge<E, C> {
     }
 }
 
+/// Represents a non-deterministic transition system. It stores an [`Alphabet`], a list of [`NTState`]s and a list of [`NTEdge`]s.
+/// Each state
 #[derive(Clone, Eq, PartialEq)]
 pub struct NTS<A: Alphabet, Q, C> {
     alphabet: A,
@@ -154,6 +161,20 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for NTS<A, Q, C> {
 }
 
 impl<Q, C> NTS<Simple, Q, C> {
+    /// Returns a transition system builder for a non-deterministic transition system. This should be the main method for the
+    /// construction of non-deterministic transition systems on the fly.
+    ///
+    /// # Example
+    ///
+    /// We can create a deterministic finite automaton (DFA) with two states (one `true` and one `false`) as follows:
+    /// ```
+    /// use automata::prelude::*;
+    ///
+    /// let mut nts = NTS::builder()
+    ///     .with_colors([true, false])
+    ///     .with_transitions([(0, 'a', (), 0), (0, 'b', (), 1), (1, 'a', (), 1), (1, 'b', (), 0)])
+    ///     .into_dfa();
+    /// ```
     pub fn builder() -> NTSBuilder<Q, C> {
         NTSBuilder::default()
     }
@@ -235,6 +256,7 @@ impl<A: Alphabet, Q: Color, C: Color> NTS<A, Q, C> {
         }
         self.edges[pred.unwrap()].next = succ;
     }
+    /// Builds a new non-deterministic transition system for the given alphabet with a specified capacity.
     pub fn with_capacity(alphabet: A, cap: usize) -> Self {
         Self {
             alphabet,
@@ -242,6 +264,8 @@ impl<A: Alphabet, Q: Color, C: Color> NTS<A, Q, C> {
             edges: Vec::with_capacity(cap),
         }
     }
+    /// Returns true if the transition system is deterministic, i.e. if there are no two edges leaving
+    /// the same state with the same symbol.
     pub fn is_deterministic(&self) -> bool {
         for state in self.state_indices() {
             let mut symbols = Set::default();
@@ -256,6 +280,7 @@ impl<A: Alphabet, Q: Color, C: Color> NTS<A, Q, C> {
         true
     }
 
+    /// Turns `self` into a deterministic transition system. Panics if `self` is not deterministic.
     pub fn into_deterministic(self) -> DTS<A, Q, C> {
         assert!(self.is_deterministic());
         DTS(self)
@@ -394,6 +419,20 @@ impl<A: Alphabet, Q: Color, C: Color> PredecessorIterable for NTS<A, Q, C> {
     }
 }
 
+/// Helper struct for the construction of non-deterministic transition systems. It stores a list of edges, a list of colors and a default color.
+/// This can also be used to construct deterministic transition systems, deterministic parity automata and Mealy machines.
+///
+/// # Example
+///
+/// We can create a deterministic finite automaton (DFA) with two states (one `true` and one `false`) as follows:
+/// ```
+/// use automata::prelude::*;
+///
+/// let mut nts = NTS::builder()
+///     .with_colors([true, false])
+///     .with_transitions([(0, 'a', (), 0), (0, 'b', (), 1), (1, 'a', (), 1), (1, 'b', (), 0)])
+///     .into_dfa();
+/// ```
 pub struct NTSBuilder<Q = (), C = ()> {
     edges: Vec<(usize, char, C, usize)>,
     default: Option<Q>,
@@ -411,12 +450,14 @@ impl<Q, C> Default for NTSBuilder<Q, C> {
 }
 
 impl NTSBuilder<bool, ()> {
+    /// Tries to turn `self` into a deterministic finite automaton. Panics if `self` is not deterministic.
     pub fn into_dfa(mut self, initial: usize) -> DFA<Simple> {
         self.deterministic().with_initial(initial).collect_dfa()
     }
 }
 
 impl NTSBuilder<(), usize> {
+    /// Attempts to turn `self` into a deterministic parity automaton. Panics if `self` is not deterministic.
     pub fn into_dpa(mut self, initial: usize) -> DPA<Simple> {
         self.default_color(())
             .deterministic()
@@ -424,6 +465,7 @@ impl NTSBuilder<(), usize> {
             .collect_dpa()
     }
 
+    /// Builds a Mealy machine from `self`. Panics if `self` is not deterministic.
     pub fn into_mealy_machine(mut self, initial: usize) -> MealyMachine<Simple> {
         self.default_color(())
             .deterministic()
@@ -433,17 +475,22 @@ impl NTSBuilder<(), usize> {
 }
 
 impl<Q: Color, C: Color> NTSBuilder<Q, C> {
+    /// Sets the default color for states that have no color specified.
     pub fn default_color(mut self, color: Q) -> Self {
         self.default = Some(color);
         self
     }
 
+    /// Adds a list of colors to `self`. The colors are assigned to the states in the order in which they are given.
+    /// This means if we give the colors `[true, false]` and then add a transition from state `0` to state `1`, then state
+    /// `0` will have color `true` and state `1` will have color `false`.
     pub fn with_colors<I: IntoIterator<Item = Q>>(mut self, iter: I) -> Self {
         iter.into_iter()
             .enumerate()
             .fold(self, |mut acc, (i, x)| acc.color(i, x))
     }
 
+    /// Build a deterministic transition system from `self`. Panics if `self` is not deterministic.
     pub fn deterministic(mut self) -> DTS<Simple, Q, C>
     where
         Q: Color,
@@ -452,6 +499,7 @@ impl<Q: Color, C: Color> NTSBuilder<Q, C> {
         self.collect().try_into().expect("Not deterministic!")
     }
 
+    /// Assigns the given `color` to the state with the given index `idx`.
     pub fn color(mut self, idx: usize, color: Q) -> Self
     where
         Q: Color,
@@ -460,6 +508,21 @@ impl<Q: Color, C: Color> NTSBuilder<Q, C> {
         self.colors.push((idx, color));
         self
     }
+
+    /// Adds a list of transitions to `self`. The transitions are added in the order in which they are given.
+    /// The transitions can be passed in as anything that is iterable. An easy way is to pass in an array of tuples.
+    ///
+    /// # Example
+    ///
+    /// We can create a deterministic finite automaton (DFA) with two states (one `true` and one `false`) as follows:
+    /// ```
+    /// use automata::prelude::*;
+    ///
+    /// let mut nts = NTS::builder()
+    ///     .with_colors([true, false])
+    ///     .with_transitions([(0, 'a', (), 0), (0, 'b', (), 1), (1, 'a', (), 1), (1, 'b', (), 0)])
+    ///     .into_dfa();
+    /// ```
     pub fn with_transitions<X: FullTransition<usize, char, C>, T: IntoIterator<Item = X>>(
         mut self,
         iter: T,
@@ -468,18 +531,22 @@ impl<Q: Color, C: Color> NTSBuilder<Q, C> {
         self
     }
 
+    /// Turns `self` into a [`RightCongruence`] with the given initial state. Panics if `self` is not deterministic.
     pub fn into_right_congruence(self, initial: usize) -> RightCongruence<Simple, Q, C> {
         self.deterministic()
             .with_initial(initial)
             .collect_right_congruence()
     }
 
+    /// Turns `self` into a [`RightCongruence`] with the given initial state while also erasing all state and edge
+    /// colors. Panics if `self` is not deterministic.
     pub fn into_right_congruence_bare(self, initial: usize) -> RightCongruence<Simple> {
         self.deterministic()
             .with_initial(initial)
             .collect_right_congruence_bare()
     }
 
+    /// Collects self into a non-deterministic transition system.
     pub fn collect(mut self) -> NTS<Simple, Q, C>
     where
         Q: Color,

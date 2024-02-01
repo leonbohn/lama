@@ -117,6 +117,7 @@ fn iai_automata_transformations_old() {
     automata_transformations_old(iai::black_box(&DATA.0))
 }
 
+#[allow(deprecated)]
 fn automata_transformations(automata: &[MooreMachine<Simple, usize>]) {
     for automaton in automata {
         let _ts: automata::ts::BTS<_, _, _> = automaton
