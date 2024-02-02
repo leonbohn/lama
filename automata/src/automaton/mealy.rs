@@ -80,7 +80,7 @@ impl<Ts: TransitionSystem> TransitionSystem for MealyMachine<Ts::Alphabet, Ts::E
 
     type EdgeColor = Ts::EdgeColor;
 
-    type TransitionRef<'this> = Ts::TransitionRef<'this>
+    type EdgeRef<'this> = Ts::EdgeRef<'this>
     where
         Self: 'this;
 
@@ -115,7 +115,7 @@ impl<D: Deterministic> Deterministic for MealyMachine<D::Alphabet, D::EdgeColor,
         &self,
         state: Idx,
         symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         self.ts().transition(state.to_index(self)?, symbol)
     }
 }
@@ -187,7 +187,7 @@ impl<Ts: TransitionSystem> MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts> {
 impl<Ts: PredecessorIterable> PredecessorIterable
     for MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts>
 {
-    type PreTransitionRef<'this> = Ts::PreTransitionRef<'this>
+    type PreEdgeRef<'this> = Ts::PreEdgeRef<'this>
     where
         Self: 'this;
 
@@ -224,9 +224,11 @@ impl<Ts: Deterministic> std::fmt::Debug for MealyMachine<Ts::Alphabet, Ts::EdgeC
 macro_rules! impl_mealy_automaton {
     ($name:ident, $color:ident) => {
         paste::paste! {
+            /// Type alias for considering `Ts` as an automaton.
             pub type [< Into $name >]<Ts> = $name<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::StateColor, Ts>;
         }
 
+        #[allow(missing_docs)]
         #[derive(Clone)]
         pub struct $name<
             A = Simple,
@@ -239,6 +241,7 @@ macro_rules! impl_mealy_automaton {
         impl<A: Alphabet, Q: Color + Default>
             $name<A, Q, Initialized<DTS<A, Q, $color>>>
         {
+            #[allow(missing_docs)]
             pub fn new(alphabet: A, initial_state_color: Q) -> $name<A, Q, Initialized<DTS<A, Q, $color>>> {
                 let mut ts = Initialized::new(alphabet);
                 ts.set_initial_color(initial_state_color);
@@ -248,6 +251,7 @@ macro_rules! impl_mealy_automaton {
                 }
             }
         }
+        #[allow(missing_docs)]
         impl<Ts: TransitionSystem> $name<Ts::Alphabet, Ts::StateColor, Ts> {
             pub fn ts(&self) -> &Ts {
                 &self.ts
@@ -269,7 +273,7 @@ macro_rules! impl_mealy_automaton {
         impl<Ts: PredecessorIterable> PredecessorIterable
             for $name<Ts::Alphabet, Ts::StateColor, Ts>
         {
-            type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
+            type PreEdgeRef<'this> = Ts::PreEdgeRef<'this> where Self: 'this;
             type EdgesToIter<'this> = Ts::EdgesToIter<'this> where Self: 'this;
             fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
                 self.ts().predecessors(state)
@@ -341,7 +345,7 @@ macro_rules! impl_mealy_automaton {
             type StateIndex = Ts::StateIndex;
             type EdgeColor = Ts::EdgeColor;
             type StateColor = Ts::StateColor;
-            type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
+            type EdgeRef<'this> = Ts::EdgeRef<'this> where Self: 'this;
             type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
             type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
             type Alphabet = Ts::Alphabet;
@@ -378,7 +382,7 @@ macro_rules! impl_mealy_automaton {
                 &self,
                 state: Idx,
                 symbol: SymbolOf<Self>,
-            ) -> Option<Self::TransitionRef<'_>> {
+            ) -> Option<Self::EdgeRef<'_>> {
                 self.ts().transition(state.to_index(self)?, symbol)
             }
 

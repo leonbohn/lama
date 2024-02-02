@@ -37,6 +37,8 @@ impl<'a, Ts: TransitionSystem> SccDecomposition<'a, Ts> {
         Self(ts, sccs)
     }
 
+    /// Gives the first [`Scc`] in the decomposition. This must exist as we only allow
+    /// non-empty decompositions.
     pub fn first(&self) -> &Scc<'a, Ts> {
         self.1.first().expect("At least one SCC must exist!")
     }
@@ -50,6 +52,8 @@ impl<'a, Ts: TransitionSystem> SccDecomposition<'a, Ts> {
             .find_map(|(i, scc)| if scc.contains(&state) { Some(i) } else { None })
     }
 
+    /// Tests whether two SCC decompositions are isomorphic. This is done by checking whether each
+    /// SCC in one decomposition has a matching SCC in the other decomposition.
     pub fn isomorphic(&self, other: &SccDecomposition<'a, Ts>) -> bool {
         for scc in &self.1 {
             if !other.1.iter().any(|other_scc| scc == other_scc) {

@@ -80,7 +80,7 @@ where
     Ts: PredecessorIterable,
     F: Fn(Ts::StateIndex, &ExpressionOf<Ts>, Ts::EdgeColor, Ts::StateIndex) -> D,
 {
-    type PreTransitionRef<'this> = MappedPreEdge<Ts::StateIndex, Ts::PreTransitionRef<'this>, &'this F, Ts::EdgeColor>
+    type PreEdgeRef<'this> = MappedPreEdge<Ts::StateIndex, Ts::PreEdgeRef<'this>, &'this F, Ts::EdgeColor>
     where
         Self: 'this;
 
@@ -125,6 +125,7 @@ pub struct MappedEdge<Idx, T, F, C> {
 }
 
 impl<Idx, T, F, C> MappedEdge<Idx, T, F, C> {
+    /// Create a new mapped edge instance.
     pub fn new(transition: T, from: Idx, f: F) -> Self {
         Self {
             transition,
@@ -177,7 +178,7 @@ where
 
     type EdgeColor = D;
 
-    type TransitionRef<'this> = MappedEdge<Ts::StateIndex, Ts::TransitionRef<'this>, &'this F, Ts::EdgeColor>
+    type EdgeRef<'this> = MappedEdge<Ts::StateIndex, Ts::EdgeRef<'this>, &'this F, Ts::EdgeColor>
     where
         Self: 'this;
 

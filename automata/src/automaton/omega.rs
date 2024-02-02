@@ -165,7 +165,7 @@ impl<A: Alphabet> TransitionSystem for OmegaAutomaton<A> {
 
     type EdgeColor = AcceptanceMask;
 
-    type TransitionRef<'this> = <DTS<A, usize, AcceptanceMask> as TransitionSystem>::TransitionRef<'this>
+    type EdgeRef<'this> = <DTS<A, usize, AcceptanceMask> as TransitionSystem>::EdgeRef<'this>
     where
         Self: 'this;
 
@@ -203,7 +203,7 @@ impl<A: Alphabet> TransitionSystem for DeterministicOmegaAutomaton<A> {
 
     type EdgeColor = AcceptanceMask;
 
-    type TransitionRef<'this> = <DTS<A, usize, AcceptanceMask> as TransitionSystem>::TransitionRef<'this>
+    type EdgeRef<'this> = <DTS<A, usize, AcceptanceMask> as TransitionSystem>::EdgeRef<'this>
     where
         Self: 'this;
 
@@ -235,7 +235,7 @@ impl<A: Alphabet> TransitionSystem for DeterministicOmegaAutomaton<A> {
 }
 
 impl<A: Alphabet> PredecessorIterable for OmegaAutomaton<A> {
-    type PreTransitionRef<'this> = <DTS<A, usize, AcceptanceMask> as PredecessorIterable>::PreTransitionRef<'this>
+    type PreEdgeRef<'this> = <DTS<A, usize, AcceptanceMask> as PredecessorIterable>::PreEdgeRef<'this>
     where
         Self: 'this;
 
@@ -249,7 +249,7 @@ impl<A: Alphabet> PredecessorIterable for OmegaAutomaton<A> {
 }
 
 impl<A: Alphabet> PredecessorIterable for DeterministicOmegaAutomaton<A> {
-    type PreTransitionRef<'this> = <DTS<A, usize, AcceptanceMask> as PredecessorIterable>::PreTransitionRef<'this>
+    type PreEdgeRef<'this> = <DTS<A, usize, AcceptanceMask> as PredecessorIterable>::PreEdgeRef<'this>
     where
         Self: 'this;
 
@@ -267,7 +267,7 @@ impl<A: Alphabet> Deterministic for DeterministicOmegaAutomaton<A> {
         &self,
         state: Idx,
         symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         self.ts.transition(state.to_index(self)?, symbol)
     }
 }

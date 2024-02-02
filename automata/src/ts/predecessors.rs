@@ -16,23 +16,20 @@ use super::{
 /// Implementors of this trait are [`TransitionSystem`]s which allow iterating over the predecessors of a state.
 pub trait PredecessorIterable: TransitionSystem {
     /// The type of pre-transition that the iterator yields.
-    type PreTransitionRef<'this>: IsEdge<
-        'this,
-        ExpressionOf<Self>,
-        Self::StateIndex,
-        EdgeColor<Self>,
-    >
+    type PreEdgeRef<'this>: IsEdge<'this, ExpressionOf<Self>, Self::StateIndex, EdgeColor<Self>>
     where
         Self: 'this;
 
     /// The type of iterator over the predecessors of a state.
-    type EdgesToIter<'this>: Iterator<Item = Self::PreTransitionRef<'this>>
+    type EdgesToIter<'this>: Iterator<Item = Self::PreEdgeRef<'this>>
     where
         Self: 'this;
 
     /// Returns an iterator over the predecessors of the given `state`. Returns `None` if the state does not exist.
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>>;
 
+    /// Reverses the directions of all transitions in the transition system. This consumes the transition system.
+    /// See also [`Reversed`].
     fn reversed(self) -> Reversed<Self> {
         Reversed(self)
     }
@@ -43,7 +40,7 @@ where
     Ts: PredecessorIterable,
     F: StateIndexFilter<Ts::StateIndex>,
 {
-    type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
+    type PreEdgeRef<'this> = Ts::PreEdgeRef<'this> where Self: 'this;
     type EdgesToIter<'this> = RestrictedEdgesToIter<'this, Ts, F> where Self: 'this;
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
         Some(RestrictedEdgesToIter::new(
@@ -54,14 +51,14 @@ where
 }
 
 impl<Ts: PredecessorIterable> PredecessorIterable for &Ts {
-    type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
+    type PreEdgeRef<'this> = Ts::PreEdgeRef<'this> where Self: 'this;
     type EdgesToIter<'this> = Ts::EdgesToIter<'this> where Self: 'this;
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
         Ts::predecessors(self, state)
     }
 }
 impl<Ts: PredecessorIterable> PredecessorIterable for &mut Ts {
-    type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
+    type PreEdgeRef<'this> = Ts::PreEdgeRef<'this> where Self: 'this;
     type EdgesToIter<'this> = Ts::EdgesToIter<'this> where Self: 'this;
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
         Ts::predecessors(self, state)
@@ -74,7 +71,7 @@ where
     Ts: PredecessorIterable,
     F: Fn(Ts::EdgeColor) -> D,
 {
-    type PreTransitionRef<'this> = MappedPreTransition<Ts::PreTransitionRef<'this>, &'this F, Ts::EdgeColor> where Self: 'this;
+    type PreEdgeRef<'this> = MappedPreTransition<Ts::PreEdgeRef<'this>, &'this F, Ts::EdgeColor> where Self: 'this;
     type EdgesToIter<'this> = MappedTransitionsToIter<'this, Ts::EdgesToIter<'this>, F, Ts::EdgeColor> where Self: 'this;
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
         Some(MappedTransitionsToIter::new(
@@ -91,7 +88,7 @@ where
     F: Fn(Ts::StateColor) -> D,
 {
     type EdgesToIter<'this> = Ts::EdgesToIter<'this> where Self: 'this;
-    type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
+    type PreEdgeRef<'this> = Ts::PreEdgeRef<'this> where Self: 'this;
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
         self.ts().predecessors(state)
     }
@@ -105,7 +102,7 @@ where
     L::StateColor: Clone,
     R::StateColor: Clone,
 {
-    type PreTransitionRef<'this> = ProductPreTransition<'this, L::StateIndex, R::StateIndex, ExpressionOf<L>, L::EdgeColor, R::EdgeColor> where Self: 'this;
+    type PreEdgeRef<'this> = ProductPreTransition<'this, L::StateIndex, R::StateIndex, ExpressionOf<L>, L::EdgeColor, R::EdgeColor> where Self: 'this;
     type EdgesToIter<'this> = ProductEdgesTo<'this, L, R> where Self: 'this;
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
         ProductEdgesTo::new(&self.0, &self.1, state)
@@ -113,7 +110,7 @@ where
 }
 
 impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> PredecessorIterable for BTS<A, Q, C, Idx> {
-    type PreTransitionRef<'this> = EdgeReference<'this, A::Expression, Idx, C> where Self: 'this;
+    type PreEdgeRef<'this> = EdgeReference<'this, A::Expression, Idx, C> where Self: 'this;
     type EdgesToIter<'this> = BTSPredecessors<'this, A, C, Idx>
     where
         Self: 'this;
@@ -125,6 +122,8 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> PredecessorIterable for BT
     }
 }
 
+/// Iterator over the predecessors of a state in a BTS.
+#[derive(Clone)]
 pub struct BTSPredecessors<'a, A: Alphabet, C: Color, Idx: IndexType> {
     it: std::collections::hash_set::Iter<'a, (Idx, A::Expression, C)>,
     state: Idx,
@@ -141,6 +140,7 @@ impl<'a, A: Alphabet, C: Color, Idx: IndexType> Iterator for BTSPredecessors<'a,
 }
 
 impl<'a, A: Alphabet, C: Color, Idx: IndexType> BTSPredecessors<'a, A, C, Idx> {
+    /// Creates a new instance from an iterator and a state.
     pub fn new(
         it: std::collections::hash_set::Iter<'a, (Idx, A::Expression, C)>,
         state: Idx,
@@ -150,7 +150,7 @@ impl<'a, A: Alphabet, C: Color, Idx: IndexType> BTSPredecessors<'a, A, C, Idx> {
 }
 
 impl<A: Alphabet> PredecessorIterable for RightCongruence<A> {
-    type PreTransitionRef<'this> = &'this NTEdge<A::Expression, ()>
+    type PreEdgeRef<'this> = &'this NTEdge<A::Expression, ()>
     where
         Self: 'this;
 
@@ -163,7 +163,7 @@ impl<A: Alphabet> PredecessorIterable for RightCongruence<A> {
 }
 
 impl<Ts: PredecessorIterable> PredecessorIterable for Initialized<Ts> {
-    type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
+    type PreEdgeRef<'this> = Ts::PreEdgeRef<'this> where Self: 'this;
     type EdgesToIter<'this> = Ts::EdgesToIter<'this> where Self: 'this;
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
         self.ts().predecessors(state)

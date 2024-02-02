@@ -13,13 +13,14 @@ use crate::{word::FiniteWord, Map, Show};
 /// A symbol of an alphabet, which is also the type of the symbols in a word. We consider different types
 /// of alphabets:
 /// - [`Simple`] alphabets, which are just a set of symbols.
-/// - [`Propositional`] alphabets, where a symbol is a valuation of all propositional variables.
+/// - Propositional alphabets, where a symbol is a valuation of all propositional variables. This is for example
+/// implemented in the `hoars` crate.
 pub trait Symbol: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash + Show {}
 impl<S: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash + Show> Symbol for S {}
 
 /// An expression is used to label edges of a [`crate::ts::TransitionSystem`]. For [`Simple`]
-/// alphabets, an expression is simply a single symbol, whereas for a [`Propositional`] alphabet, an expression
-/// is a propositional formula over the atomic propositions. See [`Propositional`] for more details.
+/// alphabets, an expression is simply a single symbol, whereas for a propositional alphabet, an expression
+/// is a propositional formula over the atomic propositions. See propositional for more details.
 pub trait Expression<S: Symbol>: Hash + Clone + Debug + Eq + Ord + Show {
     /// Type of iterator over the concrete symbols matched by this expression.
     type SymbolsIter<'this>: Iterator<Item = S>
@@ -29,10 +30,11 @@ pub trait Expression<S: Symbol>: Hash + Clone + Debug + Eq + Ord + Show {
     fn symbols(&self) -> Self::SymbolsIter<'_>;
 
     /// Checks whether the given [`Symbol`] matches the expression `self`. For [`Simple`] alphabets, this just
-    /// means that the expression equals the given symbol. For a [`Propositional`] alphabet, this means that
-    /// the expression is satisfied by the given symbol, an example of this is illustrated in [`Propositional`].
+    /// means that the expression equals the given symbol. For a propositional alphabet, this means that
+    /// the expression is satisfied by the given symbol, an example of this is illustrated in propositional.
     fn matches(&self, symbol: S) -> bool;
 
+    /// Apply the given function `f` to each symbol matched by this expression.
     fn for_each<F: Fn(S)>(&self, f: F) {
         self.symbols().for_each(f)
     }
@@ -46,8 +48,10 @@ pub trait Alphabet: Clone {
     /// The type of expressions in this alphabet.
     type Expression: Expression<Self::Symbol>;
 
+    /// Creates an expression from a single symbol.
     fn make_expression(&self, symbol: Self::Symbol) -> &Self::Expression;
 
+    /// Returns a map from each symbol in the alphabet to the corresponding expression.
     fn expression_map(&self) -> crate::Map<Self::Symbol, Self::Expression> {
         self.universe()
             .map(|sym| (sym, Self::expression(sym)))
@@ -63,27 +67,28 @@ pub trait Alphabet: Clone {
         sym: Self::Symbol,
     ) -> Option<(&Self::Expression, &X)>;
 
-    /// Type for an iterator over all possible symbols in the alphabet. For [`Propositional`] alphabets,
+    /// Type for an iterator over all possible symbols in the alphabet. For propositional alphabets,
     /// this may return quite a few symbols (exponential in the number of atomic propositions).
     type Universe<'this>: Iterator<Item = Self::Symbol>
     where
         Self: 'this;
 
     /// Returns an iterator over all possible symbols in the alphabet. May return a huge number of symbols
-    /// if the alphabet is [`Propositional`].
+    /// if the alphabet is propositional.
     fn universe(&self) -> Self::Universe<'_>;
 
     /// Returns true if the given symbol is present in the alphabet.
     fn contains(&self, symbol: Self::Symbol) -> bool;
 
     /// Checks whether the given expression matches the given symbol. For [`Simple`] alphabets, this just
-    /// means that the expression equals the given symbol. For a [`Propositional`] alphabet, this means that
-    /// the expression is satisfied by the given symbol, an example of this is illustrated in [`Propositional`].
+    /// means that the expression equals the given symbol. For a propositional alphabet, this means that
+    /// the expression is satisfied by the given symbol, an example of this is illustrated in propositional.
     fn matches(&self, expression: &Self::Expression, symbol: Self::Symbol) -> bool;
 
     /// Creates an expression from a single symbol.
     fn expression(symbol: Self::Symbol) -> Self::Expression;
 
+    /// Returns the number of symbols in the alphabet.
     fn size(&self) -> usize;
 }
 
@@ -98,6 +103,8 @@ pub trait Alphabet: Clone {
 pub struct Simple(pub(crate) Vec<char>);
 
 impl Simple {
+    /// Creates a new [`Simple`] alphabet of the given size. The symbols are just the first `size` letters
+    /// of the alphabet, i.e. 'a' to 'z'.
     pub fn alphabetic(size: usize) -> Self {
         assert!(size < 26, "Alphabet is too large");
         Self((0..size).map(|i| (b'a' + i as u8) as char).collect())
@@ -362,10 +369,15 @@ impl<S: Symbol + Expression<S>, const N: usize> Alphabet for Fixed<S, N> {
     }
 }
 
+/// A [`Simple`] alphabet where symbols can be inverted. This means that a symbol can either be
+/// appended to the end of a word or prepended to the beginning of a word. This is used to
+/// implement the [`Directional`] alphabet.
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub struct InvertibleChar(char, bool);
 
 impl InvertibleChar {
+    /// Multiplies the given word with this symbol. If the symbol is inverted, then it is prepended
+    /// to the word, otherwise it is appended.
     pub fn mul(&self, word: &mut VecDeque<char>) {
         if self.1 {
             word.push_front(self.0)
@@ -374,6 +386,7 @@ impl InvertibleChar {
         }
     }
 
+    /// Returns true if this symbol is inverted.
     pub fn is_inverted(&self) -> bool {
         self.1
     }
@@ -405,6 +418,9 @@ impl Show for InvertibleChar {
     }
 }
 
+/// A [`Simple`] alphabet where each symbol can be inverted. This means that a symbol can either be
+/// appended to the end of a word or prepended to the beginning of a word. This can be used to
+/// represent two-sided congruences.
 #[derive(Clone, Debug)]
 pub struct Directional(Vec<InvertibleChar>);
 
@@ -420,6 +436,8 @@ impl FromIterator<char> for Directional {
 }
 
 impl Directional {
+    /// Takes a 'usual' alphabet and turns every symbol into an [`InvertibleChar`], that is every
+    /// char can now be an append- or a prepend-symbol.
     pub fn from_alphabet<A: std::borrow::Borrow<Simple>>(alphabet: A) -> Self {
         Self::from_iter(alphabet.borrow().universe())
     }

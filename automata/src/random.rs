@@ -2,6 +2,14 @@ use tracing::{debug, info, trace};
 
 use crate::{prelude::*, Map};
 
+/// Uses sprout-like algorithm to generate a random transition system. `symbols` determines the
+/// number of distinct symbols in the [`Simple`] alphabet. `probability` determines the probability
+/// of a back edge to some state being inserted. The algorithm is as follows:
+/// 1. Start with a single state.
+/// 2. For each symbol, go through the existing states in order and with probability `probability`
+///   add a back edge that state.
+/// 3. If no back edge to some state was added, we insert an edge to a new state.
+/// 4. Repeat until all states and symbols have been treated.
 pub fn generate_random_ts(symbols: usize, probability: f64) -> Initialized<DTS> {
     let alphabet = Simple::alphabetic(symbols);
     let mut dts = DTS::new_for_alphabet(alphabet.clone());
@@ -41,6 +49,7 @@ pub fn generate_random_ts(symbols: usize, probability: f64) -> Initialized<DTS> 
     dts.with_initial(0)
 }
 
+/// Works as [`generate_random_ts`], but returns a [`DFA`] instead by randomly coloring the states.
 pub fn generate_random_dfa(symbols: usize, probability: f64) -> DFA {
     generate_random_ts(symbols, probability)
         .map_state_colors(|_| fastrand::bool())

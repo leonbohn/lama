@@ -34,6 +34,8 @@ jobs:
         run: cargo fmt --all --check
       - name: Ensure that clippy is happy
         run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Verify that documentation contains no invalid links
+        run: cargo doc --workspace --no-deps
       - name: Compile
         run: cargo build --locked
       - name: Run all tests and see that there are no regressions

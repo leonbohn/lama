@@ -102,7 +102,10 @@ mod tests {
         let lead_to_sink = ["ba", "bbbbbbbbba", "ababababbbabaababa", "aaaaaaaaaaaaab"];
         for w in &lead_to_sink {
             for v in &lead_to_sink {
-                assert_eq!(completed.reached(w), completed.reached(v));
+                assert_eq!(
+                    completed.reached_state_index(w),
+                    completed.reached_state_index(v)
+                );
             }
         }
     }

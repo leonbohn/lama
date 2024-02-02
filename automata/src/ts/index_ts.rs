@@ -106,12 +106,16 @@ pub struct BTS<A: Alphabet, Q, C: Color, Idx: IndexType = usize> {
     pub(crate) states: Map<Idx, BTState<A, Q, C, Idx>>,
 }
 
+/// Type alias that takes a [`TransitionSystem`] and gives the type of a corresponding [`BTS`], i.e. one
+/// with the same alphabet, edge and state colors.
 pub type IntoBTS<Ts> = BTS<
     <Ts as TransitionSystem>::Alphabet,
     <Ts as TransitionSystem>::StateColor,
     <Ts as TransitionSystem>::EdgeColor,
 >;
 
+/// Type alias for a [`BTS`] with initial states. Given a [`TransitionSystem`] `Ts`, returns a [`BTS`] with the
+/// same alphabet, edge and state colors, wrapped in a [`Initialized`] type.
 pub type IntoInitialBTS<Ts> = Initialized<
     BTS<
         <Ts as TransitionSystem>::Alphabet,

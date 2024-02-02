@@ -2,9 +2,13 @@ use crate::prelude::*;
 
 use super::nts::{NTEdge, NTSEdgesFromIter, NTSEdgesTo};
 
+/// A deterministic transition system. This is a thin wrapper around [`NTS`] and is only used to
+/// enforce that the underlying NTS is deterministic.
 #[derive(Clone, Eq, PartialEq)]
 pub struct DTS<A: Alphabet = Simple, Q = NoColor, C = NoColor>(pub(crate) NTS<A, Q, C>);
 
+/// Type alias to create a deterministic transition with the same alphabet, state and edge color
+/// as the given [`Ts`](`crate::prelude::TransitionSystem`).
 pub type CollectDTS<Ts> = DTS<
     <Ts as TransitionSystem>::Alphabet,
     <Ts as TransitionSystem>::StateColor,
@@ -70,7 +74,7 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for DTS<A, Q, C> {
 
     type EdgeColor = C;
 
-    type TransitionRef<'this> = &'this NTEdge<A::Expression, C>
+    type EdgeRef<'this> = &'this NTEdge<A::Expression, C>
     where
         Self: 'this;
 
@@ -101,25 +105,10 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for DTS<A, Q, C> {
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> Deterministic for DTS<A, Q, C> {
-    fn transition<Idx: Indexes<Self>>(
-        &self,
-        state: Idx,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        let mut it = self
-            .0
-            .edges_from(state.to_index(self)?)?
-            .filter(|e| IsEdge::expression(e).matches(symbol));
-        let out = it.next();
-        //todo: See if this has performance impact
-        assert!(it.next().is_none());
-        out
-    }
-}
+impl<A: Alphabet, Q: Color, C: Color> Deterministic for DTS<A, Q, C> {}
 
 impl<A: Alphabet, Q: Color, C: Color> PredecessorIterable for DTS<A, Q, C> {
-    type PreTransitionRef<'this> = &'this NTEdge<A::Expression, C>
+    type PreEdgeRef<'this> = &'this NTEdge<A::Expression, C>
     where
         Self: 'this;
 
@@ -182,6 +171,7 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for DTS<A, Q, C> {
 }
 
 impl<A: Alphabet, Q: Color, C: Color> DTS<A, Q, C> {
+    /// Creates an empty [`DTS`] with the given alphabet and capacity for at least `cap` states.
     pub fn with_capacity(alphabet: A, cap: usize) -> Self {
         Self(NTS::with_capacity(alphabet, cap))
     }

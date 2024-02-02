@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::{
     prelude::*,
-    ts::{reachable::ReachableStateIndices, transition_system::TransitionOwned},
+    ts::{reachable::ReachableStateIndices, transition_system::TransitionOwnedColor},
     Set,
 };
 
@@ -53,6 +53,9 @@ impl<Ts: TransitionSystem> StateSet<Ts> {
     }
 }
 
+/// Represents the subset construction applied to a transition system. This is a deterministic
+/// transition system, which resolves the non-determinism by operating on sets of states.
+#[derive(Clone)]
 pub struct SubsetConstruction<Ts: TransitionSystem> {
     ts: Ts,
     states: RefCell<Vec<StateSet<Ts>>>,
@@ -64,7 +67,7 @@ impl<Ts: TransitionSystem> Deterministic for SubsetConstruction<Ts> {
         &self,
         state: Idx,
         symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         let source = state.to_index(self)?;
         let (colorset, stateset): (Vec<Ts::EdgeColor>, StateSet<Ts>) = self
             .states
@@ -82,7 +85,7 @@ impl<Ts: TransitionSystem> Deterministic for SubsetConstruction<Ts> {
             })
             .unzip();
         if let Some(pos) = self.states.borrow().iter().position(|s| stateset.eq(s)) {
-            return Some(TransitionOwned::new(
+            return Some(TransitionOwnedColor::new(
                 source,
                 self.expressions.get(&symbol).unwrap(),
                 colorset,
@@ -91,7 +94,7 @@ impl<Ts: TransitionSystem> Deterministic for SubsetConstruction<Ts> {
         }
 
         self.states.borrow_mut().push(stateset);
-        Some(TransitionOwned::new(
+        Some(TransitionOwnedColor::new(
             source,
             self.expressions.get(&symbol).unwrap(),
             colorset,
@@ -114,7 +117,7 @@ impl<Ts: TransitionSystem> TransitionSystem for SubsetConstruction<Ts> {
 
     type EdgeColor = Vec<Ts::EdgeColor>;
 
-    type TransitionRef<'this> = TransitionOwned<'this, ExpressionOf<Ts>, usize, Self::EdgeColor>
+    type EdgeRef<'this> = TransitionOwnedColor<'this, ExpressionOf<Ts>, usize, Self::EdgeColor>
     where
         Self: 'this;
 
@@ -176,6 +179,7 @@ impl<Ts: TransitionSystem> Debug for SubsetConstruction<Ts> {
 }
 
 impl<Ts: TransitionSystem> SubsetConstruction<Ts> {
+    /// Creates a new subset construction from the given transition system starting from the given index.
     pub fn new_from(ts: Ts, idx: Ts::StateIndex) -> Self {
         Self {
             expressions: ts.alphabet().expression_map(),
@@ -184,6 +188,8 @@ impl<Ts: TransitionSystem> SubsetConstruction<Ts> {
         }
     }
 
+    /// Creates a new subset construction from the given transition system starting from the given
+    /// indices.
     pub fn new<I: IntoIterator<Item = Ts::StateIndex>>(ts: Ts, iter: I) -> Self {
         Self {
             expressions: ts.alphabet().expression_map(),

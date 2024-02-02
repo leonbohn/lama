@@ -28,8 +28,12 @@ pub use shrinkable::Shrinkable;
 mod deterministic;
 pub use deterministic::Deterministic;
 
-mod nts;
-pub use nts::{NTSBuilder, NTS};
+/// Implements a type of (nondeterministic) transition system based on a vector of state information and a vector of edges.
+pub mod nts;
+pub use nts::NTS;
+
+mod builder;
+pub use builder::TSBuilder;
 
 mod dts;
 pub use dts::{CollectDTS, DTS};
@@ -54,6 +58,8 @@ pub mod dag;
 
 /// Encapsulates what is necessary for a type to be usable as a state index in a [`TransitionSystem`].
 pub trait IndexType: Copy + std::hash::Hash + std::fmt::Debug + Eq + Ord + Display + Show {
+    /// Gives the first possible index. For an integer type, this should be `0`. For a product type,
+    /// this should be the product of the first indices of the components.
     fn first() -> Self;
 }
 

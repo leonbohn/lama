@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use std::fmt::{Debug, Display, Write};
 
 use itertools::Itertools;
@@ -86,7 +88,7 @@ pub trait Dottable: TransitionSystem {
 
     fn dot_transition_attributes<'a>(
         &'a self,
-        t: Self::TransitionRef<'a>,
+        t: Self::EdgeRef<'a>,
     ) -> impl IntoIterator<Item = DotTransitionAttribute> {
         []
     }
@@ -170,9 +172,14 @@ pub trait Dottable: TransitionSystem {
         }
     }
 
-    /// First creates a rendered PNG using [`Self::render_tempfile()`], after which the rendered
-    /// image is displayed using a locally installed image viewer (`eog` on linux, `qlmanage`
-    /// i.e. quicklook on macos and nothing yet on windows).
+    /// First creates a rendered PNG using [`Self::render()`], after which the rendered
+    /// image is displayed via by using a locally installed image viewer.
+    /// This method is only available on the `graphviz` crate feature.
+    ///
+    /// # Image viewer
+    /// On Macos, the Preview app is used, while on Linux and Windows, the image viewer
+    /// can be configured by setting the `IMAGE_VIEWER` environment variable. If it is not set,
+    /// then the display command of ImageMagick will be used.
     #[cfg(feature = "graphviz")]
     fn display_rendered(&self) -> Result<(), std::io::Error> {
         display_png(self.render()?)?;
@@ -191,7 +198,7 @@ impl<A: Alphabet> Dottable for crate::DFA<A> {
 
     fn dot_transition_attributes<'a>(
         &'a self,
-        t: Self::TransitionRef<'a>,
+        t: Self::EdgeRef<'a>,
     ) -> impl IntoIterator<Item = DotTransitionAttribute> {
         [DotTransitionAttribute::Label(t.expression.show())].into_iter()
     }
@@ -222,7 +229,7 @@ impl<A: Alphabet, Q: Color, C: Color> Dottable for crate::RightCongruence<A, Q, 
 
     fn dot_transition_attributes<'a>(
         &'a self,
-        t: Self::TransitionRef<'a>,
+        t: Self::EdgeRef<'a>,
     ) -> impl IntoIterator<Item = DotTransitionAttribute> {
         [DotTransitionAttribute::Label(format!(
             "{}|{}",
@@ -265,7 +272,7 @@ impl<M: MooreLike> Dottable for IntoMooreMachine<M> {
 
     fn dot_transition_attributes<'a>(
         &'a self,
-        t: Self::TransitionRef<'a>,
+        t: Self::EdgeRef<'a>,
     ) -> impl IntoIterator<Item = DotTransitionAttribute> {
         vec![DotTransitionAttribute::Label(format!(
             "{}|{}",
@@ -300,7 +307,7 @@ impl<M: MealyLike> Dottable for IntoMealyMachine<M> {
 
     fn dot_transition_attributes<'a>(
         &'a self,
-        t: Self::TransitionRef<'a>,
+        t: Self::EdgeRef<'a>,
     ) -> impl IntoIterator<Item = DotTransitionAttribute> {
         vec![DotTransitionAttribute::Label(format!(
             "{}|{}",
@@ -335,7 +342,7 @@ impl<D: DPALike> Dottable for IntoDPA<D> {
 
     fn dot_transition_attributes<'a>(
         &'a self,
-        t: Self::TransitionRef<'a>,
+        t: Self::EdgeRef<'a>,
     ) -> impl IntoIterator<Item = DotTransitionAttribute> {
         vec![DotTransitionAttribute::Label(format!(
             "{}|{}",

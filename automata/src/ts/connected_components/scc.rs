@@ -98,15 +98,21 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         })
     }
 
+    /// Returns the size, i.e. the number of states in the SCC.
     pub fn size(&self) -> usize {
         assert!(!self.is_empty());
         self.states.len()
     }
 
+    /// Returns `true` iff the SCC is trivial, meaning it consists of a single state.
     pub fn is_trivial(&self) -> bool {
         self.size() == 1
     }
 
+    /// Gives a reference to all interior edges of the SCC. An interior edge is an edge whose source
+    /// and target states are in the SCC itself.
+    ///
+    /// This is computed lazily and cached.
     pub fn interior_edges(&self) -> &InteriorEdgeSet<Ts> {
         self.edges.get_or_init(|| {
             let mut edges = Set::default();
@@ -123,6 +129,10 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         })
     }
 
+    /// Gives a reference to all interior transitions of the SCC. An interior transitions is one whose source
+    /// and target states are in the SCC itself.
+    ///
+    /// This is computed lazily and cached.
     pub fn interior_transitions(&self) -> &InteriorTransitionSet<Ts> {
         self.transitions.get_or_init(|| {
             let mut edges = Set::default();
@@ -179,6 +189,9 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         )
     }
 
+    /// Attempts to compute a maximal word which is one that visits all states in the scc and uses
+    /// each interior transition (one whose source and target are within the SCC) at least once.
+    /// If no such word exists, `None` is returned.
     pub fn maximal_word(&self) -> Option<Vec<SymbolOf<Ts>>> {
         self.maximal_loop_from(*self.states.first()?)
     }

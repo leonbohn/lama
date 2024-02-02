@@ -13,6 +13,7 @@ impl<Ts: TransitionSystem> Initialized<Ts> {
         &self.0
     }
 
+    /// Consumes and decomposes self into a tuple of the underlying transition system and the initial state.
     pub fn into_parts(self) -> (Ts, Ts::StateIndex) {
         (self.0, self.1)
     }
@@ -64,7 +65,7 @@ where
     C: Color,
     Q: Color,
 {
-    /// Takes an alphabet and a color and constructs a [`WithInitial`] instance with the given alphabet, no
+    /// Takes an alphabet and a color and constructs an [`Initialized`] instance with the given alphabet, no
     /// transitions and a single initial state with the given color.
     pub fn with_initial_color(alphabet: A, color: Q) -> Self {
         let mut ts = DTS::new_for_alphabet(alphabet);

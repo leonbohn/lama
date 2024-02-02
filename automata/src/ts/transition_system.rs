@@ -39,12 +39,10 @@ pub type StateColorOf<Ts> = <Ts as TransitionSystem>::StateColor;
 /// Type alias to extract the edge color of a [`TransitionSystem`].
 pub type EdgeColorOf<Ts> = <Ts as TransitionSystem>::EdgeColor;
 
-/// Helper trait for extracting the [`Symbol`] type from an an object which implements [`HasAlphabet`].
+/// Helper trait for extracting the [`Symbol`] type from an a transition system.
 pub type SymbolOf<A> = <<A as TransitionSystem>::Alphabet as Alphabet>::Symbol;
-/// Helper trait for extracting the [`Expression`] type from an an object which implements [`HasAlphabet`].
+/// Helper trait for extracting the [`Expression`] type from an a transition system.
 pub type ExpressionOf<A> = <<A as TransitionSystem>::Alphabet as Alphabet>::Expression;
-
-pub type FiniteInput<D> = Vec<SymbolOf<D>>;
 
 /// Encapsulates the transition function δ of a (finite) transition system. This is the main trait that
 /// is used to query a transition system. Transitions are labeled with a [`Alphabet::Expression`], which
@@ -60,6 +58,7 @@ pub type FiniteInput<D> = Vec<SymbolOf<D>>;
 /// the expression). So a transition is a concrete edge that is taken (usually by the run on a word), while
 /// an edge may represent any different number of transitions.
 pub trait TransitionSystem: Sized {
+    /// The type of the underlying [`Alphabet`].
     type Alphabet: Alphabet;
     /// The type of the indices of the states of the transition system.
     type StateIndex: IndexType;
@@ -68,11 +67,11 @@ pub trait TransitionSystem: Sized {
     /// The type of the colors of the edges of the transition system.
     type EdgeColor: Color;
     /// The type of the references to the transitions of the transition system.
-    type TransitionRef<'this>: IsEdge<'this, ExpressionOf<Self>, Self::StateIndex, EdgeColor<Self>>
+    type EdgeRef<'this>: IsEdge<'this, ExpressionOf<Self>, Self::StateIndex, EdgeColor<Self>>
     where
         Self: 'this;
     /// The type of the iterator over the transitions that start in a given state.
-    type EdgesFromIter<'this>: Iterator<Item = Self::TransitionRef<'this>>
+    type EdgesFromIter<'this>: Iterator<Item = Self::EdgeRef<'this>>
     where
         Self: 'this;
     /// Type of the iterator over the state indices.
@@ -80,12 +79,18 @@ pub trait TransitionSystem: Sized {
     where
         Self: 'this;
 
+    /// Returns a reference to the alphabet of `self`.
     fn alphabet(&self) -> &Self::Alphabet;
 
+    /// Calls the [`Alphabet::universe`] method on the alphabet of `self`, returning
+    /// an iterator of all symbols.
     fn symbols(&self) -> <Self::Alphabet as Alphabet>::Universe<'_> {
         self.alphabet().universe()
     }
 
+    /// Returns a vector of all state indices of `self`. By default, this is simply a helper
+    /// calling to [`Self::state_indices`], but it can be overridden to provide a more
+    /// efficient implementation.
     fn state_indices_vec(&self) -> Vec<Self::StateIndex> {
         self.state_indices().collect()
     }
@@ -93,10 +98,12 @@ pub trait TransitionSystem: Sized {
     /// Returns an iterator over the state indices of `self`.
     fn state_indices(&self) -> Self::StateIndices<'_>;
 
+    /// Returns true if the transition system has no states.
     fn is_stateless(&self) -> bool {
         self.state_indices().next().is_none()
     }
 
+    /// Returns an iterator over pairs consisting of a state index and the corresponding state color.
     fn state_indices_with_color(
         &self,
     ) -> impl Iterator<Item = (Self::StateIndex, Self::StateColor)> {
@@ -104,17 +111,23 @@ pub trait TransitionSystem: Sized {
             .map(|q| (q, self.state_color(q).expect("Every state must be colored")))
     }
 
+    /// Helper function which creates an expression from the given symbol.
+    /// This is a convenience function that simply calls [`Alphabet::expression`].
     fn make_expression(&self, sym: SymbolOf<Self>) -> ExpressionOf<Self> {
         <Self::Alphabet as Alphabet>::expression(sym)
     }
 
-    fn transitions(&self) -> impl Iterator<Item = Self::TransitionRef<'_>> {
+    /// Gives an iterator over all transitions of `self`.
+    fn transitions(&self) -> impl Iterator<Item = Self::EdgeRef<'_>> {
         self.state_indices().flat_map(move |q| {
             self.edges_from(q)
                 .expect("should return iterator for state that exists")
         })
     }
 
+    /// Returns true if the transition system has no edges. This is rather costly, as it
+    /// simply iterates over all states and checks whether they have any outgoing edges.
+    /// Should be overridden if a more efficient implementation is available.
     fn is_edgeless(&self) -> bool {
         self.state_indices().all(|q| {
             self.edges_from(q)
@@ -123,6 +136,13 @@ pub trait TransitionSystem: Sized {
         })
     }
 
+    /// Returns an iterator giving all colors that are used by the edges of `self`.
+    /// Note that this **may output the same color multiple times**, if it is used by multiple
+    /// edges. If that is not desired, use [`Self::edge_colors_unique()`] instead.
+    ///
+    /// A call is rather costly, as it simply iterates over all states and collects the
+    /// colors of the outgoing edges. Should be overridden if a more efficient implementation
+    /// is available.
     fn edge_colors(&self) -> impl Iterator<Item = Self::EdgeColor> {
         self.state_indices()
             .flat_map(|q| {
@@ -132,15 +152,20 @@ pub trait TransitionSystem: Sized {
             .map(|t| t.color().clone())
     }
 
+    /// Returns an iterator giving all **unique** colors that are used by the edges of `self`.
+    /// By default, a call is rather costly as it simply iterates over all states and collects
+    /// the colors of the outgoing edges. Should be overridden if a more efficient implementation
+    /// is available.
+    fn edge_colors_unique(&self) -> impl Iterator<Item = Self::EdgeColor> {
+        self.edge_colors().unique()
+    }
+
     /// Returns an iterator over the transitions that start in the given `state`. If the state does
     /// not exist, `None` is returned.
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>>;
 
-    fn indices_with_color(&self) -> impl Iterator<Item = (Self::StateIndex, Self::StateColor)> {
-        self.state_indices()
-            .map(|i| (i, self.state_color(i).unwrap()))
-    }
-
+    /// Returns an iterator over all transitions that start in the given `state` and whose expression
+    /// matches the given `sym`. If the state does not exist, `None` is returned.
     fn edges_matching<Idx: Indexes<Self>>(
         &self,
         state: Idx,
@@ -165,6 +190,9 @@ pub trait TransitionSystem: Sized {
         }))
     }
 
+    /// Returns true if and only if there exists a transition from the given `source` state to the
+    /// given `target` state, whose expression is matched by the given `sym`. If either the source
+    /// or the target state does not exist, `false` is returned.
     fn has_transition(
         &self,
         source: Self::StateIndex,
@@ -178,6 +206,8 @@ pub trait TransitionSystem: Sized {
         }
     }
 
+    /// Returns an iterator over the transitions that start in the given `state`. Panics if the
+    /// state does not exist.
     fn transitions_from<Idx: Indexes<Self>>(&self, state: Idx) -> TransitionsFrom<'_, Self> {
         TransitionsFrom::new(
             self,
@@ -187,6 +217,9 @@ pub trait TransitionSystem: Sized {
         )
     }
 
+    /// Commence a new subset construction starting from the collection of states given by `states`.
+    /// This is a convenience function that simply calls [`SubsetConstruction::new`]. It produces a
+    /// deterministic transition system operating on sets of states.
     fn subset_construction_from<I: IntoIterator<Item = Self::StateIndex>>(
         self,
         states: I,
@@ -194,6 +227,8 @@ pub trait TransitionSystem: Sized {
         SubsetConstruction::new(self, states)
     }
 
+    /// Performs a subset construction using [`Self::subset_construction_from`] starting with a singleton
+    /// set containing the only initial state of `self`.
     fn subset_construction(self) -> SubsetConstruction<Self>
     where
         Self: Pointed,
@@ -219,7 +254,7 @@ pub trait TransitionSystem: Sized {
             .find_map(|(word, state)| if state == to { Some(word) } else { None })
     }
 
-    /// Gives the size of `self`, which is obtained simply by counting the number of elements yielded by [`Self::states()`].
+    /// Gives the size of `self`, which is obtained simply by counting the number of elements yielded by [`Self::state_indices()`].
     fn size(&self) -> usize {
         self.state_indices().count()
     }
@@ -257,9 +292,8 @@ pub trait TransitionSystem: Sized {
         elem.to_index(self)
     }
 
-    /// Returns a [`WithInitial`] wrapper around `self`, which designates the given `initial` state.
+    /// Returns a [`Initialized`] wrapper around `self`, which designates the given `initial` state.
     /// Note that this function does not (yet) ensure that the index actually exists!
-    // FIXME: Ensure that the index actually exists.
     fn with_initial(self, initial: Self::StateIndex) -> Initialized<Self>
     where
         Self: Sized,
@@ -427,6 +461,7 @@ pub trait TransitionSystem: Sized {
         ReachableStates::new(self, self.initial())
     }
 
+    /// Returns an iterator over all state colors that are reachable from the initial state. May yield the same color multiple times.
     fn reachable_state_colors(&self) -> impl Iterator<Item = Self::StateColor>
     where
         Self: Sized + Pointed,
@@ -492,7 +527,7 @@ pub trait TransitionSystem: Sized {
 /// example in a [`crate::RightCongruence`], we have more information than the [`Color`]
 /// on a state, we have its [`Class`] as well. Since we would like to be able to
 /// access a state of a congruence not only by its index, but also by its classname
-/// or any other [`Word`] of finite length, this trait is necessary.
+/// or any other [word](`crate::prelude::LinearWord`) of finite length, this trait is necessary.
 ///
 /// Implementors should be able to _uniquely_ identify a single state in a transition
 /// system of type `Ts`.
@@ -509,12 +544,24 @@ impl<Ts: TransitionSystem> Indexes<Ts> for Ts::StateIndex {
     }
 }
 
+/// Implementors of this trait store the necessary information to fully specify a transition
+/// in a transition system. Specifically, an implementor gives access to
+/// - the index of the source state,
+/// - the index of the target state,
+/// - the color of the transition, and
+/// - the symbol on which the transition is taken.
 pub trait FullTransition<Idx, S, C> {
+    /// Returns the index of the source state of the transition.
     fn source(&self) -> &Idx;
+    /// Returns the index of the target state of the transition.
     fn target(&self) -> &Idx;
+    /// Returns the color of the transition.
     fn color(&self) -> &C;
+    /// Gives a reference to the expression that labels the transition.
     fn symbol(&self) -> &S;
 
+    /// Produces a tuple (source, symbol, color, target) from the transition, by cloning
+    /// all components.
     fn clone_tuple(&self) -> (Idx, S, C, Idx)
     where
         Idx: Clone,
@@ -531,6 +578,15 @@ pub trait FullTransition<Idx, S, C> {
 }
 
 impl<Idx, S, C> FullTransition<Idx, S, C> for (Idx, S, C, Idx) {
+    fn clone_tuple(&self) -> (Idx, S, C, Idx)
+    where
+        Idx: Clone,
+        S: Clone,
+        C: Clone,
+    {
+        self.clone()
+    }
+
     fn source(&self) -> &Idx {
         &self.0
     }
@@ -587,6 +643,7 @@ impl<'a, Idx, S, C> FullTransition<Idx, S, C> for (&'a Idx, &'a S, &'a C, &'a Id
 /// This trait is implemented for references to transitions, so that they can be used in
 /// generic contexts. It is automatically implemented for (mutable) references.
 pub trait IsEdge<'ts, E, Idx, C> {
+    /// Returns the index of the source state of the transition.
     fn source(&self) -> Idx;
     /// Returns the target state of the transition.
     fn target(&self) -> Idx;
@@ -619,6 +676,8 @@ pub trait IsEdge<'ts, E, Idx, C> {
     }
 }
 
+/// Represents a reference to an edge in a transition system. This stores a lifetime
+/// to the transition system and references to the color and expression.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct EdgeReference<'ts, E, Idx, C> {
     source: Idx,
@@ -628,6 +687,7 @@ pub struct EdgeReference<'ts, E, Idx, C> {
 }
 
 impl<'ts, E, Idx, C> EdgeReference<'ts, E, Idx, C> {
+    /// Creates a new edge reference from the given components.
     pub fn new(source: Idx, expression: &'ts E, color: &'ts C, target: Idx) -> Self {
         Self {
             source,
@@ -656,15 +716,18 @@ impl<'ts, E, Idx: IndexType, C: Color> IsEdge<'ts, E, Idx, C> for EdgeReference<
     }
 }
 
+/// Represents an edge in a transition system similar to [`EdgeReference`], but it owns the
+/// associated color, while the expression is still a reference.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct TransitionOwned<'ts, E, Idx, C> {
+pub struct TransitionOwnedColor<'ts, E, Idx, C> {
     source: Idx,
     target: Idx,
     color: C,
     expression: &'ts E,
 }
 
-impl<'ts, E, Idx, C> TransitionOwned<'ts, E, Idx, C> {
+impl<'ts, E, Idx, C> TransitionOwnedColor<'ts, E, Idx, C> {
+    /// Creates a new instance from the given components.
     pub fn new(source: Idx, expression: &'ts E, color: C, target: Idx) -> Self {
         Self {
             source,
@@ -675,7 +738,9 @@ impl<'ts, E, Idx, C> TransitionOwned<'ts, E, Idx, C> {
     }
 }
 
-impl<'ts, E, Idx: IndexType, C: Color> IsEdge<'ts, E, Idx, C> for TransitionOwned<'ts, E, Idx, C> {
+impl<'ts, E, Idx: IndexType, C: Color> IsEdge<'ts, E, Idx, C>
+    for TransitionOwnedColor<'ts, E, Idx, C>
+{
     fn source(&self) -> Idx {
         self.source
     }
@@ -693,6 +758,8 @@ impl<'ts, E, Idx: IndexType, C: Color> IsEdge<'ts, E, Idx, C> for TransitionOwne
     }
 }
 
+/// Through this struct, we enable iterating over all transitions that leave a given state of
+/// a transition system.
 pub struct TransitionsFrom<'a, D: TransitionSystem + 'a> {
     edges: D::EdgesFromIter<'a>,
     symbols: Option<<ExpressionOf<D> as Expression<SymbolOf<D>>>::SymbolsIter<'a>>,
@@ -729,6 +796,8 @@ impl<'a, D: TransitionSystem + 'a> Iterator for TransitionsFrom<'a, D> {
 }
 
 impl<'a, D: TransitionSystem + 'a> TransitionsFrom<'a, D> {
+    /// Creates a new instance from a reference to a transition system and the index of the state
+    /// from which the transitions should be taken.
     pub fn new(det: &'a D, state: D::StateIndex) -> Self {
         let Some(mut edges) = det.edges_from(state) else {
             panic!(
@@ -762,7 +831,7 @@ macro_rules! impl_ts_by_passthrough_on_wrapper {
             type StateIndex = Ts::StateIndex;
             type EdgeColor = Ts::EdgeColor;
             type StateColor = Ts::StateColor;
-            type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
+            type EdgeRef<'this> = Ts::EdgeRef<'this> where Self: 'this;
             type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
             type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
 
@@ -794,7 +863,7 @@ macro_rules! impl_ts_by_passthrough_on_wrapper {
                 &self,
                 state: Idx,
                 symbol: SymbolOf<Self>,
-            ) -> Option<Self::TransitionRef<'_>> {
+            ) -> Option<Self::EdgeRef<'_>> {
                 self.ts().transition(state.to_index(self)?, symbol)
             }
 
@@ -815,7 +884,7 @@ impl<Ts: TransitionSystem> TransitionSystem for &Ts {
     type StateIndex = Ts::StateIndex;
     type EdgeColor = Ts::EdgeColor;
     type StateColor = Ts::StateColor;
-    type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
+    type EdgeRef<'this> = Ts::EdgeRef<'this> where Self: 'this;
     type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
     type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
     type Alphabet = Ts::Alphabet;
@@ -845,7 +914,7 @@ impl<Ts: TransitionSystem> TransitionSystem for &mut Ts {
     type StateIndex = Ts::StateIndex;
     type EdgeColor = Ts::EdgeColor;
     type StateColor = Ts::StateColor;
-    type TransitionRef<'this> = Ts::TransitionRef<'this> where Self : 'this;
+    type EdgeRef<'this> = Ts::EdgeRef<'this> where Self : 'this;
     type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
     type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
 
@@ -875,7 +944,7 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for RightCongruence<A, Q,
     type StateIndex = usize;
     type EdgeColor = C;
     type StateColor = ColoredClass<A::Symbol, Q>;
-    type TransitionRef<'this> = &'this NTEdge<A::Expression, C> where Self: 'this;
+    type EdgeRef<'this> = &'this NTEdge<A::Expression, C> where Self: 'this;
     type EdgesFromIter<'this> = NTSEdgesFromIter<'this, A::Expression, C>
     where
         Self: 'this;
@@ -906,7 +975,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A
     type StateColor = Q;
     type EdgeColor = C;
     type StateIndex = Idx;
-    type TransitionRef<'this> = EdgeReference<'this, A::Expression, Idx, C> where Self: 'this;
+    type EdgeRef<'this> = EdgeReference<'this, A::Expression, Idx, C> where Self: 'this;
     type EdgesFromIter<'this> = BTSEdgesFrom<'this, A::Expression, Idx, C> where Self: 'this;
     type StateIndices<'this> = std::iter::Cloned<std::collections::hash_map::Keys<'this, Idx, super::index_ts::BTState<A, Q, C, Idx>>> where Self: 'this;
 
@@ -934,12 +1003,14 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A
     }
 }
 
+/// Specialized iterator over the edges that leave a given state in a BTS.
 pub struct BTSEdgesFrom<'ts, E, Idx, C> {
     edges: std::collections::hash_map::Iter<'ts, E, (Idx, C)>,
     source: Idx,
 }
 
 impl<'ts, E, Idx, C> BTSEdgesFrom<'ts, E, Idx, C> {
+    /// Creates a new instance from the given components.
     pub fn new(source: Idx, edges: std::collections::hash_map::Iter<'ts, E, (Idx, C)>) -> Self {
         Self { edges, source }
     }
@@ -969,7 +1040,7 @@ where
     type StateIndex = ProductIndex<L::StateIndex, R::StateIndex>;
     type EdgeColor = (L::EdgeColor, R::EdgeColor);
     type StateColor = (L::StateColor, R::StateColor);
-    type TransitionRef<'this> = ProductTransition<'this, L::StateIndex, R::StateIndex, ExpressionOf<L>, L::EdgeColor, R::EdgeColor> where Self: 'this;
+    type EdgeRef<'this> = ProductTransition<'this, L::StateIndex, R::StateIndex, ExpressionOf<L>, L::EdgeColor, R::EdgeColor> where Self: 'this;
     type EdgesFromIter<'this> = ProductEdgesFrom<'this, L, R> where Self: 'this;
     type StateIndices<'this> = ProductStatesIter<'this, L, R> where Self: 'this;
     type Alphabet = L::Alphabet;
@@ -1009,7 +1080,7 @@ where
     type StateIndex = Ts::StateIndex;
     type EdgeColor = Ts::EdgeColor;
     type StateColor = D;
-    type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
+    type EdgeRef<'this> = Ts::EdgeRef<'this> where Self: 'this;
     type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
     type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
 
@@ -1045,7 +1116,7 @@ where
     type StateIndex = Ts::StateIndex;
     type EdgeColor = D;
     type StateColor = Ts::StateColor;
-    type TransitionRef<'this> = MappedTransition<Ts::TransitionRef<'this>, &'this F, Ts::EdgeColor> where Self: 'this;
+    type EdgeRef<'this> = MappedTransition<Ts::EdgeRef<'this>, &'this F, Ts::EdgeColor> where Self: 'this;
     type EdgesFromIter<'this> =
         MappedEdgesFromIter<'this, Ts::EdgesFromIter<'this>, F, Ts::EdgeColor> where Self: 'this;
 
@@ -1083,7 +1154,7 @@ where
     type StateIndex = Ts::StateIndex;
     type EdgeColor = Ts::EdgeColor;
     type StateColor = Ts::StateColor;
-    type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
+    type EdgeRef<'this> = Ts::EdgeRef<'this> where Self: 'this;
     type EdgesFromIter<'this> = RestrictedEdgesFromIter<'this, Ts, F> where Self: 'this;
     type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
 
@@ -1120,6 +1191,8 @@ where
     }
 }
 
+/// Specialized version of an iterator over the edges leaving a specific state of a **deterministic**
+/// transition system.
 pub struct DeterministicEdgesFrom<'a, Ts: TransitionSystem> {
     ts: &'a Ts,
     state: Ts::StateIndex,
@@ -1127,7 +1200,7 @@ pub struct DeterministicEdgesFrom<'a, Ts: TransitionSystem> {
 }
 
 impl<'a, Ts: Deterministic> Iterator for DeterministicEdgesFrom<'a, Ts> {
-    type Item = Ts::TransitionRef<'a>;
+    type Item = Ts::EdgeRef<'a>;
     fn next(&mut self) -> Option<Self::Item> {
         self.symbols
             .next()
@@ -1136,6 +1209,7 @@ impl<'a, Ts: Deterministic> Iterator for DeterministicEdgesFrom<'a, Ts> {
 }
 
 impl<'a, Ts: TransitionSystem> DeterministicEdgesFrom<'a, Ts> {
+    /// Creates a new instance from the given components.
     pub fn new(ts: &'a Ts, state: Ts::StateIndex) -> Self {
         Self {
             ts,
