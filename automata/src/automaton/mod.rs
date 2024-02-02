@@ -119,7 +119,7 @@ macro_rules! impl_automaton_type {
         impl<Ts: PredecessorIterable> PredecessorIterable
             for $name<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
         {
-            type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
+            type PreEdgeRef<'this> = Ts::PreEdgeRef<'this> where Self: 'this;
             type EdgesToIter<'this> = Ts::EdgesToIter<'this> where Self: 'this;
             fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
                 self.ts().predecessors(state)
@@ -195,7 +195,7 @@ macro_rules! impl_automaton_type {
             type StateIndex = Ts::StateIndex;
             type EdgeColor = Ts::EdgeColor;
             type StateColor = Ts::StateColor;
-            type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
+            type EdgeRef<'this> = Ts::EdgeRef<'this> where Self: 'this;
             type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
             type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
             fn state_indices(&self) -> Self::StateIndices<'_> {
@@ -223,7 +223,7 @@ macro_rules! impl_automaton_type {
                 &self,
                 state: Idx,
                 symbol: SymbolOf<Self>,
-            ) -> Option<Self::TransitionRef<'_>> {
+            ) -> Option<Self::EdgeRef<'_>> {
                 self.ts().transition(state.to_index(self)?, symbol)
             }
 

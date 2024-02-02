@@ -9,11 +9,11 @@ pub trait Shrinkable: TransitionSystem {
     fn remove_state<Idx: Indexes<Self>>(&mut self, state: Idx) -> Option<Self::StateColor>;
 
     /// Removes the first edge from the transition system that originates in `source` and matches the given
-    /// `expression`. The call returns a pair consisting of the color and target of the removed edge.
+    /// `crate::prelude::Expression`. The call returns a pair consisting of the color and target of the removed edge.
     /// If no suitable edge is present, returns `None`.
     ///
-    /// This method expects to identify the edge that should be removed based on its [`Expression`], for
-    /// a method that identifies the edge based on its target, see [`remove_transitions`].
+    /// This method expects to identify the edge that should be removed based on its [`crate::prelude::Expression`], for
+    /// a method that identifies the edge based on its target, see [`Self::remove_transitions`].
     fn remove_edge<Idx: Indexes<Self>>(
         &mut self,
         source: Idx,

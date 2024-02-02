@@ -173,9 +173,9 @@ where
 pub struct ProductEdgesFrom<'a, L: TransitionSystem, R: TransitionSystem> {
     left: &'a L,
     right: &'a R,
-    cur: Option<L::TransitionRef<'a>>,
+    cur: Option<L::EdgeRef<'a>>,
     it: L::EdgesFromIter<'a>,
-    right_edges: Vec<R::TransitionRef<'a>>,
+    right_edges: Vec<R::EdgeRef<'a>>,
     position: usize,
 }
 
@@ -294,9 +294,9 @@ impl<'a, LI, RI, E, LC, RC> ProductPreTransition<'a, LI, RI, E, LC, RC> {
 pub struct ProductEdgesTo<'a, L: PredecessorIterable, R: PredecessorIterable> {
     left: &'a L,
     right: &'a R,
-    cur: Option<L::PreTransitionRef<'a>>,
+    cur: Option<L::PreEdgeRef<'a>>,
     it: L::EdgesToIter<'a>,
-    right_edges: Vec<R::PreTransitionRef<'a>>,
+    right_edges: Vec<R::PreEdgeRef<'a>>,
     position: usize,
 }
 

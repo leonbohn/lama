@@ -4,7 +4,7 @@ use super::acceptor::OmegaWordAcceptor;
 
 impl_mealy_automaton!(DBA, bool);
 
-/// Similar to [`IsDfa`], this trait is supposed to be (automatically) implemented by everything that can be viewed
+/// Similar to [`DFALike`], this trait is supposed to be (automatically) implemented by everything that can be viewed
 /// as a [`crate::DBA`].
 pub trait DBALike: Deterministic<EdgeColor = bool> + Pointed {
     /// Uses a reference to `self` for creating a [`DBA`].

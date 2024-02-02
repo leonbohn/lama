@@ -171,7 +171,7 @@ impl<const N: usize> PState<N> {
 }
 
 /// The precise DPA is a construction for going from a specifically colored FORC to a deterministic
-/// parity automaton. It is described (https://arxiv.org/pdf/2302.11043.pdf)[here, below Lemma 15].
+/// parity automaton. It is described <https://arxiv.org/pdf/2302.11043.pdf>[here, below Lemma 15].
 #[derive(Clone)]
 pub struct PreciseDPA<A: Alphabet, const N: usize = 8> {
     states: Vec<PState<N>>,
@@ -283,7 +283,7 @@ impl<A: Alphabet, const N: usize> TransitionSystem for PreciseDPA<A, N> {
 
     type EdgeColor = usize;
 
-    type TransitionRef<'this> = PreciseDPATransition<'this, A, N>
+    type EdgeRef<'this> = PreciseDPATransition<'this, A, N>
     where
         Self: 'this;
 
@@ -323,7 +323,7 @@ impl<A: Alphabet, const N: usize> Deterministic for PreciseDPA<A, N> {
         &self,
         state: Idx,
         symbol: automata::prelude::SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         let q = state.to_index(self)?;
         let (i, p) = self.take_precise_transition(&q, symbol);
         Some(PreciseDPATransition::new(
@@ -502,7 +502,7 @@ impl<A: Alphabet, const N: usize> Dottable for PreciseDPA<A, N> {
 
     fn dot_transition_attributes<'a>(
         &'a self,
-        t: Self::TransitionRef<'a>,
+        t: Self::EdgeRef<'a>,
     ) -> impl IntoIterator<Item = automata::ts::dot::DotTransitionAttribute> {
         [DotTransitionAttribute::Label(format!(
             "{}|{}",

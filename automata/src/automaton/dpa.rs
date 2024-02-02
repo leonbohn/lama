@@ -222,7 +222,7 @@ impl<D: DPALike> IntoDPA<D> {
 
     /// Attempts to find an omega-word that witnesses the fact that `self` and `other` are not
     /// language-equivalent. If no such word exists, `None` is returned. Internally, this uses
-    /// [`witness_not_subset_of`] in both directions.
+    /// [`Self::witness_not_subset_of`] in both directions.
     pub fn witness_inequivalence<O: DPALike<Alphabet = D::Alphabet>>(
         &self,
         other: &IntoDPA<O>,

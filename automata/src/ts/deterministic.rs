@@ -28,17 +28,92 @@ use super::sproutable::{IndexedAlphabet, Sproutable};
 use super::Path;
 
 /// A marker tait indicating that a [`TransitionSystem`] is deterministic, meaning for every state and
-/// each possible input symbol from the alphabet, there is at most one transition.
+/// each possible input symbol from the alphabet, there is at most one transition. Under the hood, this
+/// trait simply calls [`TransitionSystem::edges_from`] and checks whether there is at most one edge
+/// for each symbol. If there is more than one edge, the methods of this trait panic.
 pub trait Deterministic: TransitionSystem {
-    /// For a given `state` and `symbol`, returns the transition that is taken, if it exists.
+    /// For a given `state`, returns the unique edge that matches the given `symbol`. Panics if multiple
+    /// edges match the symbol. If the state does not exist or no edge matches the symbol, `None` is returned.
+    ///
+    /// # Example
+    /// ```
+    /// use automata::prelude::*;
+    /// let ts = TSBuilder::default()
+    ///     .with_transitions([(0, 'a', (), 1), (1, 'a', (), 2), (2, 'a', (), 0)])
+    ///     .into_right_congruence_bare(0);
+    /// assert_eq!(ts.transition(0, 'a').unwrap().target(), 1);
+    /// assert_eq!(ts.transition(1, 'a').unwrap().target(), 2);
+    /// assert_eq!(ts.transition(2, 'a').unwrap().target(), 0);
+    /// assert_eq!(ts.transition(0, 'b'), None);
+    /// assert_eq!(ts.transition(3, 'a'), None);
+    /// ```
     fn transition<Idx: Indexes<Self>>(
         &self,
         state: Idx,
         symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>>;
+    ) -> Option<Self::EdgeRef<'_>> {
+        let state = state.to_index(self)?;
+        let mut it = self
+            .edges_from(state)
+            .expect("We know this state exists")
+            .filter(|e| e.expression().matches(symbol));
+        let first = it.next()?;
+        debug_assert!(
+            it.next().is_none(),
+            "There should be only one edge with the given symbol"
+        );
+        Some(first)
+    }
 
-    /// Returns just the [`Self::StateIndex`] of the successor that is reached on the given `symbol`
+    /// Attempts to find the first edge that matches the given `expression` from the given `state`. If no
+    /// suitable transition exists, `None` is returned. If more than one edge matches the expression, the
+    /// method panics.
+    ///
+    /// # Example
+    /// ```
+    /// use automata::prelude::*;
+    /// let ts = NTS::builder()
+    ///     .with_transitions([(0, 'a', (), 1), (1, 'a', (), 2), (2, 'a', (), 0)])
+    ///     .into_right_congruence_bare(0);
+    /// assert_eq!(ts.edge(0, &'a').unwrap().target(), 1);
+    /// assert_eq!(ts.edge(1, &'a').unwrap().target(), 2);
+    /// assert_eq!(ts.edge(2, &'a').unwrap().target(), 0);
+    /// assert_eq!(ts.edge(0, &'b'), None);
+    /// assert_eq!(ts.edge(3, &'a'), None);
+    /// ```
+    fn edge<Idx: Indexes<Self>>(
+        &self,
+        state: Idx,
+        expression: &ExpressionOf<Self>,
+    ) -> Option<Self::EdgeRef<'_>> {
+        let state = state.to_index(self)?;
+        let mut it = self
+            .edges_from(state)
+            .expect("We know this state exists")
+            .filter(|e| e.expression() == expression);
+
+        let first = it.next()?;
+        debug_assert!(
+            it.next().is_none(),
+            "There should be only one edge with the given expression"
+        );
+        Some(first)
+    }
+
+    /// Returns just the [`TransitionSystem::StateIndex`] of the successor that is reached on the given `symbol`
     /// from `state`. If no suitable transition exists, `None` is returned.
+    ///
+    /// # Example
+    /// ```
+    /// use automata::prelude::*;
+    ///
+    /// let ts = NTS::builder()
+    ///     .with_transitions([(0, 'a', (), 0), (0, 'b', (), 1), (1, 'a', (), 1), (1, 'b', (), 1)])
+    ///     .into_right_congruence_bare(0);
+    /// assert_eq!(ts.successor_index(0, 'a'), Some(0));
+    /// assert_eq!(ts.successor_index(0, 'b'), Some(1));
+    /// assert_eq!(ts.successor_index(0, 'c'), None);
+    /// ```
     fn successor_index(
         &self,
         state: Self::StateIndex,
@@ -94,7 +169,7 @@ pub trait Deterministic: TransitionSystem {
     ///
     /// It returns a [`PathIn`] in either case, which is a path in the transition system. So it is possible
     /// to inspect the path, e.g. to find out which state was reached or which transitions were taken.
-    /// For more information, see [`automata::ts::Path`].
+    /// For more information, see [`crate::prelude::Path`].
     #[allow(clippy::type_complexity)]
     fn finite_run<W: FiniteWord<SymbolOf<Self>>>(
         &self,
@@ -689,7 +764,7 @@ impl<D: Deterministic> Deterministic for &D {
         &self,
         state: Idx,
         symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         D::transition(self, state.to_index(self)?, symbol)
     }
 }
@@ -699,7 +774,7 @@ impl<D: Deterministic> Deterministic for &mut D {
         &self,
         state: Idx,
         symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         D::transition(self, state.to_index(self)?, symbol)
     }
 }
@@ -709,7 +784,7 @@ impl<A: Alphabet, Q: Color, C: Color> Deterministic for RightCongruence<A, Q, C>
         &self,
         state: Idx,
         symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         self.ts().transition(state.to_index(self)?, symbol)
     }
 
@@ -737,7 +812,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Deterministic for BTS<A, Q
         &self,
         state: X,
         symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         let source = state.to_index(self)?;
         self.raw_state_map()
             .get(&source)
@@ -768,7 +843,7 @@ where
         &self,
         state: Idx,
         symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         let ProductIndex(l, r) = state.to_index(self)?;
 
         let ll = self.0.transition(l, symbol)?;
@@ -800,7 +875,7 @@ where
         &self,
         state: Idx,
         symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         self.ts().transition(state.to_index(self)?, symbol)
     }
 }
@@ -825,7 +900,7 @@ where
         &self,
         state: Idx,
         symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         Some(MappedTransition::new(
             self.ts().transition(state.to_index(self)?, symbol)?,
             self.f(),
@@ -851,7 +926,7 @@ where
         &self,
         state: Idx,
         symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         let q = state.to_index(self)?;
         self.ts()
             .transition(q, symbol)
@@ -877,7 +952,7 @@ where
         &self,
         state: Idx,
         symbol: crate::prelude::SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         Some(MappedEdge::new(
             self.ts().transition(state.to_index(self)?, symbol)?,
             state.to_index(self)?,

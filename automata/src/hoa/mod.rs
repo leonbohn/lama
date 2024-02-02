@@ -18,7 +18,7 @@ use crate::{
     Alphabet, Map, Pointed, Show, TransitionSystem,
 };
 
-/// A propositional alphabet, where a [`Symbol`] is a valuation of all propositional variables.
+/// A propositional alphabet, where a symbol is a valuation of all propositional variables.
 ///
 /// # Example
 /// Assume we have a propositional alphabet over the atomic propositions `a`, `b` and `c`.

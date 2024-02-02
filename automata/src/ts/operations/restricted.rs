@@ -132,7 +132,7 @@ impl<'a, Ts: TransitionSystem + 'a, F> Iterator for RestrictedEdgesFromIter<'a, 
 where
     F: StateIndexFilter<Ts::StateIndex>,
 {
-    type Item = Ts::TransitionRef<'a>;
+    type Item = Ts::EdgeRef<'a>;
     fn next(&mut self) -> Option<Self::Item> {
         self.it
             .by_ref()
@@ -151,7 +151,7 @@ impl<'a, Ts: PredecessorIterable + 'a, F> Iterator for RestrictedEdgesToIter<'a,
 where
     F: StateIndexFilter<Ts::StateIndex>,
 {
-    type Item = Ts::PreTransitionRef<'a>;
+    type Item = Ts::PreEdgeRef<'a>;
     fn next(&mut self) -> Option<Self::Item> {
         self.it
             .by_ref()
@@ -188,7 +188,7 @@ impl<D: TransitionSystem> TransitionSystem for ColorRestricted<D> {
 
     type EdgeColor = D::EdgeColor;
 
-    type TransitionRef<'this> = D::TransitionRef<'this>
+    type EdgeRef<'this> = D::EdgeRef<'this>
     where
         Self: 'this;
 
@@ -225,7 +225,7 @@ impl<D: TransitionSystem> TransitionSystem for ColorRestricted<D> {
 }
 
 impl<D: PredecessorIterable<EdgeColor = usize>> PredecessorIterable for ColorRestricted<D> {
-    type PreTransitionRef<'this> = D::PreTransitionRef<'this>
+    type PreEdgeRef<'this> = D::PreEdgeRef<'this>
     where
         Self: 'this;
 
@@ -243,7 +243,7 @@ impl<D: DPALike> Deterministic for ColorRestricted<D> {
         &self,
         state: Idx,
         symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         self.ts()
             .transition(state.to_index(self)?, symbol)
             .and_then(|t| {
@@ -266,7 +266,7 @@ pub struct ColorRestrictedEdgesFrom<'a, D: TransitionSystem> {
 }
 
 impl<'a, D: TransitionSystem> Iterator for ColorRestrictedEdgesFrom<'a, D> {
-    type Item = D::TransitionRef<'a>;
+    type Item = D::EdgeRef<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.it
@@ -284,7 +284,7 @@ pub struct ColorRestrictedEdgesTo<'a, D: PredecessorIterable> {
 }
 
 impl<'a, D: PredecessorIterable> Iterator for ColorRestrictedEdgesTo<'a, D> {
-    type Item = D::PreTransitionRef<'a>;
+    type Item = D::PreEdgeRef<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.it

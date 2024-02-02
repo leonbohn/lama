@@ -22,7 +22,7 @@ mod omega;
 pub use omega::{OmegaWord, Periodic, Reduced, ReducedParseError};
 use tracing::subscriber::SetGlobalDefaultError;
 
-use self::subword::Infix;
+pub use self::subword::Infix;
 
 /// A linear word is a word that can be indexed by a `usize`. This is the case for both finite and
 /// infinite words.
@@ -43,9 +43,9 @@ pub trait LinearWord<S>: Hash + Eq {
     ///
     /// # Example
     /// ```
-    /// use automata::word::LinearWord;
-    /// let word = "abcde";
-    /// assert_eq!(word.infix(1, 3).to_string(), "bcd");
+    /// use automata::word::{LinearWord, FiniteWord};
+    /// let word = "abcde".to_string();
+    /// assert_eq!(word.infix(1, 3).as_string(), "bcd");
     /// ```
     fn infix(&self, offset: usize, length: usize) -> Infix<'_, S, Self>
     where
@@ -54,7 +54,7 @@ pub trait LinearWord<S>: Hash + Eq {
         Infix::new(self, offset, length)
     }
 
-    /// Constructs a [`Prefix`] object, which is a finite prefix of `self` that has the given `length`.
+    /// Constructs an [`Infix`] object, which is a finite prefix of `self` that has the given `length`.
     fn prefix(&self, length: usize) -> Infix<'_, S, Self>
     where
         Self: Sized,

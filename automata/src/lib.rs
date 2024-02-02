@@ -8,14 +8,15 @@
 //! As each combinator returns an object which again implements [`TransitionSystem`], these can easily be chained together without too much overhead. While this is convenient, the applied manipulations are computed on-demand, which may lead to considerable overhead. To circumvent this, it can be beneficial to `collect` the resulting TS into a structure, which then explicitly does all the necessary computations and avoids recomputation at a later point. There are also variants `collect_with_initial`/`collect_ts`, which either take the designated ininital state into account or collect into a specific representation of the TS.
 //!
 //! The crate defines some basic building blocks of TS which can easily be manipulated (see `Sproutable`), these are
-//! - [`NTS`]/[`DTS`] (the latter is just a thin wrapper around the former). These store edges in a vector, a state contains a pointer to the first edge in this collection and each edge contains pointers to the previous/next one.
-//! - [`BTS`] which stores transitions in an efficient HashMap
+//! - [`ts::NTS`]/[`ts::DTS`] (the latter is just a thin wrapper around the former). These store edges in a vector, a state contains a pointer to the first edge in this collection and each edge contains pointers to the previous/next one.
+//! - [`ts::BTS`] which stores transitions in an efficient HashMap
 //!
 //! Further traits that are of importance are
 //! - [`Pointed`] which picks one designated initial state, this is important for deterministic automata
-//! - [`Deterministic`], a marker trait that disambiguates between nondeterministic and deterministic TS. As [`TransitionSystem`] only provides iterators over the outgoing edges, it can be used to deal with nondeterministic TS, that have multiple overlapping edges. By implementing `Deterministic`, we guarantee, that there is always a single unique outgoing transition for each state.
-//! - [`Sproutable`] enables growing a TS state by state and edge/transition by edge/transition. Naturally, this is only implemented for the basic building blocks, i.e. `BTS`, `DTS` and `NTS`.
-#![warn(missing_docs)]
+//! - [`ts::Deterministic`], a marker trait that disambiguates between nondeterministic and deterministic TS. As [`TransitionSystem`] only provides iterators over the outgoing edges, it can be used to deal with nondeterministic TS, that have multiple overlapping edges. By implementing `Deterministic`, we guarantee, that there is always a single unique outgoing transition for each state.
+//! - [`ts::Sproutable`] enables growing a TS state by state and edge/transition by edge/transition. Naturally, this is only implemented for the basic building blocks, i.e. `BTS`, `DTS` and `NTS`.
+#![deny(missing_docs)]
+#![deny(rustdoc::broken_intra_doc_links)]
 #![allow(unused)]
 #![allow(clippy::pedantic)]
 
@@ -27,9 +28,9 @@ pub mod prelude {
         alphabet::{Expression, Simple, Symbol},
         automaton::{
             DBALike, DFALike, DPALike, FiniteWordAcceptor, FiniteWordTransformer, Initialized,
-            IntoMealyMachine, IntoMooreMachine, MealyLike, MealyMachine, MooreLike, MooreMachine,
-            NoColor, OmegaWordAcceptor, OmegaWordTransformer, StateBasedDBA, StateBasedDPA, DBA,
-            DFA, DPA,
+            IntoDBA, IntoDFA, IntoDPA, IntoMealyMachine, IntoMooreMachine, MealyLike, MealyMachine,
+            MooreLike, MooreMachine, NoColor, OmegaWordAcceptor, OmegaWordTransformer,
+            StateBasedDBA, StateBasedDPA, DBA, DFA, DPA,
         },
         mapping::Morphism,
         ts::{
@@ -38,10 +39,12 @@ pub mod prelude {
             finite::ReachedState,
             operations::{Product, ProductIndex},
             predecessors::PredecessorIterable,
-            transition_system::{EdgeColorOf, EdgeReference, Indexes, IsEdge, StateColorOf},
+            transition_system::{
+                EdgeColorOf, EdgeReference, FullTransition, Indexes, IsEdge, StateColorOf,
+            },
             Congruence, Deterministic, DeterministicEdgesFrom, EdgeColor, ExpressionOf, HasColor,
-            HasColorMut, HasMutableStates, HasStates, IndexType, NTSBuilder, Sproutable,
-            StateColor, SymbolOf, TransitionSystem, BTS, DTS, NTS,
+            HasColorMut, HasMutableStates, HasStates, IndexType, Path, Sproutable, StateColor,
+            SymbolOf, TSBuilder, TransitionSystem, BTS, DTS, NTS,
         },
         upw,
         word::{FiniteWord, LinearWord, OmegaWord, Periodic, Reduced, ReducedParseError},

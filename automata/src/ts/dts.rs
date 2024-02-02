@@ -8,7 +8,7 @@ use super::nts::{NTEdge, NTSEdgesFromIter, NTSEdgesTo};
 pub struct DTS<A: Alphabet = Simple, Q = NoColor, C = NoColor>(pub(crate) NTS<A, Q, C>);
 
 /// Type alias to create a deterministic transition with the same alphabet, state and edge color
-/// as the given [`TransitionsSystem`] `Ts`.
+/// as the given [`Ts`](`crate::prelude::TransitionSystem`).
 pub type CollectDTS<Ts> = DTS<
     <Ts as TransitionSystem>::Alphabet,
     <Ts as TransitionSystem>::StateColor,
@@ -74,7 +74,7 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for DTS<A, Q, C> {
 
     type EdgeColor = C;
 
-    type TransitionRef<'this> = &'this NTEdge<A::Expression, C>
+    type EdgeRef<'this> = &'this NTEdge<A::Expression, C>
     where
         Self: 'this;
 
@@ -105,25 +105,10 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for DTS<A, Q, C> {
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> Deterministic for DTS<A, Q, C> {
-    fn transition<Idx: Indexes<Self>>(
-        &self,
-        state: Idx,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        let mut it = self
-            .0
-            .edges_from(state.to_index(self)?)?
-            .filter(|e| IsEdge::expression(e).matches(symbol));
-        let out = it.next();
-        //todo: See if this has performance impact
-        assert!(it.next().is_none());
-        out
-    }
-}
+impl<A: Alphabet, Q: Color, C: Color> Deterministic for DTS<A, Q, C> {}
 
 impl<A: Alphabet, Q: Color, C: Color> PredecessorIterable for DTS<A, Q, C> {
-    type PreTransitionRef<'this> = &'this NTEdge<A::Expression, C>
+    type PreEdgeRef<'this> = &'this NTEdge<A::Expression, C>
     where
         Self: 'this;
 

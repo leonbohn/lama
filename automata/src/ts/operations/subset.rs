@@ -67,7 +67,7 @@ impl<Ts: TransitionSystem> Deterministic for SubsetConstruction<Ts> {
         &self,
         state: Idx,
         symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         let source = state.to_index(self)?;
         let (colorset, stateset): (Vec<Ts::EdgeColor>, StateSet<Ts>) = self
             .states
@@ -117,7 +117,7 @@ impl<Ts: TransitionSystem> TransitionSystem for SubsetConstruction<Ts> {
 
     type EdgeColor = Vec<Ts::EdgeColor>;
 
-    type TransitionRef<'this> = TransitionOwnedColor<'this, ExpressionOf<Ts>, usize, Self::EdgeColor>
+    type EdgeRef<'this> = TransitionOwnedColor<'this, ExpressionOf<Ts>, usize, Self::EdgeColor>
     where
         Self: 'this;
 

@@ -13,13 +13,14 @@ use crate::{word::FiniteWord, Map, Show};
 /// A symbol of an alphabet, which is also the type of the symbols in a word. We consider different types
 /// of alphabets:
 /// - [`Simple`] alphabets, which are just a set of symbols.
-/// - [`Propositional`] alphabets, where a symbol is a valuation of all propositional variables.
+/// - Propositional alphabets, where a symbol is a valuation of all propositional variables. This is for example
+/// implemented in the `hoars` crate.
 pub trait Symbol: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash + Show {}
 impl<S: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash + Show> Symbol for S {}
 
 /// An expression is used to label edges of a [`crate::ts::TransitionSystem`]. For [`Simple`]
-/// alphabets, an expression is simply a single symbol, whereas for a [`Propositional`] alphabet, an expression
-/// is a propositional formula over the atomic propositions. See [`Propositional`] for more details.
+/// alphabets, an expression is simply a single symbol, whereas for a propositional alphabet, an expression
+/// is a propositional formula over the atomic propositions. See propositional for more details.
 pub trait Expression<S: Symbol>: Hash + Clone + Debug + Eq + Ord + Show {
     /// Type of iterator over the concrete symbols matched by this expression.
     type SymbolsIter<'this>: Iterator<Item = S>
@@ -29,8 +30,8 @@ pub trait Expression<S: Symbol>: Hash + Clone + Debug + Eq + Ord + Show {
     fn symbols(&self) -> Self::SymbolsIter<'_>;
 
     /// Checks whether the given [`Symbol`] matches the expression `self`. For [`Simple`] alphabets, this just
-    /// means that the expression equals the given symbol. For a [`Propositional`] alphabet, this means that
-    /// the expression is satisfied by the given symbol, an example of this is illustrated in [`Propositional`].
+    /// means that the expression equals the given symbol. For a propositional alphabet, this means that
+    /// the expression is satisfied by the given symbol, an example of this is illustrated in propositional.
     fn matches(&self, symbol: S) -> bool;
 
     /// Apply the given function `f` to each symbol matched by this expression.
@@ -66,22 +67,22 @@ pub trait Alphabet: Clone {
         sym: Self::Symbol,
     ) -> Option<(&Self::Expression, &X)>;
 
-    /// Type for an iterator over all possible symbols in the alphabet. For [`Propositional`] alphabets,
+    /// Type for an iterator over all possible symbols in the alphabet. For propositional alphabets,
     /// this may return quite a few symbols (exponential in the number of atomic propositions).
     type Universe<'this>: Iterator<Item = Self::Symbol>
     where
         Self: 'this;
 
     /// Returns an iterator over all possible symbols in the alphabet. May return a huge number of symbols
-    /// if the alphabet is [`Propositional`].
+    /// if the alphabet is propositional.
     fn universe(&self) -> Self::Universe<'_>;
 
     /// Returns true if the given symbol is present in the alphabet.
     fn contains(&self, symbol: Self::Symbol) -> bool;
 
     /// Checks whether the given expression matches the given symbol. For [`Simple`] alphabets, this just
-    /// means that the expression equals the given symbol. For a [`Propositional`] alphabet, this means that
-    /// the expression is satisfied by the given symbol, an example of this is illustrated in [`Propositional`].
+    /// means that the expression equals the given symbol. For a propositional alphabet, this means that
+    /// the expression is satisfied by the given symbol, an example of this is illustrated in propositional.
     fn matches(&self, expression: &Self::Expression, symbol: Self::Symbol) -> bool;
 
     /// Creates an expression from a single symbol.

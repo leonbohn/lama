@@ -145,12 +145,17 @@ impl<S: Symbol> Periodic<S> {
     /// let word = Periodic::new("abcabcabc");
     /// assert_eq!(word.cycle_length(), 3);
     /// assert_eq!(word.loop_index(), 0);
-    /// assert_eq!(word, Periodic { representation: vec!['a', 'b', 'c'] });
+    /// assert_eq!(word.representation(), &['a', 'b', 'c']);
     /// ```
     pub fn new<W: FiniteWord<S>>(word: W) -> Self {
         let mut representation = word.to_vec();
         deduplicate_inplace(&mut representation);
         Self { representation }
+    }
+
+    /// Gives a reference to the underlying representation of the word.
+    pub fn representation(&self) -> &[S] {
+        &self.representation
     }
 }
 

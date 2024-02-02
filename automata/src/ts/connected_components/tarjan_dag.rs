@@ -26,7 +26,7 @@ pub struct TarjanDAG<'a, Ts: TransitionSystem> {
 impl<'a, Ts: TransitionSystem> TarjanDAG<'a, Ts> {
     /// Returns an iterator over all transient edges in the transition system. An edge is transient
     /// if its source and target are in different SCCs.
-    pub fn transient_edges(&self) -> impl Iterator<Item = Ts::TransitionRef<'a>> + '_ {
+    pub fn transient_edges(&self) -> impl Iterator<Item = Ts::EdgeRef<'a>> + '_ {
         self.ts.transitions().filter(move |t| {
             let source = t.source();
             let target = t.target();

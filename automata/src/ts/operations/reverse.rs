@@ -37,11 +37,11 @@ where
 
     type EdgeColor = Ts::EdgeColor;
 
-    type TransitionRef<'this> = Reversed<Ts::PreTransitionRef<'this>>
+    type EdgeRef<'this> = Reversed<Ts::PreEdgeRef<'this>>
     where
         Self: 'this;
 
-    type EdgesFromIter<'this> = std::iter::Map<Ts::EdgesToIter<'this>, fn(Ts::PreTransitionRef<'this>) -> Reversed<Ts::PreTransitionRef<'this>>>
+    type EdgesFromIter<'this> = std::iter::Map<Ts::EdgesToIter<'this>, fn(Ts::PreEdgeRef<'this>) -> Reversed<Ts::PreEdgeRef<'this>>>
     where
         Self: 'this;
 
@@ -73,11 +73,11 @@ impl<Ts> PredecessorIterable for Reversed<Ts>
 where
     Ts: TransitionSystem + PredecessorIterable,
 {
-    type PreTransitionRef<'this> = Reversed<Ts::TransitionRef<'this>>
+    type PreEdgeRef<'this> = Reversed<Ts::EdgeRef<'this>>
     where
         Self: 'this;
 
-    type EdgesToIter<'this> = std::iter::Map<Ts::EdgesFromIter<'this>, fn(Ts::TransitionRef<'this>) -> Reversed<Ts::TransitionRef<'this>>>
+    type EdgesToIter<'this> = std::iter::Map<Ts::EdgesFromIter<'this>, fn(Ts::EdgeRef<'this>) -> Reversed<Ts::EdgeRef<'this>>>
     where
         Self: 'this;
 

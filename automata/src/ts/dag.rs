@@ -28,7 +28,7 @@ impl<C> Dag<C> {
 
     /// Returns an iterator over the indices of all nodes in the DAG.
     pub fn node_indices(&self) -> impl Iterator<Item = usize> + '_ {
-        (0..self.nodes.len()).into_iter()
+        0..self.nodes.len()
     }
 
     /// Returns true iff the graph is empty, i.e. there are no nodes.

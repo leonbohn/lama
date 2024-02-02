@@ -133,11 +133,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Path<A, Idx, Q, C> {
 
     /// Attempts to extend the path in the given `ts` by the given `symbol`. If the path can be extended,
     /// the transition is returned. Otherwise, `None` is returned.
-    pub fn extend_in<'a, D>(
-        &mut self,
-        ts: &'a D,
-        symbol: SymbolOf<D>,
-    ) -> Option<D::TransitionRef<'a>>
+    pub fn extend_in<'a, D>(&mut self, ts: &'a D, symbol: SymbolOf<D>) -> Option<D::EdgeRef<'a>>
     where
         D: Deterministic<StateColor = Q, EdgeColor = C, StateIndex = Idx, Alphabet = A>,
     {

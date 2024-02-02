@@ -99,11 +99,11 @@ pub trait FiniteWord<S>: LinearWord<S> {
     where
         S: Show,
     {
-        let mut it = self.symbols().map(|a| a.show()).peekable();
-        if it.peek().is_none() {
+        let out = self.symbols().map(|a| a.show()).join("");
+        if out.is_empty() {
             "ε".into()
         } else {
-            it.join("")
+            out
         }
     }
 }

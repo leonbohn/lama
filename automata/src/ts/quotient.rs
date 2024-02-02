@@ -187,7 +187,7 @@ impl<Ts: Deterministic> TransitionSystem for Quotient<Ts> {
 
     type EdgeColor = Vec<Ts::EdgeColor>;
 
-    type TransitionRef<'this> = QuotientTransition<'this, usize, ExpressionOf<Self>, Ts::EdgeColor>
+    type EdgeRef<'this> = QuotientTransition<'this, usize, ExpressionOf<Self>, Ts::EdgeColor>
     where
         Self: 'this;
 
@@ -230,7 +230,7 @@ impl<D: Deterministic> Deterministic for Quotient<D> {
         &self,
         state: Idx,
         symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         let origin = state.to_index(self)?;
         let (states, colors): (Set<_>, Vec<_>) = self
             .class_iter_by_id(origin)?

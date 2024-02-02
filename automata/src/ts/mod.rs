@@ -28,8 +28,12 @@ pub use shrinkable::Shrinkable;
 mod deterministic;
 pub use deterministic::Deterministic;
 
-mod nts;
-pub use nts::{NTSBuilder, NTS};
+/// Implements a type of (nondeterministic) transition system based on a vector of state information and a vector of edges.
+pub mod nts;
+pub use nts::NTS;
+
+mod builder;
+pub use builder::TSBuilder;
 
 mod dts;
 pub use dts::{CollectDTS, DTS};

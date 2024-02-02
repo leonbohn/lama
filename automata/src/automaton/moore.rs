@@ -61,7 +61,7 @@ impl<D: MooreLike + Deterministic> IntoMooreMachine<D> {
     /// for every finite word, the output of `self` and the output of the returned moore
     /// machine is the same. This is done using the Hopcroft and Moore algorithms for
     /// minimizing deterministic finite automata, implemented in the
-    /// [`moore_partition_refinement`] function.
+    /// [`crate::algorithms::moore_partition_refinement`] function.
     pub fn minimize(&self) -> AsMooreMachine<D> {
         crate::algorithms::moore_partition_refinement(self)
     }
@@ -76,7 +76,7 @@ impl<Ts: MooreLike> TransitionSystem
 
     type EdgeColor = Ts::EdgeColor;
 
-    type TransitionRef<'this> = Ts::TransitionRef<'this>
+    type EdgeRef<'this> = Ts::EdgeRef<'this>
     where
         Self: 'this;
 
@@ -112,7 +112,7 @@ impl<D: MooreLike> Deterministic for MooreMachine<D::Alphabet, D::StateColor, D:
         &self,
         state: Idx,
         symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         self.ts().transition(state.to_index(self)?, symbol)
     }
 }
@@ -190,7 +190,7 @@ impl<Ts: MooreLike> MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts
 impl<Ts: MooreLike + PredecessorIterable> PredecessorIterable
     for MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
 {
-    type PreTransitionRef<'this> = Ts::PreTransitionRef<'this>
+    type PreEdgeRef<'this> = Ts::PreEdgeRef<'this>
     where
         Self: 'this;
 
@@ -276,7 +276,7 @@ macro_rules! impl_moore_automaton {
         impl<Ts: PredecessorIterable> PredecessorIterable
             for $name<Ts::Alphabet, Ts::EdgeColor, Ts>
         {
-            type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
+            type PreEdgeRef<'this> = Ts::PreEdgeRef<'this> where Self: 'this;
             type EdgesToIter<'this> = Ts::EdgesToIter<'this> where Self: 'this;
             fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
                 self.ts().predecessors(state)
@@ -352,7 +352,7 @@ macro_rules! impl_moore_automaton {
             type StateIndex = Ts::StateIndex;
             type EdgeColor = Ts::EdgeColor;
             type StateColor = Ts::StateColor;
-            type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
+            type EdgeRef<'this> = Ts::EdgeRef<'this> where Self: 'this;
             type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
             type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
             type Alphabet = Ts::Alphabet;
@@ -380,21 +380,6 @@ macro_rules! impl_moore_automaton {
             }
         }
         impl<D: Deterministic> Deterministic for $name<D::Alphabet, D::EdgeColor, D> {
-            fn transition<Idx: $crate::prelude::Indexes<Self>>(
-                &self,
-                state: Idx,
-                symbol: SymbolOf<Self>,
-            ) -> Option<Self::TransitionRef<'_>> {
-                self.ts().transition(state.to_index(self)?, symbol)
-            }
-
-            fn edge_color(
-                &self,
-                state: Self::StateIndex,
-                expression: &ExpressionOf<Self>,
-            ) -> Option<EdgeColor<Self>> {
-                self.ts().edge_color(state, expression)
-            }
 
         }
         impl<Ts: Pointed> Pointed for $name<Ts::Alphabet, Ts::EdgeColor, Ts> {
@@ -447,7 +432,7 @@ pub trait MooreLike: Deterministic + Pointed {
 
     /// Returns true if `self` is bisimilar to `other`, i.e. if the two moore machines
     /// produce the same output for each finite word. This is done by checking whether
-    /// [`moore_witness_non_bisimilarity`] returns `None`.
+    /// [`Self::moore_witness_non_bisimilarity`] returns `None`.
     fn moore_bisimilar<M>(&self, other: M) -> bool
     where
         M: MooreLike<Alphabet = Self::Alphabet, StateColor = Self::StateColor>,
