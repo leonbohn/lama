@@ -90,7 +90,7 @@ impl<A: Alphabet, Q: Clone, C: Clone> RightCongruence<A, Q, C> {
         let mut cong = Self {
             ts: ts
                 .map_state_colors(|c| ColoredClass::new(Class::default(), c))
-                .collect_ts(),
+                .collect_dts(),
         };
         cong.recompute_labels();
         cong
@@ -164,7 +164,7 @@ impl<A: Alphabet, Q: Clone, C: Clone> RightCongruence<A, Q, C> {
     pub fn looping_words(&self, class: &Class<A::Symbol>) -> DFA<A> {
         self.map_state_colors(|c: ColoredClass<A::Symbol, Q>| c.class() == class)
             .erase_edge_colors()
-            .collect_ts()
+            .collect_dts()
             .with_initial(self.class_to_index(class).unwrap())
             .into_dfa()
     }

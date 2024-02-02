@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::prelude::*;
+use crate::{prelude::*, ts::nts::NTSPartsFor};
 
 /// A transition system that maps the edge colors of a given transition system to a new type.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -262,6 +262,10 @@ impl<Ts, F> MapEdgeColor<Ts, F> {
     pub fn ts(&self) -> &Ts {
         &self.ts
     }
+
+    pub fn into_parts(self) -> (Ts, F) {
+        (self.ts, self.f)
+    }
 }
 
 impl<D: Clone, Ts: TransitionSystem + Pointed, F: Fn(Ts::EdgeColor) -> D> Pointed
@@ -431,6 +435,10 @@ impl<Ts, F> MapStateColor<Ts, F> {
 
     pub fn ts(&self) -> &Ts {
         &self.ts
+    }
+
+    pub fn into_parts(self) -> (Ts, F) {
+        (self.ts, self.f)
     }
 
     pub fn f(&self) -> &F {

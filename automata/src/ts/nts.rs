@@ -6,6 +6,14 @@ use owo_colors::OwoColorize;
 
 use super::transition_system::FullTransition;
 
+/// Type alias for the constituent parts of an [`NTS`] with the same associated types as the
+/// transition sytem `D`.
+pub type NTSPartsFor<D> = (
+    <D as TransitionSystem>::Alphabet,
+    Vec<NTState<StateColor<D>>>,
+    Vec<NTEdge<ExpressionOf<D>, EdgeColor<D>>>,
+);
+
 /// Stores information characterizing a state in a non-deterministic transition system, see [`NTS`].
 /// It stores a color and a pointer to the index of the first edge leaving the state.
 #[derive(Clone, Eq, PartialEq)]
@@ -20,6 +28,15 @@ impl<Q> NTState<Q> {
         Self {
             color,
             first_edge: None,
+        }
+    }
+
+    /// Applies the given recoloring function to produce a new [`NTState`] with color `C`.
+    /// This method consumes `self`.
+    pub fn recolor<C, F: Fn(Q) -> C>(self, f: F) -> NTState<C> {
+        NTState {
+            color: f(self.color),
+            first_edge: self.first_edge,
         }
     }
 }
@@ -66,6 +83,19 @@ impl<E, C> NTEdge<E, C> {
             color,
             expression,
             next: None,
+        }
+    }
+
+    /// Consumes `self` and applies the given function `f` to obtain a new color which is then
+    /// combined with the remaining fields to form a recolored edge.
+    pub fn recolor<D, F: Fn(C) -> D>(self, f: F) -> NTEdge<E, D> {
+        NTEdge {
+            prev: self.prev,
+            source: self.source,
+            target: self.target,
+            color: f(self.color),
+            expression: self.expression,
+            next: self.next,
         }
     }
 }
@@ -292,7 +322,7 @@ impl<A: Alphabet, Q: Clone, C: Clone> NTS<A, Q, C> {
 
     /// Turns `self` into a deterministic transition system. Panics if `self` is not deterministic.
     pub fn into_deterministic(self) -> DTS<A, Q, C> {
-        assert!(self.is_deterministic());
+        debug_assert!(self.is_deterministic());
         DTS(self)
     }
 
@@ -313,6 +343,24 @@ impl<A: Alphabet, Q: Clone, C: Clone> NTS<A, Q, C> {
                 return Some(current);
             }
         }
+    }
+
+    /// Builds a new [`NTS`] from its constituent parts.
+    pub fn from_parts(
+        alphabet: A,
+        states: Vec<NTState<Q>>,
+        edges: Vec<NTEdge<A::Expression, C>>,
+    ) -> Self {
+        Self {
+            alphabet,
+            states,
+            edges,
+        }
+    }
+
+    /// Decomposes `self` into a tuple of its constituents.
+    pub fn into_parts(self) -> NTSPartsFor<Self> {
+        (self.alphabet, self.states, self.edges)
     }
 }
 

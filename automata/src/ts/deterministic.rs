@@ -29,6 +29,12 @@ use super::Path;
 /// each possible input symbol from the alphabet, there is at most one transition. Under the hood, this
 /// trait simply calls [`TransitionSystem::edges_from`] and checks whether there is at most one edge
 /// for each symbol. If there is more than one edge, the methods of this trait panic.
+///
+/// # Implementaiton
+/// This trait contains mostly convenience functions and provides default implementations. To ensure
+/// performance, the [`Self::collect_dts`] function and any other collectors for different types of
+/// transition system implementations should be overridden. By default, they simply insert states
+/// and edges one by one and are therefore horribly inefficient.
 pub trait Deterministic: TransitionSystem {
     /// For a given `state`, returns the unique edge that matches the given `symbol`. Panics if multiple
     /// edges match the symbol. If the state does not exist or no edge matches the symbol, `None` is returned.
@@ -551,8 +557,12 @@ pub trait Deterministic: TransitionSystem {
         RightCongruence::from_ts(self)
     }
 
-    /// Collects `self` into a new [`BTS`] with the same alphabet, state colors and edge colors.
-    fn collect_ts(&self) -> DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor> {
+    /// Collects `self` into a new [`DTS`] over the same alphabet. This is used, for example, after a chain of
+    /// manipulations on a transition system, to obtain a condensed version that is then faster to work with.
+    ///
+    /// By default, the implementation is naive and slow, it simply inserts all states one after the other and
+    /// subsequently inserts all transitions.
+    fn collect_dts(self) -> DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor> {
         use crate::ts::Sproutable;
         let mut ts = DTS::new_for_alphabet(self.alphabet().clone());
         let mut map = std::collections::HashMap::new();
@@ -858,6 +868,13 @@ where
     Ts: Deterministic,
     F: Fn(Ts::StateColor) -> D,
 {
+    fn collect_dts(self) -> DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor> {
+        let (ts, f) = self.into_parts();
+        let (alphabet, states, edges) = ts.collect_dts().into_parts();
+        let states = states.into_iter().map(|q| q.recolor(&f)).collect();
+        DTS::from_parts(alphabet, states, edges)
+    }
+
     fn edge_color(
         &self,
         state: Self::StateIndex,
@@ -881,6 +898,13 @@ where
     Ts: Deterministic,
     F: Fn(Ts::EdgeColor) -> D,
 {
+    fn collect_dts(self) -> DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor> {
+        let (ts, f) = self.into_parts();
+        let (alphabet, states, edges) = ts.collect_dts().into_parts();
+        let edges = edges.into_iter().map(|e| e.recolor(&f)).collect();
+        DTS::from_parts(alphabet, states, edges)
+    }
+
     fn edge_color(
         &self,
         state: Self::StateIndex,

@@ -76,6 +76,8 @@ impl<A: Alphabet> MealyMachine<A> {
     }
 }
 
+impl<D: Deterministic> Deterministic for MealyMachine<D::Alphabet, D::EdgeColor, D> {}
+
 impl<Ts: TransitionSystem> TransitionSystem for MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts> {
     type StateIndex = Ts::StateIndex;
 
@@ -110,16 +112,6 @@ impl<Ts: TransitionSystem> TransitionSystem for MealyMachine<Ts::Alphabet, Ts::E
 
     fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
         self.ts().state_color(state.to_index(self)?)
-    }
-}
-
-impl<D: Deterministic> Deterministic for MealyMachine<D::Alphabet, D::EdgeColor, D> {
-    fn transition<Idx: Indexes<Self>>(
-        &self,
-        state: Idx,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::EdgeRef<'_>> {
-        self.ts().transition(state.to_index(self)?, symbol)
     }
 }
 
