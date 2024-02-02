@@ -3,8 +3,6 @@ use std::{collections::BTreeMap, ffi::FromBytesUntilNulError};
 use crate::{prelude::*, Set};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
-#[cfg(test)]
-use pretty_assertions::assert_eq;
 
 use super::transition_system::FullTransition;
 

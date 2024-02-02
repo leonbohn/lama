@@ -207,7 +207,6 @@ mod tests {
     use crate::{alphabet::Fixed, prelude::*, tests::wiki_dfa, Partition};
 
     use super::moore_partition_refinement;
-    use pretty_assertions::{assert_eq, assert_ne};
 
     #[test_log::test]
     fn partition_refinement_moore() {

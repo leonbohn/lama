@@ -4,8 +4,6 @@ use itertools::Itertools;
 use tracing::warn;
 
 use crate::{congruence::FORC, hoa::HoaAlphabet, prelude::*, Set};
-#[cfg(test)]
-use pretty_assertions::assert_eq;
 
 use super::Initialized;
 

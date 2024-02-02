@@ -316,8 +316,6 @@ impl<'a, Ts: TransitionSystem> Debug for Scc<'a, Ts> {
 mod tests {
     use std::collections::HashSet;
 
-    use pretty_assertions::assert_eq;
-
     use crate::{
         ts::{Deterministic, NTS},
         Set, TransitionSystem,

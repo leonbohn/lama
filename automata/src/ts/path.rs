@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use itertools::Itertools;
 
 use crate::{alphabet::Alphabet, Color, Set, Show};
@@ -200,6 +202,12 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Path<A, Idx, Q, C> {
                 self.transitions[position..].to_vec(),
             ),
         )
+    }
+}
+
+impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Debug for Path<A, Idx, Q, C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.show())
     }
 }
 
