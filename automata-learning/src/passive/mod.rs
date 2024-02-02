@@ -23,8 +23,11 @@ use self::precise::PreciseDPA;
 
 pub use self::sample::{FiniteSample, OmegaSample};
 
-/// Module containing the implementations of the sprout/glerc algorithm.
-// pub mod sprout;
+/// Module containing the implementation of the sprout algorithm.
+pub mod sprout;
+
+/// Module defining ConsistencyCheck and implementing it for various omega acceptance conditions 
+pub mod consistency;
 
 /// Deals with families of weak priority mappings.
 pub mod fwpm;
