@@ -23,6 +23,7 @@ use super::path::LassoIn;
 use super::path::PathIn;
 use super::reachable::MinimalRepresentative;
 use super::sproutable::{IndexedAlphabet, Sproutable};
+use super::IntoHashTs;
 use super::Path;
 
 /// A marker tait indicating that a [`TransitionSystem`] is deterministic, meaning for every state and
@@ -561,32 +562,25 @@ pub trait Deterministic: TransitionSystem {
     /// manipulations on a transition system, to obtain a condensed version that is then faster to work with.
     ///
     /// By default, the implementation is naive and slow, it simply inserts all states one after the other and
-    /// subsequently inserts all transitions.
+    /// subsequently inserts all transitions, see [`Sproutable::collect_from`] for details.
     fn collect_dts(self) -> DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor> {
         use crate::ts::Sproutable;
-        let mut ts = DTS::new_for_alphabet(self.alphabet().clone());
-        let mut map = std::collections::HashMap::new();
-        for index in self.state_indices() {
-            map.insert(
-                index,
-                ts.add_state(
-                    self.state_color(index)
-                        .expect("We assume each state to be colored!"),
-                ),
-            );
-        }
-        for index in self.state_indices() {
-            for sym in self.alphabet().universe() {
-                if let Some(edge) = self.transition(index, sym) {
-                    ts.add_edge(
-                        *map.get(&index).unwrap(),
-                        <Self::Alphabet as Alphabet>::expression(sym),
-                        *map.get(&edge.target()).unwrap(),
-                        edge.color().clone(),
-                    );
-                }
-            }
-        }
+        let (ts, _map) = DTS::collect_from(self);
+        ts
+    }
+
+    /// Collects `self` into a new [`HashTs`] over the same alphabet. This is used, for example, after a chain of
+    /// manipulations on a transition system, to obtain a condensed version that is then faster to work with.
+    ///
+    /// By default, the implementation is naive and slow, it simply inserts all states one after the other and
+    /// subsequently inserts all transitions, see [`Sproutable::collect_from`] for details.
+    fn collect_hash_ts(self) -> IntoHashTs<Self>
+    where
+        EdgeColor<Self>: Hash + Eq,
+        StateColor<Self>: Hash + Eq,
+    {
+        use crate::ts::Sproutable;
+        let (ts, _map) = HashTs::collect_from(self);
         ts
     }
 
@@ -801,7 +795,7 @@ impl<A: Alphabet, Q: Clone, C: Clone> Deterministic for RightCongruence<A, Q, C>
 }
 
 impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Hash + Eq + Clone> Deterministic
-    for BTS<A, Q, C, Idx>
+    for HashTs<A, Q, C, Idx>
 {
     fn edge_color(
         &self,

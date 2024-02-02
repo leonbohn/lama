@@ -12,7 +12,7 @@ use crate::{
     ts::{
         connected_components::Scc,
         operations::{MapEdgeColor, MapStateColor},
-        CollectDTS, IntoInitialBTS, Quotient, Shrinkable,
+        CollectDTS, Quotient, Shrinkable,
     },
     HasParity, Partition, Set,
 };
@@ -287,7 +287,7 @@ impl<D: DPALike> IntoDPA<D> {
     {
         let start = std::time::Instant::now();
 
-        let mut ts: Initialized<BTS<_, _, _, _>> = self.collect_pointed();
+        let mut ts: Initialized<HashTs<_, _, _, _>> = self.collect_pointed();
         let out = ts.clone();
 
         let mut recoloring = Vec::new();

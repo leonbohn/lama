@@ -1,7 +1,7 @@
 use bit_set::BitSet;
 use itertools::Itertools;
 
-use crate::{prelude::Simple, Alphabet, Pointed, TransitionSystem};
+use crate::{prelude::Simple, Alphabet, Bijection, Pointed, TransitionSystem};
 
 use super::{transition_system::IsEdge, EdgeColor, StateColor};
 
@@ -52,6 +52,61 @@ impl IndexedAlphabet for Simple {
 pub trait Sproutable: TransitionSystem {
     /// Creates a new instance of `Self` for the given alphabet.
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self;
+
+    /// Creates a new transition system, by collecting all states and transitions present in `ts`.
+    /// This is done by using a naive approach, which simply iterates through all states and adds
+    /// them one by one. At the same time, a [bijective mapping](`Bijection`) between old and
+    /// new state indices is created. Subequently, the transitions are inserted one by one. Finally,
+    /// the newly created transition system is returned together with the bijective state index
+    /// mapping.
+    ///
+    /// Note, that this procedure allows a form of 'downcasting' of edge and state colors. If the
+    /// transition system that we want to collect into does not use any edge colors (i.e. the edges
+    /// are colored with type [`crate::Void`]) then we simply 'forget' the current colors.
+    ///
+    /// # Example
+    /// ```
+    /// use crate::prelude::*;
+    ///
+    /// let source = TSBuilder::default()
+    ///     .with_transitions([(0, 'a', 0, 0), (0, 'b', 0, 0)])
+    ///     .with_colors([0])
+    ///     .deterministic();
+    ///
+    /// let without_edge_colors: DTS<Simple, usize, Void> = DTS::collect_from(&source);
+    /// let without_state_colors: DTS<Simple, Void, usize> = DTS::collect_from(&source);
+    /// ```
+    fn collect_from<Ts>(ts: Ts) -> (Self, Bijection<Ts::StateIndex, Self::StateIndex>)
+    where
+        Ts: TransitionSystem<Alphabet = Self::Alphabet>,
+        StateColor<Ts>: Into<StateColor<Self>>,
+        EdgeColor<Ts>: Into<EdgeColor<Self>>,
+    {
+        let mut out = Self::new_for_alphabet(ts.alphabet().clone());
+        let mut map = Bijection::new();
+        for index in ts.state_indices() {
+            map.insert(
+                index,
+                out.add_state(
+                    ts.state_color(index)
+                        .expect("We assume each state to be colored!")
+                        .into(),
+                ),
+            );
+        }
+        for index in ts.state_indices() {
+            let source = *map.get_by_left(&index).unwrap();
+            for edge in ts.edges_from(index).expect("State exists") {
+                out.add_edge(
+                    source,
+                    edge.expression().clone(),
+                    *map.get_by_left(&edge.target()).unwrap(),
+                    edge.color().into(),
+                );
+            }
+        }
+        (out, map)
+    }
 
     /// Turns the automaton into a complete one, by adding a sink state and adding transitions
     /// to it from all states that do not have a transition for a given symbol.

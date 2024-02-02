@@ -13,7 +13,7 @@ use super::{
     connected_components::{
         tarjan_scc_iterative, tarjan_scc_recursive, SccDecomposition, TarjanDAG,
     },
-    index_ts::BTState,
+    index_ts::HashTsState,
     nts::{NTEdge, NTSEdgesFromIter},
     operations::{
         ColorRestricted, MapEdgeColor, MapStateColor, MappedEdgesFromIter, MappedTransition,
@@ -29,7 +29,7 @@ use super::{
 use super::{
     finite::{ReachedColor, ReachedState},
     path::Lasso,
-    CanInduce, EdgeColor, IndexType, Induced, Path, StateColor, BTS,
+    CanInduce, EdgeColor, HashTs, IndexType, Induced, Path, StateColor,
 };
 
 use impl_tools::autoimpl;
@@ -982,15 +982,15 @@ impl<A: Alphabet, Q: Clone, C: Clone> TransitionSystem for RightCongruence<A, Q,
         Some(self.initial())
     }
 }
-impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Hash + Eq + Clone> TransitionSystem
-    for BTS<A, Q, C, Idx>
+impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Clone + Hash + Eq> TransitionSystem
+    for HashTs<A, Q, C, Idx>
 {
     type StateColor = Q;
     type EdgeColor = C;
     type StateIndex = Idx;
     type EdgeRef<'this> = EdgeReference<'this, A::Expression, Idx, C> where Self: 'this;
     type EdgesFromIter<'this> = BTSEdgesFrom<'this, A::Expression, Idx, C> where Self: 'this;
-    type StateIndices<'this> = std::iter::Cloned<std::collections::hash_map::Keys<'this, Idx, super::index_ts::BTState<A, Q, C, Idx>>> where Self: 'this;
+    type StateIndices<'this> = std::iter::Cloned<std::collections::hash_map::Keys<'this, Idx, super::index_ts::HashTsState<A, Q, C, Idx>>> where Self: 'this;
 
     type Alphabet = A;
 

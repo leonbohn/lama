@@ -130,27 +130,3 @@ impl<Ts: TransitionSystem + Sproutable> Sproutable for Initialized<Ts> {
         self.ts_mut().extend_states(iter)
     }
 }
-impl<Ts: TransitionSystem + HasStates> HasStates for Initialized<Ts> {
-    type State<'this> = Ts::State<'this>
-        where
-            Self: 'this;
-
-    type StatesIter<'this> = Ts::StatesIter<'this>
-        where
-            Self: 'this;
-
-    fn state(&self, index: Self::StateIndex) -> Option<Self::State<'_>> {
-        self.ts().state(index)
-    }
-
-    fn states_iter(&self) -> Self::StatesIter<'_> {
-        self.ts().states_iter()
-    }
-}
-impl<Ts: TransitionSystem + HasMutableStates> HasMutableStates for Initialized<Ts> {
-    type StateMut<'this>  = Ts::StateMut<'this> where Self:'this;
-
-    fn state_mut(&mut self, index: Self::StateIndex) -> Option<Self::StateMut<'_>> {
-        self.ts_mut().state_mut(index)
-    }
-}

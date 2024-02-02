@@ -9,7 +9,8 @@ use crate::{
     automaton::{Initialized, IntoDPA},
     congruence::{ColoredClass, FORC},
     prelude::{
-        DPALike, IntoMealyMachine, IntoMooreMachine, MealyLike, MooreLike, Simple, Symbol, SymbolOf,
+        DPALike, EdgeColor, ExpressionOf, IntoMealyMachine, IntoMooreMachine, MealyLike, MooreLike,
+        Simple, StateColor, Symbol, SymbolOf,
     },
     ts::dot,
     Alphabet, Class, Color, Map, Pointed, RightCongruence, Show, TransitionSystem,
@@ -17,7 +18,7 @@ use crate::{
 
 use super::{
     transition_system::{Indexes, IsEdge},
-    Deterministic, EdgeColor, ExpressionOf, IndexType, StateColor, BTS,
+    Deterministic, HashTs, IndexType,
 };
 
 fn sanitize_dot_ident(name: &str) -> String {

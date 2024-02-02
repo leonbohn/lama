@@ -13,7 +13,7 @@ pub mod operations;
 use crate::{Class, Color, Map, RightCongruence, Show, Void};
 
 mod index_ts;
-pub use index_ts::{IntoBTS, IntoInitialBTS, BTS};
+pub use index_ts::{HashTs, IntoHashTs};
 
 /// Contains implementations and definitions for dealing with paths through a transition system.
 pub mod path;
@@ -170,46 +170,6 @@ impl<'a, Q> StateReference<'a, Q> {
 pub type StateColor<X> = <X as TransitionSystem>::StateColor;
 /// Type alias for extracting the edge color in a [`TransitionSystem`].
 pub type EdgeColor<X> = <X as TransitionSystem>::EdgeColor;
-
-/// Abstracts possessing a set of states. Note, that implementors of this trait must
-/// be able to iterate over the set of states.
-#[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
-pub trait HasStates: TransitionSystem + Sized {
-    /// The type of the states.
-    type State<'this>: HasColor<Color = StateColor<Self>>
-    where
-        Self: 'this;
-
-    /// The type of the iterator over the states.
-    type StatesIter<'this>: Iterator<Item = (&'this Self::StateIndex, Self::State<'this>)>
-    where
-        Self: 'this;
-
-    /// Returns a reference to the state with the given index, if it exists and `None` otherwise.
-    fn state(&self, index: Self::StateIndex) -> Option<Self::State<'_>>;
-
-    /// Returns an iterator over the states of the implementor.
-    fn states_iter(&self) -> Self::StatesIter<'_>;
-
-    /// Returns the number of states.
-    fn hs_size(&self) -> usize {
-        self.states_iter().count()
-    }
-}
-
-/// Abstracts possessing a set of states, which can be mutated. Note, that implementors of this
-/// trait must be able to iterate over the set of states.
-#[autoimpl(for<T: trait + ?Sized> &mut T)]
-
-pub trait HasMutableStates: HasStates {
-    /// The type of the mutable iterator over the states.
-    type StateMut<'this>: HasColorMut<Color = StateColor<Self>>
-    where
-        Self: 'this;
-
-    /// Returns an iterator over mutable references to the states of the implementor.
-    fn state_mut(&mut self, index: Self::StateIndex) -> Option<Self::StateMut<'_>>;
-}
 
 /// Implementors of this trait have a distinguished (initial) state.
 #[autoimpl(for<T: trait> &T, &mut T)]

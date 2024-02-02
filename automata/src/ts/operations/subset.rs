@@ -209,7 +209,7 @@ impl<Ts: TransitionSystem> SubsetConstruction<Ts> {
 mod tests {
     use crate::{
         prelude::Initialized,
-        ts::{Deterministic, BTS, NTS},
+        ts::{Deterministic, HashTs, NTS},
         TransitionSystem,
     };
 

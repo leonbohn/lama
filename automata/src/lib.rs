@@ -41,8 +41,8 @@ pub mod prelude {
             predecessors::PredecessorIterable,
             transition_system::{EdgeReference, FullTransition, Indexes, IsEdge},
             Congruence, Deterministic, DeterministicEdgesFrom, EdgeColor, ExpressionOf, HasColor,
-            HasColorMut, HasMutableStates, HasStates, IndexType, Path, Sproutable, StateColor,
-            SymbolOf, TSBuilder, TransitionSystem, BTS, DTS, NTS,
+            HasColorMut, HashTs, IndexType, Path, Sproutable, StateColor, SymbolOf, TSBuilder,
+            TransitionSystem, DTS, NTS,
         },
         upw,
         word::{FiniteWord, LinearWord, OmegaWord, Periodic, Reduced, ReducedParseError},
@@ -168,6 +168,10 @@ impl Show for (&Void, &Void) {
 pub type Set<S> = fxhash::FxHashSet<S>;
 /// Type alias for maps, we use this to hide which type of `HashMap` we are actually using.
 pub type Map<K, V> = fxhash::FxHashMap<K, V>;
+
+/// Represents a bijective mapping between `L` and `R`, that is a mapping which associates
+/// each `L` with precisely one `R` and vice versa.
+pub type Bijection<L, R> = bimap::BiBTreeMap<L, R>;
 
 /// Helper trait which can be used to display states, transitions and such.
 pub trait Show {
