@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::{
     prelude::*,
-    ts::{reachable::ReachableStateIndices, transition_system::TransitionOwned},
+    ts::{reachable::ReachableStateIndices, transition_system::TransitionOwnedColor},
     Set,
 };
 
@@ -85,7 +85,7 @@ impl<Ts: TransitionSystem> Deterministic for SubsetConstruction<Ts> {
             })
             .unzip();
         if let Some(pos) = self.states.borrow().iter().position(|s| stateset.eq(s)) {
-            return Some(TransitionOwned::new(
+            return Some(TransitionOwnedColor::new(
                 source,
                 self.expressions.get(&symbol).unwrap(),
                 colorset,
@@ -94,7 +94,7 @@ impl<Ts: TransitionSystem> Deterministic for SubsetConstruction<Ts> {
         }
 
         self.states.borrow_mut().push(stateset);
-        Some(TransitionOwned::new(
+        Some(TransitionOwnedColor::new(
             source,
             self.expressions.get(&symbol).unwrap(),
             colorset,
@@ -117,7 +117,7 @@ impl<Ts: TransitionSystem> TransitionSystem for SubsetConstruction<Ts> {
 
     type EdgeColor = Vec<Ts::EdgeColor>;
 
-    type TransitionRef<'this> = TransitionOwned<'this, ExpressionOf<Ts>, usize, Self::EdgeColor>
+    type TransitionRef<'this> = TransitionOwnedColor<'this, ExpressionOf<Ts>, usize, Self::EdgeColor>
     where
         Self: 'this;
 

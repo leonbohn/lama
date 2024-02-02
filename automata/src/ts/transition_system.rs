@@ -164,6 +164,8 @@ pub trait TransitionSystem: Sized {
     /// not exist, `None` is returned.
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>>;
 
+    /// Returns an iterator over all transitions that start in the given `state` and whose expression
+    /// matches the given `sym`. If the state does not exist, `None` is returned.
     fn edges_matching<Idx: Indexes<Self>>(
         &self,
         state: Idx,
@@ -188,6 +190,9 @@ pub trait TransitionSystem: Sized {
         }))
     }
 
+    /// Returns true if and only if there exists a transition from the given `source` state to the
+    /// given `target` state, whose expression is matched by the given `sym`. If either the source
+    /// or the target state does not exist, `false` is returned.
     fn has_transition(
         &self,
         source: Self::StateIndex,
@@ -201,6 +206,8 @@ pub trait TransitionSystem: Sized {
         }
     }
 
+    /// Returns an iterator over the transitions that start in the given `state`. Panics if the
+    /// state does not exist.
     fn transitions_from<Idx: Indexes<Self>>(&self, state: Idx) -> TransitionsFrom<'_, Self> {
         TransitionsFrom::new(
             self,
@@ -210,6 +217,9 @@ pub trait TransitionSystem: Sized {
         )
     }
 
+    /// Commence a new subset construction starting from the collection of states given by `states`.
+    /// This is a convenience function that simply calls [`SubsetConstruction::new`]. It produces a
+    /// deterministic transition system operating on sets of states.
     fn subset_construction_from<I: IntoIterator<Item = Self::StateIndex>>(
         self,
         states: I,
@@ -217,6 +227,8 @@ pub trait TransitionSystem: Sized {
         SubsetConstruction::new(self, states)
     }
 
+    /// Performs a subset construction using [`Self::subset_construction_from`] starting with a singleton
+    /// set containing the only initial state of `self`.
     fn subset_construction(self) -> SubsetConstruction<Self>
     where
         Self: Pointed,
@@ -450,6 +462,7 @@ pub trait TransitionSystem: Sized {
         ReachableStates::new(self, self.initial())
     }
 
+    /// Returns an iterator over all state colors that are reachable from the initial state. May yield the same color multiple times.
     fn reachable_state_colors(&self) -> impl Iterator<Item = Self::StateColor>
     where
         Self: Sized + Pointed,
@@ -532,12 +545,24 @@ impl<Ts: TransitionSystem> Indexes<Ts> for Ts::StateIndex {
     }
 }
 
+/// Implementors of this trait store the necessary information to fully specify a transition
+/// in a transition system. Specifically, an implementor gives access to
+/// - the index of the source state,
+/// - the index of the target state,
+/// - the color of the transition, and
+/// - the symbol on which the transition is taken.
 pub trait FullTransition<Idx, S, C> {
+    /// Returns the index of the source state of the transition.
     fn source(&self) -> &Idx;
+    /// Returns the index of the target state of the transition.
     fn target(&self) -> &Idx;
+    /// Returns the color of the transition.
     fn color(&self) -> &C;
+    /// Gives a reference to the expression that labels the transition.
     fn symbol(&self) -> &S;
 
+    /// Produces a tuple (source, symbol, color, target) from the transition, by cloning
+    /// all components.
     fn clone_tuple(&self) -> (Idx, S, C, Idx)
     where
         Idx: Clone,
@@ -554,6 +579,15 @@ pub trait FullTransition<Idx, S, C> {
 }
 
 impl<Idx, S, C> FullTransition<Idx, S, C> for (Idx, S, C, Idx) {
+    fn clone_tuple(&self) -> (Idx, S, C, Idx)
+    where
+        Idx: Clone,
+        S: Clone,
+        C: Clone,
+    {
+        self.clone()
+    }
+
     fn source(&self) -> &Idx {
         &self.0
     }
@@ -610,6 +644,7 @@ impl<'a, Idx, S, C> FullTransition<Idx, S, C> for (&'a Idx, &'a S, &'a C, &'a Id
 /// This trait is implemented for references to transitions, so that they can be used in
 /// generic contexts. It is automatically implemented for (mutable) references.
 pub trait IsEdge<'ts, E, Idx, C> {
+    /// Returns the index of the source state of the transition.
     fn source(&self) -> Idx;
     /// Returns the target state of the transition.
     fn target(&self) -> Idx;
@@ -642,6 +677,8 @@ pub trait IsEdge<'ts, E, Idx, C> {
     }
 }
 
+/// Represents a reference to an edge in a transition system. This stores a lifetime
+/// to the transition system and references to the color and expression.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct EdgeReference<'ts, E, Idx, C> {
     source: Idx,
@@ -651,6 +688,7 @@ pub struct EdgeReference<'ts, E, Idx, C> {
 }
 
 impl<'ts, E, Idx, C> EdgeReference<'ts, E, Idx, C> {
+    /// Creates a new edge reference from the given components.
     pub fn new(source: Idx, expression: &'ts E, color: &'ts C, target: Idx) -> Self {
         Self {
             source,
@@ -679,15 +717,18 @@ impl<'ts, E, Idx: IndexType, C: Color> IsEdge<'ts, E, Idx, C> for EdgeReference<
     }
 }
 
+/// Represents an edge in a transition system similar to [`EdgeReference`], but it owns the
+/// associated color, while the expression is still a reference.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct TransitionOwned<'ts, E, Idx, C> {
+pub struct TransitionOwnedColor<'ts, E, Idx, C> {
     source: Idx,
     target: Idx,
     color: C,
     expression: &'ts E,
 }
 
-impl<'ts, E, Idx, C> TransitionOwned<'ts, E, Idx, C> {
+impl<'ts, E, Idx, C> TransitionOwnedColor<'ts, E, Idx, C> {
+    /// Creates a new instance from the given components.
     pub fn new(source: Idx, expression: &'ts E, color: C, target: Idx) -> Self {
         Self {
             source,
@@ -698,7 +739,9 @@ impl<'ts, E, Idx, C> TransitionOwned<'ts, E, Idx, C> {
     }
 }
 
-impl<'ts, E, Idx: IndexType, C: Color> IsEdge<'ts, E, Idx, C> for TransitionOwned<'ts, E, Idx, C> {
+impl<'ts, E, Idx: IndexType, C: Color> IsEdge<'ts, E, Idx, C>
+    for TransitionOwnedColor<'ts, E, Idx, C>
+{
     fn source(&self) -> Idx {
         self.source
     }
@@ -716,6 +759,8 @@ impl<'ts, E, Idx: IndexType, C: Color> IsEdge<'ts, E, Idx, C> for TransitionOwne
     }
 }
 
+/// Through this struct, we enable iterating over all transitions that leave a given state of
+/// a transition system.
 pub struct TransitionsFrom<'a, D: TransitionSystem + 'a> {
     edges: D::EdgesFromIter<'a>,
     symbols: Option<<ExpressionOf<D> as Expression<SymbolOf<D>>>::SymbolsIter<'a>>,
@@ -752,6 +797,8 @@ impl<'a, D: TransitionSystem + 'a> Iterator for TransitionsFrom<'a, D> {
 }
 
 impl<'a, D: TransitionSystem + 'a> TransitionsFrom<'a, D> {
+    /// Creates a new instance from a reference to a transition system and the index of the state
+    /// from which the transitions should be taken.
     pub fn new(det: &'a D, state: D::StateIndex) -> Self {
         let Some(mut edges) = det.edges_from(state) else {
             panic!(
@@ -957,12 +1004,14 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A
     }
 }
 
+/// Specialized iterator over the edges that leave a given state in a BTS.
 pub struct BTSEdgesFrom<'ts, E, Idx, C> {
     edges: std::collections::hash_map::Iter<'ts, E, (Idx, C)>,
     source: Idx,
 }
 
 impl<'ts, E, Idx, C> BTSEdgesFrom<'ts, E, Idx, C> {
+    /// Creates a new instance from the given components.
     pub fn new(source: Idx, edges: std::collections::hash_map::Iter<'ts, E, (Idx, C)>) -> Self {
         Self { edges, source }
     }
@@ -1143,6 +1192,8 @@ where
     }
 }
 
+/// Specialized version of an iterator over the edges leaving a specific state of a **deterministic**
+/// transition system.
 pub struct DeterministicEdgesFrom<'a, Ts: TransitionSystem> {
     ts: &'a Ts,
     state: Ts::StateIndex,
@@ -1159,6 +1210,7 @@ impl<'a, Ts: Deterministic> Iterator for DeterministicEdgesFrom<'a, Ts> {
 }
 
 impl<'a, Ts: TransitionSystem> DeterministicEdgesFrom<'a, Ts> {
+    /// Creates a new instance from the given components.
     pub fn new(ts: &'a Ts, state: Ts::StateIndex) -> Self {
         Self {
             ts,

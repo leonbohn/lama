@@ -5,14 +5,22 @@ use crate::{prelude::Simple, Alphabet, Pointed, TransitionSystem};
 
 use super::{transition_system::IsEdge, EdgeColor, StateColor};
 
+/// Marker trait for [`Alphabet`]s that can be indexed, i.e. where we can associate each
+/// [`Alphabet::Symbol`] and [`Alphabet::Expression`] with a unique index (a `usize`).
 pub trait IndexedAlphabet: Alphabet {
+    /// Turns the given symbol into an index.
     fn symbol_to_index(&self, sym: Self::Symbol) -> usize;
+    /// Turns the given expression into an index.
     fn expression_to_index(&self, sym: &Self::Expression) -> usize;
+    /// Returns the symbol that corresponds to the given index.
     fn symbol_from_index(&self, index: usize) -> Self::Symbol;
+    /// Returns the expression that corresponds to the given index.
     fn expression_from_index(&self, index: usize) -> Self::Expression;
+    /// Turns the given expression into a symbol.
     fn expression_to_symbol(&self, expression: &Self::Expression) -> Self::Symbol {
         self.symbol_from_index(self.expression_to_index(expression))
     }
+    /// Turns the given symbol into an expression.
     fn symbol_to_expression(&self, symbol: Self::Symbol) -> Self::Expression {
         self.expression_from_index(self.symbol_to_index(symbol))
     }
@@ -45,6 +53,11 @@ pub trait Sproutable: TransitionSystem {
     /// Creates a new instance of `Self` for the given alphabet.
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self;
 
+    /// Turns the automaton into a complete one, by adding a sink state and adding transitions
+    /// to it from all states that do not have a transition for a given symbol.
+    ///
+    /// The sink state will be colored with `sink_color` and each newly introduced edge will
+    /// be colored with `edge_color`.
     fn complete_with_colors(&mut self, sink_color: Self::StateColor, edge_color: Self::EdgeColor)
     where
         Self::Alphabet: IndexedAlphabet,
