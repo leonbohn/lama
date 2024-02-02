@@ -297,7 +297,6 @@ mod tests {
         prelude::*,
         ts::BTS,
     };
-    use pretty_assertions::{assert_eq, assert_ne};
 
     #[test]
     fn mealy_color_or_below() {

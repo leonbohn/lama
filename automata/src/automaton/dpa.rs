@@ -385,11 +385,8 @@ impl<D: DPALike> IntoDPA<D> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{prelude::*, TransitionSystem};
-    #[cfg(test)]
-    pub use pretty_assertions::{assert_eq, assert_ne};
-
     use super::DPA;
+    use crate::{prelude::*, TransitionSystem};
 
     #[test_log::test]
     fn normalize_dpa() {

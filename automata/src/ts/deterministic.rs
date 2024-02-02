@@ -1,5 +1,3 @@
-#[cfg(test)]
-use pretty_assertions::{assert_eq, assert_ne};
 use std::marker::PhantomData;
 use tracing::trace;
 
@@ -419,8 +417,6 @@ pub trait Deterministic: TransitionSystem {
         Idx: Indexes<Self>,
         W: OmegaWord<SymbolOf<Self>>,
     {
-        println!("SIZE {}", self.size());
-        println!("STATES: {:?}", self.state_indices_vec());
         trace!("computing omega run on {}", word.normalized().show());
         assert!(!word.cycle().is_empty(), "word must be infinite");
         let origin = origin

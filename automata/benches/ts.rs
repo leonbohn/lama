@@ -1,186 +1,102 @@
 #![allow(clippy::type_complexity)]
-use automata::{prelude::*, ts::DTS};
+use automata::prelude::*;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use itertools::Itertools;
 
-type Automata = Vec<MooreMachine<Simple, usize>>;
-type Words = Vec<Vec<char>>;
-type Loops = Vec<Reduced<char>>;
-lazy_static::lazy_static! {
-static ref DATA: (
-    Automata,
-    Words,
-    Loops,
-    Vec<Initialized<NTS<Simple, (), ()>>>
-    ) = data();
-}
-const BENCH_SIZE: usize = 3;
-const RANDOM: [usize; 3] = [3, 2, 7];
-
-#[allow(clippy::type_complexity)]
-fn data() -> (
-    Vec<MooreMachine<Simple, usize>>,
-    Vec<Vec<char>>,
-    Vec<Reduced<char>>,
-    Vec<Initialized<NTS<Simple, (), ()>>>,
-) {
-    let random_automata = random_automata(&RANDOM);
-    let words = vec![
-        vec!['a', 'c', 'a', 'a', 'b', 'a', 'c'],
-        vec!['a', 'b'],
-        vec!['a', 'c', 'c', 'c', 'b', 'a'],
-    ];
-    let mut random_loops = Vec::new();
-    for (i, n) in [2usize, 0, 4].into_iter().enumerate() {
-        let word = words.get(i).unwrap();
-        random_loops.push(Reduced::ultimately_periodic(&word[..n], &word[n..]));
-    }
-    let random_nts = random_nts(10);
-    (random_automata, words, random_loops, random_nts)
-}
-fn pseudorandom_sprout(states: usize, n: usize) -> MooreMachine<Simple, usize> {
-    let alphabet = alphabet!(simple 'a', 'b', 'c', 'd');
-
-    let mut ts = MooreMachine::new(alphabet, 0);
-
-    for i in 1..states {
-        ts.add_state(i);
-    }
-
-    let mut c: usize = 0;
-    for sym in ['a', 'b', 'c', 'd'] {
-        for i in 0..states {
-            ts.add_edge(i, sym, c, ());
-            c = c.wrapping_add(n) % BENCH_SIZE;
-        }
-    }
-    ts
-}
-
-fn random_automata(rand: &[usize]) -> Vec<MooreMachine<Simple, usize>> {
-    let mut automata = vec![];
-    for n in rand {
-        automata.push(pseudorandom_sprout(BENCH_SIZE, *n));
-    }
-    automata
-}
-
-fn random_dts(
-    n: usize,
-) -> (
-    Initialized<BTS<Simple, (), ()>>,
-    Initialized<NTS<Simple, (), ()>>,
-    Initialized<DTS<Simple, (), ()>>,
-) {
-    let mut ts = BTS::new(Simple::from_iter(['a', 'b']));
-    for _ in 0..n {
-        ts.add_state(());
-    }
-    for i in 0..n {
-        ts.add_edge(i, 'a', (i + 1) % n, ());
-        ts.add_edge(i, 'b', (i + 2) % n, ());
-    }
-    let bts = ts.with_initial(0);
-
-    let it = (0..n).flat_map(|i| [(i, 'a', (), (i + 1) % n), (i, 'b', (), (i + 2) % n)]);
-    let nts = NTS::builder()
-        .default_color(())
-        .with_transitions(it)
-        .collect();
-
-    let dts: DTS<_, _, _> = nts.clone().try_into().unwrap();
-
-    (bts, nts.with_initial(0), dts.with_initial(0))
-}
-
-fn random_nts(n: usize) -> Vec<Initialized<NTS<Simple, (), ()>>> {
-    let it = (0..50).flat_map(|i| {
-        [
-            (i, 'a', (), (i + 17) * n % 50),
-            (i, 'a', (), (i + 13) * n % 50),
-            (i, 'b', (), i * n * n % 50),
-        ]
-    });
-    vec![NTS::builder()
-        .default_color(())
-        .with_transitions(it)
-        .collect()
-        .with_initial(0)]
-}
-
-fn scc_decomposition(aut: &[MooreMachine<Simple, usize>]) {
-    for automaton in aut {
-        automaton.tarjan_dag();
-    }
-}
-
-fn predecessor_computation(aut: &[MooreMachine<Simple, usize>]) {
-    for automaton in aut {
-        for s in automaton.state_indices() {
-            automaton.predecessors(s).unwrap().collect_vec();
-        }
-    }
-}
-
-fn bts_predecessors(bts: Initialized<BTS<Simple, (), ()>>) {
-    for x in bts.state_indices() {
-        let _ = bts.predecessors(x).unwrap().count();
-    }
-}
-
-fn nts_predecessors(bts: Initialized<NTS<Simple, (), ()>>) {
-    for x in bts.state_indices() {
-        let _ = bts.predecessors(x).unwrap().count();
-    }
-}
-
-fn powerset(aut: &[Initialized<NTS<Simple, (), ()>>]) {
-    for a in aut {
-        let det = a.subset_construction();
-        let _ = det.size();
-        // assert!(det.size() >= a.size());
-    }
-}
-
-fn bts_reachable(dts: Initialized<BTS<Simple, (), ()>>) {
-    let x = dts.reachable_state_indices().count();
-    let _ = x % 3;
-}
-fn nts_reachable(nts: Initialized<NTS<Simple, (), ()>>) {
-    let y = nts.reachable_state_indices().count();
-    let _ = y % 2;
-}
-fn dts_reachable(nts: Initialized<DTS<Simple, (), ()>>) {
-    let y = nts.reachable_state_indices().count();
-    let _ = y % 2;
+fn bench_dts() -> Initialized<DTS<Simple, usize, usize>> {
+    TSBuilder::default()
+        .with_colors([1, 13, 72, 891, 3, 5])
+        .with_transitions([
+            (0, 'a', 2, 0),
+            (0, 'b', 65, 1),
+            (0, 'c', 9, 4),
+            (0, 'd', 8, 3),
+            (1, 'a', 12, 5),
+            (1, 'b', 165, 4),
+            (1, 'c', 19, 2),
+            (1, 'd', 18, 5),
+            (2, 'a', 12, 0),
+            (2, 'b', 165, 1),
+            (2, 'c', 19, 3),
+            (2, 'd', 18, 2),
+            (3, 'a', 12, 5),
+            (3, 'b', 165, 2),
+            (3, 'c', 19, 3),
+            (3, 'd', 18, 0),
+            (4, 'a', 12, 5),
+            (4, 'b', 165, 4),
+            (4, 'c', 19, 5),
+            (4, 'd', 18, 2),
+            (5, 'a', 12, 0),
+            (5, 'b', 165, 1),
+            (5, 'c', 19, 3),
+            (5, 'd', 18, 5),
+        ])
+        .deterministic()
+        .with_initial(0)
 }
 
 fn benchings(c: &mut Criterion) {
-    const STATES: usize = 2000;
-    c.bench_function("BTS reachable states", |b| {
-        b.iter(|| bts_reachable(random_dts(STATES).0))
-    });
-    c.bench_function("NTS reachable states", |b| {
-        b.iter(|| nts_reachable(random_dts(STATES).1))
-    });
-    c.bench_function("DTS reachable states", |b| {
-        b.iter(|| dts_reachable(random_dts(STATES).2))
-    });
-    c.bench_function("BTS predecessors", |b| {
-        b.iter(|| bts_predecessors(random_dts(STATES).0))
-    });
-    c.bench_function("NTS predecessors", |b| {
-        b.iter(|| nts_predecessors(random_dts(STATES).1))
-    });
+    let dts = bench_dts();
+    let ref_dts = &dts;
 
-    c.bench_function("tarjan_tree", |b| {
-        b.iter(|| scc_decomposition(black_box(&DATA.0)))
+    c.bench_function("DTS reachable states", |b| {
+        b.iter(|| black_box(dts.reachable_state_indices().collect_vec()))
     });
-    c.bench_function("Predecessors", |b| {
-        b.iter(|| predecessor_computation(black_box(&DATA.0)))
+    c.bench_function("DTS predecessors", |b| {
+        b.iter(|| {
+            for q in dts.state_indices() {
+                black_box(dts.predecessors(q).unwrap().collect_vec());
+            }
+        })
     });
-    c.bench_function("Subset construction", |b| {
-        b.iter(|| powerset(black_box(&DATA.3)))
+    c.bench_function("tarjan_tree", |b| b.iter(|| black_box(dts.tarjan_dag())));
+    c.bench_function("transform intersperse collect", |b| {
+        b.iter(|| {
+            black_box(
+                ref_dts
+                    .map_edge_colors(|i| i * 2 - 7)
+                    .collect_ts()
+                    .map_state_colors(|j| j * 7 - 4)
+                    .collect_ts(),
+            );
+        })
+    });
+    c.bench_function("transform then collect", |b| {
+        b.iter(|| {
+            black_box(
+                ref_dts
+                    .map_edge_colors(|i| i + 2 - 7)
+                    .map_state_colors(|j| j * 7 - 4)
+                    .collect_ts(),
+            )
+        })
+    });
+    c.bench_function("finite runs", |b| {
+        b.iter(|| {
+            for word in [
+                "abbabbabaccbab",
+                "",
+                "abcbabadbadbacdc",
+                "cccbabcbacbdbaccbcbd",
+                "ddacacdbadcdbacbadcb",
+                "dddddddddddddddddddddddddddddddddddd",
+            ] {
+                black_box(dts.reached_state_index(word).unwrap());
+            }
+        })
+    });
+    c.bench_function("omega runs", |b| {
+        b.iter(|| {
+            for word in [
+                upw!("abba", "cabad"),
+                upw!("cddcadcabdab"),
+                upw!("acadbabd"),
+                upw!("badbdabbdcadb", "adbdadcadcaddacadcbadbcabbdcbadcbabdc"),
+            ] {
+                black_box(dts.omega_run(word).unwrap());
+            }
+        })
     });
 }
 

@@ -16,7 +16,6 @@ pub use reverse::Reversed;
 #[cfg(test)]
 mod tests {
     use itertools::Itertools;
-    use pretty_assertions::{assert_eq, assert_ne};
 
     use crate::{prelude::*, ts::finite::ReachedColor};
 

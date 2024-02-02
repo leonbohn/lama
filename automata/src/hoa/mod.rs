@@ -4,19 +4,16 @@ pub mod output;
 
 use std::ops::Deref;
 
-use biodivine_lib_bdd::{Bdd, BddSatisfyingValuations, BddValuation, BddVariable, BddVariableSet};
-use bit_set::BitSet;
-use hoars::{AcceptanceCondition, HoaAutomaton, LabelExpression, ALPHABET, MAX_APS, VARS};
-use itertools::Itertools;
-#[cfg(test)]
-use pretty_assertions::assert_eq;
-
 use crate::{
     automaton::{AcceptanceMask, IntoDPA, OmegaAcceptanceCondition, OmegaAutomaton},
     prelude::{DPALike, Expression, Initialized, DPA},
     ts::{Sproutable, DTS, NTS},
     Alphabet, Map, Pointed, Show, TransitionSystem,
 };
+use biodivine_lib_bdd::{Bdd, BddSatisfyingValuations, BddValuation, BddVariable, BddVariableSet};
+use bit_set::BitSet;
+use hoars::{AcceptanceCondition, HoaAutomaton, LabelExpression, ALPHABET, MAX_APS, VARS};
+use itertools::Itertools;
 
 /// A propositional alphabet, where a symbol is a valuation of all propositional variables.
 ///
