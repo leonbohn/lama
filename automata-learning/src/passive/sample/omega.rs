@@ -5,9 +5,9 @@ use itertools::Itertools;
 use tracing::{debug, trace};
 
 use crate::passive::{
-    sprout::{
-        iteration_consistency_conflicts, prefix_consistency_conflicts, sprout, SeparatesIdempotents,
-    },
+    // sprout::{
+    //     iteration_consistency_conflicts, prefix_consistency_conflicts, sprout, SeparatesIdempotents,
+    // },
     ClassOmegaSample, Sample,
 };
 
@@ -170,9 +170,9 @@ impl<A: Alphabet> OmegaSample<A, bool> {
     }
 
     /// Computes the [`RightCongruence`] underlying the sample.
-    pub fn infer_right_congruence(&self) -> RightCongruence<A> {
-        sprout(prefix_consistency_conflicts(self), vec![], true)
-    }
+    // pub fn infer_right_congruence(&self) -> RightCongruence<A> {
+    //     sprout(prefix_consistency_conflicts(self), vec![], true)
+    // }
 
     /// Returns the positive size, i.e. the number of positive words.
     pub fn positive_size(&self) -> usize {

@@ -4,7 +4,7 @@ use automata::{
 };
 use itertools::Itertools;
 
-use crate::passive::sprout::{iteration_consistency_conflicts, sprout};
+// use crate::passive::sprout::{iteration_consistency_conflicts, sprout};
 
 use super::{OmegaSample, Sample};
 
@@ -105,29 +105,29 @@ impl<'a, A: Alphabet, C: Color> SplitOmegaSample<'a, A, C> {
     }
 }
 
-impl<'a, A: Alphabet> SplitOmegaSample<'a, A, bool> {
-    /// Infers a family of right congruences bz first constructing a conflict relation which is then used
-    /// as a constraint for the sprout/glerc algorithm.
-    pub fn infer_forc(&self) -> FORC<A> {
-        let conflict_relations: Map<_, _> = self
-            .classes()
-            .map(|c| (c.clone(), iteration_consistency_conflicts(self, c.clone())))
-            .collect();
+// impl<'a, A: Alphabet> SplitOmegaSample<'a, A, bool> {
+//     /// Infers a family of right congruences bz first constructing a conflict relation which is then used
+//     /// as a constraint for the sprout/glerc algorithm.
+//     pub fn infer_forc(&self) -> FORC<A> {
+//         let conflict_relations: Map<_, _> = self
+//             .classes()
+//             .map(|c| (c.clone(), iteration_consistency_conflicts(self, c.clone())))
+//             .collect();
 
-        let progress = conflict_relations
-            .into_iter()
-            .map(|(c, conflicts)| {
-                (
-                    self.cong().get(c).unwrap(),
-                    sprout(
-                        conflicts,
-                        vec![],
-                        // SeparatesIdempotents::new(split_sample.get(&c).expect("This must exist")),
-                        false,
-                    ),
-                )
-            })
-            .collect_vec();
-        FORC::from_iter(self.cong().clone(), progress)
-    }
-}
+//         let progress = conflict_relations
+//             .into_iter()
+//             .map(|(c, conflicts)| {
+//                 (
+//                     self.cong().get(c).unwrap(),
+//                     sprout(
+//                         conflicts,
+//                         vec![],
+//                         // SeparatesIdempotents::new(split_sample.get(&c).expect("This must exist")),
+//                         false,
+//                     ),
+//                 )
+//             })
+//             .collect_vec();
+//         FORC::from_iter(self.cong().clone(), progress)
+//     }
+// }

@@ -10,9 +10,10 @@ use automata::{prelude::*, word::LinearWord, Map};
 use itertools::Itertools;
 use tracing::{debug, trace};
 
-use crate::{passive::sprout::iteration_consistency_conflicts, prefixtree::prefix_tree};
+// use crate::{passive::sprout::iteration_consistency_conflicts, prefixtree::prefix_tree};
+use crate::prefixtree::prefix_tree;
 
-use super::sprout::{prefix_consistency_conflicts, sprout, SeparatesIdempotents};
+// use super::sprout::{prefix_consistency_conflicts, sprout, SeparatesIdempotents};
 
 mod split;
 pub use split::{ClassOmegaSample, SplitOmegaSample};
@@ -225,27 +226,27 @@ mod tests {
         assert_eq!(periodic_sample.classify(Periodic::new("bb")), Some(true));
     }
 
-    #[test]
-    fn split_up_sample() {
-        let alphabet = alphabet!(simple 'a', 'b');
-        // represents congruence e ~ b ~ aa ~\~ a ~ ab
-        let sample = Sample::new_omega(
-            alphabet.clone(),
-            vec![
-                (upw!("b"), true),
-                (upw!("abab"), true),
-                (upw!("abbab"), true),
-                (upw!("ab"), false),
-                (upw!("a"), false),
-            ],
-        );
-        let cong = sample.infer_right_congruence();
-        let split = sample.split(&cong);
+    // #[test]
+    // fn split_up_sample() {
+    //     let alphabet = alphabet!(simple 'a', 'b');
+    //     // represents congruence e ~ b ~ aa ~\~ a ~ ab
+    //     let sample = Sample::new_omega(
+    //         alphabet.clone(),
+    //         vec![
+    //             (upw!("b"), true),
+    //             (upw!("abab"), true),
+    //             (upw!("abbab"), true),
+    //             (upw!("ab"), false),
+    //             (upw!("a"), false),
+    //         ],
+    //     );
+    //     let cong = sample.infer_right_congruence();
+    //     let split = sample.split(&cong);
 
-        for w in ["b"] {
-            assert!(split.get(0).unwrap().contains(&upw!(w)))
-        }
-    }
+    //     for w in ["b"] {
+    //         assert!(split.get(0).unwrap().contains(&upw!(w)))
+    //     }
+    // }
 
     #[test]
     #[ignore]
