@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{hash::Hash, marker::PhantomData};
 use tracing::trace;
 
 use itertools::Itertools;
@@ -36,8 +36,8 @@ pub trait Deterministic: TransitionSystem {
     /// # Example
     /// ```
     /// use automata::prelude::*;
-    /// let ts = TSBuilder::default()
-    ///     .with_transitions([(0, 'a', (), 1), (1, 'a', (), 2), (2, 'a', (), 0)])
+    /// let ts = TSBuilder::without_state_colors()
+    ///     .with_transitions([(0, 'a', Void, 1), (1, 'a', Void, 2), (2, 'a', Void, 0)])
     ///     .into_right_congruence_bare(0);
     /// assert_eq!(ts.transition(0, 'a').unwrap().target(), 1);
     /// assert_eq!(ts.transition(1, 'a').unwrap().target(), 2);
@@ -70,8 +70,8 @@ pub trait Deterministic: TransitionSystem {
     /// # Example
     /// ```
     /// use automata::prelude::*;
-    /// let ts = NTS::builder()
-    ///     .with_transitions([(0, 'a', (), 1), (1, 'a', (), 2), (2, 'a', (), 0)])
+    /// let ts = TSBuilder::without_state_colors()
+    ///     .with_transitions([(0, 'a', Void, 1), (1, 'a', Void, 2), (2, 'a', Void, 0)])
     ///     .into_right_congruence_bare(0);
     /// assert_eq!(ts.edge(0, &'a').unwrap().target(), 1);
     /// assert_eq!(ts.edge(1, &'a').unwrap().target(), 2);
@@ -105,8 +105,8 @@ pub trait Deterministic: TransitionSystem {
     /// ```
     /// use automata::prelude::*;
     ///
-    /// let ts = NTS::builder()
-    ///     .with_transitions([(0, 'a', (), 0), (0, 'b', (), 1), (1, 'a', (), 1), (1, 'b', (), 1)])
+    /// let ts = TSBuilder::without_state_colors()
+    ///     .with_transitions([(0, 'a', Void, 0), (0, 'b', Void, 1), (1, 'a', Void, 1), (1, 'b', Void, 1)])
     ///     .into_right_congruence_bare(0);
     /// assert_eq!(ts.successor_index(0, 'a'), Some(0));
     /// assert_eq!(ts.successor_index(0, 'b'), Some(1));
@@ -417,33 +417,25 @@ pub trait Deterministic: TransitionSystem {
         Idx: Indexes<Self>,
         W: OmegaWord<SymbolOf<Self>>,
     {
-        trace!("computing omega run on {}", word.normalized().show());
         assert!(!word.cycle().is_empty(), "word must be infinite");
         let origin = origin
             .to_index(self)
             .expect("run must start in state that exists");
         let mut path = self.finite_run_from(word.spoke(), origin)?;
-        trace!("on finite prefix we get the path {}", path.show());
         let mut position = path.len();
         let mut seen = Map::default();
 
         loop {
             match seen.insert(path.reached(), position) {
                 Some(p) => {
-                    trace!("reached loop back point {p}");
                     return Ok(path.loop_back_to(p));
                 }
                 None => match self.finite_run_from(word.cycle(), path.reached()) {
                     Ok(p) => {
-                        trace!(
-                            "computed another successful run segment {} on cycle",
-                            p.show()
-                        );
                         position += p.len();
                         path.extend_with(p);
                     }
                     Err(p) => {
-                        trace!("got failed run segment {} on cycle", p.show());
                         path.extend_with(p);
                         return Err(path);
                     }
@@ -458,6 +450,7 @@ pub trait Deterministic: TransitionSystem {
     fn build_transition_table<SD>(&self, state_decorator: SD) -> String
     where
         SD: Fn(Self::StateIndex, StateColor<Self>) -> String,
+        (Self::StateIndex, EdgeColor<Self>): Show,
     {
         let mut builder = tabled::builder::Builder::default();
         builder.push_record(
@@ -475,7 +468,7 @@ pub trait Deterministic: TransitionSystem {
             )];
             for sym in self.alphabet().universe() {
                 if let Some(edge) = self.transition(id, sym) {
-                    row.push(format!("{} : {}", edge.target(), edge.color().show()));
+                    row.push((edge.target(), edge.color()).show());
                 } else {
                     row.push("-".to_string());
                 }
@@ -775,7 +768,7 @@ impl<D: Deterministic> Deterministic for &mut D {
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> Deterministic for RightCongruence<A, Q, C> {
+impl<A: Alphabet, Q: Clone, C: Clone> Deterministic for RightCongruence<A, Q, C> {
     fn transition<Idx: Indexes<Self>>(
         &self,
         state: Idx,
@@ -793,7 +786,9 @@ impl<A: Alphabet, Q: Color, C: Color> Deterministic for RightCongruence<A, Q, C>
     }
 }
 
-impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Deterministic for BTS<A, Q, C, Idx> {
+impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Hash + Eq + Clone> Deterministic
+    for BTS<A, Q, C, Idx>
+{
     fn edge_color(
         &self,
         state: Self::StateIndex,
@@ -855,7 +850,7 @@ where
 
 impl<D, Ts, F> Deterministic for MapStateColor<Ts, F>
 where
-    D: Color,
+    D: Clone,
     Ts: Deterministic,
     F: Fn(Ts::StateColor) -> D,
 {
@@ -878,7 +873,7 @@ where
 
 impl<D, Ts, F> Deterministic for MapEdgeColor<Ts, F>
 where
-    D: Color,
+    D: Clone,
     Ts: Deterministic,
     F: Fn(Ts::EdgeColor) -> D,
 {
@@ -933,7 +928,7 @@ where
 impl<Ts, D, F> Deterministic for MapEdges<Ts, F>
 where
     Ts: Deterministic,
-    D: Color,
+    D: Clone,
     F: Fn(Ts::StateIndex, &ExpressionOf<Ts>, Ts::EdgeColor, Ts::StateIndex) -> D,
 {
     fn edge_color(

@@ -1,6 +1,6 @@
-use std::{collections::BTreeMap, ffi::FromBytesUntilNulError};
+use std::{collections::BTreeMap, ffi::FromBytesUntilNulError, hash::Hash};
 
-use crate::{prelude::*, Set};
+use crate::{prelude::*, Set, Void};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 
@@ -73,13 +73,13 @@ impl<E, C> NTEdge<E, C> {
 /// Represents a non-deterministic transition system. It stores an [`Alphabet`], a list of [`NTState`]s and a list of [`NTEdge`]s.
 /// Each state
 #[derive(Clone, Eq, PartialEq)]
-pub struct NTS<A: Alphabet = Simple, Q = (), C = ()> {
+pub struct NTS<A: Alphabet = Simple, Q = Void, C = Void> {
     alphabet: A,
     states: Vec<NTState<Q>>,
     edges: Vec<NTEdge<A::Expression, C>>,
 }
 
-impl<A: Alphabet, Q: Color, C: Color> Sproutable for NTS<A, Q, C> {
+impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for NTS<A, Q, C> {
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
         Self {
             alphabet,
@@ -177,9 +177,9 @@ impl<Q, C> NTS<Simple, Q, C> {
     /// ```
     /// use automata::prelude::*;
     ///
-    /// let mut nts = NTS::builder()
+    /// let ts = TSBuilder::default()
     ///     .with_colors([true, false]) // colors given in the order of the states
-    ///     .with_transitions([(0, 'a', (), 0), (0, 'b', (), 1), (1, 'a', (), 1), (1, 'b', (), 0)])
+    ///     .with_transitions([(0, 'a', Void, 0), (0, 'b', Void, 1), (1, 'a', Void, 1), (1, 'b', Void, 0)])
     ///     .into_dfa(0); // 0 is the initial state
     /// ```
     pub fn builder() -> TSBuilder<Q, C> {
@@ -187,7 +187,7 @@ impl<Q, C> NTS<Simple, Q, C> {
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> NTS<A, Q, C> {
+impl<A: Alphabet, Q: Clone, C: Clone> NTS<A, Q, C> {
     pub(crate) fn nts_remove_edge(
         &mut self,
         from: usize,
@@ -203,7 +203,10 @@ impl<A: Alphabet, Q: Color, C: Color> NTS<A, Q, C> {
         &mut self,
         from: usize,
         on: SymbolOf<Self>,
-    ) -> Set<(ExpressionOf<Self>, C, usize)> {
+    ) -> Set<(ExpressionOf<Self>, C, usize)>
+    where
+        C: Hash + Eq,
+    {
         let mut set = Set::default();
         let mut current = self.first_edge(from);
         let mut to_remove = Vec::new();
@@ -337,7 +340,7 @@ impl<'a, E, C> NTSEdgesFromIter<'a, E, C> {
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for NTS<A, Q, C> {
+impl<A: Alphabet, Q: Clone, C: Clone> TransitionSystem for NTS<A, Q, C> {
     type StateIndex = usize;
 
     type StateColor = Q;
@@ -400,7 +403,7 @@ impl<'a, E, C> Iterator for NTSEdgesTo<'a, E, C> {
 
 impl<'a, E, C> NTSEdgesTo<'a, E, C> {
     /// Creates a new iterator over the edges reaching a state.
-    pub fn new<A: Alphabet<Expression = E>, Q: Color>(
+    pub fn new<A: Alphabet<Expression = E>, Q: Clone>(
         nts: &'a NTS<A, Q, C>,
         target: usize,
     ) -> Self {
@@ -411,7 +414,7 @@ impl<'a, E, C> NTSEdgesTo<'a, E, C> {
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> PredecessorIterable for NTS<A, Q, C> {
+impl<A: Alphabet, Q: Clone, C: Clone> PredecessorIterable for NTS<A, Q, C> {
     type PreEdgeRef<'this> = &'this NTEdge<A::Expression, C>
     where
         Self: 'this;

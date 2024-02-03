@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use std::hash::Hash;
 
 use crate::{
     ts::{
@@ -8,7 +9,7 @@ use crate::{
     TransitionSystem,
 };
 
-use super::{Scc, SccDecomposition};
+use super::{EdgeColor, Scc, SccDecomposition};
 
 /// Newtype wrapper for storing indices of SCCs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -37,7 +38,10 @@ impl<'a, Ts: TransitionSystem> TarjanDAG<'a, Ts> {
     /// Returns an iterator over all transient states in the transition system. A state is transient
     /// if it is in a singleton SCC and there are no self loops. This means that from the state, there
     /// is no way to reach itself.
-    pub fn transient_states(&self) -> impl Iterator<Item = Ts::StateIndex> + '_ {
+    pub fn transient_states(&self) -> impl Iterator<Item = Ts::StateIndex> + '_
+    where
+        EdgeColor<Ts>: Hash + Eq,
+    {
         self.dag
             .nodes()
             .filter_map(|scc| {
@@ -85,6 +89,7 @@ impl<'a, Ts: TransitionSystem> TarjanDAG<'a, Ts> {
     where
         D: Clone,
         F: FnMut(D, &Ts::EdgeColor) -> D + Copy,
+        EdgeColor<Ts>: Hash + Eq,
     {
         self.dag
             .reduce(|x| x.interior_edge_colors().iter().fold(init.clone(), f))

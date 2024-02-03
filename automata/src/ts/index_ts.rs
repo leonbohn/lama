@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use itertools::Itertools;
 
 use crate::{alphabet::Alphabet, prelude::Initialized, ts::Deterministic, Color, Map, Set, Show};
@@ -10,26 +12,13 @@ use super::{
 /// A state in a transition system. This stores the color of the state and the index of the
 /// first edge leaving the state.
 #[derive(Clone, Eq, PartialEq, Debug)]
-pub struct BTState<A: Alphabet, Q, C: Color, Idx: IndexType> {
+pub struct BTState<A: Alphabet, Q, C: Hash + Eq, Idx: IndexType> {
     color: Q,
     edges: Map<A::Expression, (Idx, C)>,
     predecessors: Set<(Idx, A::Expression, C)>,
 }
 
-impl<A: Alphabet, Q: Color, C: Color, Idx: IndexType> HasColorMut for BTState<A, Q, C, Idx> {
-    fn set_color(&mut self, color: Q) {
-        self.color = color;
-    }
-}
-
-impl<A: Alphabet, Q: Color, C: Color, Idx: IndexType> HasColor for BTState<A, Q, C, Idx> {
-    type Color = Q;
-    fn color(&self) -> &Q {
-        &self.color
-    }
-}
-
-impl<A: Alphabet, Q, C: Color, Idx: IndexType> BTState<A, Q, C, Idx> {
+impl<A: Alphabet, Q, C: Clone + Hash + Eq, Idx: IndexType> BTState<A, Q, C, Idx> {
     /// Creates a new state with the given color.
     pub fn new(color: Q) -> Self {
         Self {
@@ -37,6 +26,10 @@ impl<A: Alphabet, Q, C: Color, Idx: IndexType> BTState<A, Q, C, Idx> {
             edges: Map::default(),
             predecessors: Set::default(),
         }
+    }
+
+    pub fn set_color(&mut self, color: Q) {
+        self.color = color;
     }
 
     pub fn predecessors(&self) -> &Set<(Idx, A::Expression, C)> {
@@ -101,7 +94,7 @@ impl<A: Alphabet, Q: std::fmt::Display, C: Color, Idx: IndexType> std::fmt::Disp
 /// the states and edges in a vector, which allows for fast access and iteration. The states and edges
 /// are indexed by their position in the respective vector.
 #[derive(Clone, PartialEq, Eq)]
-pub struct BTS<A: Alphabet, Q, C: Color, Idx: IndexType = usize> {
+pub struct BTS<A: Alphabet, Q, C: Hash + Eq, Idx: IndexType = usize> {
     pub(crate) alphabet: A,
     pub(crate) states: Map<Idx, BTState<A, Q, C, Idx>>,
 }
@@ -143,7 +136,7 @@ where
 pub type MealyTS<A, C, Idx = usize> = BTS<A, (), C, Idx>;
 pub type MooreTS<A, C, Idx = usize> = BTS<A, C, (), Idx>;
 
-impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
+impl<A: Alphabet, Idx: IndexType, C: Hash + Eq + Clone, Q: Clone> BTS<A, Q, C, Idx> {
     /// Creates a new transition system with the given alphabet.
     pub fn new(alphabet: A) -> Self {
         Self {
@@ -236,7 +229,10 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
     /// subsequent calls may lead to different results, if two states with the same color
     /// exist.
     #[inline(always)]
-    pub fn find_by_color(&self, color: &Q) -> Option<Idx> {
+    pub fn find_by_color(&self, color: &Q) -> Option<Idx>
+    where
+        Q: Eq,
+    {
         self.states.iter().find_map(|(idx, state)| {
             if state.color() == color {
                 Some(*idx)
@@ -252,7 +248,7 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
     }
 }
 
-impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> BTS<A, Q, C, Idx> {
+impl<A: Alphabet, Idx: IndexType, Q: Clone + Hash + Eq, C: Clone + Hash + Eq> BTS<A, Q, C, Idx> {
     /// Returns an iterator over the [`EdgeIndex`]es of the edges leaving the given state.
     pub(crate) fn index_ts_edges_from(
         &self,
@@ -267,7 +263,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> BTS<A, Q, C, Idx> {
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
+impl<A: Alphabet, Q: Clone + Hash + Eq, C: Clone + Hash + Eq> Sproutable for BTS<A, Q, C, usize> {
     type ExtendStateIndexIter = std::ops::Range<Self::StateIndex>;
     fn extend_states<I: IntoIterator<Item = StateColor<Self>>>(
         &mut self,
@@ -350,32 +346,6 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
         } else {
             false
         }
-    }
-}
-
-impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> HasStates for BTS<A, Q, C, Idx> {
-    type State<'this> = &'this BTState<A, Q, C, Idx> where Self: 'this;
-
-    type StatesIter<'this> = std::collections::hash_map::Iter<'this, Idx, BTState<A, Q, C, Idx>>
-    where
-        Self: 'this;
-
-    fn states_iter(&self) -> Self::StatesIter<'_> {
-        self.states.iter()
-    }
-    fn state(&self, index: Idx) -> Option<Self::State<'_>> {
-        self.states.get(&index)
-    }
-    fn hs_size(&self) -> usize {
-        self.states.len()
-    }
-}
-
-impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> HasMutableStates for BTS<A, Q, C, Idx> {
-    type StateMut<'this> = &'this mut BTState<A, Q, C, Idx>where Self: 'this;
-
-    fn state_mut(&mut self, index: Idx) -> Option<Self::StateMut<'_>> {
-        self.states.get_mut(&index)
     }
 }
 

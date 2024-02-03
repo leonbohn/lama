@@ -10,7 +10,7 @@ pub use transition_system::{DeterministicEdgesFrom, ExpressionOf, SymbolOf, Tran
 /// Defines implementations for common operations on automata/transition systems.
 pub mod operations;
 
-use crate::{Class, Color, Map, RightCongruence, Show};
+use crate::{Class, Color, Map, RightCongruence, Show, Void};
 
 mod index_ts;
 pub use index_ts::{IntoBTS, IntoInitialBTS, BTS};
@@ -246,7 +246,8 @@ pub trait Congruence: Deterministic + Pointed {
         RightCongruence<Self::Alphabet>,
         Map<Self::StateIndex, usize>,
     ) {
-        let mut cong = RightCongruence::new_for_alphabet(self.alphabet().clone());
+        let mut cong: RightCongruence<Self::Alphabet> =
+            RightCongruence::new_for_alphabet(self.alphabet().clone());
         let mut map = Map::default();
 
         for state in self.state_indices() {
@@ -263,7 +264,7 @@ pub trait Congruence: Deterministic + Pointed {
                         *map.get(&state).unwrap(),
                         edge.expression().clone(),
                         *target_class,
-                        (),
+                        Void,
                     );
                 }
             }

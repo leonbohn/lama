@@ -1,6 +1,6 @@
 use impl_tools::autoimpl;
 
-use crate::{automaton::Initialized, Alphabet, Color, RightCongruence, TransitionSystem};
+use crate::{automaton::Initialized, Alphabet, Color, RightCongruence, TransitionSystem, Void};
 
 use super::{
     nts::{NTEdge, NTSEdgesTo},
@@ -150,11 +150,11 @@ impl<'a, A: Alphabet, C: Color, Idx: IndexType> BTSPredecessors<'a, A, C, Idx> {
 }
 
 impl<A: Alphabet> PredecessorIterable for RightCongruence<A> {
-    type PreEdgeRef<'this> = &'this NTEdge<A::Expression, ()>
+    type PreEdgeRef<'this> = &'this NTEdge<A::Expression, Void>
     where
         Self: 'this;
 
-    type EdgesToIter<'this> = NTSEdgesTo<'this, A::Expression, ()>
+    type EdgesToIter<'this> = NTSEdgesTo<'this, A::Expression, Void>
     where
         Self: 'this;
     fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {

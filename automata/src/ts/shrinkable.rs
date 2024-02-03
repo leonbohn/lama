@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use crate::{automaton::Initialized, Alphabet, Color, Set, TransitionSystem};
 
 use super::{transition_system::Indexes, ExpressionOf, IndexType, SymbolOf, BTS, DTS, NTS};
@@ -31,7 +33,9 @@ pub trait Shrinkable: TransitionSystem {
     ) -> Option<Set<(ExpressionOf<Self>, Self::EdgeColor, Self::StateIndex)>>;
 }
 
-impl<A: Alphabet, Q: Color, C: Color, Index: IndexType> Shrinkable for BTS<A, Q, C, Index> {
+impl<A: Alphabet, Q: Clone + Hash + Eq, C: Clone + Hash + Eq, Index: IndexType> Shrinkable
+    for BTS<A, Q, C, Index>
+{
     fn remove_state<Idx: Indexes<Self>>(&mut self, state: Idx) -> Option<Self::StateColor> {
         self.bts_remove_state(state.to_index(self)?)
     }

@@ -1,13 +1,13 @@
 #![allow(missing_docs)]
 use itertools::Itertools;
-use std::{fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
-use crate::prelude::*;
+use crate::{prelude::*, Void};
 
 use super::MooreLike;
 
 #[derive(Clone)]
-pub struct MealyMachine<A = Simple, C = usize, Ts = Initialized<DTS<A, NoColor, C>>> {
+pub struct MealyMachine<A = Simple, C = usize, Ts = Initialized<DTS<A, Void, C>>> {
     ts: Ts,
     _q: PhantomData<(A, C)>,
 }
@@ -17,13 +17,16 @@ pub type IntoMealyMachine<Ts> =
 pub type AsMealyMachine<Ts> =
     MealyMachine<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::EdgeColor>;
 
-impl<Ts: MealyLike + Deterministic> IntoMealyMachine<Ts> {
+impl<Ts: Congruence> IntoMealyMachine<Ts>
+where
+    EdgeColor<Ts>: Color,
+{
     pub fn minimize(&self) -> AsMealyMachine<Ts> {
         crate::algorithms::mealy_partition_refinement(self)
     }
 
     pub fn restricted_inequivalence<
-        O: MealyLike<Alphabet = Ts::Alphabet, EdgeColor = Ts::EdgeColor> + Deterministic,
+        O: MealyLike<Alphabet = Ts::Alphabet, EdgeColor = Ts::EdgeColor>,
     >(
         &self,
         other: &IntoMealyMachine<O>,
@@ -54,7 +57,7 @@ impl<Ts: MealyLike + Deterministic> IntoMealyMachine<Ts> {
     }
 
     pub fn witness_inequivalence<
-        O: MealyLike<Alphabet = Ts::Alphabet, EdgeColor = Ts::EdgeColor> + Deterministic,
+        O: MealyLike<Alphabet = Ts::Alphabet, EdgeColor = Ts::EdgeColor>,
     >(
         &self,
         other: &IntoMealyMachine<O>,
@@ -200,8 +203,12 @@ impl<Ts: PredecessorIterable> PredecessorIterable
     }
 }
 
-impl<Ts: MealyLike> From<Ts> for MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts> {
-    fn from(ts: Ts) -> Self {
+impl<D> From<D> for IntoMealyMachine<D>
+where
+    D: Congruence,
+    EdgeColor<D>: Color,
+{
+    fn from(ts: D) -> Self {
         Self {
             ts,
             _q: PhantomData,
@@ -209,7 +216,11 @@ impl<Ts: MealyLike> From<Ts> for MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts> {
     }
 }
 
-impl<Ts: Deterministic> std::fmt::Debug for MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts> {
+impl<Ts: Deterministic> std::fmt::Debug for MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts>
+where
+    EdgeColor<Ts>: Show,
+    StateColor<Ts>: Show,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -232,7 +243,7 @@ macro_rules! impl_mealy_automaton {
         #[derive(Clone)]
         pub struct $name<
             A = Simple,
-            Q = (),
+            Q = crate::Void,
             Ts = Initialized<DTS<A, Q, $color>>,
         > {
             ts: Ts,
@@ -399,21 +410,28 @@ macro_rules! impl_mealy_automaton {
 
 /// Implemented by objects which can be viewed as a MealyMachine, i.e. a finite transition system
 /// which has outputs of type usize on its edges.
-pub trait MealyLike: Deterministic + Pointed {
-    fn mealy_bisimilar<M: MealyLike<Alphabet = Self::Alphabet, EdgeColor = Self::EdgeColor>>(
-        &self,
-        other: M,
-    ) -> bool {
+pub trait MealyLike: Congruence {
+    fn mealy_bisimilar<M>(&self, other: M) -> bool
+    where
+        M: Congruence,
+        EdgeColor<M>: Color,
+    {
         todo!()
     }
 
     /// Uses a reference to `self` for obtaining a [`MealyMachine`].
-    fn as_mealy(&self) -> MealyMachine<Self::Alphabet, Self::EdgeColor, &Self> {
+    fn as_mealy(&self) -> MealyMachine<Self::Alphabet, Self::EdgeColor, &Self>
+    where
+        EdgeColor<Self>: Color,
+    {
         MealyMachine::from(self)
     }
 
     /// Self::EdgeColoronsumes `self`, returning a [`MealyMachine`] that uses the underlying transition system.
-    fn into_mealy(self) -> MealyMachine<Self::Alphabet, Self::EdgeColor, Self> {
+    fn into_mealy(self) -> MealyMachine<Self::Alphabet, Self::EdgeColor, Self>
+    where
+        EdgeColor<Self>: Color,
+    {
         MealyMachine::from(self)
     }
 
@@ -437,13 +455,16 @@ pub trait MealyLike: Deterministic + Pointed {
     }
 
     /// Returns a vector over all colors that can be emitted.
-    fn color_range(&self) -> impl Iterator<Item = Self::EdgeColor> {
+    fn color_range(&self) -> impl Iterator<Item = Self::EdgeColor>
+    where
+        EdgeColor<Self>: Clone + Hash + Eq,
+    {
         self.reachable_state_indices()
             .flat_map(|o| self.edges_from(o).unwrap().map(|e| IsEdge::color(&e)))
             .unique()
     }
 }
-impl<Ts: Deterministic + Pointed> MealyLike for Ts {}
+impl<Ts: Congruence> MealyLike for Ts where EdgeColor<Ts>: Color {}
 
 #[cfg(test)]
 mod tests {

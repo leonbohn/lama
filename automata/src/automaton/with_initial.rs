@@ -62,8 +62,8 @@ impl<Ts: TransitionSystem> From<(Ts, Ts::StateIndex)> for Initialized<Ts> {
 impl<A, C, Q> Initialized<DTS<A, Q, C>>
 where
     A: Alphabet,
-    C: Color,
-    Q: Color,
+    C: Clone,
+    Q: Clone,
 {
     /// Takes an alphabet and a color and constructs an [`Initialized`] instance with the given alphabet, no
     /// transitions and a single initial state with the given color.

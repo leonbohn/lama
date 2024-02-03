@@ -175,13 +175,19 @@ pub struct ColorRestricted<D: TransitionSystem> {
     max: D::EdgeColor,
 }
 
-impl<D: TransitionSystem + Pointed> Pointed for ColorRestricted<D> {
+impl<D: Congruence> Pointed for ColorRestricted<D>
+where
+    EdgeColor<D>: Ord,
+{
     fn initial(&self) -> Self::StateIndex {
         self.ts.initial()
     }
 }
 
-impl<D: TransitionSystem> TransitionSystem for ColorRestricted<D> {
+impl<D: TransitionSystem> TransitionSystem for ColorRestricted<D>
+where
+    EdgeColor<D>: Ord,
+{
     type StateIndex = D::StateIndex;
 
     type StateColor = D::StateColor;
@@ -265,7 +271,10 @@ pub struct ColorRestrictedEdgesFrom<'a, D: TransitionSystem> {
     max: D::EdgeColor,
 }
 
-impl<'a, D: TransitionSystem> Iterator for ColorRestrictedEdgesFrom<'a, D> {
+impl<'a, D: TransitionSystem> Iterator for ColorRestrictedEdgesFrom<'a, D>
+where
+    EdgeColor<D>: Ord,
+{
     type Item = D::EdgeRef<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -283,7 +292,10 @@ pub struct ColorRestrictedEdgesTo<'a, D: PredecessorIterable> {
     max: D::EdgeColor,
 }
 
-impl<'a, D: PredecessorIterable> Iterator for ColorRestrictedEdgesTo<'a, D> {
+impl<'a, D: PredecessorIterable> Iterator for ColorRestrictedEdgesTo<'a, D>
+where
+    EdgeColor<D>: Ord,
+{
     type Item = D::PreEdgeRef<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {

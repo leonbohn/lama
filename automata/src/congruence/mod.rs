@@ -7,7 +7,7 @@ use crate::{
     prelude::DFALike,
     ts::{transition_system::Indexes, Deterministic, Sproutable, DTS},
     word::FiniteWord,
-    Alphabet, Color, FiniteLength, HasLength, Map, Pointed, Show, TransitionSystem, DFA,
+    Alphabet, Color, FiniteLength, HasLength, Map, Pointed, Show, TransitionSystem, Void, DFA,
 };
 
 mod class;
@@ -25,7 +25,7 @@ mod cayley;
 /// represent these as a transition system, where the states are the equivalence classes and the colors
 /// on edges are `()`.
 #[derive(Clone, Eq, PartialEq)]
-pub struct RightCongruence<A: Alphabet = Simple, Q = (), C: Color = ()> {
+pub struct RightCongruence<A: Alphabet = Simple, Q = Void, C = Void> {
     ts: DTS<A, ColoredClass<A::Symbol, Q>, C>,
 }
 
@@ -44,7 +44,22 @@ impl<S: Symbol + Show, Q: Show> Show for ColoredClass<S, Q> {
     }
 }
 
-impl<A: Alphabet, Q: Color + Show, C: Color + Show> Debug for RightCongruence<A, Q, C> {
+impl<S: Symbol + Show> Show for ColoredClass<S, Void> {
+    fn show(&self) -> String {
+        self.class.show()
+    }
+
+    fn show_collection<'a, I>(iter: I) -> String
+    where
+        Self: 'a,
+        I: IntoIterator<Item = &'a Self>,
+        I::IntoIter: DoubleEndedIterator,
+    {
+        todo!()
+    }
+}
+
+impl<A: Alphabet, Q: Clone + Show, C: Clone + Show> Debug for RightCongruence<A, Q, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -55,7 +70,7 @@ impl<A: Alphabet, Q: Color + Show, C: Color + Show> Debug for RightCongruence<A,
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
+impl<A: Alphabet, Q: Clone, C: Clone> RightCongruence<A, Q, C> {
     /// Assumes that `self` is det. and complete.
     pub fn congruent<W, V>(&self, word: W, other: V) -> bool
     where
@@ -152,14 +167,14 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> Pointed for RightCongruence<A, Q, C> {
+impl<A: Alphabet, Q: Clone, C: Clone> Pointed for RightCongruence<A, Q, C> {
     fn initial(&self) -> Self::StateIndex {
         assert!(!self.is_empty());
         0
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> Sproutable for RightCongruence<A, Q, C> {
+impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for RightCongruence<A, Q, C> {
     fn add_state<X: Into<crate::ts::StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
         self.ts.add_state(color.into())
     }
@@ -209,7 +224,7 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for RightCongruence<A, Q, C> {
     }
 }
 
-impl<A: Alphabet, Q: Color + Default, C: Color> RightCongruence<A, Q, C> {
+impl<A: Alphabet, Q: Clone + Default, C: Clone> RightCongruence<A, Q, C> {
     /// Creates a new [`RightCongruence`] for the given alphabet.
     pub fn new(alphabet: A) -> Self {
         Self::new_for_alphabet(alphabet)

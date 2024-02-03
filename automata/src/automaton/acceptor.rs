@@ -1,10 +1,13 @@
 use crate::{
     prelude::Symbol,
-    ts::SymbolOf,
+    ts::{EdgeColor, StateColor, SymbolOf},
     word::{FiniteWord, OmegaWord},
+    Color,
 };
 
-use super::{DFALike, IntoDFA, IntoMealyMachine, IntoMooreMachine, MealyLike, MooreLike};
+use super::{
+    Congruence, DFALike, IntoDFA, IntoMealyMachine, IntoMooreMachine, MealyLike, MooreLike,
+};
 
 /// Implementors of this trait transform finite inputs into some other type. For example,
 /// a DFA maps each finite word over its input alphabet to a boolean value, indicating
@@ -22,13 +25,20 @@ pub trait FiniteWordTransformer<S, C> {
     fn transform_finite<W: FiniteWord<S>>(&self, word: W) -> C;
 }
 
-impl<D: MooreLike> FiniteWordTransformer<SymbolOf<D>, D::StateColor> for IntoMooreMachine<D> {
+impl<D: MooreLike> FiniteWordTransformer<SymbolOf<D>, D::StateColor> for IntoMooreMachine<D>
+where
+    StateColor<D>: Color,
+{
     fn transform_finite<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> D::StateColor {
         self.try_moore_map(word).expect("Transformer must be total")
     }
 }
 
-impl<D: MealyLike> FiniteWordTransformer<SymbolOf<D>, D::EdgeColor> for IntoMealyMachine<D> {
+impl<D> FiniteWordTransformer<SymbolOf<D>, D::EdgeColor> for IntoMealyMachine<D>
+where
+    D: Congruence,
+    EdgeColor<D>: Color,
+{
     fn transform_finite<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> D::EdgeColor {
         self.try_mealy_map(word).expect("Transformer must be total")
     }

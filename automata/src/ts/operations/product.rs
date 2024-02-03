@@ -146,10 +146,10 @@ impl<'a, LI, RI, E, LC, RC> ProductTransition<'a, LI, RI, E, LC, RC> {
 impl<'a, Idx, Jdx, E, C, D> IsEdge<'a, E, ProductIndex<Idx, Jdx>, (C, D)>
     for ProductTransition<'a, Idx, Jdx, E, C, D>
 where
+    C: Clone,
+    D: Clone,
     Idx: IndexType,
     Jdx: IndexType,
-    C: Color,
-    D: Color,
 {
     fn source(&self) -> ProductIndex<Idx, Jdx> {
         ProductIndex(self.source.0, self.source.1)

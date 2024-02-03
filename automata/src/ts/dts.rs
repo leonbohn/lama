@@ -1,11 +1,11 @@
-use crate::prelude::*;
+use crate::{prelude::*, Void};
 
 use super::nts::{NTEdge, NTSEdgesFromIter, NTSEdgesTo};
 
 /// A deterministic transition system. This is a thin wrapper around [`NTS`] and is only used to
 /// enforce that the underlying NTS is deterministic.
 #[derive(Clone, Eq, PartialEq)]
-pub struct DTS<A: Alphabet = Simple, Q = NoColor, C = NoColor>(pub(crate) NTS<A, Q, C>);
+pub struct DTS<A: Alphabet = Simple, Q = Void, C = Void>(pub(crate) NTS<A, Q, C>);
 
 /// Type alias to create a deterministic transition with the same alphabet, state and edge color
 /// as the given [`Ts`](`crate::prelude::TransitionSystem`).
@@ -15,7 +15,7 @@ pub type CollectDTS<Ts> = DTS<
     <Ts as TransitionSystem>::EdgeColor,
 >;
 
-impl<A: Alphabet, Q: Color, C: Color> TryFrom<NTS<A, Q, C>> for DTS<A, Q, C> {
+impl<A: Alphabet, Q: Clone, C: Clone> TryFrom<NTS<A, Q, C>> for DTS<A, Q, C> {
     type Error = ();
 
     fn try_from(value: NTS<A, Q, C>) -> Result<Self, Self::Error> {
@@ -26,7 +26,7 @@ impl<A: Alphabet, Q: Color, C: Color> TryFrom<NTS<A, Q, C>> for DTS<A, Q, C> {
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> TryFrom<Initialized<NTS<A, Q, C>>>
+impl<A: Alphabet, Q: Clone, C: Clone> TryFrom<Initialized<NTS<A, Q, C>>>
     for Initialized<DTS<A, Q, C>>
 {
     /// Only fails if nts is not deterministic.
@@ -38,7 +38,7 @@ impl<A: Alphabet, Q: Color, C: Color> TryFrom<Initialized<NTS<A, Q, C>>>
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> TryFrom<&NTS<A, Q, C>> for DTS<A, Q, C> {
+impl<A: Alphabet, Q: Clone, C: Clone> TryFrom<&NTS<A, Q, C>> for DTS<A, Q, C> {
     type Error = ();
 
     fn try_from(value: &NTS<A, Q, C>) -> Result<Self, Self::Error> {
@@ -49,7 +49,7 @@ impl<A: Alphabet, Q: Color, C: Color> TryFrom<&NTS<A, Q, C>> for DTS<A, Q, C> {
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> TryFrom<&Initialized<NTS<A, Q, C>>>
+impl<A: Alphabet, Q: Clone, C: Clone> TryFrom<&Initialized<NTS<A, Q, C>>>
     for Initialized<DTS<A, Q, C>>
 {
     /// Only fails if nts is not deterministic.
@@ -61,13 +61,13 @@ impl<A: Alphabet, Q: Color, C: Color> TryFrom<&Initialized<NTS<A, Q, C>>>
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> From<DTS<A, Q, C>> for NTS<A, Q, C> {
+impl<A: Alphabet, Q, C> From<DTS<A, Q, C>> for NTS<A, Q, C> {
     fn from(value: DTS<A, Q, C>) -> Self {
         value.0
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for DTS<A, Q, C> {
+impl<A: Alphabet, Q: Clone, C: Clone> TransitionSystem for DTS<A, Q, C> {
     type StateIndex = usize;
 
     type StateColor = Q;
@@ -105,9 +105,9 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for DTS<A, Q, C> {
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> Deterministic for DTS<A, Q, C> {}
+impl<A: Alphabet, Q: Clone, C: Clone> Deterministic for DTS<A, Q, C> {}
 
-impl<A: Alphabet, Q: Color, C: Color> PredecessorIterable for DTS<A, Q, C> {
+impl<A: Alphabet, Q: Clone, C: Clone> PredecessorIterable for DTS<A, Q, C> {
     type PreEdgeRef<'this> = &'this NTEdge<A::Expression, C>
     where
         Self: 'this;
@@ -121,7 +121,7 @@ impl<A: Alphabet, Q: Color, C: Color> PredecessorIterable for DTS<A, Q, C> {
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> Sproutable for DTS<A, Q, C> {
+impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for DTS<A, Q, C> {
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
         Self(NTS::new_for_alphabet(alphabet))
     }
@@ -170,14 +170,14 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for DTS<A, Q, C> {
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> DTS<A, Q, C> {
+impl<A: Alphabet, Q: Clone, C: Clone> DTS<A, Q, C> {
     /// Creates an empty [`DTS`] with the given alphabet and capacity for at least `cap` states.
     pub fn with_capacity(alphabet: A, cap: usize) -> Self {
         Self(NTS::with_capacity(alphabet, cap))
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> std::fmt::Debug for DTS<A, Q, C> {
+impl<A: Alphabet, Q: Clone + Show, C: Clone + Show> std::fmt::Debug for DTS<A, Q, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,

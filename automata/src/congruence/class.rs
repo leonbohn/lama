@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::prelude::*;
+use crate::{prelude::*, Void};
 
 /// Represents a congruence class, which is in essence simply a non-empty sequence of symbols
 /// for the underlying alphabet.
@@ -22,7 +22,7 @@ impl<S: Show> Show for Class<S> {
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>> for Class<A::Symbol> {
+impl<A: Alphabet, Q: Clone, C: Clone> Indexes<RightCongruence<A, Q, C>> for Class<A::Symbol> {
     #[inline(always)]
     fn to_index(
         &self,
@@ -31,7 +31,7 @@ impl<A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>> for Clas
         ts.class_to_index(self).or(ts.reached_state_index(self))
     }
 }
-impl<'a, A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>>
+impl<'a, A: Alphabet, Q: Clone, C: Clone> Indexes<RightCongruence<A, Q, C>>
     for &'a Class<A::Symbol>
 {
     #[inline(always)]
@@ -177,7 +177,7 @@ pub struct ColoredClass<S: Symbol, Q = ()> {
     pub(crate) color: Q,
 }
 
-impl<A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>>
+impl<A: Alphabet, Q: Clone, C: Clone> Indexes<RightCongruence<A, Q, C>>
     for ColoredClass<A::Symbol, Q>
 {
     #[inline(always)]
@@ -188,7 +188,7 @@ impl<A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>>
         self.class.to_index(ts)
     }
 }
-impl<'a, A: Alphabet, Q: Color, C: Color> Indexes<RightCongruence<A, Q, C>>
+impl<'a, A: Alphabet, Q: Clone, C: Clone> Indexes<RightCongruence<A, Q, C>>
     for &'a ColoredClass<A::Symbol, Q>
 {
     #[inline(always)]
@@ -206,16 +206,16 @@ impl<S: Symbol, Q: std::fmt::Debug> std::fmt::Display for ColoredClass<S, Q> {
     }
 }
 
-impl<S: Symbol, J: Into<Class<S>>> From<J> for ColoredClass<S, ()> {
+impl<S: Symbol, J: Into<Class<S>>> From<J> for ColoredClass<S, Void> {
     fn from(value: J) -> Self {
         Self {
             class: value.into(),
-            color: (),
+            color: Void,
         }
     }
 }
 
-impl<S: Symbol, W: FiniteWord<S>, Q: Color> From<(W, Q)> for ColoredClass<S, Q> {
+impl<S: Symbol, W: FiniteWord<S>, Q: Clone> From<(W, Q)> for ColoredClass<S, Q> {
     fn from(value: (W, Q)) -> Self {
         Self {
             class: value.0.to_vec().into(),
@@ -224,7 +224,7 @@ impl<S: Symbol, W: FiniteWord<S>, Q: Color> From<(W, Q)> for ColoredClass<S, Q> 
     }
 }
 
-impl<S: Symbol, Q: Color> ColoredClass<S, Q> {
+impl<S: Symbol, Q: Clone> ColoredClass<S, Q> {
     /// Creates a new colored class from the given class and color.
     pub fn new<X: Into<Class<S>>>(class: X, color: Q) -> Self {
         Self {
@@ -247,7 +247,7 @@ impl<S: Symbol, Q: Color> ColoredClass<S, Q> {
     }
 
     /// Consumes `self` and returns a [`ColoredClass`] with the same class but the given `color`.
-    pub fn recolor<D: Color>(self, color: D) -> ColoredClass<S, D> {
+    pub fn recolor<D: Clone>(self, color: D) -> ColoredClass<S, D> {
         ColoredClass {
             class: self.class,
             color,
