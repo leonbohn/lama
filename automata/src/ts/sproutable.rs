@@ -168,7 +168,6 @@ mod tests {
             .deterministic();
         assert_eq!(partial.reached_state_index_from("aaacb", 0), None);
         partial.complete_with_colors((), 2);
-        println!("{}", partial.build_transition_table(|q, c| format!("{q}")));
         for w in ["abbaccababcab", "bbcca", "cc", "aababbabbabbccbabba"] {
             if partial.reached_state_index_from(w, 0).unwrap() < 1 {
                 panic!("Word {} misclassified", w);

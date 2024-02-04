@@ -8,7 +8,7 @@ use std::{
 
 use itertools::Itertools;
 
-use crate::{prelude::*, Map};
+use crate::{prelude::*, Map, Void};
 
 pub trait HasNeutral {
     fn neutral() -> Self;
@@ -27,6 +27,11 @@ impl HasNeutral for bool {
 impl HasNeutral for () {
     fn neutral() -> Self {}
 }
+impl HasNeutral for Void {
+    fn neutral() -> Self {
+        Void
+    }
+}
 
 /// Encapsulates the behavour of colors along run segments. This is what we are mainly
 /// interested in and which we want to keep track of. As an example consider a run segment, where
@@ -34,7 +39,7 @@ impl HasNeutral for () {
 /// then we mainly want to know what the combined behaviour of the visited edges is.
 /// As we use min-parity, this means we take the minimal value along all edges.
 pub trait Accumulates: Sized + Clone + Eq + Hash + Ord {
-    type X: Color + Sized;
+    type X: Clone + Sized;
     /// Updates self with the received value.
     fn update(&mut self, other: &Self::X);
     /// The neutral element with regard to accumulation, which is `false` for booleans and the maximal
@@ -57,7 +62,7 @@ pub trait Accumulates: Sized + Clone + Eq + Hash + Ord {
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Replaces<X>(X);
 
-impl<X: Color + HasNeutral> Accumulates for Replaces<X> {
+impl<X: Clone + HasNeutral + Eq + Ord + Hash> Accumulates for Replaces<X> {
     type X = X;
     fn from(x: Self::X) -> Self {
         Self(x)
@@ -178,6 +183,33 @@ impl Accumulates for Reduces<()> {
         Self(x)
     }
 }
+impl Accumulates for Reduces<Void> {
+    type X = Void;
+
+    fn update(&mut self, other: &Self::X) {}
+
+    fn neutral() -> Self
+    where
+        Self::X: HasNeutral,
+    {
+        Self(Void)
+    }
+
+    fn from_iter<'a, I: IntoIterator<Item = &'a Self::X>>(iter: I) -> Self
+    where
+        Self: 'a,
+    {
+        Self(Void)
+    }
+
+    fn result(&self) -> &Self::X {
+        &Void
+    }
+
+    fn from(x: Self::X) -> Self {
+        Self(x)
+    }
+}
 
 /// Encapsulates a run piece.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -255,14 +287,18 @@ impl<Idx, Q, C> RunProfile<Idx, Q, C> {
     }
 }
 
-impl<Idx: IndexType, Q: Accumulates, C: Accumulates> Show for RunProfile<Idx, Q, C> {
+impl<Idx: IndexType, Q: Accumulates, C: Accumulates> Show for RunProfile<Idx, Q, C>
+where
+    Q::X: Debug,
+    C::X: Debug,
+{
     fn show(&self) -> String {
         let mut out = String::new();
         for (i, rs) in self.0.iter().enumerate() {
             out.push_str(&format!(
-                "{i} -{}|{}-> {}",
-                rs.sc().show(),
-                rs.ec().show(),
+                "{i} -{:?}|{:?}-> {}",
+                rs.sc(),
+                rs.ec(),
                 rs.state()
             ))
         }
@@ -490,8 +526,7 @@ impl<'a, Ts, SA, EA> Display for TransitionMonoid<'a, Ts, SA, EA>
 where
     Ts: TransitionSystem,
     Ts::StateIndex: Show,
-    Ts::EdgeColor: Show,
-    Ts::StateColor: Show,
+    for<'b> (&'b StateColor<Ts>, &'b EdgeColor<Ts>): Show,
     SA: Accumulates<X = Ts::StateColor>,
     EA: Accumulates<X = Ts::EdgeColor>,
     SymbolOf<Ts>: Display,
@@ -501,7 +536,7 @@ where
         let mut b = tabled::builder::Builder::default();
 
         for (word, entry) in &self.strings {
-            let mut row = vec![word.symbols().map(|s| s.show()).join("")];
+            let mut row = vec![word.show()];
             let profile_idx = match entry {
                 ProfileEntry::Profile(profile) => profile,
                 ProfileEntry::Redirect(redirect) => redirect,
@@ -510,10 +545,9 @@ where
             let (profile, _) = self.tps.get(*profile_idx).expect("Must exist!");
             row.extend(profile.iter().map(|tp| {
                 format!(
-                    "{}|{}|{}",
+                    "{}|{}",
                     tp.state().blue(),
-                    tp.sc().show().purple(),
-                    tp.ec().show().green()
+                    (tp.sc(), tp.ec()).show().purple(),
                 )
             }));
             b.push_record(row);

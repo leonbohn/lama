@@ -39,9 +39,7 @@ pub mod prelude {
             finite::ReachedState,
             operations::{Product, ProductIndex},
             predecessors::PredecessorIterable,
-            transition_system::{
-                EdgeColorOf, EdgeReference, FullTransition, Indexes, IsEdge, StateColorOf,
-            },
+            transition_system::{EdgeReference, FullTransition, Indexes, IsEdge},
             Congruence, Deterministic, DeterministicEdgesFrom, EdgeColor, ExpressionOf, HasColor,
             HasColorMut, HasMutableStates, HasStates, IndexType, Path, Sproutable, StateColor,
             SymbolOf, TSBuilder, TransitionSystem, BTS, DTS, NTS,
@@ -49,7 +47,7 @@ pub mod prelude {
         upw,
         word::{FiniteWord, LinearWord, OmegaWord, Periodic, Reduced, ReducedParseError},
         Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length, Pointed,
-        RightCongruence, Show,
+        RightCongruence, Show, Void,
     };
 }
 
@@ -61,7 +59,7 @@ use itertools::Itertools;
 
 /// Defines lengths of finite and infinite words.
 pub mod length;
-use std::{collections::BTreeSet, hash::Hash};
+use std::{collections::BTreeSet, fmt::Debug, hash::Hash};
 
 /// Module that contains definitions for dealing with lengths. This is particularly
 /// useful for dealing with infinite words.
@@ -110,6 +108,61 @@ pub trait Color: Clone + Eq + Ord + Hash + Show {
 }
 
 impl<T: Eq + Ord + Clone + Hash + Show> Color for T {}
+
+/// Represents the absence of a color. The idea is that this can be used when collecting
+/// a transitions system as it can always be constructed from a color by simply forgetting it.
+/// This is useful for example when we want to collect a transition system into a different
+/// representation, but we don't care about the colors on the edges. In that case, the state
+/// colors may be kept and the edge colors are dropped.
+#[derive(Hash, Eq, PartialEq, PartialOrd, Ord, Clone, Copy, Default)]
+pub struct Void;
+
+impl<C: Color> From<C> for Void {
+    fn from(_: C) -> Self {
+        Void
+    }
+}
+
+impl Debug for Void {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "#")
+    }
+}
+
+impl<C: Show> Show for (C, Void) {
+    fn show(&self) -> String {
+        self.0.show()
+    }
+}
+
+impl<C: Show> Show for (Void, C) {
+    fn show(&self) -> String {
+        self.1.show()
+    }
+}
+
+impl Show for (Void, Void) {
+    fn show(&self) -> String {
+        "-".to_string()
+    }
+}
+impl<C: Show> Show for (C, &Void) {
+    fn show(&self) -> String {
+        self.0.show()
+    }
+}
+
+impl<C: Show> Show for (&Void, C) {
+    fn show(&self) -> String {
+        self.1.show()
+    }
+}
+
+impl Show for (&Void, &Void) {
+    fn show(&self) -> String {
+        "-".to_string()
+    }
+}
 
 /// Type alias for sets, we use this to hide which type of `HashSet` we are actually using.
 pub type Set<S> = fxhash::FxHashSet<S>;
@@ -166,6 +219,11 @@ impl Show for usize {
             "[{}]",
             itertools::Itertools::join(&mut iter.into_iter().map(|x| x.show()), ", ")
         )
+    }
+}
+impl Show for String {
+    fn show(&self) -> String {
+        self.clone()
     }
 }
 
@@ -248,6 +306,12 @@ impl Show for bool {
     }
 }
 
+impl<S: Show> Show for &S {
+    fn show(&self) -> String {
+        S::show(*self)
+    }
+}
+
 /// A partition is a different view on a congruence relation, by grouping elements of
 /// type `I` into their respective classes under the relation.
 #[derive(Debug, Clone)]
@@ -317,7 +381,7 @@ impl HasParity for usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::{alphabet, prelude::*};
+    use crate::{alphabet, prelude::*, Void};
 
     pub fn wiki_dfa() -> DFA<Simple> {
         let mut dfa = DFA::new(alphabet!(simple 'a', 'b'));
@@ -329,18 +393,18 @@ mod tests {
         let e = dfa.add_state(true);
         let f = dfa.add_state(false);
 
-        dfa.add_edge(a, 'a', b, ());
-        dfa.add_edge(a, 'b', c, ());
-        dfa.add_edge(b, 'a', a, ());
-        dfa.add_edge(b, 'b', d, ());
-        dfa.add_edge(c, 'a', e, ());
-        dfa.add_edge(c, 'b', f, ());
-        dfa.add_edge(d, 'a', e, ());
-        dfa.add_edge(d, 'b', f, ());
-        dfa.add_edge(e, 'a', e, ());
-        dfa.add_edge(e, 'b', f, ());
-        dfa.add_edge(f, 'a', f, ());
-        dfa.add_edge(f, 'b', f, ());
+        dfa.add_edge(a, 'a', b, Void);
+        dfa.add_edge(a, 'b', c, Void);
+        dfa.add_edge(b, 'a', a, Void);
+        dfa.add_edge(b, 'b', d, Void);
+        dfa.add_edge(c, 'a', e, Void);
+        dfa.add_edge(c, 'b', f, Void);
+        dfa.add_edge(d, 'a', e, Void);
+        dfa.add_edge(d, 'b', f, Void);
+        dfa.add_edge(e, 'a', e, Void);
+        dfa.add_edge(e, 'b', f, Void);
+        dfa.add_edge(f, 'a', f, Void);
+        dfa.add_edge(f, 'b', f, Void);
 
         dfa
     }

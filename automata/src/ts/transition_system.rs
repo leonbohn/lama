@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::{any::Any, hash::Hash};
 
 use crate::{
     automaton::Initialized,
@@ -6,6 +6,7 @@ use crate::{
     prelude::{Expression, Simple, Symbol},
     word::{FiniteWord, OmegaWord},
     Alphabet, Class, Color, FiniteLength, Map, Partition, Pointed, RightCongruence, Set, Show,
+    Void,
 };
 
 use super::{
@@ -34,11 +35,6 @@ use super::{
 use impl_tools::autoimpl;
 use itertools::Itertools;
 
-/// Type alias to extract the state color of a [`TransitionSystem`].
-pub type StateColorOf<Ts> = <Ts as TransitionSystem>::StateColor;
-/// Type alias to extract the edge color of a [`TransitionSystem`].
-pub type EdgeColorOf<Ts> = <Ts as TransitionSystem>::EdgeColor;
-
 /// Helper trait for extracting the [`Symbol`] type from an a transition system.
 pub type SymbolOf<A> = <<A as TransitionSystem>::Alphabet as Alphabet>::Symbol;
 /// Helper trait for extracting the [`Expression`] type from an a transition system.
@@ -63,9 +59,9 @@ pub trait TransitionSystem: Sized {
     /// The type of the indices of the states of the transition system.
     type StateIndex: IndexType;
     /// The type of the colors of the states of the transition system.
-    type StateColor: Color;
+    type StateColor: Clone;
     /// The type of the colors of the edges of the transition system.
-    type EdgeColor: Color;
+    type EdgeColor: Clone;
     /// The type of the references to the transitions of the transition system.
     type EdgeRef<'this>: IsEdge<'this, ExpressionOf<Self>, Self::StateIndex, EdgeColor<Self>>
     where
@@ -143,7 +139,10 @@ pub trait TransitionSystem: Sized {
     /// A call is rather costly, as it simply iterates over all states and collects the
     /// colors of the outgoing edges. Should be overridden if a more efficient implementation
     /// is available.
-    fn edge_colors(&self) -> impl Iterator<Item = Self::EdgeColor> {
+    fn edge_colors(&self) -> impl Iterator<Item = Self::EdgeColor>
+    where
+        EdgeColor<Self>: Clone,
+    {
         self.state_indices()
             .flat_map(|q| {
                 self.edges_from(q)
@@ -156,7 +155,10 @@ pub trait TransitionSystem: Sized {
     /// By default, a call is rather costly as it simply iterates over all states and collects
     /// the colors of the outgoing edges. Should be overridden if a more efficient implementation
     /// is available.
-    fn edge_colors_unique(&self) -> impl Iterator<Item = Self::EdgeColor> {
+    fn edge_colors_unique(&self) -> impl Iterator<Item = Self::EdgeColor>
+    where
+        EdgeColor<Self>: Eq + Hash + Clone,
+    {
         self.edge_colors().unique()
     }
 
@@ -179,7 +181,10 @@ pub trait TransitionSystem: Sized {
                 Self::StateIndex,
             ),
         >,
-    > {
+    >
+    where
+        EdgeColor<Self>: Clone,
+    {
         let idx = state.to_index(self)?;
         Some(self.edges_from(state)?.filter_map(move |t| {
             if t.expression().matches(sym) {
@@ -273,13 +278,19 @@ pub trait TransitionSystem: Sized {
     /// returns the first such state that is found. There is no guarantee on the order in which the states
     /// are visited such that if more than one state with the given `color` exists, subsequent calls to
     /// this method may return different indices.
-    fn find_by_color(&self, color: &StateColor<Self>) -> Option<Self::StateIndex> {
+    fn find_by_color(&self, color: &StateColor<Self>) -> Option<Self::StateIndex>
+    where
+        StateColor<Self>: Eq,
+    {
         self.state_indices()
             .find(|index| self.state_color(*index).as_ref() == Some(color))
     }
 
     /// Returns true if and only if a state with the given `color` exists.
-    fn contains_state_color(&self, color: &StateColor<Self>) -> bool {
+    fn contains_state_color(&self, color: &StateColor<Self>) -> bool
+    where
+        StateColor<Self>: Eq,
+    {
         self.find_by_color(color).is_some()
     }
 
@@ -341,30 +352,30 @@ pub trait TransitionSystem: Sized {
     fn map_edge_colors_full<D, F>(self, f: F) -> super::operations::MapEdges<Self, F>
     where
         F: Fn(Self::StateIndex, &ExpressionOf<Self>, Self::EdgeColor, Self::StateIndex) -> D,
-        D: Color,
+        D: Clone,
         Self: Sized,
     {
         super::operations::MapEdges::new(self, f)
     }
 
     /// Completely removes the edge coloring.
-    fn erase_edge_colors(self) -> MapEdgeColor<Self, fn(Self::EdgeColor) -> ()>
+    fn erase_edge_colors(self) -> MapEdgeColor<Self, fn(Self::EdgeColor) -> Void>
     where
         Self: Sized,
     {
-        self.map_edge_colors(|_| ())
+        self.map_edge_colors(|_| Void)
     }
 
     /// Completely removes the state coloring.
-    fn erase_state_colors(self) -> MapStateColor<Self, fn(Self::StateColor) -> ()>
+    fn erase_state_colors(self) -> MapStateColor<Self, fn(Self::StateColor) -> Void>
     where
         Self: Sized,
     {
-        self.map_state_colors(|_| ())
+        self.map_state_colors(|_| Void)
     }
 
     /// Map the edge colors of `self` with the given function `f`.
-    fn map_edge_colors<D: Color, F: Fn(Self::EdgeColor) -> D>(self, f: F) -> MapEdgeColor<Self, F>
+    fn map_edge_colors<D: Clone, F: Fn(Self::EdgeColor) -> D>(self, f: F) -> MapEdgeColor<Self, F>
     where
         Self: Sized,
     {
@@ -372,7 +383,7 @@ pub trait TransitionSystem: Sized {
     }
 
     /// Map the state colors of `self` with the given function.
-    fn map_state_colors<D: Color, F: Fn(Self::StateColor) -> D>(
+    fn map_state_colors<D: Clone, F: Fn(Self::StateColor) -> D>(
         self,
         f: F,
     ) -> MapStateColor<Self, F>
@@ -698,7 +709,7 @@ impl<'ts, E, Idx, C> EdgeReference<'ts, E, Idx, C> {
     }
 }
 
-impl<'ts, E, Idx: IndexType, C: Color> IsEdge<'ts, E, Idx, C> for EdgeReference<'ts, E, Idx, C> {
+impl<'ts, E, Idx: IndexType, C: Clone> IsEdge<'ts, E, Idx, C> for EdgeReference<'ts, E, Idx, C> {
     fn source(&self) -> Idx {
         self.source
     }
@@ -738,7 +749,7 @@ impl<'ts, E, Idx, C> TransitionOwnedColor<'ts, E, Idx, C> {
     }
 }
 
-impl<'ts, E, Idx: IndexType, C: Color> IsEdge<'ts, E, Idx, C>
+impl<'ts, E, Idx: IndexType, C: Clone> IsEdge<'ts, E, Idx, C>
     for TransitionOwnedColor<'ts, E, Idx, C>
 {
     fn source(&self) -> Idx {
@@ -940,7 +951,7 @@ impl<Ts: TransitionSystem> TransitionSystem for &mut Ts {
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for RightCongruence<A, Q, C> {
+impl<A: Alphabet, Q: Clone, C: Clone> TransitionSystem for RightCongruence<A, Q, C> {
     type StateIndex = usize;
     type EdgeColor = C;
     type StateColor = ColoredClass<A::Symbol, Q>;
@@ -971,7 +982,9 @@ impl<A: Alphabet, Q: Color, C: Color> TransitionSystem for RightCongruence<A, Q,
         Some(self.initial())
     }
 }
-impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> TransitionSystem for BTS<A, Q, C, Idx> {
+impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Hash + Eq + Clone> TransitionSystem
+    for BTS<A, Q, C, Idx>
+{
     type StateColor = Q;
     type EdgeColor = C;
     type StateIndex = Idx;
@@ -1073,7 +1086,7 @@ where
 
 impl<D, Ts, F> TransitionSystem for MapStateColor<Ts, F>
 where
-    D: Color,
+    D: Clone,
     Ts: TransitionSystem,
     F: Fn(Ts::StateColor) -> D,
 {
@@ -1109,7 +1122,7 @@ where
 
 impl<D, Ts, F> TransitionSystem for MapEdgeColor<Ts, F>
 where
-    D: Color,
+    D: Clone,
     Ts: TransitionSystem,
     F: Fn(Ts::EdgeColor) -> D,
 {

@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeSet, VecDeque},
+    hash::Hash,
     marker::PhantomData,
 };
 
@@ -279,7 +280,11 @@ impl<D: DPALike> IntoDPA<D> {
     /// "Computing the rabin index of a finite automaton". The procedure that this implementation actually uses
     /// is outlined by Schewe and Ehlers in [Natural Colors of Infinite Words](https://arxiv.org/pdf/2207.11000.pdf)
     /// in Section 4.1, Definition 2.
-    pub fn normalized(&self) -> DPA<D::Alphabet, D::StateColor> {
+    pub fn normalized(&self) -> DPA<D::Alphabet, D::StateColor>
+    where
+        EdgeColor<Self>: Eq + Hash + Clone + Ord,
+        StateColor<Self>: Eq + Hash + Clone + Ord,
+    {
         let start = std::time::Instant::now();
 
         let mut ts: Initialized<BTS<_, _, _, _>> = self.collect_pointed();
@@ -386,7 +391,7 @@ impl<D: DPALike> IntoDPA<D> {
 #[cfg(test)]
 mod tests {
     use super::DPA;
-    use crate::{prelude::*, TransitionSystem};
+    use crate::{prelude::*, TransitionSystem, Void};
 
     #[test_log::test]
     fn normalize_dpa() {
@@ -413,7 +418,7 @@ mod tests {
 
     fn example_dpa() -> DPA {
         NTS::builder()
-            .default_color(())
+            .default_color(Void)
             .with_transitions([
                 (0, 'a', 0, 0),
                 (0, 'b', 1, 1),
@@ -425,10 +430,7 @@ mod tests {
                 (2, 'b', 5, 0),
                 (2, 'c', 6, 0),
             ])
-            .collect()
-            .into_deterministic()
-            .with_initial(0)
-            .collect_dpa()
+            .into_dpa(0)
     }
 
     #[test]
@@ -522,7 +524,7 @@ mod tests {
                 (1, 'b', 1, 0),
                 (1, 'c', 1, 0),
             ])
-            .default_color(())
+            .default_color(Void)
             .into_dpa(0);
         assert!(!dpa.accepts_omega(upw!("cabaca")))
     }

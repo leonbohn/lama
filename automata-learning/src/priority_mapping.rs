@@ -91,7 +91,7 @@ impl Annotation {
 /// This a simple newtype wrapper around a congruence, which has no edge colors and uses
 /// [`Annotation`]s as state colors.
 #[derive(Clone)]
-pub struct AnnotatedCongruence<A: Alphabet = Simple>(RightCongruence<A, Annotation, ()>);
+pub struct AnnotatedCongruence<A: Alphabet = Simple>(RightCongruence<A, Annotation, Void>);
 
 #[autoimpl(for<T: trait + ?Sized> &T)]
 pub trait ClassifiesIdempotents<A: Alphabet> {
@@ -167,8 +167,8 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
     /// of the congruence to construct an annotated congruence.
     pub fn build<Q, C, F>(rc: &RightCongruence<A, Q, C>, f: F) -> Self
     where
-        Q: Color,
-        C: Color,
+        Q: Clone,
+        C: Clone,
         F: ClassifiesIdempotents<A>,
     {
         Self(

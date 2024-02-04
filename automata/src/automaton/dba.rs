@@ -4,6 +4,14 @@ use super::acceptor::OmegaWordAcceptor;
 
 impl_mealy_automaton!(DBA, bool);
 
+impl<D: DBALike> OmegaWordAcceptor<SymbolOf<D>> for IntoDBA<D> {
+    fn accepts_omega<W: OmegaWord<SymbolOf<Self>>>(&self, word: W) -> bool {
+        self.recurrent_edge_colors(word)
+            .map(|mut colors| colors.any(|b| b))
+            .unwrap_or(false)
+    }
+}
+
 /// Similar to [`DFALike`], this trait is supposed to be (automatically) implemented by everything that can be viewed
 /// as a [`crate::DBA`].
 pub trait DBALike: Deterministic<EdgeColor = bool> + Pointed {
@@ -56,11 +64,3 @@ pub trait DBALike: Deterministic<EdgeColor = bool> + Pointed {
 }
 
 impl<Ts> DBALike for Ts where Ts: Deterministic<EdgeColor = bool> + Pointed {}
-
-impl<A: Alphabet> OmegaWordAcceptor<A::Symbol> for DBA<A> {
-    fn accepts_omega<W: OmegaWord<A::Symbol>>(&self, word: W) -> bool {
-        self.recurrent_edge_colors(word)
-            .map(|mut set| set.any(|x| x))
-            .unwrap_or(false)
-    }
-}

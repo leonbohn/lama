@@ -21,8 +21,8 @@ pub struct MappedPreEdge<Idx, T, F, C> {
 impl<'a, Idx, E: 'a, C, D, F, T> IsEdge<'a, E, Idx, D> for MappedPreEdge<Idx, T, F, C>
 where
     Idx: IndexType,
-    C: Color,
-    D: Color,
+    C: Clone,
+    D: Clone,
     F: Fn(Idx, &E, C, Idx) -> D,
     T: IsEdge<'a, E, Idx, C>,
 {
@@ -76,7 +76,7 @@ where
 
 impl<Ts, D, F> PredecessorIterable for MapEdges<Ts, F>
 where
-    D: Color,
+    D: Clone,
     Ts: PredecessorIterable,
     F: Fn(Ts::StateIndex, &ExpressionOf<Ts>, Ts::EdgeColor, Ts::StateIndex) -> D,
 {
@@ -139,8 +139,8 @@ impl<Idx, T, F, C> MappedEdge<Idx, T, F, C> {
 impl<'ts, Idx, E: 'ts, C, D, F, T> IsEdge<'ts, E, Idx, D> for MappedEdge<Idx, T, F, C>
 where
     Idx: IndexType,
-    C: Color,
-    D: Color,
+    C: Clone,
+    D: Clone,
     F: Fn(Idx, &E, C, Idx) -> D,
     T: IsEdge<'ts, E, Idx, C>,
 {
@@ -169,7 +169,7 @@ where
 impl<Ts, D, F> TransitionSystem for MapEdges<Ts, F>
 where
     Ts: TransitionSystem,
-    D: Color,
+    D: Clone,
     F: Fn(Ts::StateIndex, &ExpressionOf<Ts>, Ts::EdgeColor, Ts::StateIndex) -> D,
 {
     type StateIndex = Ts::StateIndex;
@@ -233,7 +233,7 @@ impl<Ts, F> MapEdges<Ts, F> {
 }
 impl<D, Ts, F> Pointed for MapEdges<Ts, F>
 where
-    D: Color,
+    D: Clone,
     Ts: TransitionSystem + Pointed,
     F: Fn(Ts::StateIndex, &ExpressionOf<Ts>, Ts::EdgeColor, Ts::StateIndex) -> D,
 {
@@ -264,7 +264,7 @@ impl<Ts, F> MapEdgeColor<Ts, F> {
     }
 }
 
-impl<D: Color, Ts: TransitionSystem + Pointed, F: Fn(Ts::EdgeColor) -> D> Pointed
+impl<D: Clone, Ts: TransitionSystem + Pointed, F: Fn(Ts::EdgeColor) -> D> Pointed
     for MapEdgeColor<Ts, F>
 {
     fn initial(&self) -> Self::StateIndex {
@@ -294,8 +294,8 @@ impl<T, F, C> MappedTransition<T, F, C> {
 impl<'ts, Idx, E, C, D, F, T> IsEdge<'ts, E, Idx, D> for MappedTransition<T, F, C>
 where
     Idx: IndexType,
-    C: Color,
-    D: Color,
+    C: Clone,
+    D: Clone,
     F: Fn(C) -> D,
     T: IsEdge<'ts, E, Idx, C>,
 {
@@ -354,9 +354,9 @@ pub struct MappedPreTransition<T, F, C> {
     _old_color: PhantomData<C>,
 }
 
-// impl<Idx: IndexType, E, C: Color, D: Color, F: Fn(C) -> D, T: IsTransition<E, Idx, C>>
+// impl<Idx: IndexType, E, C: Clone, D: Clone, F: Fn(C) -> D, T: IsTransition<E, Idx, C>>
 // IsTransition<E, Idx, D> for MappedTransition<T, F, C>
-impl<'a, Idx: IndexType, E, C: Color, D: Color, F: Fn(C) -> D, T: IsEdge<'a, E, Idx, C>>
+impl<'a, Idx: IndexType, E, C: Clone, D: Clone, F: Fn(C) -> D, T: IsEdge<'a, E, Idx, C>>
     IsEdge<'a, E, Idx, D> for MappedPreTransition<T, F, C>
 {
     fn source(&self) -> Idx {
@@ -438,7 +438,7 @@ impl<Ts, F> MapStateColor<Ts, F> {
     }
 }
 
-impl<D: Color, Ts: TransitionSystem + Pointed, F: Fn(Ts::StateColor) -> D> Pointed
+impl<D: Clone, Ts: TransitionSystem + Pointed, F: Fn(Ts::StateColor) -> D> Pointed
     for MapStateColor<Ts, F>
 {
     fn initial(&self) -> Self::StateIndex {

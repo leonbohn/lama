@@ -486,7 +486,6 @@ mod tests {
         let mut lstar = super::LStar::for_moore(alphabet, oracle);
 
         let mm = lstar.infer();
-        println!("{:?}", mm);
 
         assert_eq!(mm.try_moore_map("abba").unwrap(), 1);
         assert_eq!(mm.try_moore_map("ab").unwrap(), 0);
@@ -501,18 +500,18 @@ mod tests {
         let q1 = dfa.add_state(false);
         let q2 = dfa.add_state(true);
         let q3 = dfa.add_state(false);
-        dfa.add_edge(q0, 'a', q1, ());
-        dfa.add_edge(q0, 'b', q3, ());
-        dfa.add_edge(q0, 'c', q0, ());
-        dfa.add_edge(q1, 'a', q0, ());
-        dfa.add_edge(q1, 'b', q2, ());
-        dfa.add_edge(q1, 'c', q0, ());
-        dfa.add_edge(q2, 'a', q2, ());
-        dfa.add_edge(q2, 'b', q2, ());
-        dfa.add_edge(q2, 'c', q0, ());
-        dfa.add_edge(q3, 'a', q3, ());
-        dfa.add_edge(q3, 'b', q3, ());
-        dfa.add_edge(q3, 'c', q0, ());
+        dfa.add_edge(q0, 'a', q1, Void);
+        dfa.add_edge(q0, 'b', q3, Void);
+        dfa.add_edge(q0, 'c', q0, Void);
+        dfa.add_edge(q1, 'a', q0, Void);
+        dfa.add_edge(q1, 'b', q2, Void);
+        dfa.add_edge(q1, 'c', q0, Void);
+        dfa.add_edge(q2, 'a', q2, Void);
+        dfa.add_edge(q2, 'b', q2, Void);
+        dfa.add_edge(q2, 'c', q0, Void);
+        dfa.add_edge(q3, 'a', q3, Void);
+        dfa.add_edge(q3, 'b', q3, Void);
+        dfa.add_edge(q3, 'c', q0, Void);
         dfa
     }
 

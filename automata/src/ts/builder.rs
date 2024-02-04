@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::prelude::*;
+use crate::{prelude::*, Void};
 
 /// Helper struct for the construction of non-deterministic transition systems. It stores a list of edges, a list of colors and a default color.
 /// This can also be used to construct deterministic transition systems, deterministic parity automata and Mealy machines.
@@ -16,15 +16,26 @@ use crate::prelude::*;
 /// ```
 /// use automata::prelude::*;
 ///
-/// let mut nts = NTS::builder()
+/// let ts = TSBuilder::default()
 ///     .with_colors([true, false]) // colors given in the order of the states
-///     .with_transitions([(0, 'a', (), 0), (0, 'b', (), 1), (1, 'a', (), 1), (1, 'b', (), 0)])
+///     .with_transitions([(0, 'a', Void, 0), (0, 'b', Void, 1), (1, 'a', Void, 1), (1, 'b', Void, 0)])
 ///     .into_dfa(0); // 0 is the initial state
 /// ```
 pub struct TSBuilder<Q = (), C = ()> {
     edges: Vec<(usize, char, C, usize)>,
     default: Option<Q>,
     colors: Vec<(usize, Q)>,
+}
+
+impl<C> TSBuilder<Void, C> {
+    /// Creates a new `TSBuilder` with no edges, no colors and no default color.
+    pub fn without_state_colors() -> Self {
+        TSBuilder {
+            edges: vec![],
+            default: Some(Void),
+            colors: vec![],
+        }
+    }
 }
 
 impl<Q, C> Default for TSBuilder<Q, C> {
@@ -37,17 +48,17 @@ impl<Q, C> Default for TSBuilder<Q, C> {
     }
 }
 
-impl TSBuilder<bool, ()> {
+impl TSBuilder<bool, Void> {
     /// Tries to turn `self` into a deterministic finite automaton. Panics if `self` is not deterministic.
     pub fn into_dfa(mut self, initial: usize) -> DFA<Simple> {
         self.deterministic().with_initial(initial).collect_dfa()
     }
 }
 
-impl TSBuilder<(), usize> {
+impl TSBuilder<Void, usize> {
     /// Attempts to turn `self` into a deterministic parity automaton. Panics if `self` is not deterministic.
     pub fn into_dpa(mut self, initial: usize) -> DPA<Simple> {
-        self.default_color(())
+        self.default_color(Void)
             .deterministic()
             .with_initial(initial)
             .collect_dpa()
@@ -55,25 +66,24 @@ impl TSBuilder<(), usize> {
 
     /// Builds a Mealy machine from `self`. Panics if `self` is not deterministic.
     pub fn into_mealy_machine(mut self, initial: usize) -> MealyMachine<Simple> {
-        self.default_color(())
+        self.default_color(Void)
             .deterministic()
             .with_initial(initial)
             .into_mealy()
     }
 }
 
-impl TSBuilder {
+impl<Q: Clone, C: Clone> TSBuilder<Q, C> {
     /// Turns `self` into a [`RightCongruence`] with the given initial state while also erasing all state and edge
     /// colors. Panics if `self` is not deterministic.
     pub fn into_right_congruence_bare(self, initial: usize) -> RightCongruence<Simple> {
-        self.default_color(())
-            .deterministic()
+        self.deterministic()
             .with_initial(initial)
             .collect_right_congruence_bare()
     }
 }
 
-impl<Q: Color, C: Color> TSBuilder<Q, C> {
+impl<Q: Clone, C: Clone> TSBuilder<Q, C> {
     /// Sets the default color for states that have no color specified.
     pub fn default_color(mut self, color: Q) -> Self {
         self.default = Some(color);
@@ -90,20 +100,13 @@ impl<Q: Color, C: Color> TSBuilder<Q, C> {
     }
 
     /// Build a deterministic transition system from `self`. Panics if `self` is not deterministic.
-    pub fn deterministic(mut self) -> DTS<Simple, Q, C>
-    where
-        Q: Color,
-        C: Color,
-    {
+    pub fn deterministic(mut self) -> DTS<Simple, Q, C> {
         self.collect().try_into().expect("Not deterministic!")
     }
 
     /// Assigns the given `color` to the state with the given index `idx`.
-    pub fn color(mut self, idx: usize, color: Q) -> Self
-    where
-        Q: Color,
-    {
-        assert!(self.colors.iter().all(|(q, c)| q != &idx || c == &color));
+    pub fn color(mut self, idx: usize, color: Q) -> Self {
+        assert!(self.colors.iter().all(|(q, c)| q != &idx));
         self.colors.push((idx, color));
         self
     }
@@ -122,9 +125,9 @@ impl<Q: Color, C: Color> TSBuilder<Q, C> {
     /// ```
     /// use automata::prelude::*;
     ///
-    /// let mut nts = NTS::builder()
+    /// let ts = TSBuilder::default()
     ///     .with_colors([true, false]) // colors given in the order of the states
-    ///     .with_transitions([(0, 'a', (), 0), (0, 'b', (), 1), (1, 'a', (), 1), (1, 'b', (), 0)])
+    ///     .with_transitions([(0, 'a', Void, 0), (0, 'b', Void, 1), (1, 'a', Void, 1), (1, 'b', Void, 0)])
     ///     .into_dfa(0); // 0 is the initial state
     /// ```
     pub fn with_transitions<X: FullTransition<usize, char, C>, T: IntoIterator<Item = X>>(
@@ -143,11 +146,7 @@ impl<Q: Color, C: Color> TSBuilder<Q, C> {
     }
 
     /// Collects self into a non-deterministic transition system.
-    pub fn collect(mut self) -> NTS<Simple, Q, C>
-    where
-        Q: Color,
-        C: Color,
-    {
+    pub fn collect(mut self) -> NTS<Simple, Q, C> {
         let alphabet = Simple::from_iter(self.edges.iter().map(|(_, a, _, _)| *a));
         let num_states = self
             .edges

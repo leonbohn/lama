@@ -58,7 +58,7 @@ pub use with_initial::Initialized;
 
 /// Type alias for the unit type. Purpose is mainly to be used in Macros, as `()` is more difficult to
 /// handle than a simple alphabetic identifier.
-pub type NoColor = ();
+pub type NoColor = Void;
 
 #[allow(missing_docs)]
 macro_rules! impl_automaton_type {

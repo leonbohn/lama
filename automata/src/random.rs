@@ -1,6 +1,6 @@
 use tracing::{debug, info, trace};
 
-use crate::{prelude::*, Map};
+use crate::{prelude::*, Map, Void};
 
 /// Uses sprout-like algorithm to generate a random transition system. `symbols` determines the
 /// number of distinct symbols in the [`Simple`] alphabet. `probability` determines the probability
@@ -36,14 +36,14 @@ pub fn generate_random_ts(symbols: usize, probability: f64) -> Initialized<DTS> 
         for target in 0..=current {
             let value: f64 = fastrand::f64();
             if value < probability {
-                dts.add_edge(current, symbol, target, ());
+                dts.add_edge(current, symbol, target, Void);
                 continue 'outer;
             }
         }
 
         // no target was found so we create it
-        let target = dts.add_state(());
-        dts.add_edge(current, symbol, target, ());
+        let target = dts.add_state(Void);
+        dts.add_edge(current, symbol, target, Void);
     }
 
     dts.with_initial(0)

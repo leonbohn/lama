@@ -25,7 +25,11 @@ use crate::{
 /// partition is a [`Partition`] of the state indices, where any states in the same class of the
 /// returned partition are pairwise bisimilar. This means for any *non-empty* input, they produce
 /// the same sequence of outputs.
-pub fn mealy_greatest_bisimulation<M: MealyLike>(mm: M) -> Partition<M::StateIndex> {
+pub fn mealy_greatest_bisimulation<D>(mm: D) -> Partition<D::StateIndex>
+where
+    D: Deterministic,
+    EdgeColor<D>: Color,
+{
     let start = Instant::now();
     let mut queue: Vec<BTreeSet<_>> = vec![mm.state_indices().collect()];
 
@@ -82,7 +86,11 @@ pub fn mealy_greatest_bisimulation<M: MealyLike>(mm: M) -> Partition<M::StateInd
 /// Partition refinement algorithm for deterministic finite automata that have outputs on the edges.
 /// Runs in O(n log n) time, where n is the number of states of the automaton and returns the unique
 /// minimal automaton that is bisimilar to the input.
-pub fn mealy_partition_refinement<M: MealyLike>(mm: M) -> AsMealyMachine<M> {
+pub fn mealy_partition_refinement<D>(mm: D) -> AsMealyMachine<D>
+where
+    D: Congruence,
+    EdgeColor<D>: Color,
+{
     let partition = mealy_greatest_bisimulation(&mm);
     trace!(
         "Building quotient with partition {{{}}}",
@@ -115,7 +123,11 @@ pub fn mealy_partition_refinement<M: MealyLike>(mm: M) -> AsMealyMachine<M> {
 /// Two states of a mealy machine are considered to be bisimilar if and only if they have the same
 /// output on all words. This gives a [`Partition`] of the state indices, where any states in the
 /// same class of the returned partition are pairwise bisimilar.
-pub fn moore_greatest_bisimulation<M: MooreLike>(mm: M) -> Partition<M::StateIndex> {
+pub fn moore_greatest_bisimulation<D>(mm: D) -> Partition<D::StateIndex>
+where
+    D: Deterministic,
+    StateColor<D>: Color,
+{
     let start = Instant::now();
 
     let mut presplit: Map<_, _> = Map::default();
@@ -174,7 +186,11 @@ pub fn moore_greatest_bisimulation<M: MooreLike>(mm: M) -> Partition<M::StateInd
 /// minimal automaton that is bisimilar to the input. This method computes the maximal bisimulation
 /// by using [`moore_greatest_bisimulation`] and then uses the partition to compute the quotient
 /// automaton.
-pub fn moore_partition_refinement<D: MooreLike>(mm: D) -> AsMooreMachine<D> {
+pub fn moore_partition_refinement<D>(mm: D) -> AsMooreMachine<D>
+where
+    D: Congruence,
+    StateColor<D>: Color,
+{
     let partition = moore_greatest_bisimulation(&mm);
     trace!(
         "Building quotient with partition {{{}}}",

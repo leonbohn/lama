@@ -147,33 +147,39 @@ impl<Ts: TransitionSystem> TransitionSystem for SubsetConstruction<Ts> {
             q.iter()
                 .map(|idx| {
                     let Some(color) = self.ts.state_color(*idx) else {
-                        panic!("Could not find state {} in ts {:?}", state, self);
+                        panic!("Could not find state {}", state);
                     };
                     color
                 })
                 .collect()
         }) else {
-            panic!("Could not find state {} in ts {:?}", state, self);
+            panic!("Could not find state {}", state);
         };
         Some(color)
     }
 }
 
-impl<Ts: TransitionSystem> Debug for SubsetConstruction<Ts> {
+impl<Ts: TransitionSystem> Debug for SubsetConstruction<Ts>
+where
+    EdgeColor<Ts>: Debug,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "Subset construction\n{}",
-            self.build_transition_table(|idx, _| format!(
-                "{{{}}}",
-                self.states
-                    .borrow()
-                    .get(idx)
-                    .unwrap()
-                    .iter()
-                    .map(|q| q.to_string())
-                    .join(", ")
-            ))
+            self.build_transition_table(
+                |idx, _| format!(
+                    "{{{}}}",
+                    self.states
+                        .borrow()
+                        .get(idx)
+                        .unwrap()
+                        .iter()
+                        .map(|q| q.to_string())
+                        .join(", ")
+                ),
+                |edge| edge.target().to_string()
+            )
         )
     }
 }

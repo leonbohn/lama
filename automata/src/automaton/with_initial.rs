@@ -34,21 +34,15 @@ impl<Ts: TransitionSystem> Pointed for Initialized<Ts> {
 impl<Ts> std::fmt::Debug for Initialized<Ts>
 where
     Ts: Deterministic + Debug,
-    Ts::StateColor: Show,
-    Ts::EdgeColor: Show,
+    Ts::StateColor: Debug,
+    Ts::EdgeColor: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(
             f,
-            "Initial state {} with table\n{}",
+            "Initialized to state {} with table\n{:?}",
             self.initial(),
-            self.build_transition_table(|index, color| {
-                if index == self.initial() {
-                    format!("{} : {}", index.to_string().bold(), color.show())
-                } else {
-                    format!("{} : {}", index, color.show())
-                }
-            })
+            self.ts()
         )
     }
 }
@@ -62,8 +56,8 @@ impl<Ts: TransitionSystem> From<(Ts, Ts::StateIndex)> for Initialized<Ts> {
 impl<A, C, Q> Initialized<DTS<A, Q, C>>
 where
     A: Alphabet,
-    C: Color,
-    Q: Color,
+    C: Clone,
+    Q: Clone,
 {
     /// Takes an alphabet and a color and constructs an [`Initialized`] instance with the given alphabet, no
     /// transitions and a single initial state with the given color.

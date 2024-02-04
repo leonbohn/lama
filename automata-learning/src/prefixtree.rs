@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use automata::{
     ts::Sproutable, word::OmegaWord, Alphabet, HasLength, InfiniteLength, Map, Pointed,
-    RightCongruence, Set,
+    RightCongruence, Set, Void,
 };
 use itertools::Itertools;
 use tracing::trace;
@@ -27,18 +27,18 @@ pub fn prefix_tree<A: Alphabet, W: Into<Reduced<A::Symbol>>, I: IntoIterator<Ite
             access.push(*symbol);
             trace!("adding state {:?}", access);
             let next = tree.add_state(access.clone());
-            tree.add_edge(current, A::expression(*symbol), next, ());
+            tree.add_edge(current, A::expression(*symbol), next, Void);
             current = next;
         }
         tree.add_edge(
             current,
             A::expression(loop_segment[loop_segment.len() - 1]),
             state,
-            (),
+            Void,
         );
     }
     let mut tree = RightCongruence::new(alphabet.clone());
-    let root = tree.add_state((vec![], ()));
+    let root = tree.add_state((vec![], Void));
 
     let mut queue = VecDeque::from_iter([(root, vec![], words.to_vec())]);
 
@@ -69,7 +69,7 @@ pub fn prefix_tree<A: Alphabet, W: Into<Reduced<A::Symbol>>, I: IntoIterator<Ite
                         .collect_vec();
                     trace!("Adding state {:?}", new_access);
                     let successor = tree.add_state(new_access.clone());
-                    tree.add_edge(state, A::expression(sym), successor, ());
+                    tree.add_edge(state, A::expression(sym), successor, Void);
                     queue.push_back((successor, new_access, new_words.into_iter().collect()));
                 }
             }
@@ -86,7 +86,7 @@ mod tests {
         ts::{Deterministic, Dottable, Sproutable},
         upw,
         word::Periodic,
-        TransitionSystem,
+        TransitionSystem, Void,
     };
 
     use super::prefix_tree;
@@ -98,7 +98,7 @@ mod tests {
         let pta = prefix_tree(alphabet, words);
         let completed = pta
             .erase_state_colors()
-            .collect_complete_with_initial((), ());
+            .collect_complete_with_initial(Void, Void);
         let lead_to_sink = ["ba", "bbbbbbbbba", "ababababbbabaababa", "aaaaaaaaaaaaab"];
         for w in &lead_to_sink {
             for v in &lead_to_sink {

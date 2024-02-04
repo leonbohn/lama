@@ -116,7 +116,7 @@ where
     }
 }
 
-pub type DFA<A, Idx = usize, Q = bool, E = ()> =
+pub type DFA<A, Idx = usize, Q = bool, E = Void> =
     Automaton<IndexTS<A, Idx, Q, E>, ReachabilityCondition>;
 
 impl<Ts> Acceptor<Ts::Alphabet, InfiniteLength> for Automaton<Ts, BuchiCondition>
@@ -136,7 +136,7 @@ where
     }
 }
 
-pub type DBA<A, Idx = usize, Q = (), E = bool> = Automaton<IndexTS<A, Idx, Q, E>, BuchiCondition>;
+pub type DBA<A, Idx = usize, Q = Void, E = bool> = Automaton<IndexTS<A, Idx, Q, E>, BuchiCondition>;
 
 impl<Ts> Acceptor<Ts::Alphabet, InfiniteLength> for Automaton<Ts, ParityCondition>
 where
@@ -159,4 +159,4 @@ where
     }
 }
 
-pub type DPA<A, Idx = usize, Q = (), E = u8> = Automaton<IndexTS<A, Idx, Q, E>, ParityCondition>;
+pub type DPA<A, Idx = usize, Q = Void, E = u8> = Automaton<IndexTS<A, Idx, Q, E>, ParityCondition>;

@@ -1,10 +1,13 @@
 use std::collections::BTreeSet;
 
-use crate::ts::{
-    finite::{InfinityColors, ReachedColor, ReachedState, SeenColors, TransitionColorSequence},
-    infinite::InfinityStateColors,
-    path::PathIn,
-    CanInduce, Deterministic, Path,
+use crate::{
+    ts::{
+        finite::{InfinityColors, ReachedColor, ReachedState, SeenColors, TransitionColorSequence},
+        infinite::InfinityStateColors,
+        path::PathIn,
+        CanInduce, Deterministic, EdgeColor, Path,
+    },
+    Color,
 };
 
 use crate::ts::TransitionSystem;
@@ -35,7 +38,7 @@ impl<R, Ts: Deterministic> Successful<R, Ts> {
 impl<R, Ts> CanInduce<SeenColors<Ts::StateColor>> for Successful<R, Ts>
 where
     Ts: Deterministic,
-    Ts::StateColor: Clone,
+    Ts::StateColor: Color,
 {
     fn induce(&self) -> SeenColors<Ts::StateColor> {
         SeenColors(self.path.state_colors().cloned().collect())
@@ -45,7 +48,7 @@ where
 impl<R, Ts> CanInduce<InfinityColors<Ts::EdgeColor>> for Successful<R, Ts>
 where
     Ts: Deterministic,
-    Ts::StateColor: Clone,
+    EdgeColor<Ts>: Color,
 {
     fn induce(&self) -> InfinityColors<Ts::EdgeColor> {
         InfinityColors(self.path.edge_colors().cloned().collect())
@@ -55,7 +58,7 @@ where
 impl<R, Ts> CanInduce<InfinityStateColors<Ts::StateColor>> for Successful<R, Ts>
 where
     Ts: Deterministic,
-    Ts::StateColor: Clone,
+    Ts::StateColor: Color,
 {
     fn induce(&self) -> InfinityStateColors<Ts::StateColor> {
         let state_colors: BTreeSet<_> = self
@@ -72,7 +75,7 @@ where
 impl<R, Ts> CanInduce<ReachedColor<Ts::StateColor>> for Successful<R, Ts>
 where
     Ts: Deterministic,
-    Ts::StateColor: Clone,
+    Ts::StateColor: Color,
 {
     fn induce(&self) -> ReachedColor<Ts::StateColor> {
         ReachedColor(self.path.reached_state_color())
@@ -85,7 +88,10 @@ impl<R, Ts: Deterministic> CanInduce<ReachedState<Ts::StateIndex>> for Successfu
     }
 }
 
-impl<R, Ts: Deterministic> CanInduce<TransitionColorSequence<Ts::EdgeColor>> for Successful<R, Ts> {
+impl<R, Ts: Deterministic> CanInduce<TransitionColorSequence<Ts::EdgeColor>> for Successful<R, Ts>
+where
+    EdgeColor<Ts>: Color,
+{
     fn induce(&self) -> TransitionColorSequence<Ts::EdgeColor> {
         TransitionColorSequence(self.path.edge_colors().cloned().collect())
     }
