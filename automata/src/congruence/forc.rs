@@ -65,7 +65,7 @@ impl<A: Alphabet, Q: Clone, C: Clone> FORC<A, Q, C> {
     }
 }
 
-impl<A: Alphabet, Q: Clone + Show, C: Clone + Show> std::fmt::Debug for FORC<A, Q, C> {
+impl<A: Alphabet, Q: Clone + Debug, C: Clone + Debug> std::fmt::Debug for FORC<A, Q, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // write!(f, "{}\n{:?}", "LEADING".bold(), self.leading())?;
         // for (c, rc) in self.prc_iter() {

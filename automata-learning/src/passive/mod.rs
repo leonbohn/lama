@@ -97,14 +97,14 @@ pub fn infer_precise_dpa<A: Alphabet>(
 }
 
 /// Similar to [`dba_rpni`], but produces a DPA instead.
-pub fn dpa_rpni(sample: &OmegaSample<Simple, bool>) -> DPA<Simple, (), MealyMachine> {
+pub fn dpa_rpni(sample: &OmegaSample<Simple, bool>) -> DPA<Simple, Void, MealyMachine> {
     let precise = infer_precise_dpa(sample);
     let pta = sample.prefix_tree().erase_state_colors();
 
     let prod = pta
         .ts_product(precise)
         .map_edge_colors(|(_, c)| c)
-        .map_state_colors(|(_, _)| ());
+        .erase_state_colors();
     let completed = prod.trim_collect();
 
     //now we use the completed thing to learn a MealyMachine from which we can then build the DPA

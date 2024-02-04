@@ -299,7 +299,7 @@ where
     C: ConsistencyCheck<A>,
 {
     let mut cong = RightCongruence::new(conflicts.alphabet().clone());
-    let initial = cong.add_state((vec![], ()));
+    let initial = cong.add_state((vec![], Void));
     let threshold = conflicts.threshold();
 
     // We maintain a set of missing transitions and go through them in order of creation for the states and in order
@@ -325,7 +325,7 @@ where
             if !allow_transitions_into_epsilon && target == initial {
                 continue;
             }
-            let old_edge = cong.add_edge(source, A::expression(sym), target, ());
+            let old_edge = cong.add_edge(source, A::expression(sym), target, Void);
 
             if conflicts.consistent(&cong)
                 && additional_constraints.iter().all(|c| c.consistent(&cong))
@@ -375,7 +375,7 @@ where
         if new_state > threshold {
             panic!("TOO MANY STATES")
         }
-        cong.add_edge(source, A::expression(sym), new_state, ());
+        cong.add_edge(source, A::expression(sym), new_state, Void);
         queue.extend(std::iter::repeat(new_state).zip(conflicts.alphabet().universe()))
     }
 

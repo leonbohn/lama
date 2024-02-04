@@ -161,22 +161,25 @@ impl<Ts: TransitionSystem> TransitionSystem for SubsetConstruction<Ts> {
 
 impl<Ts: TransitionSystem> Debug for SubsetConstruction<Ts>
 where
-    EdgeColor<Ts>: Show,
+    EdgeColor<Ts>: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "Subset construction\n{}",
-            self.build_transition_table(|idx, _| format!(
-                "{{{}}}",
-                self.states
-                    .borrow()
-                    .get(idx)
-                    .unwrap()
-                    .iter()
-                    .map(|q| q.to_string())
-                    .join(", ")
-            ))
+            self.build_transition_table(
+                |idx, _| format!(
+                    "{{{}}}",
+                    self.states
+                        .borrow()
+                        .get(idx)
+                        .unwrap()
+                        .iter()
+                        .map(|q| q.to_string())
+                        .join(", ")
+                ),
+                |edge| edge.target().to_string()
+            )
         )
     }
 }

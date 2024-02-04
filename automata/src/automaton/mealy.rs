@@ -218,15 +218,17 @@ where
 
 impl<Ts: Deterministic> std::fmt::Debug for MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts>
 where
-    EdgeColor<Ts>: Show,
-    StateColor<Ts>: Show,
+    EdgeColor<Ts>: Debug,
+    StateColor<Ts>: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
-            self.ts
-                .build_transition_table(|q, c| format!("({}|{})", q.show(), c.show()))
+            self.ts.build_transition_table(
+                |q, c| format!("({:?}|{:?})", q, c),
+                |edge| format!("{:?}->{}", edge.color(), edge.target())
+            )
         )
     }
 }

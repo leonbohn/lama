@@ -1,8 +1,13 @@
-use std::hash::Hash;
+use std::{fmt::Debug, hash::Hash};
 
 use itertools::Itertools;
 
-use crate::{alphabet::Alphabet, prelude::Initialized, ts::Deterministic, Color, Map, Set, Show};
+use crate::{
+    alphabet::Alphabet,
+    prelude::Initialized,
+    ts::{transition_system::IsEdge, Deterministic},
+    Color, Map, Set, Show,
+};
 
 use super::{
     EdgeColor, ExpressionOf, HasColor, HasColorMut, HasMutableStates, HasStates, IndexType,
@@ -120,15 +125,18 @@ pub type IntoInitialBTS<Ts> = Initialized<
 impl<A, C, Q, Idx> std::fmt::Debug for BTS<A, Q, C, Idx>
 where
     A: Alphabet,
-    C: Color + Show,
-    Q: Color + Show,
+    C: Debug + Clone + Hash + Eq,
+    Q: Debug + Clone + Hash + Eq,
     Idx: IndexType,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(
             f,
             "{}",
-            self.build_transition_table(|idx, c| format!("{} : {}", idx, c.show()))
+            self.build_transition_table(
+                |idx, c| format!("{} : {:?}", idx, c),
+                |edge| format!("{:?}->{}", edge.color(), edge.target())
+            )
         )
     }
 }

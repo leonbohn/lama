@@ -447,10 +447,14 @@ pub trait Deterministic: TransitionSystem {
     }
 
     /// Returns a string representation of the transition table of the transition system.
-    fn build_transition_table<SD>(&self, state_decorator: SD) -> String
+    fn build_transition_table<'a, SD, ED>(
+        &'a self,
+        state_decorator: SD,
+        edge_decorator: ED,
+    ) -> String
     where
         SD: Fn(Self::StateIndex, StateColor<Self>) -> String,
-        (Self::StateIndex, EdgeColor<Self>): Show,
+        ED: Fn(Self::EdgeRef<'a>) -> String,
     {
         let mut builder = tabled::builder::Builder::default();
         builder.push_record(
@@ -468,7 +472,7 @@ pub trait Deterministic: TransitionSystem {
             )];
             for sym in self.alphabet().universe() {
                 if let Some(edge) = self.transition(id, sym) {
-                    row.push((edge.target(), edge.color()).show());
+                    row.push(edge_decorator(edge));
                 } else {
                     row.push("-".to_string());
                 }

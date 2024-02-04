@@ -2,7 +2,7 @@ use std::{collections::BTreeSet, fmt::Debug};
 
 use itertools::Itertools;
 
-use crate::{ts::transition_system::IsEdge, Color, Set, TransitionSystem};
+use crate::{ts::transition_system::IsEdge, Color, Set, TransitionSystem, Void};
 
 use super::Index;
 
@@ -10,7 +10,7 @@ use super::Index;
 /// colored with some type `C`. The edges are represented as a vector of pairs
 /// of indices.
 #[derive(Clone)]
-pub struct Dag<C = ()> {
+pub struct Dag<C = Void> {
     nodes: Vec<C>,
     edges: Vec<(usize, usize)>,
 }

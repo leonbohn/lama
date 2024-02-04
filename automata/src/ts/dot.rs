@@ -263,10 +263,9 @@ impl<A: Alphabet, Q: Clone, C: Clone> Dottable for crate::RightCongruence<A, Q, 
     where
         (&'a ExpressionOf<Self>, EdgeColor<Self>): Show,
     {
-        [DotTransitionAttribute::Label(format!(
-            "{}",
-            (t.expression(), t.color()).show()
-        ))]
+        [DotTransitionAttribute::Label(
+            (t.expression(), t.color()).show(),
+        )]
         .into_iter()
     }
 
@@ -277,10 +276,9 @@ impl<A: Alphabet, Q: Clone, C: Clone> Dottable for crate::RightCongruence<A, Q, 
     where
         (String, StateColor<Self>): Show,
     {
-        vec![DotStateAttribute::Label(format!(
-            "{}",
-            (self.dot_state_ident(idx), self.state_color(idx).unwrap()).show()
-        ))]
+        vec![DotStateAttribute::Label(
+            (self.dot_state_ident(idx), self.state_color(idx).unwrap()).show(),
+        )]
     }
 }
 
@@ -317,10 +315,7 @@ where
     where
         (&'a ExpressionOf<Self>, EdgeColor<Self>): Show,
     {
-        vec![DotTransitionAttribute::Label(format!(
-            "{}",
-            t.expression().show(),
-        ))]
+        vec![DotTransitionAttribute::Label(t.expression().show())]
     }
 
     fn dot_state_ident(&self, idx: Self::StateIndex) -> String {

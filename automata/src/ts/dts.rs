@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use crate::{prelude::*, Void};
 
 use super::nts::{NTEdge, NTSEdgesFromIter, NTSEdgesTo};
@@ -177,12 +179,15 @@ impl<A: Alphabet, Q: Clone, C: Clone> DTS<A, Q, C> {
     }
 }
 
-impl<A: Alphabet, Q: Clone + Show, C: Clone + Show> std::fmt::Debug for DTS<A, Q, C> {
+impl<A: Alphabet, Q: Clone + Debug, C: Clone + Debug> std::fmt::Debug for DTS<A, Q, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
-            self.build_transition_table(|q, c| format!("{}|{}", q.show(), c.show()))
+            self.build_transition_table(
+                |q, c| format!("{q}|{c:?}"),
+                |edge| format!("{:?}->{}", edge.color(), edge.target())
+            )
         )
     }
 }

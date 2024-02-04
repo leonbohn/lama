@@ -5,6 +5,7 @@ use itertools::{Itertools, MapInto};
 use crate::{
     alphabet::{Simple, Symbol},
     prelude::DFALike,
+    prelude::IsEdge,
     ts::{transition_system::Indexes, Deterministic, Sproutable, DTS},
     word::FiniteWord,
     Alphabet, Color, FiniteLength, HasLength, Map, Pointed, Show, TransitionSystem, Void, DFA,
@@ -59,13 +60,15 @@ impl<S: Symbol + Show> Show for ColoredClass<S, Void> {
     }
 }
 
-impl<A: Alphabet, Q: Clone + Show, C: Clone + Show> Debug for RightCongruence<A, Q, C> {
+impl<A: Alphabet, Q: Clone + Debug, C: Clone + Debug> Debug for RightCongruence<A, Q, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
-            self.ts
-                .build_transition_table(|q, c| format!("{}|{}", q.show(), c.show()))
+            self.ts.build_transition_table(
+                |q, c| format!("{}|{:?}", q.show(), c),
+                |edge| edge.target().show()
+            )
         )
     }
 }

@@ -172,7 +172,7 @@ impl<S: Ord> PartialOrd for Class<S> {
 
 /// A colored class is a [`Class`] which additionally has an associated color.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct ColoredClass<S: Symbol, Q = ()> {
+pub struct ColoredClass<S: Symbol, Q = Void> {
     pub(crate) class: Class<S>,
     pub(crate) color: Q,
 }
