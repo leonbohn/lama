@@ -66,15 +66,15 @@ pub trait Sproutable: TransitionSystem {
     ///
     /// # Example
     /// ```
-    /// use crate::prelude::*;
+    /// use automata::prelude::*;
     ///
     /// let source = TSBuilder::default()
     ///     .with_transitions([(0, 'a', 0, 0), (0, 'b', 0, 0)])
     ///     .with_colors([0])
     ///     .deterministic();
     ///
-    /// let without_edge_colors: DTS<Simple, usize, Void> = DTS::collect_from(&source);
-    /// let without_state_colors: DTS<Simple, Void, usize> = DTS::collect_from(&source);
+    /// let (without_edge_colors, _): DTS<Simple, usize, Void> = DTS::collect_from(&source);
+    /// let (without_state_colors, _): DTS<Simple, Void, usize> = DTS::collect_from(&source);
     /// ```
     fn collect_from<Ts>(ts: Ts) -> (Self, Bijection<Ts::StateIndex, Self::StateIndex>)
     where
