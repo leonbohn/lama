@@ -73,8 +73,8 @@ pub trait Sproutable: TransitionSystem {
     ///     .with_colors([0])
     ///     .deterministic();
     ///
-    /// let (without_edge_colors, _): DTS<Simple, usize, Void> = DTS::collect_from(&source);
-    /// let (without_state_colors, _): DTS<Simple, Void, usize> = DTS::collect_from(&source);
+    /// let (without_edge_colors, _): (DTS<Simple, usize, Void>, _) = DTS::collect_from(&source);
+    /// let (without_state_colors, _): (DTS<Simple, Void, usize>, _) = DTS::collect_from(&source);
     /// ```
     fn collect_from<Ts>(ts: Ts) -> (Self, Bijection<Ts::StateIndex, Self::StateIndex>)
     where

@@ -9,7 +9,7 @@
 //!
 //! The crate defines some basic building blocks of TS which can easily be manipulated (see `Sproutable`), these are
 //! - [`ts::NTS`]/[`ts::DTS`] (the latter is just a thin wrapper around the former). These store edges in a vector, a state contains a pointer to the first edge in this collection and each edge contains pointers to the previous/next one.
-//! - [`ts::BTS`] which stores transitions in an efficient HashMap
+//! - [`ts::HashTs`] which stores transitions in an efficient HashMap
 //!
 //! Further traits that are of importance are
 //! - [`Pointed`] which picks one designated initial state, this is important for deterministic automata

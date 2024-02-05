@@ -3,6 +3,7 @@ use tracing::trace;
 
 use itertools::Itertools;
 
+use crate::Bijection;
 use crate::Map;
 use crate::Set;
 use crate::TransitionSystem;
@@ -134,10 +135,13 @@ pub trait Deterministic: TransitionSystem {
         state: Self::StateIndex,
         expression: &ExpressionOf<Self>,
     ) -> Option<EdgeColor<Self>> {
-        // TODO: this is horrible!
         let mut symbols = expression.symbols();
         let sym = symbols.next().unwrap();
-        assert_eq!(symbols.next(), None);
+        assert_eq!(
+            symbols.next(),
+            None,
+            "There are multiple symbols for this expression"
+        );
         Some(self.transition(state, sym)?.color().clone())
     }
 
@@ -602,37 +606,18 @@ pub trait Deterministic: TransitionSystem {
     }
 
     /// Variant of [`Self::collect()`] which also considers the initial state.
-    fn collect_pointed<Ts>(&self) -> Ts
+    fn collect_pointed<Ts>(&self) -> Initialized<Ts>
     where
         Self: Pointed,
-        Ts: TransitionSystem<
-                StateColor = Self::StateColor,
-                EdgeColor = Self::EdgeColor,
-                Alphabet = Self::Alphabet,
-            > + super::Sproutable
-            + Pointed,
+        Ts: Sproutable<Alphabet = Self::Alphabet>,
+        EdgeColor<Self>: Into<EdgeColor<Ts>>,
+        StateColor<Self>: Into<StateColor<Ts>>,
     {
-        let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
-        assert_eq!(ts.size(), 0);
-        ts.add_state(self.initial_color());
-
-        let (l, r) = self.state_indices().filter(|o| o != &self.initial()).tee();
-        let map: Map<Self::StateIndex, Ts::StateIndex> = l
-            .zip(ts.extend_states(r.map(|q| self.state_color(q).unwrap())))
-            .chain(std::iter::once((self.initial(), ts.initial())))
-            .collect();
-        for index in self.state_indices() {
-            let q = *map.get(&index).unwrap();
-            self.edges_from(index).unwrap().for_each(|tt| {
-                ts.add_edge(
-                    q,
-                    tt.expression().clone(),
-                    *map.get(&tt.target()).unwrap(),
-                    tt.color().clone(),
-                );
-            });
-        }
-        ts
+        let (ts, map) = self.collect::<Ts>();
+        ts.with_initial(
+            *map.get_by_left(&self.initial())
+                .expect("Initial state did not get collected"),
+        )
     }
 
     /// Returns true if `self` is accessible, meaning every state is reachable from the initial state.
@@ -685,37 +670,13 @@ pub trait Deterministic: TransitionSystem {
 
     /// Collects `self` into a new transition system of type `Ts` with the same alphabet, state indices
     /// and edge colors. **This does not consider the initial state.**
-    #[deprecated(
-        since = "0.2.0",
-        note = "Use `trim_collect` or `collect_with_initial` instead"
-    )]
-    fn collect<
-        Ts: TransitionSystem<
-                StateColor = Self::StateColor,
-                EdgeColor = Self::EdgeColor,
-                Alphabet = Self::Alphabet,
-            > + super::Sproutable,
-    >(
-        &self,
-    ) -> Ts {
-        let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
-
-        let (l, r) = self.state_indices().tee();
-        let map: Map<_, _> = l
-            .zip(ts.extend_states(r.map(|q| self.state_color(q).unwrap())))
-            .collect();
-        for index in self.state_indices() {
-            let q = *map.get(&index).unwrap();
-            self.edges_from(index).unwrap().for_each(|tt| {
-                ts.add_edge(
-                    q,
-                    tt.expression().clone(),
-                    *map.get(&tt.target()).unwrap(),
-                    tt.color().clone(),
-                );
-            });
-        }
-        ts
+    fn collect<Ts>(&self) -> (Ts, Bijection<Self::StateIndex, Ts::StateIndex>)
+    where
+        Ts: Sproutable<Alphabet = Self::Alphabet>,
+        EdgeColor<Self>: Into<EdgeColor<Ts>>,
+        StateColor<Self>: Into<StateColor<Ts>>,
+    {
+        Sproutable::collect_from(self)
     }
 
     /// Collects `self` into a new transition system of type `Ts` with the same alphabet, state indices

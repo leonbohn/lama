@@ -44,7 +44,7 @@ pub type AsMooreMachine<Ts> = MooreMachine<
 >;
 
 impl<A: Alphabet, Q: Color, C: Color> MooreMachine<A, Q, C> {
-    /// Creates a new MooreMachine on a [`BTS`].
+    /// Creates a new MooreMachine on a [`DTS`].
     pub fn new(
         alphabet: A,
         initial_state_output: Q,

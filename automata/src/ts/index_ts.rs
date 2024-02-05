@@ -99,7 +99,8 @@ impl<A: Alphabet, Q: std::fmt::Display, C: Color, Idx: IndexType> std::fmt::Disp
 /// the states and edges in a vector, which allows for fast access and iteration. The states and edges
 /// are indexed by their position in the respective vector.
 #[derive(Clone, PartialEq, Eq)]
-pub struct HashTs<A: Alphabet, Q, C: Hash + Eq, Idx: IndexType = usize> {
+pub struct HashTs<A: Alphabet, Q = crate::Void, C: Hash + Eq = crate::Void, Idx: IndexType = usize>
+{
     pub(crate) alphabet: A,
     pub(crate) states: Map<Idx, HashTsState<A, Q, C, Idx>>,
 }
