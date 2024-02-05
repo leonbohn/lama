@@ -4,9 +4,8 @@ use itertools::{Itertools, MapInto};
 
 use crate::{
     alphabet::{Simple, Symbol},
-    prelude::DFALike,
-    prelude::IsEdge,
-    ts::{transition_system::Indexes, Deterministic, Sproutable, DTS},
+    prelude::{DFALike, IsEdge},
+    ts::{transition_system::Indexes, Deterministic, EdgeColor, Sproutable, DTS},
     word::FiniteWord,
     Alphabet, Color, FiniteLength, HasLength, Map, Pointed, Show, TransitionSystem, Void, DFA,
 };
@@ -191,21 +190,23 @@ impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for RightCongruence<A, Q, C> {
         from: X,
         on: <Self::Alphabet as Alphabet>::Expression,
         to: Y,
-        color: crate::ts::EdgeColor<Self>,
+        color: EdgeColor<Self>,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
-        X: Into<Self::StateIndex>,
-        Y: Into<Self::StateIndex>,
+        X: Indexes<Self>,
+        Y: Indexes<Self>,
     {
-        self.ts.add_edge(from, on, to, color)
+        let from = from.to_index(self)?;
+        let to = to.to_index(self)?;
+        self.ts_mut().add_edge(from, on, to, color)
     }
-
-    fn remove_edges(
-        &mut self,
-        from: Self::StateIndex,
-        on: <Self::Alphabet as Alphabet>::Expression,
-    ) -> bool {
-        self.ts.remove_edges(from, on)
+    fn remove_edges<X>(&mut self, from: X, on: <Self::Alphabet as Alphabet>::Expression) -> bool
+    where
+        X: Indexes<Self>,
+    {
+        from.to_index(self)
+            .map(|idx| self.ts_mut().remove_edges(idx, on))
+            .unwrap_or(false)
     }
 
     type ExtendStateIndexIter = std::ops::Range<usize>;

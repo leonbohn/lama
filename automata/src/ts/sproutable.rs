@@ -3,7 +3,10 @@ use itertools::Itertools;
 
 use crate::{prelude::Simple, Alphabet, Bijection, Pointed, TransitionSystem};
 
-use super::{transition_system::IsEdge, EdgeColor, StateColor};
+use super::{
+    transition_system::{Indexes, IsEdge},
+    EdgeColor, StateColor,
+};
 
 /// Marker trait for [`Alphabet`]s that can be indexed, i.e. where we can associate each
 /// [`Alphabet::Symbol`] and [`Alphabet::Expression`] with a unique index (a `usize`).
@@ -184,14 +187,14 @@ pub trait Sproutable: TransitionSystem {
         color: EdgeColor<Self>,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
-        X: Into<Self::StateIndex>,
-        Y: Into<Self::StateIndex>;
+        X: Indexes<Self>,
+        Y: Indexes<Self>;
 
     /// Removes the transition from the state `from` to the state `to` on the given expression.
     /// Returns `true` if the transition existed and was removed, `false` otherwise.
-    fn remove_edges(
+    fn remove_edges<X: Indexes<Self>>(
         &mut self,
-        from: Self::StateIndex,
+        from: X,
         on: <Self::Alphabet as Alphabet>::Expression,
     ) -> bool;
 

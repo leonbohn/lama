@@ -10,8 +10,8 @@ use crate::{
 };
 
 use super::{
-    EdgeColor, ExpressionOf, HasColor, HasColorMut, IndexType, Sproutable, StateColor, SymbolOf,
-    TransitionSystem,
+    transition_system::Indexes, EdgeColor, ExpressionOf, HasColor, HasColorMut, IndexType,
+    Sproutable, StateColor, SymbolOf, TransitionSystem,
 };
 
 /// A state in a transition system. This stores the color of the state and the index of the
@@ -304,11 +304,11 @@ impl<A: Alphabet, Q: Clone, C: Clone + Hash + Eq> Sproutable for HashTs<A, Q, C,
         color: EdgeColor<Self>,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
-        X: Into<usize>,
-        Y: Into<usize>,
+        X: Indexes<Self>,
+        Y: Indexes<Self>,
     {
-        let source = from.into();
-        let target = to.into();
+        let source = from.to_index(self)?;
+        let target = to.to_index(self)?;
         assert!(
             self.contains_state(source) && self.contains_state(target),
             "Source {} or target {} vertex does not exist in the graph.",
@@ -338,11 +338,14 @@ impl<A: Alphabet, Q: Clone, C: Clone + Hash + Eq> Sproutable for HashTs<A, Q, C,
         }
     }
 
-    fn remove_edges(
+    fn remove_edges<X: Indexes<Self>>(
         &mut self,
-        from: Self::StateIndex,
+        from: X,
         on: <Self::Alphabet as Alphabet>::Expression,
     ) -> bool {
+        let Some(from) = from.to_index(self) else {
+            return false;
+        };
         let target = self.states.get_mut(&from).and_then(|o| o.remove_edge(&on));
         if let Some((target, color)) = target {
             let removed = self
