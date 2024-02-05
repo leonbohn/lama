@@ -156,11 +156,11 @@ impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for NTS<A, Q, C> {
         color: EdgeColor<Self>,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
-        X: Into<Self::StateIndex>,
-        Y: Into<Self::StateIndex>,
+        X: Indexes<Self>,
+        Y: Indexes<Self>,
     {
-        let source = from.into();
-        let target = to.into();
+        let source = from.to_index(self)?;
+        let target = to.to_index(self)?;
 
         let mut edge = NTEdge::new(source, on, color, target);
         let edge_id = self.edges.len();
@@ -178,11 +178,14 @@ impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for NTS<A, Q, C> {
         None
     }
 
-    fn remove_edges(
+    fn remove_edges<X: Indexes<Self>>(
         &mut self,
-        from: Self::StateIndex,
+        from: X,
         on: <Self::Alphabet as Alphabet>::Expression,
     ) -> bool {
+        let Some(from) = from.to_index(self) else {
+            return false;
+        };
         let mut b = false;
         while let Some(pos) = self.edge_position(from, &on) {
             self.remove_edge(from, pos);

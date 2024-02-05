@@ -100,18 +100,20 @@ impl<Ts: TransitionSystem + Sproutable> Sproutable for Initialized<Ts> {
         color: EdgeColor<Self>,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
-        X: Into<Self::StateIndex>,
-        Y: Into<Self::StateIndex>,
+        X: Indexes<Self>,
+        Y: Indexes<Self>,
     {
+        let from = from.to_index(self)?;
+        let to = to.to_index(self)?;
         self.ts_mut().add_edge(from, on, to, color)
     }
-
-    fn remove_edges(
-        &mut self,
-        from: Self::StateIndex,
-        on: <Self::Alphabet as Alphabet>::Expression,
-    ) -> bool {
-        self.ts_mut().remove_edges(from, on)
+    fn remove_edges<X>(&mut self, from: X, on: <Self::Alphabet as Alphabet>::Expression) -> bool
+    where
+        X: Indexes<Self>,
+    {
+        from.to_index(self)
+            .map(|idx| self.ts_mut().remove_edges(idx, on))
+            .unwrap_or(false)
     }
 
     fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {

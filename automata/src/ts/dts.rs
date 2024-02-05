@@ -107,22 +107,19 @@ impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for DTS<A, Q, C> {
         color: EdgeColor<Self>,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
-        X: Into<Self::StateIndex>,
-        Y: Into<Self::StateIndex>,
+        X: Indexes<Self>,
+        Y: Indexes<Self>,
     {
-        let source = from.into();
-        let target = to.into();
-        // on.for_each(|sym| assert!(self.transition(source, sym).is_none()));
-
-        self.0.add_edge(source, on, target, color)
+        self.0
+            .add_edge(from.to_index(self)?, on, to.to_index(self)?, color)
     }
-
-    fn remove_edges(
-        &mut self,
-        from: Self::StateIndex,
-        on: <Self::Alphabet as Alphabet>::Expression,
-    ) -> bool {
-        self.0.remove_edges(from, on)
+    fn remove_edges<X>(&mut self, from: X, on: <Self::Alphabet as Alphabet>::Expression) -> bool
+    where
+        X: Indexes<Self>,
+    {
+        from.to_index(self)
+            .map(|idx| self.0.remove_edges(idx, on))
+            .unwrap_or(false)
     }
 }
 

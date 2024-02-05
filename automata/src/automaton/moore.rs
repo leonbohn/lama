@@ -165,18 +165,20 @@ where
         color: EdgeColor<Self>,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
-        X: Into<Self::StateIndex>,
-        Y: Into<Self::StateIndex>,
+        X: Indexes<Self>,
+        Y: Indexes<Self>,
     {
+        let from = from.to_index(self)?;
+        let to = to.to_index(self)?;
         self.ts_mut().add_edge(from, on, to, color)
     }
-
-    fn remove_edges(
-        &mut self,
-        from: Self::StateIndex,
-        on: <Self::Alphabet as Alphabet>::Expression,
-    ) -> bool {
-        self.ts_mut().remove_edges(from, on)
+    fn remove_edges<X>(&mut self, from: X, on: <Self::Alphabet as Alphabet>::Expression) -> bool
+    where
+        X: Indexes<Self>,
+    {
+        from.to_index(self)
+            .map(|idx| self.ts_mut().remove_edges(idx, on))
+            .unwrap_or(false)
     }
 }
 
@@ -349,10 +351,24 @@ macro_rules! impl_moore_automaton {
                 color: EdgeColor<Self>,
             ) -> Option<(Self::StateIndex, Self::EdgeColor)>
             where
-                X: Into<Self::StateIndex>,
-                Y: Into<Self::StateIndex>,
+                X: Indexes<Self>,
+                Y: Indexes<Self>,
             {
+                let from = from.to_index(self)?;
+                let to = to.to_index(self)?;
                 self.ts_mut().add_edge(from, on, to, color)
+            }
+            fn remove_edges<X>(
+                &mut self,
+                from: X,
+                on: <Self::Alphabet as Alphabet>::Expression,
+            ) -> bool
+            where
+                X: Indexes<Self>
+            {
+                from.to_index(self)
+                    .map(|idx| self.ts_mut().remove_edges(idx, on))
+                    .unwrap_or(false)
             }
             fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
                 Self {
@@ -362,13 +378,6 @@ macro_rules! impl_moore_automaton {
             }
             fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
                 self.ts_mut().add_state(color)
-            }
-            fn remove_edges(
-                &mut self,
-                from: Self::StateIndex,
-                on: <Self::Alphabet as Alphabet>::Expression,
-            ) -> bool {
-                self.ts_mut().remove_edges(from, on)
             }
         }
         impl<Ts: TransitionSystem> TransitionSystem
