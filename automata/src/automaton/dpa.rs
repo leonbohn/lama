@@ -287,7 +287,7 @@ impl<D: DPALike> IntoDPA<D> {
     {
         let start = std::time::Instant::now();
 
-        let mut ts: Initialized<HashTs<_, D::StateColor, D::EdgeColor>> = self.collect_pointed();
+        let mut ts: Initialized<HashTs<_, D::StateColor, D::EdgeColor>> = self.collect_pointed().0;
         let out = ts.clone();
 
         let mut recoloring = Vec::new();

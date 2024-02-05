@@ -52,6 +52,7 @@ pub fn dfa_rpni<A: Alphabet>(sample: &FiniteSample<A, bool>) -> DFA<A> {
             accepting.contains(&idx)
         })
         .collect_pointed()
+        .0
         .into_dfa()
 }
 

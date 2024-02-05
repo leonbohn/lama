@@ -600,13 +600,13 @@ pub trait Deterministic: TransitionSystem {
         Self: Pointed,
         Self::Alphabet: IndexedAlphabet,
     {
-        let mut out: Initialized<DTS<_, _, _>> = self.collect_with_initial();
+        let mut out: Initialized<DTS<_, _, _>> = self.trim_collect();
         out.complete_with_colors(sink_color, edge_color);
         out
     }
 
     /// Variant of [`Self::collect()`] which also considers the initial state.
-    fn collect_pointed<Ts>(&self) -> Initialized<Ts>
+    fn collect_pointed<Ts>(&self) -> (Initialized<Ts>, Bijection<Self::StateIndex, Ts::StateIndex>)
     where
         Self: Pointed,
         Ts: Sproutable<Alphabet = Self::Alphabet>,
@@ -614,9 +614,12 @@ pub trait Deterministic: TransitionSystem {
         StateColor<Self>: Into<StateColor<Ts>>,
     {
         let (ts, map) = self.collect::<Ts>();
-        ts.with_initial(
-            *map.get_by_left(&self.initial())
-                .expect("Initial state did not get collected"),
+        (
+            ts.with_initial(
+                *map.get_by_left(&self.initial())
+                    .expect("Initial state did not get collected"),
+            ),
+            map,
         )
     }
 
@@ -636,36 +639,10 @@ pub trait Deterministic: TransitionSystem {
     where
         Self: Pointed,
     {
-        let mut ts = DTS::new_for_alphabet(self.alphabet().clone());
-        let mut map = Map::default();
-        let reachable = self.reachable_state_indices().collect_vec();
-        for idx in &reachable {
-            map.insert(
-                idx,
-                ts.add_state(self.state_color(*idx).expect("State must exist")),
-            );
-        }
-        for idx in &reachable {
-            for edge in self.edges_from(*idx).unwrap() {
-                ts.add_edge(
-                    *map.get(idx).unwrap(),
-                    edge.expression().clone(),
-                    *map.get(&edge.target()).unwrap(),
-                    edge.color().clone(),
-                );
-            }
-        }
-        ts.with_initial(*map.get(&self.initial()).unwrap())
-    }
-
-    /// Builds a new transition system from `self` while maintaining the initial state.
-    fn collect_with_initial(
-        self,
-    ) -> Initialized<DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>
-    where
-        Self: Pointed,
-    {
-        self.collect_pointed()
+        let reachable_indices = self.reachable_state_indices().collect::<Set<_>>();
+        let restricted = self.restrict_state_indices(|idx| reachable_indices.contains(&idx));
+        let (out, _map) = restricted.collect_pointed();
+        out
     }
 
     /// Collects `self` into a new transition system of type `Ts` with the same alphabet, state indices

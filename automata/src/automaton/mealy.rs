@@ -430,7 +430,7 @@ pub trait MealyLike: Congruence {
     }
 
     fn collect_mealy(self) -> AsMealyMachine<Self> {
-        let ts = self.erase_state_colors().collect_pointed();
+        let ts = self.erase_state_colors().collect_pointed().0;
         MealyMachine {
             ts,
             _q: PhantomData,

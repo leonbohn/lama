@@ -168,6 +168,7 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
                 info.expect("Every SCC must have a color")
             })
             .collect_pointed()
+            .0
             .into_moore()
     }
 
@@ -190,7 +191,8 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
                     Annotation::new(false, None)
                 }
             })
-            .collect_pointed::<DTS<_, Annotation, Void>>();
+            .collect_pointed::<DTS<_, Annotation, Void>>()
+            .0;
         let rc = RightCongruence::from_ts(cong);
         Self::new(rc)
     }
