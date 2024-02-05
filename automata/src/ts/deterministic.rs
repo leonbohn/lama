@@ -27,6 +27,9 @@ use super::sproutable::{IndexedAlphabet, Sproutable};
 use super::IntoHashTs;
 use super::Path;
 
+pub type FiniteRunResult<A, Idx, Q, C> = Result<Path<A, Idx, Q, C>, Path<A, Idx, Q, C>>;
+pub type OmegaRunResult<A, Idx, Q, C> = Result<Lasso<A, Idx, Q, C>, Path<A, Idx, Q, C>>;
+
 /// A marker tait indicating that a [`TransitionSystem`] is deterministic, meaning for every state and
 /// each possible input symbol from the alphabet, there is at most one transition. Under the hood, this
 /// trait simply calls [`TransitionSystem::edges_from`] and checks whether there is at most one edge
@@ -183,7 +186,7 @@ pub trait Deterministic: TransitionSystem {
     fn finite_run<W: FiniteWord<SymbolOf<Self>>>(
         &self,
         word: W,
-    ) -> Result<PathIn<Self>, PathIn<Self>>
+    ) -> FiniteRunResult<Self::Alphabet, Self::StateIndex, Self::StateColor, Self::EdgeColor>
     where
         Self: Pointed,
     {
@@ -196,7 +199,11 @@ pub trait Deterministic: TransitionSystem {
     /// - [`Err`] if the run is unsuccessful, meaning a symbol is encountered for which no
     /// transition exists.
     #[allow(clippy::type_complexity)]
-    fn finite_run_from<W, Idx>(&self, word: W, origin: Idx) -> Result<PathIn<Self>, PathIn<Self>>
+    fn finite_run_from<W, Idx>(
+        &self,
+        word: W,
+        origin: Idx,
+    ) -> FiniteRunResult<Self::Alphabet, Self::StateIndex, Self::StateColor, Self::EdgeColor>
     where
         Self: Sized,
         W: FiniteWord<SymbolOf<Self>>,
@@ -413,7 +420,10 @@ pub trait Deterministic: TransitionSystem {
     }
     /// Runs the given `word` on the transition system, starting in the initial state.
     #[allow(clippy::type_complexity)]
-    fn omega_run<W>(&self, word: W) -> Result<LassoIn<Self>, PathIn<Self>>
+    fn omega_run<W>(
+        &self,
+        word: W,
+    ) -> OmegaRunResult<Self::Alphabet, Self::StateIndex, Self::StateColor, Self::EdgeColor>
     where
         W: OmegaWord<SymbolOf<Self>>,
         Self: Pointed,
@@ -423,7 +433,11 @@ pub trait Deterministic: TransitionSystem {
 
     /// Runs the given `word` on the transition system, starting from `state`.
     #[allow(clippy::type_complexity)]
-    fn omega_run_from<W, Idx>(&self, word: W, origin: Idx) -> Result<LassoIn<Self>, PathIn<Self>>
+    fn omega_run_from<W, Idx>(
+        &self,
+        word: W,
+        origin: Idx,
+    ) -> OmegaRunResult<Self::Alphabet, Self::StateIndex, Self::StateColor, Self::EdgeColor>
     where
         Idx: Indexes<Self>,
         W: OmegaWord<SymbolOf<Self>>,
