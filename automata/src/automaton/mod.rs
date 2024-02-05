@@ -16,8 +16,8 @@ use crate::{
         finite::{InfinityColors, ReachedColor},
         operations::{MapStateColor, MatchingProduct, Product, ProductIndex, ProductTransition},
         transition_system::IsEdge,
-        EdgeColor, HasMutableStates, HasStates, IndexType, Pointed, Quotient, Sproutable,
-        StateColor, SymbolOf, TransitionSystem, BTS,
+        EdgeColor, HashTs, IndexType, Pointed, Quotient, Sproutable, StateColor, SymbolOf,
+        TransitionSystem,
     },
     word::{OmegaWord, Reduced},
     Color, FiniteLength, InfiniteLength, Length,
@@ -295,7 +295,7 @@ mod tests {
             NoColor,
         },
         prelude::*,
-        ts::BTS,
+        ts::HashTs,
     };
 
     #[test]

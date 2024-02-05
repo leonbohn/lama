@@ -3,6 +3,7 @@ use tracing::trace;
 
 use itertools::Itertools;
 
+use crate::Bijection;
 use crate::Map;
 use crate::Set;
 use crate::TransitionSystem;
@@ -23,12 +24,19 @@ use super::path::LassoIn;
 use super::path::PathIn;
 use super::reachable::MinimalRepresentative;
 use super::sproutable::{IndexedAlphabet, Sproutable};
+use super::IntoHashTs;
 use super::Path;
 
 /// A marker tait indicating that a [`TransitionSystem`] is deterministic, meaning for every state and
 /// each possible input symbol from the alphabet, there is at most one transition. Under the hood, this
 /// trait simply calls [`TransitionSystem::edges_from`] and checks whether there is at most one edge
 /// for each symbol. If there is more than one edge, the methods of this trait panic.
+///
+/// # Implementaiton
+/// This trait contains mostly convenience functions and provides default implementations. To ensure
+/// performance, the [`Self::collect_dts`] function and any other collectors for different types of
+/// transition system implementations should be overridden. By default, they simply insert states
+/// and edges one by one and are therefore horribly inefficient.
 pub trait Deterministic: TransitionSystem {
     /// For a given `state`, returns the unique edge that matches the given `symbol`. Panics if multiple
     /// edges match the symbol. If the state does not exist or no edge matches the symbol, `None` is returned.
@@ -127,10 +135,13 @@ pub trait Deterministic: TransitionSystem {
         state: Self::StateIndex,
         expression: &ExpressionOf<Self>,
     ) -> Option<EdgeColor<Self>> {
-        // TODO: this is horrible!
         let mut symbols = expression.symbols();
         let sym = symbols.next().unwrap();
-        assert_eq!(symbols.next(), None);
+        assert_eq!(
+            symbols.next(),
+            None,
+            "There are multiple symbols for this expression"
+        );
         Some(self.transition(state, sym)?.color().clone())
     }
 
@@ -551,32 +562,29 @@ pub trait Deterministic: TransitionSystem {
         RightCongruence::from_ts(self)
     }
 
-    /// Collects `self` into a new [`BTS`] with the same alphabet, state colors and edge colors.
-    fn collect_ts(&self) -> DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor> {
+    /// Collects `self` into a new [`DTS`] over the same alphabet. This is used, for example, after a chain of
+    /// manipulations on a transition system, to obtain a condensed version that is then faster to work with.
+    ///
+    /// By default, the implementation is naive and slow, it simply inserts all states one after the other and
+    /// subsequently inserts all transitions, see [`Sproutable::collect_from`] for details.
+    fn collect_dts(self) -> DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor> {
         use crate::ts::Sproutable;
-        let mut ts = DTS::new_for_alphabet(self.alphabet().clone());
-        let mut map = std::collections::HashMap::new();
-        for index in self.state_indices() {
-            map.insert(
-                index,
-                ts.add_state(
-                    self.state_color(index)
-                        .expect("We assume each state to be colored!"),
-                ),
-            );
-        }
-        for index in self.state_indices() {
-            for sym in self.alphabet().universe() {
-                if let Some(edge) = self.transition(index, sym) {
-                    ts.add_edge(
-                        *map.get(&index).unwrap(),
-                        <Self::Alphabet as Alphabet>::expression(sym),
-                        *map.get(&edge.target()).unwrap(),
-                        edge.color().clone(),
-                    );
-                }
-            }
-        }
+        let (ts, _map) = DTS::collect_from(self);
+        ts
+    }
+
+    /// Collects `self` into a new [`HashTs`] over the same alphabet. This is used, for example, after a chain of
+    /// manipulations on a transition system, to obtain a condensed version that is then faster to work with.
+    ///
+    /// By default, the implementation is naive and slow, it simply inserts all states one after the other and
+    /// subsequently inserts all transitions, see [`Sproutable::collect_from`] for details.
+    fn collect_hash_ts(self) -> IntoHashTs<Self>
+    where
+        EdgeColor<Self>: Hash + Eq,
+        StateColor<Self>: Hash + Eq,
+    {
+        use crate::ts::Sproutable;
+        let (ts, _map) = HashTs::collect_from(self);
         ts
     }
 
@@ -592,43 +600,27 @@ pub trait Deterministic: TransitionSystem {
         Self: Pointed,
         Self::Alphabet: IndexedAlphabet,
     {
-        let mut out: Initialized<DTS<_, _, _>> = self.collect_with_initial();
+        let mut out: Initialized<DTS<_, _, _>> = self.trim_collect();
         out.complete_with_colors(sink_color, edge_color);
         out
     }
 
     /// Variant of [`Self::collect()`] which also considers the initial state.
-    fn collect_pointed<Ts>(&self) -> Ts
+    fn collect_pointed<Ts>(&self) -> (Initialized<Ts>, Bijection<Self::StateIndex, Ts::StateIndex>)
     where
         Self: Pointed,
-        Ts: TransitionSystem<
-                StateColor = Self::StateColor,
-                EdgeColor = Self::EdgeColor,
-                Alphabet = Self::Alphabet,
-            > + super::Sproutable
-            + Pointed,
+        Ts: Sproutable<Alphabet = Self::Alphabet>,
+        EdgeColor<Self>: Into<EdgeColor<Ts>>,
+        StateColor<Self>: Into<StateColor<Ts>>,
     {
-        let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
-        assert_eq!(ts.size(), 0);
-        ts.add_state(self.initial_color());
-
-        let (l, r) = self.state_indices().filter(|o| o != &self.initial()).tee();
-        let map: Map<Self::StateIndex, Ts::StateIndex> = l
-            .zip(ts.extend_states(r.map(|q| self.state_color(q).unwrap())))
-            .chain(std::iter::once((self.initial(), ts.initial())))
-            .collect();
-        for index in self.state_indices() {
-            let q = *map.get(&index).unwrap();
-            self.edges_from(index).unwrap().for_each(|tt| {
-                ts.add_edge(
-                    q,
-                    tt.expression().clone(),
-                    *map.get(&tt.target()).unwrap(),
-                    tt.color().clone(),
-                );
-            });
-        }
-        ts
+        let (ts, map) = self.collect::<Ts>();
+        (
+            ts.with_initial(
+                *map.get_by_left(&self.initial())
+                    .expect("Initial state did not get collected"),
+            ),
+            map,
+        )
     }
 
     /// Returns true if `self` is accessible, meaning every state is reachable from the initial state.
@@ -647,71 +639,21 @@ pub trait Deterministic: TransitionSystem {
     where
         Self: Pointed,
     {
-        let mut ts = DTS::new_for_alphabet(self.alphabet().clone());
-        let mut map = Map::default();
-        let reachable = self.reachable_state_indices().collect_vec();
-        for idx in &reachable {
-            map.insert(
-                idx,
-                ts.add_state(self.state_color(*idx).expect("State must exist")),
-            );
-        }
-        for idx in &reachable {
-            for edge in self.edges_from(*idx).unwrap() {
-                ts.add_edge(
-                    *map.get(idx).unwrap(),
-                    edge.expression().clone(),
-                    *map.get(&edge.target()).unwrap(),
-                    edge.color().clone(),
-                );
-            }
-        }
-        ts.with_initial(*map.get(&self.initial()).unwrap())
-    }
-
-    /// Builds a new transition system from `self` while maintaining the initial state.
-    fn collect_with_initial(
-        self,
-    ) -> Initialized<DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>>
-    where
-        Self: Pointed,
-    {
-        self.collect_pointed()
+        let reachable_indices = self.reachable_state_indices().collect::<Set<_>>();
+        let restricted = self.restrict_state_indices(|idx| reachable_indices.contains(&idx));
+        let (out, _map) = restricted.collect_pointed();
+        out
     }
 
     /// Collects `self` into a new transition system of type `Ts` with the same alphabet, state indices
     /// and edge colors. **This does not consider the initial state.**
-    #[deprecated(
-        since = "0.2.0",
-        note = "Use `trim_collect` or `collect_with_initial` instead"
-    )]
-    fn collect<
-        Ts: TransitionSystem<
-                StateColor = Self::StateColor,
-                EdgeColor = Self::EdgeColor,
-                Alphabet = Self::Alphabet,
-            > + super::Sproutable,
-    >(
-        &self,
-    ) -> Ts {
-        let mut ts = Ts::new_for_alphabet(self.alphabet().clone());
-
-        let (l, r) = self.state_indices().tee();
-        let map: Map<_, _> = l
-            .zip(ts.extend_states(r.map(|q| self.state_color(q).unwrap())))
-            .collect();
-        for index in self.state_indices() {
-            let q = *map.get(&index).unwrap();
-            self.edges_from(index).unwrap().for_each(|tt| {
-                ts.add_edge(
-                    q,
-                    tt.expression().clone(),
-                    *map.get(&tt.target()).unwrap(),
-                    tt.color().clone(),
-                );
-            });
-        }
-        ts
+    fn collect<Ts>(&self) -> (Ts, Bijection<Self::StateIndex, Ts::StateIndex>)
+    where
+        Ts: Sproutable<Alphabet = Self::Alphabet>,
+        EdgeColor<Self>: Into<EdgeColor<Ts>>,
+        StateColor<Self>: Into<StateColor<Ts>>,
+    {
+        Sproutable::collect_from(self)
     }
 
     /// Collects `self` into a new transition system of type `Ts` with the same alphabet, state indices
@@ -791,7 +733,7 @@ impl<A: Alphabet, Q: Clone, C: Clone> Deterministic for RightCongruence<A, Q, C>
 }
 
 impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Hash + Eq + Clone> Deterministic
-    for BTS<A, Q, C, Idx>
+    for HashTs<A, Q, C, Idx>
 {
     fn edge_color(
         &self,
@@ -858,6 +800,13 @@ where
     Ts: Deterministic,
     F: Fn(Ts::StateColor) -> D,
 {
+    fn collect_dts(self) -> DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor> {
+        let (ts, f) = self.into_parts();
+        let (alphabet, states, edges) = ts.collect_dts().into_parts();
+        let states = states.into_iter().map(|q| q.recolor(&f)).collect();
+        DTS::from_parts(alphabet, states, edges)
+    }
+
     fn edge_color(
         &self,
         state: Self::StateIndex,
@@ -881,6 +830,13 @@ where
     Ts: Deterministic,
     F: Fn(Ts::EdgeColor) -> D,
 {
+    fn collect_dts(self) -> DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor> {
+        let (ts, f) = self.into_parts();
+        let (alphabet, states, edges) = ts.collect_dts().into_parts();
+        let edges = edges.into_iter().map(|e| e.recolor(&f)).collect();
+        DTS::from_parts(alphabet, states, edges)
+    }
+
     fn edge_color(
         &self,
         state: Self::StateIndex,

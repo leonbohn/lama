@@ -10,7 +10,7 @@ use super::{
         Reversed, StateIndexFilter,
     },
     transition_system::{EdgeReference, IsEdge},
-    EdgeColor, ExpressionOf, IndexType, SymbolOf, BTS,
+    EdgeColor, ExpressionOf, HashTs, IndexType, SymbolOf,
 };
 
 /// Implementors of this trait are [`TransitionSystem`]s which allow iterating over the predecessors of a state.
@@ -109,7 +109,7 @@ where
     }
 }
 
-impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> PredecessorIterable for BTS<A, Q, C, Idx> {
+impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> PredecessorIterable for HashTs<A, Q, C, Idx> {
     type PreEdgeRef<'this> = EdgeReference<'this, A::Expression, Idx, C> where Self: 'this;
     type EdgesToIter<'this> = BTSPredecessors<'this, A, C, Idx>
     where

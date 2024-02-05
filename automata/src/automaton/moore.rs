@@ -44,7 +44,7 @@ pub type AsMooreMachine<Ts> = MooreMachine<
 >;
 
 impl<A: Alphabet, Q: Color, C: Color> MooreMachine<A, Q, C> {
-    /// Creates a new MooreMachine on a [`BTS`].
+    /// Creates a new MooreMachine on a [`DTS`].
     pub fn new(
         alphabet: A,
         initial_state_output: Q,
@@ -454,7 +454,7 @@ where
     /// Builds a moore machine from a reference to `self`. Note that this allocates a new
     /// transition system, which is a copy of the underlying one.
     fn collect_moore(&self) -> AsMooreMachine<Self> {
-        let ts = self.collect_pointed();
+        let ts = self.collect_pointed().0;
         MooreMachine {
             ts,
             _q: std::marker::PhantomData,

@@ -2,7 +2,7 @@ use std::hash::Hash;
 
 use crate::{automaton::Initialized, Alphabet, Color, Set, TransitionSystem};
 
-use super::{transition_system::Indexes, ExpressionOf, IndexType, SymbolOf, BTS, DTS, NTS};
+use super::{transition_system::Indexes, ExpressionOf, HashTs, IndexType, SymbolOf, DTS, NTS};
 
 /// Encapsulates the ability to remove states, edges, and transitions from a transition system.
 pub trait Shrinkable: TransitionSystem {
@@ -34,10 +34,10 @@ pub trait Shrinkable: TransitionSystem {
 }
 
 impl<A: Alphabet, Q: Clone + Hash + Eq, C: Clone + Hash + Eq, Index: IndexType> Shrinkable
-    for BTS<A, Q, C, Index>
+    for HashTs<A, Q, C, Index>
 {
     fn remove_state<Idx: Indexes<Self>>(&mut self, state: Idx) -> Option<Self::StateColor> {
-        self.bts_remove_state(state.to_index(self)?)
+        self.hashts_remove_state(state.to_index(self)?)
     }
 
     fn remove_edge<Idx: Indexes<Self>>(
@@ -45,7 +45,7 @@ impl<A: Alphabet, Q: Clone + Hash + Eq, C: Clone + Hash + Eq, Index: IndexType> 
         source: Idx,
         expression: &ExpressionOf<Self>,
     ) -> Option<(Self::EdgeColor, Self::StateIndex)> {
-        self.bts_remove_edge(source.to_index(self)?, expression)
+        self.hashts_remove_edge(source.to_index(self)?, expression)
     }
 
     fn remove_transitions<Idx: Indexes<Self>>(
@@ -53,7 +53,7 @@ impl<A: Alphabet, Q: Clone + Hash + Eq, C: Clone + Hash + Eq, Index: IndexType> 
         source: Idx,
         symbol: &SymbolOf<Self>,
     ) -> Option<Set<(ExpressionOf<Self>, Self::EdgeColor, Self::StateIndex)>> {
-        Some(self.bts_remove_transitions(source.to_index(self)?, *symbol))
+        Some(self.hashts_remove_transitions(source.to_index(self)?, *symbol))
     }
 }
 

@@ -56,9 +56,9 @@ fn benchings(c: &mut Criterion) {
             black_box(
                 ref_dts
                     .map_edge_colors(|i| i * 2 - 7)
-                    .collect_ts()
+                    .collect_dts()
                     .map_state_colors(|j| j * 7 - 4)
-                    .collect_ts(),
+                    .collect_dts(),
             );
         })
     });
@@ -68,7 +68,7 @@ fn benchings(c: &mut Criterion) {
                 ref_dts
                     .map_edge_colors(|i| i + 2 - 7)
                     .map_state_colors(|j| j * 7 - 4)
-                    .collect_ts(),
+                    .collect_dts(),
             )
         })
     });

@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use crate::{prelude::*, Void};
 
-use super::nts::{NTEdge, NTSEdgesFromIter, NTSEdgesTo};
+use super::nts::{NTEdge, NTSEdgesFromIter, NTSEdgesTo, NTSPartsFor, NTState};
 
 /// A deterministic transition system. This is a thin wrapper around [`NTS`] and is only used to
 /// enforce that the underlying NTS is deterministic.
@@ -17,55 +17,11 @@ pub type CollectDTS<Ts> = DTS<
     <Ts as TransitionSystem>::EdgeColor,
 >;
 
-impl<A: Alphabet, Q: Clone, C: Clone> TryFrom<NTS<A, Q, C>> for DTS<A, Q, C> {
-    type Error = ();
+impl<A: Alphabet, Q: Clone, C: Clone> Deterministic for DTS<A, Q, C> {}
 
-    fn try_from(value: NTS<A, Q, C>) -> Result<Self, Self::Error> {
-        if !value.is_deterministic() {
-            return Err(());
-        }
-        Ok(Self(value))
-    }
-}
-
-impl<A: Alphabet, Q: Clone, C: Clone> TryFrom<Initialized<NTS<A, Q, C>>>
-    for Initialized<DTS<A, Q, C>>
-{
-    /// Only fails if nts is not deterministic.
-    type Error = ();
-
-    fn try_from(value: Initialized<NTS<A, Q, C>>) -> Result<Self, Self::Error> {
-        let (nts, initial) = value.into_parts();
-        Ok(Initialized::from((nts.try_into()?, initial)))
-    }
-}
-
-impl<A: Alphabet, Q: Clone, C: Clone> TryFrom<&NTS<A, Q, C>> for DTS<A, Q, C> {
-    type Error = ();
-
-    fn try_from(value: &NTS<A, Q, C>) -> Result<Self, Self::Error> {
-        if !value.is_deterministic() {
-            return Err(());
-        }
-        Ok(Self(value.clone()))
-    }
-}
-
-impl<A: Alphabet, Q: Clone, C: Clone> TryFrom<&Initialized<NTS<A, Q, C>>>
-    for Initialized<DTS<A, Q, C>>
-{
-    /// Only fails if nts is not deterministic.
-    type Error = ();
-
-    fn try_from(value: &Initialized<NTS<A, Q, C>>) -> Result<Self, Self::Error> {
-        let (nts, initial) = value.clone().into_parts();
-        Ok(Initialized::from((nts.try_into()?, initial)))
-    }
-}
-
-impl<A: Alphabet, Q, C> From<DTS<A, Q, C>> for NTS<A, Q, C> {
-    fn from(value: DTS<A, Q, C>) -> Self {
-        value.0
+impl<A: Alphabet, Q: Clone, C: Clone> DTS<A, Q, C> {
+    fn collect_dts(self) -> DTS<A, Q, C> {
+        self
     }
 }
 
@@ -106,8 +62,6 @@ impl<A: Alphabet, Q: Clone, C: Clone> TransitionSystem for DTS<A, Q, C> {
         self.0.state_color(state)
     }
 }
-
-impl<A: Alphabet, Q: Clone, C: Clone> Deterministic for DTS<A, Q, C> {}
 
 impl<A: Alphabet, Q: Clone, C: Clone> PredecessorIterable for DTS<A, Q, C> {
     type PreEdgeRef<'this> = &'this NTEdge<A::Expression, C>
@@ -176,6 +130,73 @@ impl<A: Alphabet, Q: Clone, C: Clone> DTS<A, Q, C> {
     /// Creates an empty [`DTS`] with the given alphabet and capacity for at least `cap` states.
     pub fn with_capacity(alphabet: A, cap: usize) -> Self {
         Self(NTS::with_capacity(alphabet, cap))
+    }
+
+    /// Decomposes and consumes `self` to build a tuple of the constituent parts.
+    pub fn into_parts(self) -> NTSPartsFor<Self> {
+        self.0.into_parts()
+    }
+
+    /// Constructs a new instance from the parts making up a [`NTS`], for more information see
+    /// [`NTS::from_parts()`].
+    pub fn from_parts(
+        alphabet: A,
+        states: Vec<NTState<Q>>,
+        edges: Vec<NTEdge<A::Expression, C>>,
+    ) -> Self {
+        NTS::from_parts(alphabet, states, edges).into_deterministic()
+    }
+}
+
+impl<A: Alphabet, Q: Clone, C: Clone> TryFrom<NTS<A, Q, C>> for DTS<A, Q, C> {
+    type Error = ();
+
+    fn try_from(value: NTS<A, Q, C>) -> Result<Self, Self::Error> {
+        if !value.is_deterministic() {
+            return Err(());
+        }
+        Ok(Self(value))
+    }
+}
+
+impl<A: Alphabet, Q: Clone, C: Clone> TryFrom<Initialized<NTS<A, Q, C>>>
+    for Initialized<DTS<A, Q, C>>
+{
+    /// Only fails if nts is not deterministic.
+    type Error = ();
+
+    fn try_from(value: Initialized<NTS<A, Q, C>>) -> Result<Self, Self::Error> {
+        let (nts, initial) = value.into_parts();
+        Ok(Initialized::from((nts.try_into()?, initial)))
+    }
+}
+
+impl<A: Alphabet, Q: Clone, C: Clone> TryFrom<&NTS<A, Q, C>> for DTS<A, Q, C> {
+    type Error = ();
+
+    fn try_from(value: &NTS<A, Q, C>) -> Result<Self, Self::Error> {
+        if !value.is_deterministic() {
+            return Err(());
+        }
+        Ok(Self(value.clone()))
+    }
+}
+
+impl<A: Alphabet, Q: Clone, C: Clone> TryFrom<&Initialized<NTS<A, Q, C>>>
+    for Initialized<DTS<A, Q, C>>
+{
+    /// Only fails if nts is not deterministic.
+    type Error = ();
+
+    fn try_from(value: &Initialized<NTS<A, Q, C>>) -> Result<Self, Self::Error> {
+        let (nts, initial) = value.clone().into_parts();
+        Ok(Initialized::from((nts.try_into()?, initial)))
+    }
+}
+
+impl<A: Alphabet, Q: Clone, C: Clone> From<DTS<A, Q, C>> for NTS<A, Q, C> {
+    fn from(value: DTS<A, Q, C>) -> Self {
+        value.0
     }
 }
 
