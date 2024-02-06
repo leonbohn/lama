@@ -4,6 +4,7 @@ use itertools::{Itertools, MapInto};
 
 use crate::{
     alphabet::{Simple, Symbol},
+    automaton::IntoDFA,
     prelude::{DFALike, IsEdge},
     ts::{transition_system::Indexes, Deterministic, EdgeColor, Sproutable, DTS},
     word::FiniteWord,

@@ -388,7 +388,7 @@ mod tests {
     use crate::{alphabet, prelude::*, Void};
 
     pub fn wiki_dfa() -> DFA<Simple> {
-        let mut dfa = DFA::new(alphabet!(simple 'a', 'b'));
+        let mut dfa = DFA::new_for_alphabet(alphabet!(simple 'a', 'b'));
         let a = dfa.initial();
         dfa.set_initial_color(false);
         let b = dfa.add_state(false);

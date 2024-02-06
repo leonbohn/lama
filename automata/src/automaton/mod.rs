@@ -23,7 +23,9 @@ use crate::{
     Color, FiniteLength, InfiniteLength, Length,
 };
 
-mod semantics;
+#[macro_use]
+pub mod semantics;
+pub use semantics::Automaton;
 
 #[macro_use]
 mod moore;
@@ -326,10 +328,10 @@ mod tests {
         let dfa0 = &dfas[0];
 
         println!("{:?}", dfa0);
-        assert!(dfa2.accepts_finite(""));
-        assert!(dfa2.accepts_finite("b"));
-        assert!(!dfa0.accepts_finite("b"));
-        assert!(dfa0.accepts_finite("ba"));
+        assert!(dfa2.accepts(""));
+        assert!(dfa2.accepts("b"));
+        assert!(!dfa0.accepts("b"));
+        assert!(dfa0.accepts("ba"));
     }
 
     #[test]
@@ -355,33 +357,33 @@ mod tests {
 
     #[test]
     fn dfas_and_boolean_operations() {
-        let mut dfa = super::DFA::new(Simple::new(['a', 'b']));
+        let mut dfa = super::DFA::new_for_alphabet(Simple::new(['a', 'b']));
         let s0 = dfa.initial();
         dfa.set_initial_color(true);
         let s1 = dfa.add_state(false);
-        let _e0 = dfa.add_edge(s0, 'a', s1, ());
-        let _e1 = dfa.add_edge(s0, 'b', s0, ());
-        let _e2 = dfa.add_edge(s1, 'a', s1, ());
-        let _e3 = dfa.add_edge(s1, 'b', s0, ());
+        let _e0 = dfa.add_edge(s0, 'a', s1, Void);
+        let _e1 = dfa.add_edge(s0, 'b', s0, Void);
+        let _e2 = dfa.add_edge(s1, 'a', s1, Void);
+        let _e3 = dfa.add_edge(s1, 'b', s0, Void);
 
-        assert!(!dfa.dfa_is_empty());
-        assert_eq!(dfa.dfa_give_word(), Some(vec![]));
+        assert!(!dfa.is_empty_language());
+        assert_eq!(dfa.give_word(), Some(vec![]));
 
         let _dfb = dfa.clone();
 
-        assert!(dfa.accepts_finite("ababab"));
-        assert!(!dfa.accepts_finite("a"));
+        assert!(dfa.accepts("ababab"));
+        assert!(!dfa.accepts("a"));
 
         let notdfa = (&dfa).negation().into_dfa();
-        assert!(!notdfa.accepts_finite("ababab"));
-        assert!(notdfa.accepts_finite("a"));
+        assert!(!notdfa.accepts("ababab"));
+        assert!(notdfa.accepts("a"));
 
         let intersection = (&dfa).intersection(&notdfa).into_dfa();
-        assert!(!intersection.accepts_finite("ababab"));
-        assert!(!intersection.accepts_finite("a"));
+        assert!(!intersection.accepts("ababab"));
+        assert!(!intersection.accepts("a"));
 
         let union = (&dfa).union(&notdfa).into_dfa();
-        assert!(union.accepts_finite("ababab"));
-        assert!(union.accepts_finite("a"));
+        assert!(union.accepts("ababab"));
+        assert!(union.accepts("a"));
     }
 }

@@ -6,7 +6,8 @@ use crate::{
 };
 
 use super::{
-    Congruence, DFALike, IntoDFA, IntoMealyMachine, IntoMooreMachine, MealyLike, MooreLike,
+    dfa::AsDFA, Congruence, DFALike, IntoDFA, IntoMealyMachine, IntoMooreMachine, MealyLike,
+    MooreLike,
 };
 
 /// Implementors of this trait transform finite inputs into some other type. For example,
@@ -44,7 +45,7 @@ where
     }
 }
 
-impl<D: DFALike> FiniteWordTransformer<SymbolOf<D>, bool> for IntoDFA<D> {
+impl<D: DFALike> FiniteWordTransformer<SymbolOf<D>, bool> for AsDFA<D> {
     fn transform_finite<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> bool {
         self.try_moore_map(word).expect("Transformer must be total")
     }

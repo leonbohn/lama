@@ -519,7 +519,8 @@ where
     {
         self.map_state_colors(|o| o <= color)
             .erase_edge_colors()
-            .dfa_minimized()
+            .into_dfa()
+            .minimized()
             .collect_dfa()
     }
 }
