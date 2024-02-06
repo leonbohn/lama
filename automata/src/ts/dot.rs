@@ -733,9 +733,9 @@ mod tests {
     #[ignore]
     fn dot_render_dpa() {
         let alphabet = alphabet!(simple 'a', 'b');
-        let mut dpa = DPA::new(alphabet, ());
+        let mut dpa = DPA::new_for_alphabet(alphabet);
         let q0 = dpa.initial();
-        let q1 = dpa.add_state(());
+        let q1 = dpa.add_state(Void);
         dpa.add_edge(q0, 'a', q0, 1);
         dpa.add_edge(q0, 'b', q1, 2);
         dpa.add_edge(q1, 'a', q1, 0);

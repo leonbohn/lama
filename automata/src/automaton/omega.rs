@@ -270,17 +270,6 @@ impl<A: Alphabet> Deterministic for DeterministicOmegaAutomaton<A> {
     }
 }
 
-impl<A: Alphabet> OmegaWordAcceptor<A::Symbol> for DeterministicOmegaAutomaton<A> {
-    fn accepts_omega<W: OmegaWord<A::Symbol>>(&self, word: W) -> bool {
-        match self.omega_run(word) {
-            Ok(r) => self
-                .acc
-                .satisfied(&r.into_recurrent_edge_colors().collect()),
-            Err(_) => false,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     #[test]

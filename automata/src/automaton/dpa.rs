@@ -7,6 +7,7 @@ use std::{
 use itertools::Itertools;
 use tracing::{info, trace};
 
+use super::{acceptor::OmegaSemantics, Automaton};
 use crate::{
     prelude::*,
     ts::{
@@ -17,47 +18,49 @@ use crate::{
     HasParity, Partition, Set,
 };
 
-use super::acceptor::OmegaWordAcceptor;
+#[derive(Clone, Debug, Default, Copy, Hash, Eq, PartialEq)]
+pub struct MinEven;
 
-impl_mealy_automaton!(DPA, usize);
+impl<Q> OmegaSemantics<Q, usize> for MinEven {
+    type Output = bool;
+    fn omega_semantic<R>(&self, run: R) -> Self::Output
+    where
+        R: OmegaRun<StateColor = Q, EdgeColor = usize>,
+    {
+        todo!()
+    }
+}
+
+#[derive(Clone, Debug, Default, Copy, Hash, Eq, PartialEq)]
+pub struct MaxEven;
+#[derive(Clone, Debug, Default, Copy, Hash, Eq, PartialEq)]
+pub struct MinOdd;
+#[derive(Clone, Debug, Default, Copy, Hash, Eq, PartialEq)]
+pub struct MaxOdd;
+
+pub type DPA<A = Simple, Sem = MinEven> = Automaton<Initialized<DTS<A, Void, usize>>, Sem, true>;
+pub type IntoDPA<T, Sem = MinEven> = Automaton<T, Sem, true>;
 
 /// Trait that should be implemented by every object that can be viewed as a [`crate::DPA`].
-pub trait DPALike: Deterministic<EdgeColor = usize> + Pointed {
+pub trait DPALike: Congruence<EdgeColor = usize> {
     /// Consumes `self` and returns a [`DPA`] from the transition system underlying `self`.
     fn into_dpa(self) -> IntoDPA<Self> {
-        DPA::from(self)
+        Automaton::from_parts(self, MinEven)
     }
 
     /// Uses a reference to `self` for creating a [`DPA`] from the underlying transition system.
-    fn as_dpa(&self) -> IntoDPA<&Self> {
-        DPA::from(self)
+    fn borrow_dpa(&self) -> IntoDPA<&Self> {
+        self.into_dpa()
     }
 
     /// Consumes `self` and returns a [`DPA`] from the transition system underlying `self`. Note
     /// that this restricts to reachable states.
     fn collect_dpa(self) -> IntoDPA<Initialized<CollectDTS<Self>>> {
-        DPA::from(self.trim_collect())
+        self.trim_collect().into_dpa()
     }
 }
 
-impl<Ts> DPALike for Ts where Ts: Deterministic<EdgeColor = usize> + Pointed {}
-
-impl<Ts: DPALike<EdgeColor = usize>> OmegaWordAcceptor<SymbolOf<Ts>>
-    for DPA<Ts::Alphabet, Ts::StateColor, Ts>
-{
-    fn accepts_omega<W: OmegaWord<SymbolOf<Ts>>>(&self, word: W) -> bool {
-        self.ts()
-            .recurrent_edge_colors(word)
-            .map(|set| set.into_iter().min().unwrap_or(1) % 2 == 0)
-            .unwrap_or(false)
-    }
-}
-
-impl<Ts: DPALike> AsRef<IntoDPA<Ts>> for IntoDPA<Ts> {
-    fn as_ref(&self) -> &IntoDPA<Ts> {
-        self
-    }
-}
+impl<Ts> DPALike for Ts where Ts: Congruence<EdgeColor = usize> {}
 
 impl<D: DPALike> IntoDPA<D> {
     /// Gives a witness for the fact that the language accepted by `self` is not empty. This is
@@ -69,7 +72,7 @@ impl<D: DPALike> IntoDPA<D> {
     /// Builds the complement of `self`, i.e. the DPA that accepts the complement of the language
     /// accepted by `self`. This is a cheap operation as it only requires to increment all edge
     /// colors by one.
-    pub fn complement(self) -> DPA<D::Alphabet, D::StateColor> {
+    pub fn complement(self) -> IntoDPA<impl DPALike<Alphabet = D::Alphabet>> {
         self.map_edge_colors(|c| c + 1).collect_dpa()
     }
 
@@ -127,8 +130,8 @@ impl<D: DPALike> IntoDPA<D> {
                 if self
                     .as_ref()
                     .with_initial(*p)
-                    .as_dpa()
-                    .language_equivalent(&self.as_ref().with_initial(q).as_dpa())
+                    .into_dpa()
+                    .language_equivalent(&self.as_ref().with_initial(q).into_dpa())
                 {
                     trace!(
                         "it is language equivalent to {}, adding it to the equivalence class",
@@ -280,7 +283,7 @@ impl<D: DPALike> IntoDPA<D> {
     /// "Computing the rabin index of a finite automaton". The procedure that this implementation actually uses
     /// is outlined by Schewe and Ehlers in [Natural Colors of Infinite Words](https://arxiv.org/pdf/2207.11000.pdf)
     /// in Section 4.1, Definition 2.
-    pub fn normalized(&self) -> DPA<D::Alphabet, D::StateColor>
+    pub fn normalized(&self) -> IntoDPA<impl DPALike<Alphabet = D::Alphabet>>
     where
         EdgeColor<Self>: Eq + Hash + Clone + Ord,
         StateColor<Self>: Eq + Hash + Clone + Ord,
@@ -396,7 +399,7 @@ mod tests {
     #[test_log::test]
     fn normalize_dpa() {
         let mut dpa = NTS::builder()
-            .default_color(())
+            .default_color(Void)
             .with_transitions([
                 (0, 'a', 2, 0),
                 (0, 'b', 1, 1),
@@ -526,7 +529,7 @@ mod tests {
             ])
             .default_color(Void)
             .into_dpa(0);
-        assert!(!dpa.accepts_omega(upw!("cabaca")))
+        assert!(!dpa.accepts(upw!("cabaca")))
     }
 
     #[test]

@@ -11,9 +11,7 @@ use crate::{
     },
 };
 
-use super::{
-    acceptor::FiniteWordAcceptor, semantics::FiniteSemantics, AsMooreMachine, StatesWithColor,
-};
+use super::{acceptor::FiniteSemantics, AsMooreMachine, Automaton, StatesWithColor};
 
 #[derive(Clone, Copy, Default, Hash, Eq, PartialEq)]
 pub struct DFASemantics;
@@ -36,21 +34,36 @@ impl<C> FiniteSemantics<bool, C> for DFASemantics {
     }
 }
 
-define_automaton_type!(DFASemantics DFA; bool, Void; false);
+pub type DFA<A = Simple> = Automaton<Initialized<DTS<A, bool, Void>>, DFASemantics, false>;
+pub type IntoDFA<T> = Automaton<T, DFASemantics, false>;
 
-impl<D: DFALike> AsDFA<D> {
+impl<T> DFALike for T where T: Congruence<StateColor = bool> {}
+pub trait DFALike: Congruence<StateColor = bool> {
+    fn into_dfa(self) -> IntoDFA<Self> {
+        Automaton::from_parts(self, DFASemantics)
+    }
+    fn borrow_dfa(&self) -> IntoDFA<&Self> {
+        (self).into_dfa()
+    }
+    fn collect_dfa(&self) -> DFA<Self::Alphabet> {
+        DFA::from_parts(self.erase_edge_colors().collect().0, DFASemantics)
+    }
+    fn collect_trim_dfa(&self) -> DFA<Self::Alphabet> {
+        self.erase_edge_colors().trim_collect().into_dfa()
+    }
+
     /// Returns the indices of all states that are accepting.
-    pub fn accepting_states(&self) -> StatesWithColor<'_, Self> {
+    fn accepting_states(&self) -> StatesWithColor<'_, Self> {
         StatesWithColor::new(self, true)
     }
 
     /// Returns the indices of all states that are rejecting.
-    pub fn rejecting_states(&self) -> StatesWithColor<'_, Self> {
+    fn rejecting_states(&self) -> StatesWithColor<'_, Self> {
         StatesWithColor::new(self, false)
     }
 
     /// Minimizes `self` using Hopcroft's partition refinement algorithm.
-    pub fn minimized(self) -> AsDFA<impl DFALike<Alphabet = D::Alphabet>> {
+    fn minimized(self) -> IntoDFA<impl DFALike<Alphabet = Self::Alphabet>> {
         let min = moore_partition_refinement(self);
         min.into_dfa()
     }
@@ -58,19 +71,13 @@ impl<D: DFALike> AsDFA<D> {
     /// Checks whether `self` is equivalent to `other`, i.e. whether the two DFAs accept
     /// the same language. This is done by negating `self` and then verifying that the intersection
     /// of the negated automaton with `other` is empty.
-    pub fn equivalent<E: DFALike<Alphabet = D::Alphabet>>(&self, other: E) -> bool {
-        (&self.ts)
-            .into_dfa()
-            .negation()
-            .into_dfa()
-            .intersection(other)
-            .give_word()
-            .is_none()
+    fn equivalent<E: DFALike<Alphabet = Self::Alphabet>>(&self, other: E) -> bool {
+        self.negation().intersection(other).is_empty_language()
     }
 
     /// Tries to construct a (finite) word witnessing that the accepted language is empty. If such a word exists,
     /// the function returns it, otherwise `None`.
-    pub fn give_word(&self) -> Option<Vec<SymbolOf<Self>>> {
+    fn give_word(&self) -> Option<Vec<SymbolOf<Self>>> {
         self.minimal_representatives().find_map(|(mr, index)| {
             if self
                 .state_color(index)
@@ -84,40 +91,38 @@ impl<D: DFALike> AsDFA<D> {
     }
 
     /// Returns true if and only if the accepted language is empty.
-    pub fn is_empty_language(&self) -> bool {
+    fn is_empty_language(&self) -> bool {
         self.give_word().is_none()
     }
 
     /// Computes the union of `self` with the given `other` object (that can be viewed as a DFA) through
     /// a simple product construction.
-    pub fn union<E: DFALike<Alphabet = D::Alphabet>>(
+    fn union<E: DFALike<Alphabet = Self::Alphabet>>(
         self,
         other: E,
-    ) -> AsDFA<impl DFALike<Alphabet = D::Alphabet>> {
+    ) -> IntoDFA<impl DFALike<Alphabet = Self::Alphabet>> {
         self.ts_product(other)
             .map_state_colors(|(a, b)| a || b)
-            .erase_edge_colors()
             .into_dfa()
     }
 
     /// Computes the intersection of `self` with the given `other` object (that can be viewed as a DFA) through
     /// a simple product construction.
-    pub fn intersection<E: DFALike<Alphabet = D::Alphabet>>(
+    fn intersection<E: DFALike<Alphabet = Self::Alphabet>>(
         self,
         other: E,
-    ) -> AsDFA<impl DFALike<Alphabet = D::Alphabet>> {
+    ) -> IntoDFA<impl DFALike<Alphabet = Self::Alphabet>> {
         self.ts_product(other)
             .map_state_colors(|(a, b)| a && b)
-            .erase_edge_colors()
             .into_dfa()
     }
 
     /// Computes the negation of `self` by swapping accepting and non-accepting states.
-    pub fn negation(self) -> AsDFA<impl DFALike<Alphabet = D::Alphabet>> {
+    fn negation(self) -> IntoDFA<impl DFALike<Alphabet = Self::Alphabet>> {
         self.map_state_colors(|x| !x).into_dfa()
     }
 
-    pub fn separate<X, Y>(&self, left: X, right: Y) -> Option<Vec<SymbolOf<Self>>>
+    fn separate<X, Y>(&self, left: X, right: Y) -> Option<Vec<SymbolOf<Self>>>
     where
         X: Indexes<Self>,
         Y: Indexes<Self>,
