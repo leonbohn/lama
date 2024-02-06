@@ -11,19 +11,19 @@ use super::OmegaSample;
 
 /// Used to define consistency checks on various types of omega acceptance conditions
 /// required by the sprout algorithm for passively learning omega automata
-pub trait ConsistencyCheck<A: Alphabet, S: Sproutable> {
+pub trait ConsistencyCheck<S: Sproutable> {
     /// Checks if the given transition system is consistent with the sample
-    fn consistent(&self, ts: S, sample: OmegaSample) -> bool;
+    fn consistent(&self, ts: &S, sample: &OmegaSample) -> bool;
     /// Returns an automaton with underlying transition system ts
     /// that is consistent with the sample
-    fn consistent_automaton(&self, ts: S, sample: OmegaSample) -> DeterministicOmegaAutomaton<A>;
+    fn consistent_automaton(&self, ts: &S, sample: &OmegaSample) -> DeterministicOmegaAutomaton<alphabet::Simple>;
 }
 
-impl<A: Alphabet, S: Sproutable> ConsistencyCheck<A, S> for Buchi {
-    fn consistent(&self, ts: S, sample: OmegaSample) -> bool {
+impl<S: Sproutable> ConsistencyCheck<S> for Buchi {
+    fn consistent(&self, ts: &S, sample: &OmegaSample) -> bool {
         todo!()
     }
-    fn consistent_automaton(&self, ts: S, sample: OmegaSample) -> DeterministicOmegaAutomaton<A> {
+    fn consistent_automaton(&self, ts: &S, sample: &OmegaSample) -> DeterministicOmegaAutomaton<alphabet::Simple> {
         todo!()
     }
 }
