@@ -61,9 +61,12 @@ impl From<&hoars::AcceptanceSignature> for AcceptanceMask {
 }
 
 #[derive(Debug, Clone, Eq, Copy, PartialEq, Ord, PartialOrd)]
+pub struct Buchi;
+
+#[derive(Debug, Clone, Eq, Copy, PartialEq, Ord, PartialOrd)]
 pub enum OmegaAcceptanceCondition {
     Parity,
-    Buchi,
+    Buchi(Buchi),
     Rabin,
     Streett,
     MaxParity,
