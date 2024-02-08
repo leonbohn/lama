@@ -11,19 +11,23 @@ use super::OmegaSample;
 
 /// Used to define consistency checks on various types of omega acceptance conditions
 /// required by the sprout algorithm for passively learning omega automata
-pub trait ConsistencyCheck<S: Sproutable> {
+pub trait ConsistencyCheck<T: Deterministic> {
     /// Checks if the given transition system is consistent with the sample
-    fn consistent(&self, ts: &S, sample: &OmegaSample) -> bool;
+    fn consistent(&self, ts: &T, sample: &OmegaSample) -> bool;
     /// Returns an automaton with underlying transition system ts
     /// that is consistent with the sample
-    fn consistent_automaton(&self, ts: &S, sample: &OmegaSample) -> DeterministicOmegaAutomaton<alphabet::Simple>;
+    fn consistent_automaton(&self, ts: &T, sample: &OmegaSample) -> DeterministicOmegaAutomaton<alphabet::Simple>;
 }
 
-impl<S: Sproutable> ConsistencyCheck<S> for Buchi {
-    fn consistent(&self, ts: &S, sample: &OmegaSample) -> bool {
+impl<T: Deterministic> ConsistencyCheck<T> for Buchi {
+    fn consistent(&self, ts: &T, sample: &OmegaSample) -> bool {
+        // for pairs of positive and negative words
+        // collect infinity sets for non escaping words
+        // if a pair escapes from same state with same escape string, false
+        // check if infinity sets valid: see paper
         todo!()
     }
-    fn consistent_automaton(&self, ts: &S, sample: &OmegaSample) -> DeterministicOmegaAutomaton<alphabet::Simple> {
+    fn consistent_automaton(&self, ts: &T, sample: &OmegaSample) -> DeterministicOmegaAutomaton<alphabet::Simple> {
         todo!()
     }
 }
@@ -54,13 +58,13 @@ mod tests {
                 (0, 'a', (), 1)
             ])
             .default_color(())
-            .collect();
+            .deterministic();
         let ts2 = NTS::builder()
             .with_transitions([
                 (0, 'a', (), 0)
             ])
             .default_color(())
-            .collect();
+            .deterministic();
         
         // build samples
         let sample1 = OmegaSample::new_omega_from_pos_neg(
@@ -95,7 +99,7 @@ mod tests {
                 (0, 'a', (), 0)
             ])
             .default_color(())
-            .collect();
+            .deterministic();
         
         // build sample
         let sample = OmegaSample::new_omega_from_pos_neg(
@@ -118,7 +122,7 @@ mod tests {
                 (1, 'b', (), 1)
             ])
             .default_color(())
-            .collect();
+            .deterministic();
         let ts2 = NTS::builder()
             .with_transitions([
                 (0, 'b', (), 0),
@@ -126,7 +130,7 @@ mod tests {
                 (1, 'a', (), 0)
             ])
             .default_color(())
-            .collect();
+            .deterministic();
         
         // build samples
         let sample1 = OmegaSample::new_omega_from_pos_neg(
