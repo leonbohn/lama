@@ -18,7 +18,8 @@ use super::OmegaSample;
 pub trait ConsistencyCheck<A:Alphabet, T: Deterministic> {
     /// Checks if the given transition system is consistent with the sample
     fn consistent(&self, ts: &T, sample: &OmegaSample, alph: A) -> bool;
-    /// Returns an automaton with underlying transition system ts
+    /// If the transition system is consistent with the sample,
+    /// returns an automaton with underlying transition system ts
     /// that is consistent with the sample
     fn consistent_automaton(&self, ts: &T, sample: &OmegaSample) -> DeterministicOmegaAutomaton<alphabet::Simple>;
 }
@@ -70,6 +71,11 @@ where
             .not()
     }
     fn consistent_automaton(&self, ts: &T, sample: &OmegaSample) -> DeterministicOmegaAutomaton<alphabet::Simple> {
+        // check consistency
+        // derive acceptance condition: accepting transitions
+        // -> all transitions besides the union of negative infinity sets
+        // make DBA (change edge colour to bool, then call as_dba(), set correct edge colours)
+        // add sink state and determinise
         todo!()
     }
 }
