@@ -4,10 +4,10 @@ use itertools::{Itertools, MapInto};
 
 use crate::{
     alphabet::{Simple, Symbol},
-    prelude::DFALike,
-    ts::{transition_system::Indexes, Deterministic, Sproutable, DTS},
+    prelude::{DFALike, IsEdge},
+    ts::{transition_system::Indexes, Deterministic, EdgeColor, Sproutable, DTS},
     word::FiniteWord,
-    Alphabet, Color, FiniteLength, HasLength, Map, Pointed, Show, TransitionSystem, DFA,
+    Alphabet, Color, FiniteLength, HasLength, Map, Pointed, Show, TransitionSystem, Void, DFA,
 };
 
 mod class;
@@ -25,13 +25,19 @@ mod cayley;
 /// represent these as a transition system, where the states are the equivalence classes and the colors
 /// on edges are `()`.
 #[derive(Clone, Eq, PartialEq)]
-pub struct RightCongruence<A: Alphabet = Simple, Q = (), C: Color = ()> {
+pub struct RightCongruence<A: Alphabet = Simple, Q = Void, C = Void> {
     ts: DTS<A, ColoredClass<A::Symbol, Q>, C>,
 }
 
 impl<S: Symbol + Show, Q: Show> Show for ColoredClass<S, Q> {
     fn show(&self) -> String {
         format!("{} | {}", self.class.show(), self.color.show())
+    }
+}
+
+impl<S: Symbol + Show> Show for ColoredClass<S, Void> {
+    fn show(&self) -> String {
+        self.class.show()
     }
 
     fn show_collection<'a, I>(iter: I) -> String
@@ -44,25 +50,27 @@ impl<S: Symbol + Show, Q: Show> Show for ColoredClass<S, Q> {
     }
 }
 
-impl<A: Alphabet, Q: Color + Show, C: Color + Show> Debug for RightCongruence<A, Q, C> {
+impl<A: Alphabet, Q: Clone + Debug, C: Clone + Debug> Debug for RightCongruence<A, Q, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
-            self.ts
-                .build_transition_table(|q, c| format!("{}|{}", q.show(), c.show()))
+            self.ts.build_transition_table(
+                |q, c| format!("{}|{:?}", q.show(), c),
+                |edge| edge.target().show()
+            )
         )
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
+impl<A: Alphabet, Q: Clone, C: Clone> RightCongruence<A, Q, C> {
     /// Assumes that `self` is det. and complete.
     pub fn congruent<W, V>(&self, word: W, other: V) -> bool
     where
         W: FiniteWord<A::Symbol>,
         V: FiniteWord<A::Symbol>,
     {
-        self.reached(word).unwrap() == self.reached(other).unwrap()
+        self.reached_state_index(word).unwrap() == self.reached_state_index(other).unwrap()
     }
 
     /// Turns the given transition system into a right congruence.
@@ -72,7 +80,7 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
         let mut cong = Self {
             ts: ts
                 .map_state_colors(|c| ColoredClass::new(Class::default(), c))
-                .collect_ts(),
+                .collect_dts(),
         };
         cong.recompute_labels();
         cong
@@ -92,7 +100,7 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
     /// with the corresponding index of the class.
     pub fn classes(&self) -> impl Iterator<Item = (Class<A::Symbol>, usize)> + '_ {
         self.ts
-            .indices_with_color()
+            .state_indices_with_color()
             .map(|(id, c)| (c.class().clone(), id))
     }
 
@@ -126,11 +134,16 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
     #[inline(always)]
     /// Returns the index of the class containing the given word.
     pub fn class_to_index(&self, class: &Class<A::Symbol>) -> Option<usize> {
-        self.ts
-            .indices_with_color()
-            .find_map(|(id, c)| if c.class() == class { Some(id) } else { None })
+        self.ts.state_indices_with_color().find_map(|(id, c)| {
+            if c.class() == class {
+                Some(id)
+            } else {
+                None
+            }
+        })
     }
 
+    /// Returns the [`ColoredClass`] that is referenced by `index`.
     pub fn class_name<Idx: Indexes<Self>>(&self, index: Idx) -> Option<ColoredClass<A::Symbol, Q>> {
         self.ts().state_color(index.to_index(self)?)
     }
@@ -141,20 +154,20 @@ impl<A: Alphabet, Q: Color, C: Color> RightCongruence<A, Q, C> {
     pub fn looping_words(&self, class: &Class<A::Symbol>) -> DFA<A> {
         self.map_state_colors(|c: ColoredClass<A::Symbol, Q>| c.class() == class)
             .erase_edge_colors()
-            .collect_ts()
+            .collect_dts()
             .with_initial(self.class_to_index(class).unwrap())
             .into_dfa()
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> Pointed for RightCongruence<A, Q, C> {
+impl<A: Alphabet, Q: Clone, C: Clone> Pointed for RightCongruence<A, Q, C> {
     fn initial(&self) -> Self::StateIndex {
         assert!(!self.is_empty());
         0
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> Sproutable for RightCongruence<A, Q, C> {
+impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for RightCongruence<A, Q, C> {
     fn add_state<X: Into<crate::ts::StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
         self.ts.add_state(color.into())
     }
@@ -177,21 +190,23 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for RightCongruence<A, Q, C> {
         from: X,
         on: <Self::Alphabet as Alphabet>::Expression,
         to: Y,
-        color: crate::ts::EdgeColor<Self>,
+        color: EdgeColor<Self>,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
-        X: Into<Self::StateIndex>,
-        Y: Into<Self::StateIndex>,
+        X: Indexes<Self>,
+        Y: Indexes<Self>,
     {
-        self.ts.add_edge(from, on, to, color)
+        let from = from.to_index(self)?;
+        let to = to.to_index(self)?;
+        self.ts_mut().add_edge(from, on, to, color)
     }
-
-    fn remove_edges(
-        &mut self,
-        from: Self::StateIndex,
-        on: <Self::Alphabet as Alphabet>::Expression,
-    ) -> bool {
-        self.ts.remove_edges(from, on)
+    fn remove_edges<X>(&mut self, from: X, on: <Self::Alphabet as Alphabet>::Expression) -> bool
+    where
+        X: Indexes<Self>,
+    {
+        from.to_index(self)
+            .map(|idx| self.ts_mut().remove_edges(idx, on))
+            .unwrap_or(false)
     }
 
     type ExtendStateIndexIter = std::ops::Range<usize>;
@@ -204,7 +219,7 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for RightCongruence<A, Q, C> {
     }
 }
 
-impl<A: Alphabet, Q: Color + Default, C: Color> RightCongruence<A, Q, C> {
+impl<A: Alphabet, Q: Clone + Default, C: Clone> RightCongruence<A, Q, C> {
     /// Creates a new [`RightCongruence`] for the given alphabet.
     pub fn new(alphabet: A) -> Self {
         Self::new_for_alphabet(alphabet)

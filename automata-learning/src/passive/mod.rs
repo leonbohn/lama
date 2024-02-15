@@ -52,6 +52,8 @@ pub fn dfa_rpni<A: Alphabet>(sample: &FiniteSample<A, bool>) -> DFA<A> {
             accepting.contains(&idx)
         })
         .collect_pointed()
+        .0
+        .into_dfa()
 }
 
 /// Executes a variant of the RPNI algorithm for omega-words, producing a DBA.
@@ -59,7 +61,7 @@ pub fn dba_rpni<A: Alphabet>(sample: &OmegaSample<A, bool>) -> DBA<A> {
     todo!()
 }
 
-/// Takes a reference to an [`InfiniteSample`], which classifies infinite words over the alphabet `A`
+/// Takes a reference to an [`OmegaSample`], which classifies infinite words over the alphabet `A`
 /// with boolean values and infers a [`PreciseDPA`] from it. The steps for this are roughly
 /// - infer the leading prefix (aka Myhill/Nerode) congruence
 /// - produce a [`SplitOmegaSample`] such that each suffix of a sample word which "starts" in a class `c`
@@ -97,14 +99,14 @@ pub fn infer_precise_dpa<A: Alphabet>(
 }
 
 /// Similar to [`dba_rpni`], but produces a DPA instead.
-pub fn dpa_rpni(sample: &OmegaSample<Simple, bool>) -> DPA<Simple, (), MealyMachine> {
+pub fn dpa_rpni(sample: &OmegaSample<Simple, bool>) -> DPA<Simple, Void, MealyMachine> {
     let precise = infer_precise_dpa(sample);
     let pta = sample.prefix_tree().erase_state_colors();
 
     let prod = pta
         .ts_product(precise)
         .map_edge_colors(|(_, c)| c)
-        .map_state_colors(|(_, _)| ());
+        .erase_state_colors();
     let completed = prod.trim_collect();
 
     //now we use the completed thing to learn a MealyMachine from which we can then build the DPA

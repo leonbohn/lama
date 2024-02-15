@@ -4,7 +4,9 @@ use crate::{length::HasLength, prelude::Symbol, FiniteLength, Length};
 
 use super::{omega::Periodic, ConsumingInfixIterator, FiniteWord, LinearWord, OmegaWord};
 
-/// A suffix of a [`Word`] which skips the first `offset` symbols.
+/// A suffix of a [`LinearWord`] which skips a fixed number of symbols. If the underlying
+/// word is infinite, the suffix is also infinite. If the underlying word is finite, the suffix
+/// is also finite.
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
 pub struct Offset<'a, S, W: LinearWord<S>> {
     sequence: &'a W,
@@ -139,16 +141,18 @@ impl<'a, S: Symbol, W: OmegaWord<S>> OmegaWord<S> for Offset<'a, S, W> {
     }
 }
 
-/// A suffix of a [`Word`] which skips the first `offset` symbols.
+/// Represents an infix of a [`LinearWord`]. This is a finite word, which is a subsequence of the
+/// original word. It is specified by a starting position and a length, and stores a reference
+/// to the underlying word.
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
-pub struct Infix<'a, S, W: LinearWord<S>> {
+pub struct Infix<'a, S, W: LinearWord<S> + ?Sized> {
     sequence: &'a W,
     offset: usize,
     length: usize,
     _marker: std::marker::PhantomData<S>,
 }
 
-impl<'a, S, W: LinearWord<S>> Infix<'a, S, W> {
+impl<'a, S, W: LinearWord<S> + ?Sized> Infix<'a, S, W> {
     /// Creates a new suffix, which skips the first `offset` symbols of the given sequence.
     pub fn new(sequence: &'a W, offset: usize, length: usize) -> Self {
         Self {
@@ -171,12 +175,12 @@ impl<'a, S: Symbol, W: LinearWord<S>> LinearWord<S> for Infix<'a, S, W> {
 }
 
 impl<'a, S: Symbol, W: LinearWord<S>> FiniteWord<S> for Infix<'a, S, W> {
-    type Symbols<'this> = ConsumingInfixIterator<'this, S, Self>
+    type Symbols<'this> = ConsumingInfixIterator<'this, S, W>
     where
         Self: 'this;
 
     fn symbols(&self) -> Self::Symbols<'_> {
-        ConsumingInfixIterator::new(self, self.offset, self.offset + self.length)
+        ConsumingInfixIterator::new(self.sequence, self.offset, self.offset + self.length)
     }
 
     fn to_vec(&self) -> Vec<S> {
@@ -200,6 +204,13 @@ mod tests {
         word::{FiniteWord, LinearWord, OmegaWord, Reduced},
         FiniteLength,
     };
+
+    #[test]
+    fn finite_word_infix() {
+        let fw = "abcde".to_string();
+        assert_eq!(fw.infix(1, 3).to_vec(), vec!['b', 'c', 'd']);
+        assert_eq!(fw.infix(1, 3).as_string(), "bcd".to_string());
+    }
 
     #[test]
     fn subwords() {

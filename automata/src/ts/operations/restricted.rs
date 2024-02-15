@@ -132,7 +132,7 @@ impl<'a, Ts: TransitionSystem + 'a, F> Iterator for RestrictedEdgesFromIter<'a, 
 where
     F: StateIndexFilter<Ts::StateIndex>,
 {
-    type Item = Ts::TransitionRef<'a>;
+    type Item = Ts::EdgeRef<'a>;
     fn next(&mut self) -> Option<Self::Item> {
         self.it
             .by_ref()
@@ -151,7 +151,7 @@ impl<'a, Ts: PredecessorIterable + 'a, F> Iterator for RestrictedEdgesToIter<'a,
 where
     F: StateIndexFilter<Ts::StateIndex>,
 {
-    type Item = Ts::PreTransitionRef<'a>;
+    type Item = Ts::PreEdgeRef<'a>;
     fn next(&mut self) -> Option<Self::Item> {
         self.it
             .by_ref()
@@ -166,6 +166,8 @@ impl<'a, Ts: PredecessorIterable + 'a, F> RestrictedEdgesToIter<'a, Ts, F> {
     }
 }
 
+/// Takes a transition system and restricts the the possible edge colors. For this, we assume that the colors
+/// can be ordered and we are given a minimal and maximal allowed color.
 #[derive(Clone, Debug)]
 pub struct ColorRestricted<D: TransitionSystem> {
     ts: D,
@@ -173,20 +175,26 @@ pub struct ColorRestricted<D: TransitionSystem> {
     max: D::EdgeColor,
 }
 
-impl<D: TransitionSystem + Pointed> Pointed for ColorRestricted<D> {
+impl<D: Congruence> Pointed for ColorRestricted<D>
+where
+    EdgeColor<D>: Ord,
+{
     fn initial(&self) -> Self::StateIndex {
         self.ts.initial()
     }
 }
 
-impl<D: TransitionSystem> TransitionSystem for ColorRestricted<D> {
+impl<D: TransitionSystem> TransitionSystem for ColorRestricted<D>
+where
+    EdgeColor<D>: Ord,
+{
     type StateIndex = D::StateIndex;
 
     type StateColor = D::StateColor;
 
     type EdgeColor = D::EdgeColor;
 
-    type TransitionRef<'this> = D::TransitionRef<'this>
+    type EdgeRef<'this> = D::EdgeRef<'this>
     where
         Self: 'this;
 
@@ -223,7 +231,7 @@ impl<D: TransitionSystem> TransitionSystem for ColorRestricted<D> {
 }
 
 impl<D: PredecessorIterable<EdgeColor = usize>> PredecessorIterable for ColorRestricted<D> {
-    type PreTransitionRef<'this> = D::PreTransitionRef<'this>
+    type PreEdgeRef<'this> = D::PreEdgeRef<'this>
     where
         Self: 'this;
 
@@ -241,7 +249,7 @@ impl<D: DPALike> Deterministic for ColorRestricted<D> {
         &self,
         state: Idx,
         symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         self.ts()
             .transition(state.to_index(self)?, symbol)
             .and_then(|t| {
@@ -254,6 +262,8 @@ impl<D: DPALike> Deterministic for ColorRestricted<D> {
     }
 }
 
+/// Adapted iterator giving the edges from a state in a transition system that are restricted by a
+/// color range. See [`ColorRestricted`] for more information.
 pub struct ColorRestrictedEdgesFrom<'a, D: TransitionSystem> {
     _phantom: PhantomData<&'a D>,
     it: D::EdgesFromIter<'a>,
@@ -261,8 +271,11 @@ pub struct ColorRestrictedEdgesFrom<'a, D: TransitionSystem> {
     max: D::EdgeColor,
 }
 
-impl<'a, D: TransitionSystem> Iterator for ColorRestrictedEdgesFrom<'a, D> {
-    type Item = D::TransitionRef<'a>;
+impl<'a, D: TransitionSystem> Iterator for ColorRestrictedEdgesFrom<'a, D>
+where
+    EdgeColor<D>: Ord,
+{
+    type Item = D::EdgeRef<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.it
@@ -270,6 +283,8 @@ impl<'a, D: TransitionSystem> Iterator for ColorRestrictedEdgesFrom<'a, D> {
     }
 }
 
+/// Adapted iterator giving the edges to a state in a transition system that are restricted by a
+/// color range. See [`ColorRestricted`] for more information.
 pub struct ColorRestrictedEdgesTo<'a, D: PredecessorIterable> {
     _phantom: PhantomData<&'a D>,
     it: D::EdgesToIter<'a>,
@@ -277,8 +292,11 @@ pub struct ColorRestrictedEdgesTo<'a, D: PredecessorIterable> {
     max: D::EdgeColor,
 }
 
-impl<'a, D: PredecessorIterable> Iterator for ColorRestrictedEdgesTo<'a, D> {
-    type Item = D::PreTransitionRef<'a>;
+impl<'a, D: PredecessorIterable> Iterator for ColorRestrictedEdgesTo<'a, D>
+where
+    EdgeColor<D>: Ord,
+{
+    type Item = D::PreEdgeRef<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.it
@@ -287,9 +305,12 @@ impl<'a, D: PredecessorIterable> Iterator for ColorRestrictedEdgesTo<'a, D> {
 }
 
 impl<D: TransitionSystem> ColorRestricted<D> {
+    /// Returns a reference to the underlying transition system.
     pub fn ts(&self) -> &D {
         &self.ts
     }
+    /// Creates a new instance for a given transition system and a color range (as specified by the `min` and `max`
+    /// allowed color)
     pub fn new(ts: D, min: D::EdgeColor, max: D::EdgeColor) -> Self {
         Self { ts, min, max }
     }

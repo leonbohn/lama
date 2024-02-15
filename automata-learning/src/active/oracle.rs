@@ -197,14 +197,16 @@ impl<D: DFALike<Alphabet = Simple>> LStarOracle<MooreMachine<Simple, bool>> for 
 }
 
 /// An oracle based on a [`MealyMachine`].
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct MealyOracle<D: MealyLike + Deterministic> {
     automaton: IntoMealyMachine<D>,
     default: Option<D::EdgeColor>,
 }
 
-impl<D: MealyLike + Deterministic<Alphabet = Simple>>
-    LStarOracle<MealyMachine<Simple, D::EdgeColor>> for MealyOracle<D>
+impl<D> LStarOracle<MealyMachine<Simple, D::EdgeColor>> for MealyOracle<D>
+where
+    D: Congruence<Alphabet = Simple>,
+    EdgeColor<D>: Color,
 {
     type Length = FiniteLength;
 
@@ -253,7 +255,11 @@ impl<D: MealyLike + Deterministic<Alphabet = Simple>>
     }
 }
 
-impl<D: MealyLike + Deterministic> MealyOracle<D> {
+impl<D> MealyOracle<D>
+where
+    D: Congruence,
+    EdgeColor<D>: Color,
+{
     /// Creates a new [`MealyOracle`] based on an instance of [`MealyLike`].
     pub fn new(automaton: D, default: Option<D::EdgeColor>) -> Self {
         Self {
@@ -269,12 +275,14 @@ impl<D: MealyLike + Deterministic> MealyOracle<D> {
 
 /// An oracle based on a [`MooreMachine`].
 #[derive(Debug, Clone)]
-pub struct MooreOracle<D: MooreLike> {
+pub struct MooreOracle<D> {
     automaton: D,
 }
 
 impl<D: MooreLike<Alphabet = Simple>> LStarOracle<MooreMachine<Simple, D::StateColor>>
     for MooreOracle<D>
+where
+    StateColor<D>: Color,
 {
     type Length = FiniteLength;
 
@@ -296,7 +304,11 @@ impl<D: MooreLike<Alphabet = Simple>> LStarOracle<MooreMachine<Simple, D::StateC
     }
 }
 
-impl<D: MooreLike> MooreOracle<D> {
+impl<D> MooreOracle<D>
+where
+    D: Congruence,
+    EdgeColor<D>: Color,
+{
     /// Creates a new [`MooreOracle`] based on an instance of [`MooreLike`].
     pub fn new(automaton: D) -> Self {
         Self { automaton }

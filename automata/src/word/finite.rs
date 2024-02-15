@@ -7,13 +7,18 @@ use crate::{prelude::Symbol, Show};
 
 use super::{omega::Reduced, Concat, LinearWord, Periodic};
 
+/// A finite word is a [`LinearWord`] that has a finite length.
 pub trait FiniteWord<S>: LinearWord<S> {
+    /// Type for an iterator over the symbols making up the word.
     type Symbols<'this>: Iterator<Item = S>
     where
         Self: 'this;
 
+    /// Returns an iterator over the symbols of the word.
     fn symbols(&self) -> Self::Symbols<'_>;
 
+    /// Appends the given [`LinearWord`] to the end of this word. Note, that the appended
+    /// suffix may be finite or infinite.
     fn append<W: LinearWord<S>>(self, suffix: W) -> Concat<Self, W>
     where
         Self: Sized,
@@ -21,6 +26,8 @@ pub trait FiniteWord<S>: LinearWord<S> {
         Concat(self, suffix)
     }
 
+    /// Checks if the given word is equal to this word. Note, that this operation only makes sense
+    /// when both words are finite.
     fn equals<W: FiniteWord<S>>(&self, other: W) -> bool
     where
         S: Eq,
@@ -28,6 +35,8 @@ pub trait FiniteWord<S>: LinearWord<S> {
         self.len() == other.len() && self.symbols().zip(other.symbols()).all(|(a, b)| a == b)
     }
 
+    /// Prepends the given `prefix` to the beginning of this word. This operation only works if
+    /// the prefix is finite.
     fn prepend<W: FiniteWord<S>>(self, prefix: W) -> Concat<W, Self>
     where
         Self: Sized,
@@ -35,42 +44,66 @@ pub trait FiniteWord<S>: LinearWord<S> {
         Concat(prefix, self)
     }
 
+    /// Collects the symbols making up `self` into a vector.
     fn to_vec(&self) -> Vec<S> {
         self.symbols().collect()
     }
 
+    /// Collects the symbols making up `self` into a [`VecDeque`].
     fn to_deque(&self) -> VecDeque<S> {
         VecDeque::from(self.to_vec())
     }
 
+    /// Builds the [`Periodic`] word that is the omega power of this word, i.e. if
+    /// `self` is the word `u`, then the result is the word `u^ω` = `u u u u ...`.
+    /// Panics if `self` is empty as the operation is not defined in that case.
     fn omega_power(&self) -> Periodic<S>
     where
         S: Symbol,
     {
+        assert!(
+            !self.is_empty(),
+            "Omega iteration of an empty word is undefined!"
+        );
         Periodic::new(self)
     }
 
+    /// Gives the length of the word, i.e. the number of symbols.
     fn len(&self) -> usize {
         self.symbols().count()
     }
 
+    /// Returns the `n`-th symbol of the word from the back.
+    ///
+    /// # Example
+    /// ```
+    /// use automata::prelude::*;
+    /// let word = "abc";
+    ///
+    /// assert_eq!(word.nth_back(0), Some('c'));
+    /// assert_eq!(word.nth_back(1), Some('b'));
+    /// assert_eq!(word.nth_back(2), Some('a'));
+    /// ```
     fn nth_back(&self, pos: usize) -> Option<S> {
         self.nth(self.len() - pos - 1)
     }
 
+    /// Returns `true` if the word is empty, i.e. has no symbols.
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
+    /// Converts the word to a string. This is only possible if the the symbols implement
+    /// the [`Show`] trait.
     fn as_string(&self) -> String
     where
         S: Show,
     {
-        let mut it = self.symbols().map(|a| a.show()).peekable();
-        if it.peek().is_none() {
+        let out = self.symbols().map(|a| a.show()).join("");
+        if out.is_empty() {
             "ε".into()
         } else {
-            it.join("")
+            out
         }
     }
 }

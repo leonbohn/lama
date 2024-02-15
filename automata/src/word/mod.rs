@@ -22,10 +22,13 @@ mod omega;
 pub use omega::{OmegaWord, Periodic, Reduced, ReducedParseError};
 use tracing::subscriber::SetGlobalDefaultError;
 
-use self::subword::Infix;
+pub use self::subword::Infix;
 
+/// A linear word is a word that can be indexed by a `usize`. This is the case for both finite and
+/// infinite words.
 #[autoimpl(for<T: trait + ?Sized> &T, &mut T)]
 pub trait LinearWord<S>: Hash + Eq {
+    /// Returns the symbol at the given `position` in `self`, if it exists.
     fn nth(&self, position: usize) -> Option<S>;
 
     /// Returns the first symbol of `self`, if it exists.
@@ -36,6 +39,14 @@ pub trait LinearWord<S>: Hash + Eq {
         self.nth(0)
     }
 
+    /// Builds an infix of `self` by starting at the given `offset` and taking the given `length`.
+    ///
+    /// # Example
+    /// ```
+    /// use automata::word::{LinearWord, FiniteWord};
+    /// let word = "abcde".to_string();
+    /// assert_eq!(word.infix(1, 3).as_string(), "bcd");
+    /// ```
     fn infix(&self, offset: usize, length: usize) -> Infix<'_, S, Self>
     where
         Self: Sized,
@@ -43,7 +54,7 @@ pub trait LinearWord<S>: Hash + Eq {
         Infix::new(self, offset, length)
     }
 
-    /// Constructs a [`Prefix`] object, which is a finite prefix of `self` that has the given `length`.
+    /// Constructs an [`Infix`] object, which is a finite prefix of `self` that has the given `length`.
     fn prefix(&self, length: usize) -> Infix<'_, S, Self>
     where
         Self: Sized,
@@ -69,6 +80,11 @@ pub trait LinearWord<S>: Hash + Eq {
     }
 }
 
+/// A type of iterator for infixes of [`LinearWord`]s. It is actually consumed by iteration.
+///
+/// Stores a reference to the iterated word as well as a start and end position. When `next` is called,
+/// we check if the start position is strictly smaller than the end position, and if so, we return the symbol at
+/// the start position and increment it. Otherwise, we return `None`.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct ConsumingInfixIterator<'a, S: Symbol, W: LinearWord<S>> {
     word: &'a W,
@@ -97,6 +113,7 @@ impl<'a, S: Symbol, W: LinearWord<S>> Iterator for ConsumingInfixIterator<'a, S,
 }
 
 impl<'a, S: Symbol, W: LinearWord<S>> ConsumingInfixIterator<'a, S, W> {
+    /// Creates a new [`ConsumingInfixIterator`] object from a reference to a word and a start and end position.
     pub fn new(word: &'a W, start: usize, end: usize) -> Self {
         Self {
             word,

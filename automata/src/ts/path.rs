@@ -1,4 +1,10 @@
+<<<<<<< HEAD
 use itertools::{Itertools, Either};
+=======
+use std::fmt::Debug;
+
+use itertools::Itertools;
+>>>>>>> main
 
 use crate::{alphabet::Alphabet, Color, Set, Show};
 
@@ -12,8 +18,10 @@ use super::{
 /// to create a path through some transition system, modify the transition system and then extend the previously
 /// created path in the modified transiton system.
 ///
-/// A path consists of an `origin`, which is simply the index of the state where the path starts. It stores
-/// a sequence of transitions and the colors of the states it visits.
+/// We represent a path as a sequence of transitions, where each transition is a tuple of the source state,
+/// the symbol that is taken and the color of the transition. The path also stores the colors of all states
+/// that are visited by the path. Finally, we store the index of the state that is reached by the path separately.
+/// This is done to allow for efficient extension of the path. Also we know that there can be no empty paths.
 #[derive(Clone, PartialEq, Hash)]
 pub struct Path<A: Alphabet, Idx, Q, C> {
     end: Idx,
@@ -21,6 +29,7 @@ pub struct Path<A: Alphabet, Idx, Q, C> {
     transitions: Vec<(Idx, A::Symbol, C)>,
 }
 
+/// Type alias that given a [`TransitionSystem`] `D` creates a [`Path`] in `D`.
 pub type PathIn<D> = Path<
     <D as TransitionSystem>::Alphabet,
     <D as TransitionSystem>::StateIndex,
@@ -28,7 +37,9 @@ pub type PathIn<D> = Path<
     <D as TransitionSystem>::EdgeColor,
 >;
 
-impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Path<A, Idx, Q, C> {
+impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Clone> Path<A, Idx, Q, C> {
+    /// Builds a new path from its parts, which are the index of the state it ends in, the sequence of
+    /// state colors and the setquence of transitions.
     pub fn from_parts(
         end: Idx,
         state_colors: Vec<Q>,
@@ -46,6 +57,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Path<A, Idx, Q, C> {
         self.end
     }
 
+    /// Gives the origin of the path, which is the index of the state the path starts in.
     pub fn origin(&self) -> Idx {
         if !self.transitions.is_empty() {
             self.transitions[0].0
@@ -84,6 +96,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Path<A, Idx, Q, C> {
         self.state_colors.iter()
     }
 
+    /// Consumes `self` and returns an iterator over all colors of the states visited by the path. May contain ducplicates.
     pub fn into_state_colors(self) -> impl Iterator<Item = Q> {
         self.state_colors.into_iter()
     }
@@ -107,6 +120,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Path<A, Idx, Q, C> {
         }
     }
 
+    /// Creates a new empty path that starts in the given `state` and has the given `capacity`.
     pub fn empty_in_with_capacity<D>(ts: D, state: Idx, capacity: usize) -> Self
     where
         D: Deterministic<StateColor = Q, EdgeColor = C, StateIndex = Idx, Alphabet = A>,
@@ -125,11 +139,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Path<A, Idx, Q, C> {
 
     /// Attempts to extend the path in the given `ts` by the given `symbol`. If the path can be extended,
     /// the transition is returned. Otherwise, `None` is returned.
-    pub fn extend_in<'a, D>(
-        &mut self,
-        ts: &'a D,
-        symbol: SymbolOf<D>,
-    ) -> Option<D::TransitionRef<'a>>
+    pub fn extend_in<'a, D>(&mut self, ts: &'a D, symbol: SymbolOf<D>) -> Option<D::EdgeRef<'a>>
     where
         D: Deterministic<StateColor = Q, EdgeColor = C, StateIndex = Idx, Alphabet = A>,
     {
@@ -161,6 +171,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Path<A, Idx, Q, C> {
             .chain(std::iter::once(self.end))
     }
 
+    /// Consumes `self` and returns an iterator over the indices of the states visited by the path. May contain duplicates.
     pub fn into_state_sequence(self) -> impl Iterator<Item = Idx> {
         self.transitions
             .into_iter()
@@ -173,6 +184,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Path<A, Idx, Q, C> {
         self.transitions.iter().map(|(source, sym, c)| c)
     }
 
+    /// Consumes `self` and returns an iterator over all colors which appear on an edge taken by the path. May contain duplicates.
     pub fn into_edge_colors(self) -> impl Iterator<Item = C> {
         self.transitions.into_iter().map(|(p, a, c)| c)
     }
@@ -209,7 +221,13 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Path<A, Idx, Q, C> {
     }
 }
 
-impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Show for Path<A, Idx, Q, C> {
+impl<A: Alphabet, Idx: IndexType, Q: Show, C: Show> Debug for Path<A, Idx, Q, C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.show())
+    }
+}
+
+impl<A: Alphabet, Idx: IndexType, Q: Show, C: Show> Show for Path<A, Idx, Q, C> {
     fn show(&self) -> String {
         format!(
             "{}{}",
@@ -229,6 +247,7 @@ pub struct Lasso<A: Alphabet, Idx, Q, C> {
     cycle: Path<A, Idx, Q, C>,
 }
 
+/// Type alias that given a [`TransitionSystem`] `D` creates a [`Lasso`] in `D`.
 pub type LassoIn<D> = Lasso<
     <D as TransitionSystem>::Alphabet,
     <D as TransitionSystem>::StateIndex,
@@ -236,23 +255,24 @@ pub type LassoIn<D> = Lasso<
     <D as TransitionSystem>::EdgeColor,
 >;
 
-impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Lasso<A, Idx, Q, C> {
+impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Clone> Lasso<A, Idx, Q, C> {
     /// Creates a new [`Lasso`] from the given base/spoke and cycle/recurring [`Path`].
     pub fn new(base: Path<A, Idx, Q, C>, cycle: Path<A, Idx, Q, C>) -> Self {
         Self { base, cycle }
     }
 
-    /// Returns an iterator over the indices of the states visited infinitely often by the lasso.
+    /// Gives an iterator over the state indices that appear in the cycle of the lasso. These
+    /// are precisely the states that appear infinitely often. May contain duplicates.
     pub fn recurrent_state_indices(&self) -> impl Iterator<Item = Idx> + '_ {
         self.cycle.state_sequence()
     }
 
-    /// Returns an iterator over the colors of the states visited infinitely often by the lasso.
+    /// Gives the colors of states along the cycle, so colors that appear infinitely often. May contain duplicates.
     pub fn recurrent_state_colors(&self) -> impl Iterator<Item = &Q> {
         self.cycle.state_colors()
     }
 
-    /// Returns an iterator over the colors of the edges visited infinitely often by the lasso.
+    /// Gives the colors of edges along the loop, so colors that appear infinitely often. May contain duplicates.
     pub fn recurrent_edge_colors(&self) -> impl Iterator<Item = &C> {
         self.cycle.edge_colors()
     }
@@ -263,20 +283,18 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Lasso<A, Idx, Q, C> {
         self.cycle.transitions()
     }
 
-    /// Returns an iterator over the indices of the states visited infinitely often by the lasso
-    /// and consumes the lasso.
+    /// Consumes `self` and gives an iterator over the state indices that appear in the cycle of the lasso. These
+    /// are precisely the states that appear infinitely often. May contain duplicates.
     pub fn into_recurrent_state_indices(self) -> impl Iterator<Item = Idx> {
         self.cycle.into_state_sequence()
     }
 
-    /// Returns an iterator over the colors of the states visited infinitely often by the lasso
-    /// and consumes the lasso
+    /// Consumes `self` and gives the colors of states along the cycle, so colors that appear infinitely often. May contain duplicates.
     pub fn into_recurrent_state_colors(self) -> impl Iterator<Item = Q> {
         self.cycle.into_state_colors()
     }
 
-    /// Returns an iterator over the colors of the edges visited infinitely often by the lasso
-    /// and consumes the lasso.
+    /// Consumes `self` and gives the colors of edges along the loop, so colors that appear infinitely often. May contain duplicates.
     pub fn into_recurrent_edge_colors(self) -> impl Iterator<Item = C> {
         self.cycle.into_edge_colors()
     }

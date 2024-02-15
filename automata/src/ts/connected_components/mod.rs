@@ -37,6 +37,8 @@ impl<'a, Ts: TransitionSystem> SccDecomposition<'a, Ts> {
         Self(ts, sccs)
     }
 
+    /// Gives the first [`Scc`] in the decomposition. This must exist as we only allow
+    /// non-empty decompositions.
     pub fn first(&self) -> &Scc<'a, Ts> {
         self.1.first().expect("At least one SCC must exist!")
     }
@@ -50,6 +52,8 @@ impl<'a, Ts: TransitionSystem> SccDecomposition<'a, Ts> {
             .find_map(|(i, scc)| if scc.contains(&state) { Some(i) } else { None })
     }
 
+    /// Tests whether two SCC decompositions are isomorphic. This is done by checking whether each
+    /// SCC in one decomposition has a matching SCC in the other decomposition.
     pub fn isomorphic(&self, other: &SccDecomposition<'a, Ts>) -> bool {
         for scc in &self.1 {
             if !other.1.iter().any(|other_scc| scc == other_scc) {
@@ -91,7 +95,7 @@ mod tests {
             connected_components::{Scc, SccDecomposition},
             Sproutable,
         },
-        Pointed, RightCongruence, Set, TransitionSystem,
+        Pointed, RightCongruence, Set, TransitionSystem, Void,
     };
 
     use super::NTS;
@@ -102,14 +106,14 @@ mod tests {
         let q1 = cong.add_state(vec!['a']);
         let q2 = cong.add_state(vec!['b']);
         let q3 = cong.add_state(vec!['b', 'b']);
-        cong.add_edge(q0, 'a', q1, ());
-        cong.add_edge(q0, 'b', q2, ());
-        cong.add_edge(q1, 'a', q1, ());
-        cong.add_edge(q1, 'b', q1, ());
-        cong.add_edge(q2, 'a', q3, ());
-        cong.add_edge(q2, 'b', q2, ());
-        cong.add_edge(q3, 'a', q3, ());
-        cong.add_edge(q3, 'b', q2, ());
+        cong.add_edge(q0, 'a', q1, Void);
+        cong.add_edge(q0, 'b', q2, Void);
+        cong.add_edge(q1, 'a', q1, Void);
+        cong.add_edge(q1, 'b', q1, Void);
+        cong.add_edge(q2, 'a', q3, Void);
+        cong.add_edge(q2, 'b', q2, Void);
+        cong.add_edge(q3, 'a', q3, Void);
+        cong.add_edge(q3, 'b', q2, Void);
         cong
     }
 
@@ -129,15 +133,15 @@ mod tests {
 
         assert_eq!(
             scc2.interior_transitions(),
-            &Set::from_iter([(1, 'a', (), 1), (1, 'b', (), 1)])
+            &Set::from_iter([(1, 'a', Void, 1), (1, 'b', Void, 1)])
         );
         assert_eq!(
             scc3.interior_transitions(),
             &Set::from_iter([
-                (2, 'a', (), 3),
-                (2, 'b', (), 2),
-                (3, 'a', (), 3),
-                (3, 'b', (), 2)
+                (2, 'a', Void, 3),
+                (2, 'b', Void, 2),
+                (3, 'a', Void, 3),
+                (3, 'b', Void, 2)
             ])
         );
 

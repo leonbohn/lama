@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::prelude::*;
+use crate::{prelude::*, ts::nts::NTSPartsFor};
 
 /// A transition system that maps the edge colors of a given transition system to a new type.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -21,8 +21,8 @@ pub struct MappedPreEdge<Idx, T, F, C> {
 impl<'a, Idx, E: 'a, C, D, F, T> IsEdge<'a, E, Idx, D> for MappedPreEdge<Idx, T, F, C>
 where
     Idx: IndexType,
-    C: Color,
-    D: Color,
+    C: Clone,
+    D: Clone,
     F: Fn(Idx, &E, C, Idx) -> D,
     T: IsEdge<'a, E, Idx, C>,
 {
@@ -76,11 +76,11 @@ where
 
 impl<Ts, D, F> PredecessorIterable for MapEdges<Ts, F>
 where
-    D: Color,
+    D: Clone,
     Ts: PredecessorIterable,
     F: Fn(Ts::StateIndex, &ExpressionOf<Ts>, Ts::EdgeColor, Ts::StateIndex) -> D,
 {
-    type PreTransitionRef<'this> = MappedPreEdge<Ts::StateIndex, Ts::PreTransitionRef<'this>, &'this F, Ts::EdgeColor>
+    type PreEdgeRef<'this> = MappedPreEdge<Ts::StateIndex, Ts::PreEdgeRef<'this>, &'this F, Ts::EdgeColor>
     where
         Self: 'this;
 
@@ -125,6 +125,7 @@ pub struct MappedEdge<Idx, T, F, C> {
 }
 
 impl<Idx, T, F, C> MappedEdge<Idx, T, F, C> {
+    /// Create a new mapped edge instance.
     pub fn new(transition: T, from: Idx, f: F) -> Self {
         Self {
             transition,
@@ -138,8 +139,8 @@ impl<Idx, T, F, C> MappedEdge<Idx, T, F, C> {
 impl<'ts, Idx, E: 'ts, C, D, F, T> IsEdge<'ts, E, Idx, D> for MappedEdge<Idx, T, F, C>
 where
     Idx: IndexType,
-    C: Color,
-    D: Color,
+    C: Clone,
+    D: Clone,
     F: Fn(Idx, &E, C, Idx) -> D,
     T: IsEdge<'ts, E, Idx, C>,
 {
@@ -168,7 +169,7 @@ where
 impl<Ts, D, F> TransitionSystem for MapEdges<Ts, F>
 where
     Ts: TransitionSystem,
-    D: Color,
+    D: Clone,
     F: Fn(Ts::StateIndex, &ExpressionOf<Ts>, Ts::EdgeColor, Ts::StateIndex) -> D,
 {
     type StateIndex = Ts::StateIndex;
@@ -177,7 +178,7 @@ where
 
     type EdgeColor = D;
 
-    type TransitionRef<'this> = MappedEdge<Ts::StateIndex, Ts::TransitionRef<'this>, &'this F, Ts::EdgeColor>
+    type EdgeRef<'this> = MappedEdge<Ts::StateIndex, Ts::EdgeRef<'this>, &'this F, Ts::EdgeColor>
     where
         Self: 'this;
 
@@ -232,7 +233,7 @@ impl<Ts, F> MapEdges<Ts, F> {
 }
 impl<D, Ts, F> Pointed for MapEdges<Ts, F>
 where
-    D: Color,
+    D: Clone,
     Ts: TransitionSystem + Pointed,
     F: Fn(Ts::StateIndex, &ExpressionOf<Ts>, Ts::EdgeColor, Ts::StateIndex) -> D,
 {
@@ -261,9 +262,13 @@ impl<Ts, F> MapEdgeColor<Ts, F> {
     pub fn ts(&self) -> &Ts {
         &self.ts
     }
+
+    pub fn into_parts(self) -> (Ts, F) {
+        (self.ts, self.f)
+    }
 }
 
-impl<D: Color, Ts: TransitionSystem + Pointed, F: Fn(Ts::EdgeColor) -> D> Pointed
+impl<D: Clone, Ts: TransitionSystem + Pointed, F: Fn(Ts::EdgeColor) -> D> Pointed
     for MapEdgeColor<Ts, F>
 {
     fn initial(&self) -> Self::StateIndex {
@@ -293,8 +298,8 @@ impl<T, F, C> MappedTransition<T, F, C> {
 impl<'ts, Idx, E, C, D, F, T> IsEdge<'ts, E, Idx, D> for MappedTransition<T, F, C>
 where
     Idx: IndexType,
-    C: Color,
-    D: Color,
+    C: Clone,
+    D: Clone,
     F: Fn(C) -> D,
     T: IsEdge<'ts, E, Idx, C>,
 {
@@ -353,9 +358,9 @@ pub struct MappedPreTransition<T, F, C> {
     _old_color: PhantomData<C>,
 }
 
-// impl<Idx: IndexType, E, C: Color, D: Color, F: Fn(C) -> D, T: IsTransition<E, Idx, C>>
+// impl<Idx: IndexType, E, C: Clone, D: Clone, F: Fn(C) -> D, T: IsTransition<E, Idx, C>>
 // IsTransition<E, Idx, D> for MappedTransition<T, F, C>
-impl<'a, Idx: IndexType, E, C: Color, D: Color, F: Fn(C) -> D, T: IsEdge<'a, E, Idx, C>>
+impl<'a, Idx: IndexType, E, C: Clone, D: Clone, F: Fn(C) -> D, T: IsEdge<'a, E, Idx, C>>
     IsEdge<'a, E, Idx, D> for MappedPreTransition<T, F, C>
 {
     fn source(&self) -> Idx {
@@ -432,12 +437,16 @@ impl<Ts, F> MapStateColor<Ts, F> {
         &self.ts
     }
 
+    pub fn into_parts(self) -> (Ts, F) {
+        (self.ts, self.f)
+    }
+
     pub fn f(&self) -> &F {
         &self.f
     }
 }
 
-impl<D: Color, Ts: TransitionSystem + Pointed, F: Fn(Ts::StateColor) -> D> Pointed
+impl<D: Clone, Ts: TransitionSystem + Pointed, F: Fn(Ts::StateColor) -> D> Pointed
     for MapStateColor<Ts, F>
 {
     fn initial(&self) -> Self::StateIndex {

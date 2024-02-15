@@ -3,6 +3,7 @@ use std::hash::Hash;
 
 /// Abstracts the concept of length, allowing us to work with finite and infinite words in a
 /// somewhat similar fashion.
+// TODO: DEPRECATE
 pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
     /// Whether the length is finite or not.
     // FIXME: remove or improve
@@ -10,7 +11,7 @@ pub trait Length: Eq + Ord + Hash + Debug + Display + Copy {
     /// The type of iterator over the set of raw positions.
     type RawPositions: Iterator<Item = RawPosition>;
 
-    /// Heavily used in the computation of a run (see [`crate::ts::run::walker::Walker`]). For
+    /// Heavily used in the computation of a run but most probably deprecated. For
     /// finite words, this method always either returns `None` (if the given `position` is out
     /// of bounds) or `Some(position)`. More interestingly, if the length is infinite, this
     /// method takes the reset point/loop index of the input into account.

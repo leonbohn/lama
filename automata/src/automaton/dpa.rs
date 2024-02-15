@@ -1,4 +1,8 @@
-use std::{collections::VecDeque, marker::PhantomData};
+use std::{
+    collections::{BTreeSet, VecDeque},
+    hash::Hash,
+    marker::PhantomData,
+};
 
 use itertools::Itertools;
 use tracing::{info, trace};
@@ -8,9 +12,9 @@ use crate::{
     ts::{
         connected_components::Scc,
         operations::{MapEdgeColor, MapStateColor},
-        CollectDTS, IntoInitialBTS, Quotient, Shrinkable,
+        CollectDTS, Quotient, Shrinkable,
     },
-    Parity, Partition, Set,
+    HasParity, Partition, Set,
 };
 
 use super::acceptor::OmegaWordAcceptor;
@@ -29,6 +33,8 @@ pub trait DPALike: Deterministic<EdgeColor = usize> + Pointed {
         DPA::from(self)
     }
 
+    /// Consumes `self` and returns a [`DPA`] from the transition system underlying `self`. Note
+    /// that this restricts to reachable states.
     fn collect_dpa(self) -> IntoDPA<Initialized<CollectDTS<Self>>> {
         DPA::from(self.trim_collect())
     }
@@ -54,14 +60,22 @@ impl<Ts: DPALike> AsRef<IntoDPA<Ts>> for IntoDPA<Ts> {
 }
 
 impl<D: DPALike> IntoDPA<D> {
+    /// Gives a witness for the fact that the language accepted by `self` is not empty. This is
+    /// done by finding an accepting cycle in the underlying transition system.
     pub fn give_word(&self) -> Option<Reduced<SymbolOf<Self>>> {
         todo!()
     }
 
+    /// Builds the complement of `self`, i.e. the DPA that accepts the complement of the language
+    /// accepted by `self`. This is a cheap operation as it only requires to increment all edge
+    /// colors by one.
     pub fn complement(self) -> DPA<D::Alphabet, D::StateColor> {
         self.map_edge_colors(|c| c + 1).collect_dpa()
     }
 
+    /// Gives a witness for the fact that `left` and `right` are not language-equivalent. This is
+    /// done by finding a separating word, i.e. a word that is accepted from one of the two states
+    /// but not by the other.
     pub fn separate<X, Y>(&self, left: X, right: Y) -> Option<Reduced<SymbolOf<Self>>>
     where
         X: Indexes<Self>,
@@ -79,12 +93,16 @@ impl<D: DPALike> IntoDPA<D> {
             .witness_inequivalence(&self.with_initial(q).into_dpa())
     }
 
-    pub fn prefix_congruence(&self) -> Quotient<&Self> {
-        fn print<X: Show>(part: &[Vec<X>]) -> String {
+    /// Computes a [`Partition`] of the state indices of `self` such that any two states in the
+    /// same class of the partition are language-equivalent. This is done iteratively, by considering each
+    /// state and finding a state that is language-equivalent to it. If no such state exists, a new
+    /// class is created.
+    pub fn prefix_partition(&self) -> Partition<D::StateIndex> {
+        fn print<X: Show>(part: &[BTreeSet<X>]) -> String {
             format!(
                 "{{{}}}",
                 part.iter()
-                    .map(|class| format!("[{}]", part.iter().map(|x| x.show()).join(", ")))
+                    .map(|class| format!("[{}]", class.iter().map(|x| x.show()).join(", ")))
                     .join(", ")
             )
         }
@@ -92,7 +110,7 @@ impl<D: DPALike> IntoDPA<D> {
         let fst = it.next();
         assert_eq!(fst, Some(self.initial()));
 
-        let mut partition = vec![vec![fst.unwrap()]];
+        let mut partition = vec![BTreeSet::from_iter([self.initial()])];
         let mut queue: VecDeque<_> = it.collect();
         let expected_size = queue.len() + 1;
 
@@ -108,7 +126,7 @@ impl<D: DPALike> IntoDPA<D> {
                     .expect("Class of partition must be non-empty");
                 if self
                     .as_ref()
-                    .with_initial(p)
+                    .with_initial(*p)
                     .as_dpa()
                     .language_equivalent(&self.as_ref().with_initial(q).as_dpa())
                 {
@@ -116,22 +134,30 @@ impl<D: DPALike> IntoDPA<D> {
                         "it is language equivalent to {}, adding it to the equivalence class",
                         p.show()
                     );
-                    partition.get_mut(i).unwrap().push(q);
+                    partition.get_mut(i).unwrap().insert(q);
                     continue 'outer;
                 }
             }
             trace!("not equivalent to any known states, creating a new equivalence class");
-            partition.push(vec![q]);
+            partition.push(BTreeSet::from_iter([q]));
         }
         debug_assert_eq!(
             partition.iter().fold(0, |acc, x| acc + x.len()),
             expected_size,
             "size mismatch!"
         );
-
-        self.quotient(Partition::new(partition))
+        partition.into()
     }
 
+    /// Builds the quotient of `self` with respect to the prefix partition. This will result in the prefix
+    /// congruence that underlies the language accepted by `self`.
+    pub fn prefix_congruence(&self) -> Quotient<&Self> {
+        self.quotient(self.prefix_partition())
+    }
+
+    /// Attempts to find an omega-word that witnesses the given `color`, meaning the least color that
+    /// appears infinitely often during the run of the returned word is equal to `color`. If no such
+    /// word exists, `None` is returned.
     pub fn witness_color(&self, color: D::EdgeColor) -> Option<Reduced<SymbolOf<Self>>> {
         let restrict = self.edge_color_restricted(color, usize::MAX);
         let sccs = restrict.sccs();
@@ -153,6 +179,10 @@ impl<D: DPALike> IntoDPA<D> {
         None
     }
 
+    /// Attempts to find an omega-word `w` such that the least color seen infinitely often
+    /// during the run of `self` on `w` is equal to `k` and the least color seen infinitely often
+    /// during the run of `other` on `w` is equal to `l`. If no such word exists, `None` is returned.
+    /// Main use of this is to witness the fact that `self` and `other` are not language-equivalent.
     pub fn witness_colors<O: DPALike<Alphabet = D::Alphabet>>(
         &self,
         k: usize,
@@ -186,10 +216,14 @@ impl<D: DPALike> IntoDPA<D> {
         None
     }
 
+    /// Returns an iterator over all colors that appear on edges of `self`.
     pub fn colors(&self) -> impl Iterator<Item = D::EdgeColor> + '_ {
         MealyLike::color_range(self)
     }
 
+    /// Attempts to find an omega-word that witnesses the fact that `self` and `other` are not
+    /// language-equivalent. If no such word exists, `None` is returned. Internally, this uses
+    /// [`Self::witness_not_subset_of`] in both directions.
     pub fn witness_inequivalence<O: DPALike<Alphabet = D::Alphabet>>(
         &self,
         other: &IntoDPA<O>,
@@ -198,6 +232,8 @@ impl<D: DPALike> IntoDPA<D> {
             .or(other.witness_not_subset_of(self))
     }
 
+    /// Returns true if `self` is language-equivalent to `other`, i.e. if and only if the Two
+    /// DPAs accept the same language.
     pub fn language_equivalent<O: DPALike<Alphabet = D::Alphabet>>(
         &self,
         other: &IntoDPA<O>,
@@ -205,14 +241,20 @@ impl<D: DPALike> IntoDPA<D> {
         self.witness_inequivalence(other).is_none()
     }
 
+    /// Returns true if and only if `self` is included in `other`, i.e. if and only if the language
+    /// accepted by `self` is a subset of the language accepted by `other`.
     pub fn included_in<O: DPALike<Alphabet = D::Alphabet>>(&self, other: &IntoDPA<O>) -> bool {
         self.witness_not_subset_of(other).is_none()
     }
 
+    /// Returns true if and only if `self` includes `other`, i.e. if and only if the language
+    /// accepted by `self` is a superset of the language accepted by `other`.
     pub fn includes<O: DPALike<Alphabet = D::Alphabet>>(&self, other: &IntoDPA<O>) -> bool {
         other.witness_not_subset_of(self).is_none()
     }
 
+    /// Attempts to find an omega-word that witnesses the fact that `self` is not included in `other`.
+    /// If no such word exists, `None` is returned.
     pub fn witness_not_subset_of<O: DPALike<Alphabet = D::Alphabet>>(
         &self,
         other: &IntoDPA<O>,
@@ -233,10 +275,19 @@ impl<D: DPALike> IntoDPA<D> {
         None
     }
 
-    pub fn normalized(&self) -> DPA<D::Alphabet, D::StateColor> {
+    /// Produces a DPA that is language-equivalent to `self` but has the minimal number of different colors. This
+    /// done by a procedure which in essence was first introduced by Carton and Maceiras in their paper
+    /// "Computing the rabin index of a finite automaton". The procedure that this implementation actually uses
+    /// is outlined by Schewe and Ehlers in [Natural Colors of Infinite Words](https://arxiv.org/pdf/2207.11000.pdf)
+    /// in Section 4.1, Definition 2.
+    pub fn normalized(&self) -> DPA<D::Alphabet, D::StateColor>
+    where
+        EdgeColor<Self>: Eq + Hash + Clone + Ord,
+        StateColor<Self>: Eq + Hash + Clone + Ord,
+    {
         let start = std::time::Instant::now();
 
-        let mut ts: Initialized<BTS<_, _, _, _>> = self.collect_pointed();
+        let mut ts: Initialized<HashTs<_, D::StateColor, D::EdgeColor>> = self.collect_pointed().0;
         let out = ts.clone();
 
         let mut recoloring = Vec::new();
@@ -339,11 +390,8 @@ impl<D: DPALike> IntoDPA<D> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{prelude::*, TransitionSystem};
-    #[cfg(test)]
-    pub use pretty_assertions::{assert_eq, assert_ne};
-
     use super::DPA;
+    use crate::{prelude::*, TransitionSystem, Void};
 
     #[test_log::test]
     fn normalize_dpa() {
@@ -370,7 +418,7 @@ mod tests {
 
     fn example_dpa() -> DPA {
         NTS::builder()
-            .default_color(())
+            .default_color(Void)
             .with_transitions([
                 (0, 'a', 0, 0),
                 (0, 'b', 1, 1),
@@ -382,10 +430,7 @@ mod tests {
                 (2, 'b', 5, 0),
                 (2, 'c', 6, 0),
             ])
-            .collect()
-            .into_deterministic()
-            .with_initial(0)
-            .collect_dpa()
+            .into_dpa(0)
     }
 
     #[test]
@@ -479,7 +524,7 @@ mod tests {
                 (1, 'b', 1, 0),
                 (1, 'c', 1, 0),
             ])
-            .default_color(())
+            .default_color(Void)
             .into_dpa(0);
         assert!(!dpa.accepts_omega(upw!("cabaca")))
     }
@@ -517,7 +562,7 @@ mod tests {
 
         let cong = dpa.prefix_congruence().collect_right_congruence_bare();
         assert_eq!(cong.size(), 2);
-        assert_eq!(cong.initial(), cong.reached("aa").unwrap());
+        assert_eq!(cong.initial(), cong.reached_state_index("aa").unwrap());
         assert!(cong.congruent("", "aa"));
         assert!(cong.congruent("ab", "baaba"));
 
