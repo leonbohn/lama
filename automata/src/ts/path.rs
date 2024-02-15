@@ -5,7 +5,7 @@ use itertools::{Either, Itertools};
 use crate::{alphabet::Alphabet, Color, Set, Show};
 
 use super::{
-    transition_system::{EdgeReference, Indexes, IsEdge},
+    transition_system::{Indexes, IsEdge},
     Deterministic, ExpressionOf, IndexType, SymbolOf, TransitionSystem,
 };
 
