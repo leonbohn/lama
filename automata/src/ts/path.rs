@@ -1,10 +1,6 @@
-<<<<<<< HEAD
-use itertools::{Itertools, Either};
-=======
 use std::fmt::Debug;
 
-use itertools::Itertools;
->>>>>>> main
+use itertools::{Itertools, Either};
 
 use crate::{alphabet::Alphabet, Color, Set, Show};
 
