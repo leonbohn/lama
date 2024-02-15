@@ -215,6 +215,18 @@ impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Clone> Path<A, Idx, Q, C> {
             Either::Right(std::iter::empty())
         }
     }
+
+    /// Consumes `self` and returns an iterator over the transitions in the form (src, symbol, target, color)
+    pub fn into_transitions(self) -> impl Iterator<Item = (Idx, A::Symbol, Idx, C)> {
+        if let Some(last) = self.transitions.last().cloned() {
+            Either::Left(self.transitions.into_iter()
+                .tuple_windows::<(_,_)>()
+                .map(|((q0, a0, c0), (q1, _, _))| (q0, a0, q1, c0))
+                .chain(std::iter::once((last.0, last.1, self.end, last.2))))
+        } else {
+            Either::Right(std::iter::empty())
+        }
+    }
 }
 
 impl<A: Alphabet, Idx: IndexType, Q: Show, C: Show> Debug for Path<A, Idx, Q, C> {
@@ -273,7 +285,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Clone> Lasso<A, Idx, Q, C> {
         self.cycle.edge_colors()
     }
 
-    /// Returns an iterator over the transitions visited infinitely often by the lasso
+    /// Gives the transitions along the loop, so transitions that appear infinitely often
     /// as tuples of the form (src, smbol, target, color)
     pub fn recurrent_transitions(&self) -> impl Iterator<Item = (Idx, A::Symbol, Idx, C)> + '_ {
         self.cycle.transitions()
@@ -293,6 +305,12 @@ impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Clone> Lasso<A, Idx, Q, C> {
     /// Consumes `self` and gives the colors of edges along the loop, so colors that appear infinitely often. May contain duplicates.
     pub fn into_recurrent_edge_colors(self) -> impl Iterator<Item = C> {
         self.cycle.into_edge_colors()
+    }
+
+    /// Consumes `self` and gives the transitions along the loop, so transitions that appear infinitely often
+    /// as tuples of the form (src, smbol, target, color)
+    pub fn into_recurrent_transitions(self) -> impl Iterator<Item = (Idx, A::Symbol, Idx, C)> {
+        self.cycle.into_transitions()
     }
 }
 
