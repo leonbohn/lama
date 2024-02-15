@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use itertools::{Either, Itertools};
 
 use crate::{alphabet::Alphabet, Color, Set, Show};
