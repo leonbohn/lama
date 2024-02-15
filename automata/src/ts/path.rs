@@ -242,26 +242,35 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Lasso<A, Idx, Q, C> {
         Self { base, cycle }
     }
 
+    /// Returns an iterator over the indices of the states visited infinitely often by the lasso.
     pub fn recurrent_state_indices(&self) -> impl Iterator<Item = Idx> + '_ {
         self.cycle.state_sequence()
     }
 
+    /// Returns an iterator over the colors of the states visited infinitely often by the lasso.
     pub fn recurrent_state_colors(&self) -> impl Iterator<Item = &Q> {
         self.cycle.state_colors()
     }
 
+    /// Returns an iterator over the colors of the edges visited infinitely often by the lasso.
     pub fn recurrent_edge_colors(&self) -> impl Iterator<Item = &C> {
         self.cycle.edge_colors()
     }
 
+    /// Returns an iterator over the indices of the states visited infinitely often by the lasso
+    /// and consumes the lasso.
     pub fn into_recurrent_state_indices(self) -> impl Iterator<Item = Idx> {
         self.cycle.into_state_sequence()
     }
 
+    /// Returns an iterator over the colors of the states visited infinitely often by the lasso
+    /// and consumes the lasso
     pub fn into_recurrent_state_colors(self) -> impl Iterator<Item = Q> {
         self.cycle.into_state_colors()
     }
 
+    /// Returns an iterator over the colors of the edges visited infinitely often by the lasso
+    /// and consumes the lasso.
     pub fn into_recurrent_edge_colors(self) -> impl Iterator<Item = C> {
         self.cycle.into_edge_colors()
     }
