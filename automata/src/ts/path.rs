@@ -274,6 +274,18 @@ impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Clone> Lasso<A, Idx, Q, C> {
         self.cycle.edge_colors()
     }
 
+    /// Returns an iterator over the transitions visited infinitely often by the lasso
+    /// as tuples of the form (src, smbol, target, color)
+    pub fn recurrent_transitions(&self) -> impl Iterator<Item = (Idx, A::Symbol, Idx, C)> + '_ {
+        self.cycle.transitions()
+    }
+
+    /// Returns an iterator over the transitions visited infinitely often by the lasso
+    /// as tuples of the form (src, smbol, target, color)
+    pub fn recurrent_transitions(&self) -> impl Iterator<Item = (Idx, A::Symbol, Idx, C)> + '_ {
+        self.cycle.transitions()
+    }
+
     /// Consumes `self` and gives an iterator over the state indices that appear in the cycle of the lasso. These
     /// are precisely the states that appear infinitely often. May contain duplicates.
     pub fn into_recurrent_state_indices(self) -> impl Iterator<Item = Idx> {
