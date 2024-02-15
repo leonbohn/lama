@@ -1,11 +1,9 @@
-use std::fmt::Debug;
-
-use itertools::Itertools;
+use itertools::{Either, Itertools};
 
 use crate::{alphabet::Alphabet, Color, Set, Show};
 
 use super::{
-    transition_system::{Indexes, IsEdge},
+    transition_system::{EdgeReference, Indexes, IsEdge},
     Deterministic, ExpressionOf, IndexType, SymbolOf, TransitionSystem,
 };
 
@@ -203,9 +201,24 @@ impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Clone> Path<A, Idx, Q, C> {
             ),
         )
     }
+
+    /// Returns an iterator over the transitions in the form (src, symbol, target, color)
+    pub fn transitions(&self) -> impl Iterator<Item = (Idx, A::Symbol, Idx, C)> + '_ {
+        if let Some(last) = self.transitions.last() {
+            Either::Left(
+                self.transitions
+                    .iter()
+                    .tuple_windows::<(_, _)>()
+                    .map(|((q0, a0, c0), (q1, _, _))| (*q0, *a0, *q1, c0.clone()))
+                    .chain(std::iter::once((last.0, last.1, self.end, last.2.clone()))),
+            )
+        } else {
+            Either::Right(std::iter::empty())
+        }
+    }
 }
 
-impl<A: Alphabet, Idx: IndexType, Q: Show, C: Show> Debug for Path<A, Idx, Q, C> {
+impl<A: Alphabet, Idx: IndexType, Q: Show, C: Show> std::fmt::Debug for Path<A, Idx, Q, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.show())
     }
