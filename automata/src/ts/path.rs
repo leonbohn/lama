@@ -222,10 +222,13 @@ impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Clone> Path<A, Idx, Q, C> {
     /// Consumes `self` and returns an iterator over the transitions in the form (src, symbol, target, color)
     pub fn into_transitions(self) -> impl Iterator<Item = (Idx, A::Symbol, Idx, C)> {
         if let Some(last) = self.transitions.last().cloned() {
-            Either::Left(self.transitions.into_iter()
-                .tuple_windows::<(_,_)>()
-                .map(|((q0, a0, c0), (q1, _, _))| (q0, a0, q1, c0))
-                .chain(std::iter::once((last.0, last.1, self.end, last.2))))
+            Either::Left(
+                self.transitions
+                    .into_iter()
+                    .tuple_windows::<(_, _)>()
+                    .map(|((q0, a0, c0), (q1, _, _))| (q0, a0, q1, c0))
+                    .chain(std::iter::once((last.0, last.1, self.end, last.2))),
+            )
         } else {
             Either::Right(std::iter::empty())
         }
@@ -331,8 +334,8 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Show for Lasso<A, Idx, Q, 
 
 #[cfg(test)]
 pub mod tests {
-    use crate::ts::Path;
     use crate::alphabet::Simple;
+    use crate::ts::Path;
 
     #[test]
     fn path_transitions() {
@@ -340,18 +343,10 @@ pub mod tests {
         let path: Path<Simple, usize, bool, bool> = Path::from_parts(
             0,
             vec![true, false, true],
-            vec![
-                (0, 'a', false),
-                (1, 'b', true),
-                (2, 'c', false)
-            ]
+            vec![(0, 'a', false), (1, 'b', true), (2, 'c', false)],
         );
-        let transitions = vec![
-            (0, 'a', 1, false),
-            (1, 'b', 2, true),
-            (2, 'c', 0, false)
-        ];
-        
+        let transitions = vec![(0, 'a', 1, false), (1, 'b', 2, true), (2, 'c', 0, false)];
+
         assert!(path.transitions().eq(transitions));
     }
 }
