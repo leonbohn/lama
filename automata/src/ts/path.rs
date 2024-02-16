@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use itertools::Itertools;
+use itertools::{Either, Itertools};
 
 use crate::{alphabet::Alphabet, Color, Set, Show};
 
@@ -203,6 +203,36 @@ impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Clone> Path<A, Idx, Q, C> {
             ),
         )
     }
+
+    /// Returns an iterator over the transitions in the form (src, symbol, target, color)
+    pub fn transitions(&self) -> impl Iterator<Item = (Idx, A::Symbol, Idx, C)> + '_ {
+        if let Some(last) = self.transitions.last() {
+            Either::Left(
+                self.transitions
+                    .iter()
+                    .tuple_windows::<(_, _)>()
+                    .map(|((q0, a0, c0), (q1, _, _))| (*q0, *a0, *q1, c0.clone()))
+                    .chain(std::iter::once((last.0, last.1, self.end, last.2.clone()))),
+            )
+        } else {
+            Either::Right(std::iter::empty())
+        }
+    }
+
+    /// Consumes `self` and returns an iterator over the transitions in the form (src, symbol, target, color)
+    pub fn into_transitions(self) -> impl Iterator<Item = (Idx, A::Symbol, Idx, C)> {
+        if let Some(last) = self.transitions.last().cloned() {
+            Either::Left(
+                self.transitions
+                    .into_iter()
+                    .tuple_windows::<(_, _)>()
+                    .map(|((q0, a0, c0), (q1, _, _))| (q0, a0, q1, c0))
+                    .chain(std::iter::once((last.0, last.1, self.end, last.2))),
+            )
+        } else {
+            Either::Right(std::iter::empty())
+        }
+    }
 }
 
 impl<A: Alphabet, Idx: IndexType, Q: Show, C: Show> Debug for Path<A, Idx, Q, C> {
@@ -261,6 +291,12 @@ impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Clone> Lasso<A, Idx, Q, C> {
         self.cycle.edge_colors()
     }
 
+    /// Gives the transitions along the loop, so transitions that appear infinitely often
+    /// as tuples of the form (src, smbol, target, color)
+    pub fn recurrent_transitions(&self) -> impl Iterator<Item = (Idx, A::Symbol, Idx, C)> + '_ {
+        self.cycle.transitions()
+    }
+
     /// Consumes `self` and gives an iterator over the state indices that appear in the cycle of the lasso. These
     /// are precisely the states that appear infinitely often. May contain duplicates.
     pub fn into_recurrent_state_indices(self) -> impl Iterator<Item = Idx> {
@@ -276,10 +312,35 @@ impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Clone> Lasso<A, Idx, Q, C> {
     pub fn into_recurrent_edge_colors(self) -> impl Iterator<Item = C> {
         self.cycle.into_edge_colors()
     }
+
+    /// Consumes `self` and gives the transitions along the loop, so transitions that appear infinitely often
+    /// as tuples of the form (src, smbol, target, color)
+    pub fn into_recurrent_transitions(self) -> impl Iterator<Item = (Idx, A::Symbol, Idx, C)> {
+        self.cycle.into_transitions()
+    }
 }
 
 impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Show for Lasso<A, Idx, Q, C> {
     fn show(&self) -> String {
         format!("{}({})", self.base.show(), self.cycle.show())
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use crate::alphabet::Simple;
+    use crate::ts::Path;
+
+    #[test]
+    fn path_transitions() {
+        // make path
+        let path: Path<Simple, usize, bool, bool> = Path::from_parts(
+            0,
+            vec![true, false, true],
+            vec![(0, 'a', false), (1, 'b', true), (2, 'c', false)],
+        );
+        let transitions = vec![(0, 'a', 1, false), (1, 'b', 2, true), (2, 'c', 0, false)];
+
+        assert!(path.transitions().eq(transitions));
     }
 }
