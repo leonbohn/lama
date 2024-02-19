@@ -35,23 +35,24 @@ where
         // separate in escaping and non-escaping (successful) runs
         let (pos_successful, pos_escaping): (Vec<_>, Vec<_>) = sample
             .positive_words()
-            .map(|w| ts.omega_run(w))
+            .map(|w| (ts.omega_run(w), w))
             .partition_map(|r| match r {
-                Ok(v) => Either::Left(v),
-                Err(v) => Either::Right(v),
+                (Ok(v), w) => Either::Left((v, w)),
+                (Err(v), w) => Either::Right((v, w)),
             });
         let (neg_successful, neg_escaping): (Vec<_>, Vec<_>) = sample
             .negative_words()
-            .map(|w| ts.omega_run(w))
+            .map(|w| (ts.omega_run(w), w))
             .partition_map(|r| match r {
-                Ok(v) => Either::Left(v),
-                Err(v) => Either::Right(v),
+                (Ok(v), w) => Either::Left((v, w)),
+                (Err(v), w) => Either::Right((v, w)),
             });
         
         // reject if a pair escaping from the same state with the same escape string is found
-        for (pos_path, neg_path) in pos_escaping.into_iter().cartesian_product(neg_escaping) {
-            if pos_path.reached() == neg_path.reached() {
-                // check if suffix same
+        for ((pos_path, w0), (neg_path, w1)) in pos_escaping.into_iter().cartesian_product(neg_escaping) {
+            let pos_esc_str = w0.offset(pos_path.len()).normalized();
+            let neg_esc_str = w1.offset(neg_path.len()).normalized();
+            if pos_path.reached() == neg_path.reached() && pos_esc_str == neg_esc_str {
                 return false
             }
         }
@@ -60,13 +61,13 @@ where
         // the union of all infinity sets of negative words (see paper for details)
         let neg_union: Set<_> = neg_successful
             .into_iter()
-            .map(|r| {r.into_recurrent_state_indices()})
+            .map(|r| {r.0.into_recurrent_state_indices()})
             .flatten()
             .collect();
 
         pos_successful
             .into_iter()
-            .map(|r| {r.into_recurrent_state_indices().collect::<Set<_>>()})
+            .map(|r| {r.0.into_recurrent_state_indices().collect::<Set<_>>()})
             .any(|s| {s.is_subset(&neg_union)})
             .not()
     }
