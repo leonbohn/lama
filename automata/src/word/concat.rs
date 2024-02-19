@@ -4,6 +4,8 @@ use crate::{length::HasLength, prelude::Symbol, FiniteLength, Length};
 
 use super::{FiniteWord, LinearWord, OmegaWord};
 
+/// Concatenates two words. This operation is really only sensible when the first word
+/// is of finite length.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Concat<X, Y>(pub X, pub Y);
 

@@ -5,7 +5,7 @@ use chumsky::prelude::*;
 
 use crate::{lexer::Token, value, AcceptanceSignature, AtomicProposition, Id, StateConjunction};
 
-/// Newtype wrapper around a [`LabelExpression`], implements [`Deref`].
+/// Newtype wrapper around a [`crate::LabelExpression`], implements [`Deref`].
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Label(pub Bdd);
 
@@ -34,7 +34,7 @@ struct ExplicitEdge(Label, StateConjunction, Option<AcceptanceSignature>);
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct ImplicitEdge(StateConjunction, Option<AcceptanceSignature>);
 
-/// Represents an edge in a HOA automaton. It contains the [`LabelExpression`], the
+/// Represents an edge in a HOA automaton. It contains the [`crate::LabelExpression`], the
 /// [`StateConjunction`] and the [`AcceptanceSignature`] of the edge.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Edge(

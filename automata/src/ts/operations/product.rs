@@ -146,10 +146,10 @@ impl<'a, LI, RI, E, LC, RC> ProductTransition<'a, LI, RI, E, LC, RC> {
 impl<'a, Idx, Jdx, E, C, D> IsEdge<'a, E, ProductIndex<Idx, Jdx>, (C, D)>
     for ProductTransition<'a, Idx, Jdx, E, C, D>
 where
+    C: Clone,
+    D: Clone,
     Idx: IndexType,
     Jdx: IndexType,
-    C: Color,
-    D: Color,
 {
     fn source(&self) -> ProductIndex<Idx, Jdx> {
         ProductIndex(self.source.0, self.source.1)
@@ -173,9 +173,9 @@ where
 pub struct ProductEdgesFrom<'a, L: TransitionSystem, R: TransitionSystem> {
     left: &'a L,
     right: &'a R,
-    cur: Option<L::TransitionRef<'a>>,
+    cur: Option<L::EdgeRef<'a>>,
     it: L::EdgesFromIter<'a>,
-    right_edges: Vec<R::TransitionRef<'a>>,
+    right_edges: Vec<R::EdgeRef<'a>>,
     position: usize,
 }
 
@@ -294,9 +294,9 @@ impl<'a, LI, RI, E, LC, RC> ProductPreTransition<'a, LI, RI, E, LC, RC> {
 pub struct ProductEdgesTo<'a, L: PredecessorIterable, R: PredecessorIterable> {
     left: &'a L,
     right: &'a R,
-    cur: Option<L::PreTransitionRef<'a>>,
+    cur: Option<L::PreEdgeRef<'a>>,
     it: L::EdgesToIter<'a>,
-    right_edges: Vec<R::PreTransitionRef<'a>>,
+    right_edges: Vec<R::PreEdgeRef<'a>>,
     position: usize,
 }
 
@@ -380,9 +380,9 @@ mod tests {
             .with_transitions([(0, 'a', 0, 0)])
             .deterministic()
             .with_initial(0);
-        assert!((&l).ts_product(&l).reached("b").is_some());
+        assert!((&l).ts_product(&l).reached_state_index("b").is_some());
         let prod = l.ts_product(r);
-        assert!(prod.reached("a").is_some());
-        assert!(prod.reached("b").is_none());
+        assert!(prod.reached_state_index("a").is_some());
+        assert!(prod.reached_state_index("b").is_none());
     }
 }

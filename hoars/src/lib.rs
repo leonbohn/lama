@@ -112,7 +112,7 @@ pub struct HoaAutomaton {
 pub type HoaAcceptance = (usize, AcceptanceCondition);
 
 /// Stores information on aliases, it holds a vector of pairs of alias
-/// names and label expression. This can be used to [unalias](HoaAutomaton::unalias) an automaton.
+/// names and label expression. This can be used to unalias an automaton.
 pub type Aliases = Vec<(AliasName, LabelExpression)>;
 
 impl HoaAutomaton {
@@ -157,8 +157,7 @@ impl HoaAutomaton {
     }
 
     /// Creates a new HOA automaton from the given version, header and
-    /// body. This function will also [unalias](HoaAutomaton::unalias) the
-    /// automaton.
+    /// body. This function will also unalias the automaton.
     pub fn from_parts(header: Header, body: Body) -> Self {
         let mut out = Self { header, body };
         out.body.sort_by(|x, y| x.0.cmp(&y.0));

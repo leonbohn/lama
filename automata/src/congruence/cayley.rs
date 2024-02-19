@@ -51,7 +51,7 @@ where
 
     type EdgeColor = ();
 
-    type TransitionRef<'this> = EdgeReference<'this, InvertibleChar, usize, ()> where Self: 'this;
+    type EdgeRef<'this> = EdgeReference<'this, InvertibleChar, usize, ()> where Self: 'this;
 
     type StateIndices<'this> = std::ops::Range<usize> where Self: 'this;
 
@@ -85,7 +85,7 @@ where
         &self,
         state: Idx,
         symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         let idx = state.to_index(self)?;
         let (tp, string) = self.monoid().get_profile(idx)?;
         let mut word = string.to_deque();
@@ -192,7 +192,7 @@ where
 
     type EdgeColor = ();
 
-    type TransitionRef<'this> = EdgeReference<'this, ExpressionOf<Ts>, usize, ()> where Self: 'this;
+    type EdgeRef<'this> = EdgeReference<'this, ExpressionOf<Ts>, usize, ()> where Self: 'this;
 
     type StateIndices<'this> = std::ops::Range<usize> where Self: 'this;
 
@@ -225,7 +225,7 @@ where
         &self,
         state: Idx,
         symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         let idx = state.to_index(self)?;
         let (tp, string) = self.monoid().get_profile(idx)?;
         let mut word = string.to_vec();

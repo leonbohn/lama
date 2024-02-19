@@ -62,7 +62,7 @@ pub fn dba_rpni<A: Alphabet>(sample: &OmegaSample<A, bool>) -> DBA<A> {
     todo!()
 }
 
-/// Takes a reference to an [`InfiniteSample`], which classifies infinite words over the alphabet `A`
+/// Takes a reference to an [`OmegaSample`], which classifies infinite words over the alphabet `A`
 /// with boolean values and infers a [`PreciseDPA`] from it. The steps for this are roughly
 /// - infer the leading prefix (aka Myhill/Nerode) congruence
 /// - produce a [`SplitOmegaSample`] such that each suffix of a sample word which "starts" in a class `c`

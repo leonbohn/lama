@@ -5,6 +5,7 @@ use owo_colors::OwoColorize;
 
 use automata::{
     automaton::MooreLike,
+    congruence::ColoredClass,
     prelude::*,
     ts::dot::{DotStateAttribute, Dottable},
     Set,
@@ -91,7 +92,13 @@ impl Annotation {
 /// This a simple newtype wrapper around a congruence, which has no edge colors and uses
 /// [`Annotation`]s as state colors.
 #[derive(Clone)]
-pub struct AnnotatedCongruence<A: Alphabet = Simple>(RightCongruence<A, Annotation, ()>);
+pub struct AnnotatedCongruence<A: Alphabet = Simple>(RightCongruence<A, Annotation, Void>);
+
+impl<A: Alphabet> AnnotatedCongruence<A> {
+    pub fn new(rc: RightCongruence<A, Annotation, Void>) -> Self {
+        Self(rc)
+    }
+}
 
 #[autoimpl(for<T: trait + ?Sized> &T)]
 pub trait ClassifiesIdempotents<A: Alphabet> {
@@ -161,29 +168,33 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
                 info.expect("Every SCC must have a color")
             })
             .collect_pointed()
+            .0
+            .into_moore()
     }
 
     /// Takes a reference to a right congruence and a function that classifies idempotents
     /// of the congruence to construct an annotated congruence.
     pub fn build<Q, C, F>(rc: &RightCongruence<A, Q, C>, f: F) -> Self
     where
-        Q: Color,
-        C: Color,
+        Q: Clone,
+        C: Clone,
         F: ClassifiesIdempotents<A>,
     {
-        Self(
-            rc.erase_edge_colors()
-                .map_state_colors(|c| {
-                    let cls = c.class();
-                    if !cls.is_empty() && rc.is_idempotent(cls) {
-                        let b = f.classify(cls);
-                        c.recolor(Annotation::new(true, b))
-                    } else {
-                        c.recolor(Annotation::new(false, None))
-                    }
-                })
-                .collect_pointed(),
-        )
+        let cong = rc
+            .erase_edge_colors()
+            .map_state_colors(|c| {
+                let cls = c.class();
+                if !cls.is_empty() && rc.is_idempotent(cls) {
+                    let b = f.classify(cls);
+                    Annotation::new(true, b)
+                } else {
+                    Annotation::new(false, None)
+                }
+            })
+            .collect_pointed::<DTS<_, Annotation, Void>>()
+            .0;
+        let rc = RightCongruence::from_ts(cong);
+        Self::new(rc)
     }
 }
 

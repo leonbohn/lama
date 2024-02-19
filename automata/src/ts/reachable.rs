@@ -4,6 +4,8 @@ use crate::{prelude::Expression, ts::StateColor, Alphabet, Set, TransitionSystem
 
 use super::{transition_system::IsEdge, Deterministic, SymbolOf};
 
+/// Type alias for a minimal representative of a state which is its length-lexicographically minimal
+/// access sequence and its state index.
 pub type MinimalRepresentative<Ts> = (Vec<SymbolOf<Ts>>, <Ts as TransitionSystem>::StateIndex);
 
 /// Struct that can return the minimal representatives of a transition system. A minimal representative

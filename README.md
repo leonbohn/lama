@@ -23,3 +23,11 @@ Further traits that are of importance are
 
 ### Profiling while Benchmarking
 We can profile the benchmark code with `cargo bench --bench forc_paper -- --profile-time 20` where `20` is the time for which the benchmarks will be run. A flamegraph will be generated and placed in `target/criterion/forc_paper/profile/flamegraph.csv`.
+
+
+### Development
+To ensure code quality, the `main` branch should only be modified via pull requests.
+The CI is configured that any pull request will run through a set of checks and tests.
+Specifically, the formatting is tested, then clippy is run and finally all tests will be run.
+To avoid unnecessary runs of the CI, these steps can be run locally before every commit.
+This can be done through the `check` script included in the base of the repository.

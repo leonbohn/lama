@@ -12,6 +12,8 @@ use crate::{
 
 use super::HoaAlphabet;
 
+/// Considers the given HOA string as a single automaton and tries to parse it into an
+/// [`OmegaAutomaton`].
 pub fn hoa_to_ts(hoa: &str) -> Vec<OmegaAutomaton<HoaAlphabet>> {
     let mut out = vec![];
     for hoa_aut in hoars::parse_hoa_automata(hoa) {
@@ -43,6 +45,8 @@ impl TryFrom<HoaAutomaton> for OmegaAutomaton<HoaAlphabet> {
     }
 }
 
+/// Converts a [`HoaAutomaton`] into a [`NTS`] with the same semantics. This creates the appropriate
+/// number of states and inserts transitions with the appropriate labels and colors.
 pub fn hoa_automaton_to_nts(
     aut: HoaAutomaton,
 ) -> Initialized<NTS<HoaAlphabet, usize, AcceptanceMask>> {

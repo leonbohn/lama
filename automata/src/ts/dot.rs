@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use std::fmt::{Debug, Display, Write};
 
 use itertools::Itertools;
@@ -7,14 +9,16 @@ use crate::{
     automaton::{Initialized, IntoDPA},
     congruence::{ColoredClass, FORC},
     prelude::{
-        DPALike, IntoMealyMachine, IntoMooreMachine, MealyLike, MooreLike, Simple, Symbol, SymbolOf,
+        DPALike, EdgeColor, ExpressionOf, IntoMealyMachine, IntoMooreMachine, MealyLike, MooreLike,
+        Simple, StateColor, Symbol, SymbolOf,
     },
+    ts::dot,
     Alphabet, Class, Color, Map, Pointed, RightCongruence, Show, TransitionSystem,
 };
 
 use super::{
     transition_system::{Indexes, IsEdge},
-    Deterministic, IndexType, BTS,
+    Deterministic, HashTs, IndexType,
 };
 
 fn sanitize_dot_ident(name: &str) -> String {
@@ -37,7 +41,11 @@ fn sanitize_dot_ident(name: &str) -> String {
 pub trait Dottable: TransitionSystem {
     /// Compute the graphviz representation, for more information on the DOT format,
     /// see the [graphviz documentation](https://graphviz.org/doc/info/lang.html).
-    fn dot_representation(&self) -> String {
+    fn dot_representation<'a>(&'a self) -> String
+    where
+        (String, StateColor<Self>): Show,
+        (&'a ExpressionOf<Self>, EdgeColor<Self>): Show,
+    {
         let header = std::iter::once(format!(
             "digraph {} {{",
             self.dot_name().unwrap_or("A".to_string())
@@ -86,22 +94,32 @@ pub trait Dottable: TransitionSystem {
 
     fn dot_transition_attributes<'a>(
         &'a self,
-        t: Self::TransitionRef<'a>,
-    ) -> impl IntoIterator<Item = DotTransitionAttribute> {
+        t: Self::EdgeRef<'a>,
+    ) -> impl IntoIterator<Item = DotTransitionAttribute>
+    where
+        (&'a ExpressionOf<Self>, EdgeColor<Self>): Show,
+    {
         []
     }
     fn dot_state_ident(&self, idx: Self::StateIndex) -> String;
     fn dot_state_attributes(
         &self,
         idx: Self::StateIndex,
-    ) -> impl IntoIterator<Item = DotStateAttribute> {
+    ) -> impl IntoIterator<Item = DotStateAttribute>
+    where
+        (String, StateColor<Self>): Show,
+    {
         []
     }
     /// Renders the object visually (as PNG) and returns a vec of bytes/u8s encoding
     /// the rendered image. This method is only available on the `graphviz` crate feature
     /// and makes use of temporary files.
     #[cfg(feature = "graphviz")]
-    fn render(&self) -> Result<Vec<u8>, std::io::Error> {
+    fn render<'a>(&'a self) -> Result<Vec<u8>, std::io::Error>
+    where
+        (&'a ExpressionOf<Self>, EdgeColor<Self>): Show,
+        (String, StateColor<Self>): Show,
+    {
         use std::io::{Read, Write};
 
         use tracing::trace;
@@ -137,7 +155,11 @@ pub trait Dottable: TransitionSystem {
     /// Attempts to render the object to a file with the given filename. This method
     /// is only available on the `graphviz` crate feature and makes use of temporary files.
     #[cfg(feature = "graphviz")]
-    fn render_to_file_name(&self, filename: &str) -> Result<(), std::io::Error> {
+    fn render_to_file_name<'a>(&'a self, filename: &str) -> Result<(), std::io::Error>
+    where
+        (&'a ExpressionOf<Self>, EdgeColor<Self>): Show,
+        (String, StateColor<Self>): Show,
+    {
         use std::io::{Read, Write};
         use tracing::trace;
 
@@ -170,11 +192,20 @@ pub trait Dottable: TransitionSystem {
         }
     }
 
-    /// First creates a rendered PNG using [`Self::render_tempfile()`], after which the rendered
-    /// image is displayed using a locally installed image viewer (`eog` on linux, `qlmanage`
-    /// i.e. quicklook on macos and nothing yet on windows).
+    /// First creates a rendered PNG using [`Self::render()`], after which the rendered
+    /// image is displayed via by using a locally installed image viewer.
+    /// This method is only available on the `graphviz` crate feature.
+    ///
+    /// # Image viewer
+    /// On Macos, the Preview app is used, while on Linux and Windows, the image viewer
+    /// can be configured by setting the `IMAGE_VIEWER` environment variable. If it is not set,
+    /// then the display command of ImageMagick will be used.
     #[cfg(feature = "graphviz")]
-    fn display_rendered(&self) -> Result<(), std::io::Error> {
+    fn display_rendered<'a>(&'a self) -> Result<(), std::io::Error>
+    where
+        (&'a ExpressionOf<Self>, EdgeColor<Self>): Show,
+        (String, StateColor<Self>): Show,
+    {
         display_png(self.render()?)?;
         Ok(())
     }
@@ -191,15 +222,21 @@ impl<A: Alphabet> Dottable for crate::DFA<A> {
 
     fn dot_transition_attributes<'a>(
         &'a self,
-        t: Self::TransitionRef<'a>,
-    ) -> impl IntoIterator<Item = DotTransitionAttribute> {
+        t: Self::EdgeRef<'a>,
+    ) -> impl IntoIterator<Item = DotTransitionAttribute>
+    where
+        (&'a ExpressionOf<Self>, EdgeColor<Self>): Show,
+    {
         [DotTransitionAttribute::Label(t.expression.show())].into_iter()
     }
 
     fn dot_state_attributes(
         &self,
         idx: Self::StateIndex,
-    ) -> impl IntoIterator<Item = DotStateAttribute> {
+    ) -> impl IntoIterator<Item = DotStateAttribute>
+    where
+        (String, StateColor<Self>): Show,
+    {
         let shape = if self.state_color(idx).unwrap() {
             "doublecircle"
         } else {
@@ -211,7 +248,7 @@ impl<A: Alphabet> Dottable for crate::DFA<A> {
         ]
     }
 }
-impl<A: Alphabet, Q: Color, C: Color> Dottable for crate::RightCongruence<A, Q, C> {
+impl<A: Alphabet, Q: Clone, C: Clone> Dottable for crate::RightCongruence<A, Q, C> {
     fn dot_name(&self) -> Option<String> {
         Some("Congruence".into())
     }
@@ -222,29 +259,35 @@ impl<A: Alphabet, Q: Color, C: Color> Dottable for crate::RightCongruence<A, Q, 
 
     fn dot_transition_attributes<'a>(
         &'a self,
-        t: Self::TransitionRef<'a>,
-    ) -> impl IntoIterator<Item = DotTransitionAttribute> {
-        [DotTransitionAttribute::Label(format!(
-            "{}|{}",
-            t.expression.show(),
-            t.color.show()
-        ))]
+        t: Self::EdgeRef<'a>,
+    ) -> impl IntoIterator<Item = DotTransitionAttribute>
+    where
+        (&'a ExpressionOf<Self>, EdgeColor<Self>): Show,
+    {
+        [DotTransitionAttribute::Label(
+            (t.expression(), t.color()).show(),
+        )]
         .into_iter()
     }
 
     fn dot_state_attributes(
         &self,
         idx: Self::StateIndex,
-    ) -> impl IntoIterator<Item = DotStateAttribute> {
-        vec![DotStateAttribute::Label(format!(
-            "{}|{}",
-            self.dot_state_ident(idx),
-            self.state_color(idx).unwrap().show()
-        ))]
+    ) -> impl IntoIterator<Item = DotStateAttribute>
+    where
+        (String, StateColor<Self>): Show,
+    {
+        vec![DotStateAttribute::Label(
+            (self.dot_state_ident(idx), self.state_color(idx).unwrap()).show(),
+        )]
     }
 }
 
-impl<M: MooreLike> Dottable for IntoMooreMachine<M> {
+impl<M> Dottable for IntoMooreMachine<M>
+where
+    M: MooreLike,
+    StateColor<M>: Color,
+{
     fn dot_name(&self) -> Option<String> {
         Some("DPA".into())
     }
@@ -252,7 +295,10 @@ impl<M: MooreLike> Dottable for IntoMooreMachine<M> {
     fn dot_state_attributes(
         &self,
         idx: Self::StateIndex,
-    ) -> impl IntoIterator<Item = DotStateAttribute> {
+    ) -> impl IntoIterator<Item = DotStateAttribute>
+    where
+        (String, StateColor<Self>): Show,
+    {
         let color = self
             .state_color(idx)
             .map(|c| format!(" | {}", c.show()))
@@ -265,8 +311,42 @@ impl<M: MooreLike> Dottable for IntoMooreMachine<M> {
 
     fn dot_transition_attributes<'a>(
         &'a self,
-        t: Self::TransitionRef<'a>,
-    ) -> impl IntoIterator<Item = DotTransitionAttribute> {
+        t: Self::EdgeRef<'a>,
+    ) -> impl IntoIterator<Item = DotTransitionAttribute>
+    where
+        (&'a ExpressionOf<Self>, EdgeColor<Self>): Show,
+    {
+        vec![DotTransitionAttribute::Label(t.expression().show())]
+    }
+
+    fn dot_state_ident(&self, idx: Self::StateIndex) -> String {
+        format!("q{}", idx.show())
+    }
+}
+
+impl<M> Dottable for IntoMealyMachine<M>
+where
+    M: MealyLike,
+    EdgeColor<M>: Show,
+{
+    fn dot_name(&self) -> Option<String> {
+        Some("DPA".into())
+    }
+
+    fn dot_state_attributes(
+        &self,
+        idx: Self::StateIndex,
+    ) -> impl IntoIterator<Item = DotStateAttribute> {
+        vec![DotStateAttribute::Label(self.dot_state_ident(idx))]
+    }
+
+    fn dot_transition_attributes<'a>(
+        &'a self,
+        t: Self::EdgeRef<'a>,
+    ) -> impl IntoIterator<Item = DotTransitionAttribute>
+    where
+        (&'a ExpressionOf<Self>, EdgeColor<Self>): Show,
+    {
         vec![DotTransitionAttribute::Label(format!(
             "{}|{}",
             t.expression().show(),
@@ -279,7 +359,10 @@ impl<M: MooreLike> Dottable for IntoMooreMachine<M> {
     }
 }
 
-impl<M: MealyLike> Dottable for IntoMealyMachine<M> {
+impl<D: DPALike> Dottable for IntoDPA<D>
+where
+    EdgeColor<D>: Show,
+{
     fn dot_name(&self) -> Option<String> {
         Some("DPA".into())
     }
@@ -288,55 +371,16 @@ impl<M: MealyLike> Dottable for IntoMealyMachine<M> {
         &self,
         idx: Self::StateIndex,
     ) -> impl IntoIterator<Item = DotStateAttribute> {
-        let color = self
-            .state_color(idx)
-            .map(|c| format!(" | {}", c.show()))
-            .unwrap_or("".to_string());
-        vec![DotStateAttribute::Label(format!(
-            "{}{color}",
-            self.dot_state_ident(idx)
-        ))]
+        vec![DotStateAttribute::Label(self.dot_state_ident(idx))]
     }
 
     fn dot_transition_attributes<'a>(
         &'a self,
-        t: Self::TransitionRef<'a>,
-    ) -> impl IntoIterator<Item = DotTransitionAttribute> {
-        vec![DotTransitionAttribute::Label(format!(
-            "{}|{}",
-            t.expression().show(),
-            t.color().show()
-        ))]
-    }
-
-    fn dot_state_ident(&self, idx: Self::StateIndex) -> String {
-        format!("q{}", idx.show())
-    }
-}
-
-impl<D: DPALike> Dottable for IntoDPA<D> {
-    fn dot_name(&self) -> Option<String> {
-        Some("DPA".into())
-    }
-
-    fn dot_state_attributes(
-        &self,
-        idx: Self::StateIndex,
-    ) -> impl IntoIterator<Item = DotStateAttribute> {
-        let color = self
-            .state_color(idx)
-            .map(|c| format!(" | {}", c.show()))
-            .unwrap_or("".to_string());
-        vec![DotStateAttribute::Label(format!(
-            "{}{color}",
-            self.dot_state_ident(idx)
-        ))]
-    }
-
-    fn dot_transition_attributes<'a>(
-        &'a self,
-        t: Self::TransitionRef<'a>,
-    ) -> impl IntoIterator<Item = DotTransitionAttribute> {
+        t: Self::EdgeRef<'a>,
+    ) -> impl IntoIterator<Item = DotTransitionAttribute>
+    where
+        (&'a ExpressionOf<Self>, EdgeColor<Self>): Show,
+    {
         vec![DotTransitionAttribute::Label(format!(
             "{}|{}",
             t.expression().show(),
@@ -605,7 +649,7 @@ mod tests {
         congruence::FORC,
         prelude::DPA,
         ts::{Sproutable, NTS},
-        Class, Pointed, RightCongruence,
+        Class, Pointed, RightCongruence, Void,
     };
 
     use super::Dottable;
@@ -615,10 +659,10 @@ mod tests {
     fn render_dfa() {
         let dfa = NTS::builder()
             .with_transitions([
-                (0, 'a', (), 0),
-                (0, 'b', (), 1),
-                (1, 'a', (), 1),
-                (1, 'b', (), 0),
+                (0, 'a', Void, 0),
+                (0, 'b', Void, 1),
+                (1, 'a', Void, 1),
+                (1, 'b', Void, 0),
             ])
             .with_colors([false, true])
             .into_dfa(0);
@@ -632,35 +676,35 @@ mod tests {
         let mut cong = RightCongruence::new(alphabet.clone());
         let q0 = cong.initial();
         let q1 = cong.add_state(vec!['a']);
-        cong.add_edge(q0, 'a', q1, ());
-        cong.add_edge(q0, 'b', q0, ());
-        cong.add_edge(q1, 'a', q0, ());
-        cong.add_edge(q1, 'b', q1, ());
+        cong.add_edge(q0, 'a', q1, Void);
+        cong.add_edge(q0, 'b', q0, Void);
+        cong.add_edge(q1, 'a', q0, Void);
+        cong.add_edge(q1, 'b', q1, Void);
 
         let mut prc_e = RightCongruence::new(alphabet.clone());
         let e0 = prc_e.initial();
         let e1 = prc_e.add_state(vec!['a']);
         let e2 = prc_e.add_state(vec!['b']);
-        prc_e.add_edge(e0, 'a', e1, ());
-        prc_e.add_edge(e0, 'b', e2, ());
-        prc_e.add_edge(e1, 'a', e1, ());
-        prc_e.add_edge(e1, 'b', e2, ());
-        prc_e.add_edge(e2, 'a', e2, ());
-        prc_e.add_edge(e2, 'b', e2, ());
+        prc_e.add_edge(e0, 'a', e1, Void);
+        prc_e.add_edge(e0, 'b', e2, Void);
+        prc_e.add_edge(e1, 'a', e1, Void);
+        prc_e.add_edge(e1, 'b', e2, Void);
+        prc_e.add_edge(e2, 'a', e2, Void);
+        prc_e.add_edge(e2, 'b', e2, Void);
 
         let mut prc_a = RightCongruence::new(alphabet);
         let a0 = prc_a.initial();
         let a1 = prc_a.add_state(vec!['a']);
         let a2 = prc_a.add_state(vec!['b']);
         let a3 = prc_a.add_state(vec!['a', 'a']);
-        prc_a.add_edge(a0, 'a', a1, ());
-        prc_a.add_edge(a0, 'b', a2, ());
-        prc_a.add_edge(a1, 'a', a3, ());
-        prc_a.add_edge(a1, 'b', a2, ());
-        prc_a.add_edge(a2, 'a', a1, ());
-        prc_a.add_edge(a2, 'b', a2, ());
-        prc_a.add_edge(a3, 'a', a3, ());
-        prc_a.add_edge(a3, 'b', a3, ());
+        prc_a.add_edge(a0, 'a', a1, Void);
+        prc_a.add_edge(a0, 'b', a2, Void);
+        prc_a.add_edge(a1, 'a', a3, Void);
+        prc_a.add_edge(a1, 'b', a2, Void);
+        prc_a.add_edge(a2, 'a', a1, Void);
+        prc_a.add_edge(a2, 'b', a2, Void);
+        prc_a.add_edge(a3, 'a', a3, Void);
+        prc_a.add_edge(a3, 'b', a3, Void);
 
         let forc = FORC::from_iter(cong, [(0, prc_e), (1, prc_a)].iter().cloned());
         todo!()
@@ -674,10 +718,10 @@ mod tests {
         let mut cong = RightCongruence::new(alphabet);
         let q0 = cong.initial();
         let q1 = cong.add_state(vec!['a']);
-        cong.add_edge(q0, 'a', q1, ());
-        cong.add_edge(q0, 'b', q0, ());
-        cong.add_edge(q1, 'a', q0, ());
-        cong.add_edge(q1, 'b', q1, ());
+        cong.add_edge(q0, 'a', q1, Void);
+        cong.add_edge(q0, 'b', q0, Void);
+        cong.add_edge(q1, 'a', q0, Void);
+        cong.add_edge(q1, 'b', q1, Void);
 
         cong.display_rendered();
         let three_congs = vec![cong.clone(), cong.clone(), cong];

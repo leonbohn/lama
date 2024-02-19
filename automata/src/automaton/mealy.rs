@@ -1,13 +1,13 @@
 #![allow(missing_docs)]
 use itertools::Itertools;
-use std::{fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
-use crate::prelude::*;
+use crate::{prelude::*, Void};
 
 use super::MooreLike;
 
 #[derive(Clone)]
-pub struct MealyMachine<A = Simple, C = usize, Ts = Initialized<DTS<A, NoColor, C>>> {
+pub struct MealyMachine<A = Simple, C = usize, Ts = Initialized<DTS<A, Void, C>>> {
     ts: Ts,
     _q: PhantomData<(A, C)>,
 }
@@ -17,13 +17,16 @@ pub type IntoMealyMachine<Ts> =
 pub type AsMealyMachine<Ts> =
     MealyMachine<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::EdgeColor>;
 
-impl<Ts: MealyLike + Deterministic> IntoMealyMachine<Ts> {
+impl<Ts: Congruence> IntoMealyMachine<Ts>
+where
+    EdgeColor<Ts>: Color,
+{
     pub fn minimize(&self) -> AsMealyMachine<Ts> {
         crate::algorithms::mealy_partition_refinement(self)
     }
 
     pub fn restricted_inequivalence<
-        O: MealyLike<Alphabet = Ts::Alphabet, EdgeColor = Ts::EdgeColor> + Deterministic,
+        O: MealyLike<Alphabet = Ts::Alphabet, EdgeColor = Ts::EdgeColor>,
     >(
         &self,
         other: &IntoMealyMachine<O>,
@@ -54,7 +57,7 @@ impl<Ts: MealyLike + Deterministic> IntoMealyMachine<Ts> {
     }
 
     pub fn witness_inequivalence<
-        O: MealyLike<Alphabet = Ts::Alphabet, EdgeColor = Ts::EdgeColor> + Deterministic,
+        O: MealyLike<Alphabet = Ts::Alphabet, EdgeColor = Ts::EdgeColor>,
     >(
         &self,
         other: &IntoMealyMachine<O>,
@@ -73,6 +76,8 @@ impl<A: Alphabet> MealyMachine<A> {
     }
 }
 
+impl<D: Deterministic> Deterministic for MealyMachine<D::Alphabet, D::EdgeColor, D> {}
+
 impl<Ts: TransitionSystem> TransitionSystem for MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts> {
     type StateIndex = Ts::StateIndex;
 
@@ -80,7 +85,7 @@ impl<Ts: TransitionSystem> TransitionSystem for MealyMachine<Ts::Alphabet, Ts::E
 
     type EdgeColor = Ts::EdgeColor;
 
-    type TransitionRef<'this> = Ts::TransitionRef<'this>
+    type EdgeRef<'this> = Ts::EdgeRef<'this>
     where
         Self: 'this;
 
@@ -107,16 +112,6 @@ impl<Ts: TransitionSystem> TransitionSystem for MealyMachine<Ts::Alphabet, Ts::E
 
     fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
         self.ts().state_color(state.to_index(self)?)
-    }
-}
-
-impl<D: Deterministic> Deterministic for MealyMachine<D::Alphabet, D::EdgeColor, D> {
-    fn transition<Idx: Indexes<Self>>(
-        &self,
-        state: Idx,
-        symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
-        self.ts().transition(state.to_index(self)?, symbol)
     }
 }
 
@@ -153,18 +148,22 @@ impl<Ts: Sproutable> Sproutable for MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts
         color: EdgeColor<Self>,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
-        X: Into<Self::StateIndex>,
-        Y: Into<Self::StateIndex>,
+        X: Indexes<Self>,
+        Y: Indexes<Self>,
     {
+        let from = from.to_index(self)?;
+        let to = to.to_index(self)?;
         self.ts_mut().add_edge(from, on, to, color)
     }
 
-    fn remove_edges(
+    fn remove_edges<X: Indexes<Self>>(
         &mut self,
-        from: Self::StateIndex,
+        from: X,
         on: <Self::Alphabet as Alphabet>::Expression,
     ) -> bool {
-        self.ts_mut().remove_edges(from, on)
+        from.to_index(self)
+            .map(|idx| self.ts_mut().remove_edges(idx, on))
+            .unwrap_or(false)
     }
 }
 
@@ -187,7 +186,7 @@ impl<Ts: TransitionSystem> MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts> {
 impl<Ts: PredecessorIterable> PredecessorIterable
     for MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts>
 {
-    type PreTransitionRef<'this> = Ts::PreTransitionRef<'this>
+    type PreEdgeRef<'this> = Ts::PreEdgeRef<'this>
     where
         Self: 'this;
 
@@ -200,8 +199,12 @@ impl<Ts: PredecessorIterable> PredecessorIterable
     }
 }
 
-impl<Ts: MealyLike> From<Ts> for MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts> {
-    fn from(ts: Ts) -> Self {
+impl<D> From<D> for IntoMealyMachine<D>
+where
+    D: Congruence,
+    EdgeColor<D>: Color,
+{
+    fn from(ts: D) -> Self {
         Self {
             ts,
             _q: PhantomData,
@@ -209,13 +212,19 @@ impl<Ts: MealyLike> From<Ts> for MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts> {
     }
 }
 
-impl<Ts: Deterministic> std::fmt::Debug for MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts> {
+impl<Ts: Deterministic> std::fmt::Debug for MealyMachine<Ts::Alphabet, Ts::EdgeColor, Ts>
+where
+    EdgeColor<Ts>: Debug,
+    StateColor<Ts>: Debug,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
-            self.ts
-                .build_transition_table(|q, c| format!("({}|{})", q.show(), c.show()))
+            self.ts.build_transition_table(
+                |q, c| format!("({:?}|{:?})", q, c),
+                |edge| format!("{:?}->{}", edge.color(), edge.target())
+            )
         )
     }
 }
@@ -224,13 +233,15 @@ impl<Ts: Deterministic> std::fmt::Debug for MealyMachine<Ts::Alphabet, Ts::EdgeC
 macro_rules! impl_mealy_automaton {
     ($name:ident, $color:ident) => {
         paste::paste! {
+            /// Type alias for considering `Ts` as an automaton.
             pub type [< Into $name >]<Ts> = $name<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::StateColor, Ts>;
         }
 
+        #[allow(missing_docs)]
         #[derive(Clone)]
         pub struct $name<
             A = Simple,
-            Q = (),
+            Q = crate::Void,
             Ts = Initialized<DTS<A, Q, $color>>,
         > {
             ts: Ts,
@@ -239,6 +250,7 @@ macro_rules! impl_mealy_automaton {
         impl<A: Alphabet, Q: Color + Default>
             $name<A, Q, Initialized<DTS<A, Q, $color>>>
         {
+            #[allow(missing_docs)]
             pub fn new(alphabet: A, initial_state_color: Q) -> $name<A, Q, Initialized<DTS<A, Q, $color>>> {
                 let mut ts = Initialized::new(alphabet);
                 ts.set_initial_color(initial_state_color);
@@ -248,6 +260,7 @@ macro_rules! impl_mealy_automaton {
                 }
             }
         }
+        #[allow(missing_docs)]
         impl<Ts: TransitionSystem> $name<Ts::Alphabet, Ts::StateColor, Ts> {
             pub fn ts(&self) -> &Ts {
                 &self.ts
@@ -269,7 +282,7 @@ macro_rules! impl_mealy_automaton {
         impl<Ts: PredecessorIterable> PredecessorIterable
             for $name<Ts::Alphabet, Ts::StateColor, Ts>
         {
-            type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
+            type PreEdgeRef<'this> = Ts::PreEdgeRef<'this> where Self: 'this;
             type EdgesToIter<'this> = Ts::EdgesToIter<'this> where Self: 'this;
             fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
                 self.ts().predecessors(state)
@@ -313,10 +326,24 @@ macro_rules! impl_mealy_automaton {
                 color: EdgeColor<Self>,
             ) -> Option<(Self::StateIndex, Self::EdgeColor)>
             where
-                X: Into<Self::StateIndex>,
-                Y: Into<Self::StateIndex>,
+                X: Indexes<Self>,
+                Y: Indexes<Self>,
             {
+                let from = from.to_index(self)?;
+                let to = to.to_index(self)?;
                 self.ts_mut().add_edge(from, on, to, color)
+            }
+            fn remove_edges<X>(
+                &mut self,
+                from: X,
+                on: <Self::Alphabet as Alphabet>::Expression,
+            ) -> bool
+            where
+                X: Indexes<Self>
+            {
+                from.to_index(self)
+                    .map(|idx| self.ts_mut().remove_edges(idx, on))
+                    .unwrap_or(false)
             }
             fn new_for_alphabet(alphabet: Self::Alphabet) -> Self            {
                 Self {
@@ -327,13 +354,6 @@ macro_rules! impl_mealy_automaton {
             fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
                 self.ts_mut().add_state(color)
             }
-            fn remove_edges(
-                &mut self,
-                from: Self::StateIndex,
-                on: <Self::Alphabet as Alphabet>::Expression,
-            ) -> bool {
-                self.ts_mut().remove_edges(from, on)
-            }
         }
         impl<Ts: TransitionSystem> TransitionSystem
             for $name<Ts::Alphabet, Ts::StateColor, Ts>
@@ -341,7 +361,7 @@ macro_rules! impl_mealy_automaton {
             type StateIndex = Ts::StateIndex;
             type EdgeColor = Ts::EdgeColor;
             type StateColor = Ts::StateColor;
-            type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
+            type EdgeRef<'this> = Ts::EdgeRef<'this> where Self: 'this;
             type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
             type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
             type Alphabet = Ts::Alphabet;
@@ -378,7 +398,7 @@ macro_rules! impl_mealy_automaton {
                 &self,
                 state: Idx,
                 symbol: SymbolOf<Self>,
-            ) -> Option<Self::TransitionRef<'_>> {
+            ) -> Option<Self::EdgeRef<'_>> {
                 self.ts().transition(state.to_index(self)?, symbol)
             }
 
@@ -395,26 +415,33 @@ macro_rules! impl_mealy_automaton {
 
 /// Implemented by objects which can be viewed as a MealyMachine, i.e. a finite transition system
 /// which has outputs of type usize on its edges.
-pub trait MealyLike: Deterministic + Pointed {
-    fn mealy_bisimilar<M: MealyLike<Alphabet = Self::Alphabet, EdgeColor = Self::EdgeColor>>(
-        &self,
-        other: M,
-    ) -> bool {
+pub trait MealyLike: Congruence {
+    fn mealy_bisimilar<M>(&self, other: M) -> bool
+    where
+        M: Congruence,
+        EdgeColor<M>: Color,
+    {
         todo!()
     }
 
     /// Uses a reference to `self` for obtaining a [`MealyMachine`].
-    fn as_mealy(&self) -> MealyMachine<Self::Alphabet, Self::EdgeColor, &Self> {
+    fn as_mealy(&self) -> MealyMachine<Self::Alphabet, Self::EdgeColor, &Self>
+    where
+        EdgeColor<Self>: Color,
+    {
         MealyMachine::from(self)
     }
 
     /// Self::EdgeColoronsumes `self`, returning a [`MealyMachine`] that uses the underlying transition system.
-    fn into_mealy(self) -> MealyMachine<Self::Alphabet, Self::EdgeColor, Self> {
+    fn into_mealy(self) -> MealyMachine<Self::Alphabet, Self::EdgeColor, Self>
+    where
+        EdgeColor<Self>: Color,
+    {
         MealyMachine::from(self)
     }
 
     fn collect_mealy(self) -> AsMealyMachine<Self> {
-        let ts = self.erase_state_colors().collect_pointed();
+        let ts = self.erase_state_colors().collect_pointed().0;
         MealyMachine {
             ts,
             _q: PhantomData,
@@ -433,13 +460,16 @@ pub trait MealyLike: Deterministic + Pointed {
     }
 
     /// Returns a vector over all colors that can be emitted.
-    fn color_range(&self) -> impl Iterator<Item = Self::EdgeColor> {
+    fn color_range(&self) -> impl Iterator<Item = Self::EdgeColor>
+    where
+        EdgeColor<Self>: Clone + Hash + Eq,
+    {
         self.reachable_state_indices()
             .flat_map(|o| self.edges_from(o).unwrap().map(|e| IsEdge::color(&e)))
             .unique()
     }
 }
-impl<Ts: Deterministic + Pointed> MealyLike for Ts {}
+impl<Ts: Congruence> MealyLike for Ts where EdgeColor<Ts>: Color {}
 
 #[cfg(test)]
 mod tests {

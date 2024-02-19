@@ -356,7 +356,11 @@ where
     cong
 }
 
-pub fn characterize_moore<M: MooreLike>(dfa: M) -> DFASample<M> {
+pub fn characterize_moore<M>(dfa: M) -> DFASample<M>
+where
+    M: Congruence,
+    StateColor<M>: Color,
+{
     todo!()
 }
 
@@ -367,7 +371,11 @@ pub fn actively_exchanged_words_dfa<D: DFALike>(dfa: D) -> DFASample<D> {
 type MealySample<D> =
     Sample<<D as TransitionSystem>::Alphabet, Vec<SymbolOf<D>>, <D as TransitionSystem>::EdgeColor>;
 
-pub fn actively_exchanged_words_mealy<D: MealyLike + Deterministic>(mm: D) -> MealySample<D> {
+pub fn actively_exchanged_words_mealy<D>(mm: D) -> MealySample<D>
+where
+    D: Congruence,
+    EdgeColor<D>: Color,
+{
     let alphabet = mm.alphabet().clone();
     let oracle = MealyOracle::new(mm, None);
     // let mut lstar = LStar::logged(oracle, alphabet);

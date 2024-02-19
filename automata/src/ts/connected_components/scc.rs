@@ -1,4 +1,4 @@
-use std::{cell::OnceCell, collections::BTreeSet, fmt::Debug};
+use std::{cell::OnceCell, collections::BTreeSet, fmt::Debug, hash::Hash};
 
 use itertools::Itertools;
 
@@ -98,16 +98,25 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         })
     }
 
+    /// Returns the size, i.e. the number of states in the SCC.
     pub fn size(&self) -> usize {
         assert!(!self.is_empty());
         self.states.len()
     }
 
+    /// Returns `true` iff the SCC is trivial, meaning it consists of a single state.
     pub fn is_trivial(&self) -> bool {
         self.size() == 1
     }
 
-    pub fn interior_edges(&self) -> &InteriorEdgeSet<Ts> {
+    /// Gives a reference to all interior edges of the SCC. An interior edge is an edge whose source
+    /// and target states are in the SCC itself.
+    ///
+    /// This is computed lazily and cached.
+    pub fn interior_edges(&self) -> &InteriorEdgeSet<Ts>
+    where
+        EdgeColor<Ts>: Hash + Eq,
+    {
         self.edges.get_or_init(|| {
             let mut edges = Set::default();
             for q in &self.states {
@@ -123,7 +132,14 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         })
     }
 
-    pub fn interior_transitions(&self) -> &InteriorTransitionSet<Ts> {
+    /// Gives a reference to all interior transitions of the SCC. An interior transitions is one whose source
+    /// and target states are in the SCC itself.
+    ///
+    /// This is computed lazily and cached.
+    pub fn interior_transitions(&self) -> &InteriorTransitionSet<Ts>
+    where
+        EdgeColor<Ts>: Hash + Eq,
+    {
         self.transitions.get_or_init(|| {
             let mut edges = Set::default();
             for q in &self.states {
@@ -159,7 +175,10 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
 
     /// Returns an iterator yielding the colors of edges whose source and target states are
     /// in the SCC.
-    pub fn interior_edge_colors(&self) -> &Set<Ts::EdgeColor> {
+    pub fn interior_edge_colors(&self) -> &Set<Ts::EdgeColor>
+    where
+        EdgeColor<Ts>: Hash + Eq,
+    {
         self.edge_colors.get_or_init(|| {
             self.interior_transitions()
                 .iter()
@@ -179,14 +198,23 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
         )
     }
 
-    pub fn maximal_word(&self) -> Option<Vec<SymbolOf<Ts>>> {
+    /// Attempts to compute a maximal word which is one that visits all states in the scc and uses
+    /// each interior transition (one whose source and target are within the SCC) at least once.
+    /// If no such word exists, `None` is returned.
+    pub fn maximal_word(&self) -> Option<Vec<SymbolOf<Ts>>>
+    where
+        EdgeColor<Ts>: Hash + Eq,
+    {
         self.maximal_loop_from(*self.states.first()?)
     }
 
     /// Attempts to compute a maximal word (i.e. a word visiting all states in the scc). If such a
     /// word exists, it is returned, otherwise the function returns `None`.
     /// This ensures that the word ends back in the state that it started from.
-    pub fn maximal_loop_from(&self, from: Ts::StateIndex) -> Option<Vec<SymbolOf<Ts>>> {
+    pub fn maximal_loop_from(&self, from: Ts::StateIndex) -> Option<Vec<SymbolOf<Ts>>>
+    where
+        EdgeColor<Ts>: Hash + Eq,
+    {
         assert!(self.contains(&from));
         let ts = self.ts;
         debug_assert!(!self.is_empty());
@@ -282,13 +310,19 @@ impl<'a, Ts: TransitionSystem> Scc<'a, Ts> {
     }
 
     /// Returns `true` iff the SCC is left on every symbol of the alphabet.
-    pub fn is_transient(&self) -> bool {
+    pub fn is_transient(&self) -> bool
+    where
+        EdgeColor<Ts>: Hash + Eq,
+    {
         self.interior_transitions().is_empty()
     }
 
     /// Returns `true` iff there is a transition from a state in the SCC to another state in the SCC,
     /// i.e. if there is a way of reading a non-empty word and staying in the SCC.
-    pub fn is_nontransient(&self) -> bool {
+    pub fn is_nontransient(&self) -> bool
+    where
+        EdgeColor<Ts>: Hash + Eq,
+    {
         !self.interior_transitions().is_empty()
     }
 }
@@ -302,8 +336,6 @@ impl<'a, Ts: TransitionSystem> Debug for Scc<'a, Ts> {
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
-
-    use pretty_assertions::assert_eq;
 
     use crate::{
         ts::{Deterministic, NTS},

@@ -2,7 +2,7 @@ use itertools::Itertools;
 use owo_colors::OwoColorize;
 use std::fmt::Debug;
 
-use crate::prelude::*;
+use crate::{prelude::*, Void};
 
 /// A Moore machine is a transition system where each state has an output. Thus, the output
 /// of running a Moore machine on a word produces a sequence of outputs, one for each state
@@ -19,7 +19,7 @@ use crate::prelude::*;
 /// is, however, prefered to use a [`MealyMachine`] for this purpose, as for infinite inputs
 /// switching to transition-based acceptance is preferable.
 #[derive(Clone)]
-pub struct MooreMachine<A, Q = usize, C: Color = NoColor, Ts = Initialized<DTS<A, Q, C>>> {
+pub struct MooreMachine<A, Q = usize, C = Void, Ts = Initialized<DTS<A, Q, C>>> {
     ts: Ts,
     _q: std::marker::PhantomData<(A, Q, C)>,
 }
@@ -34,6 +34,9 @@ pub type IntoMooreMachine<Ts> = MooreMachine<
     <Ts as TransitionSystem>::EdgeColor,
     Ts,
 >;
+/// Helper type that takes a pointed transition system and returns the corresponding
+/// [`MooreMachine`]. Note that this will consume the underlying ts and the given
+/// [`MooreMachine`] will use the default ts, which is `Initialized<DTS<A, Q, C>>`.
 pub type AsMooreMachine<Ts> = MooreMachine<
     <Ts as TransitionSystem>::Alphabet,
     <Ts as TransitionSystem>::StateColor,
@@ -41,7 +44,7 @@ pub type AsMooreMachine<Ts> = MooreMachine<
 >;
 
 impl<A: Alphabet, Q: Color, C: Color> MooreMachine<A, Q, C> {
-    /// Creates a new MooreMachine on a [`BTS`].
+    /// Creates a new MooreMachine on a [`DTS`].
     pub fn new(
         alphabet: A,
         initial_state_output: Q,
@@ -53,16 +56,27 @@ impl<A: Alphabet, Q: Color, C: Color> MooreMachine<A, Q, C> {
     }
 }
 
-impl<D: MooreLike + Deterministic> IntoMooreMachine<D> {
-    pub fn minimize(&self) -> AsMooreMachine<D> {
+impl<D: MooreLike + Deterministic> IntoMooreMachine<D>
+where
+    StateColor<D>: Color,
+{
+    /// Returns the unique minimal moore machine that is bisimilar to `self`. This means
+    /// for every finite word, the output of `self` and the output of the returned moore
+    /// machine is the same. This is done using the Hopcroft and Moore algorithms for
+    /// minimizing deterministic finite automata, implemented in the
+    /// [`crate::algorithms::moore_partition_refinement`] function.
+    pub fn minimize(&self) -> AsMooreMachine<D>
+    where
+        StateColor<D>: Color,
+    {
         crate::algorithms::moore_partition_refinement(self)
     }
 }
 
-// impl_ts_by_passthrough_on_wrapper!(MooreMachine <Ts, Q: Color>);
-
 impl<Ts: MooreLike> TransitionSystem
     for MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
+where
+    StateColor<Ts>: Color,
 {
     type StateIndex = Ts::StateIndex;
 
@@ -70,7 +84,7 @@ impl<Ts: MooreLike> TransitionSystem
 
     type EdgeColor = Ts::EdgeColor;
 
-    type TransitionRef<'this> = Ts::TransitionRef<'this>
+    type EdgeRef<'this> = Ts::EdgeRef<'this>
     where
         Self: 'this;
 
@@ -101,18 +115,23 @@ impl<Ts: MooreLike> TransitionSystem
     }
 }
 
-impl<D: MooreLike> Deterministic for MooreMachine<D::Alphabet, D::StateColor, D::EdgeColor, D> {
+impl<D: MooreLike> Deterministic for MooreMachine<D::Alphabet, D::StateColor, D::EdgeColor, D>
+where
+    StateColor<D>: Color,
+{
     fn transition<Idx: Indexes<Self>>(
         &self,
         state: Idx,
         symbol: SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         self.ts().transition(state.to_index(self)?, symbol)
     }
 }
 
 impl<Ts: Sproutable + MooreLike> Sproutable
     for MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
+where
+    StateColor<Ts>: Color,
 {
     fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
         Self {
@@ -146,30 +165,37 @@ impl<Ts: Sproutable + MooreLike> Sproutable
         color: EdgeColor<Self>,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
-        X: Into<Self::StateIndex>,
-        Y: Into<Self::StateIndex>,
+        X: Indexes<Self>,
+        Y: Indexes<Self>,
     {
+        let from = from.to_index(self)?;
+        let to = to.to_index(self)?;
         self.ts_mut().add_edge(from, on, to, color)
     }
-
-    fn remove_edges(
-        &mut self,
-        from: Self::StateIndex,
-        on: <Self::Alphabet as Alphabet>::Expression,
-    ) -> bool {
-        self.ts_mut().remove_edges(from, on)
+    fn remove_edges<X>(&mut self, from: X, on: <Self::Alphabet as Alphabet>::Expression) -> bool
+    where
+        X: Indexes<Self>,
+    {
+        from.to_index(self)
+            .map(|idx| self.ts_mut().remove_edges(idx, on))
+            .unwrap_or(false)
     }
 }
 
 impl<Ts: Pointed + MooreLike> Pointed
     for MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
+where
+    StateColor<Ts>: Color,
 {
     fn initial(&self) -> Self::StateIndex {
         self.ts().initial()
     }
 }
 
-impl<Ts: MooreLike> MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts> {
+impl<Ts: MooreLike> MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
+where
+    StateColor<Ts>: Color,
+{
     /// Gives a reference to the underlying ts.
     pub fn ts(&self) -> &Ts {
         &self.ts
@@ -183,8 +209,10 @@ impl<Ts: MooreLike> MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts
 
 impl<Ts: MooreLike + PredecessorIterable> PredecessorIterable
     for MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
+where
+    StateColor<Ts>: Color,
 {
-    type PreTransitionRef<'this> = Ts::PreTransitionRef<'this>
+    type PreEdgeRef<'this> = Ts::PreEdgeRef<'this>
     where
         Self: 'this;
 
@@ -197,7 +225,10 @@ impl<Ts: MooreLike + PredecessorIterable> PredecessorIterable
     }
 }
 
-impl<Ts: MooreLike> From<Ts> for MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts> {
+impl<Ts: MooreLike> From<Ts> for MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
+where
+    StateColor<Ts>: Color,
+{
     fn from(ts: Ts) -> Self {
         Self {
             ts,
@@ -208,6 +239,8 @@ impl<Ts: MooreLike> From<Ts> for MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::
 
 impl<Ts: MooreLike + Debug> std::fmt::Debug
     for MooreMachine<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
+where
+    StateColor<Ts>: Color,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}\n{:?}", "Moore Machine".italic(), self.ts())
@@ -224,7 +257,7 @@ macro_rules! impl_moore_automaton {
         #[derive(Clone)]
         pub struct $name<
             A = Simple,
-            C = NoColor,
+            C = crate::Void,
             Ts = Initialized<DTS<A, $color, C>>,
         > {
             ts: Ts,
@@ -236,7 +269,7 @@ macro_rules! impl_moore_automaton {
             pub type [< As $name >]<Ts> = $name<<Ts as TransitionSystem>::Alphabet, <Ts as TransitionSystem>::EdgeColor>;
         }
 
-        impl<A: Alphabet, C: Color>
+        impl<A: Alphabet, C: Clone>
             $name<A, C, Initialized<DTS<A, $color, C>>>
         {
             /// Creates a new automaton.
@@ -270,7 +303,7 @@ macro_rules! impl_moore_automaton {
         impl<Ts: PredecessorIterable> PredecessorIterable
             for $name<Ts::Alphabet, Ts::EdgeColor, Ts>
         {
-            type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
+            type PreEdgeRef<'this> = Ts::PreEdgeRef<'this> where Self: 'this;
             type EdgesToIter<'this> = Ts::EdgesToIter<'this> where Self: 'this;
             fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
                 self.ts().predecessors(state)
@@ -318,10 +351,24 @@ macro_rules! impl_moore_automaton {
                 color: EdgeColor<Self>,
             ) -> Option<(Self::StateIndex, Self::EdgeColor)>
             where
-                X: Into<Self::StateIndex>,
-                Y: Into<Self::StateIndex>,
+                X: Indexes<Self>,
+                Y: Indexes<Self>,
             {
+                let from = from.to_index(self)?;
+                let to = to.to_index(self)?;
                 self.ts_mut().add_edge(from, on, to, color)
+            }
+            fn remove_edges<X>(
+                &mut self,
+                from: X,
+                on: <Self::Alphabet as Alphabet>::Expression,
+            ) -> bool
+            where
+                X: Indexes<Self>
+            {
+                from.to_index(self)
+                    .map(|idx| self.ts_mut().remove_edges(idx, on))
+                    .unwrap_or(false)
             }
             fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
                 Self {
@@ -332,13 +379,6 @@ macro_rules! impl_moore_automaton {
             fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
                 self.ts_mut().add_state(color)
             }
-            fn remove_edges(
-                &mut self,
-                from: Self::StateIndex,
-                on: <Self::Alphabet as Alphabet>::Expression,
-            ) -> bool {
-                self.ts_mut().remove_edges(from, on)
-            }
         }
         impl<Ts: TransitionSystem> TransitionSystem
             for $name<Ts::Alphabet, Ts::EdgeColor, Ts>
@@ -346,7 +386,7 @@ macro_rules! impl_moore_automaton {
             type StateIndex = Ts::StateIndex;
             type EdgeColor = Ts::EdgeColor;
             type StateColor = Ts::StateColor;
-            type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
+            type EdgeRef<'this> = Ts::EdgeRef<'this> where Self: 'this;
             type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
             type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
             type Alphabet = Ts::Alphabet;
@@ -374,21 +414,6 @@ macro_rules! impl_moore_automaton {
             }
         }
         impl<D: Deterministic> Deterministic for $name<D::Alphabet, D::EdgeColor, D> {
-            fn transition<Idx: $crate::prelude::Indexes<Self>>(
-                &self,
-                state: Idx,
-                symbol: SymbolOf<Self>,
-            ) -> Option<Self::TransitionRef<'_>> {
-                self.ts().transition(state.to_index(self)?, symbol)
-            }
-
-            fn edge_color(
-                &self,
-                state: Self::StateIndex,
-                expression: &ExpressionOf<Self>,
-            ) -> Option<EdgeColor<Self>> {
-                self.ts().edge_color(state, expression)
-            }
 
         }
         impl<Ts: Pointed> Pointed for $name<Ts::Alphabet, Ts::EdgeColor, Ts> {
@@ -401,7 +426,10 @@ macro_rules! impl_moore_automaton {
 
 /// Implemented by objects that can be viewed as MooreMachines, i.e. finite transition systems
 /// that have usize annotated/outputting states.
-pub trait MooreLike: Deterministic + Pointed {
+pub trait MooreLike: Congruence
+where
+    StateColor<Self>: Color,
+{
     /// Takes a reference to `self` and turns the underlying transition system into a [`MooreMachine`].
     fn as_moore(&self) -> MooreMachine<Self::Alphabet, Self::StateColor, Self::EdgeColor, &Self> {
         MooreMachine::from(self)
@@ -419,7 +447,10 @@ pub trait MooreLike: Deterministic + Pointed {
     }
 
     /// Obtains a vec containing the possible colors emitted by `self` (without duplicates).
-    fn color_range(&self) -> Vec<Self::StateColor> {
+    fn color_range(&self) -> Vec<Self::StateColor>
+    where
+        StateColor<Self>: Color,
+    {
         self.reachable_state_indices()
             .map(|o| {
                 self.state_color(o)
@@ -429,24 +460,34 @@ pub trait MooreLike: Deterministic + Pointed {
             .collect()
     }
 
+    /// Builds a moore machine from a reference to `self`. Note that this allocates a new
+    /// transition system, which is a copy of the underlying one.
     fn collect_moore(&self) -> AsMooreMachine<Self> {
-        let ts = self.collect_pointed();
+        let ts = self.collect_pointed().0;
         MooreMachine {
             ts,
             _q: std::marker::PhantomData,
         }
     }
 
+    /// Returns true if `self` is bisimilar to `other`, i.e. if the two moore machines
+    /// produce the same output for each finite word. This is done by checking whether
+    /// [`Self::moore_witness_non_bisimilarity`] returns `None`.
     fn moore_bisimilar<M>(&self, other: M) -> bool
     where
         M: MooreLike<Alphabet = Self::Alphabet, StateColor = Self::StateColor>,
+        StateColor<Self>: Color,
     {
         self.moore_witness_non_bisimilarity(other).is_none()
     }
 
+    /// Returns a witness for the non-bisimilarity of `self` and `other`, i.e. a finite word
+    /// that produces different outputs in the two moore machines. If the two machines are
+    /// bisimilar, `None` is returned.
     fn moore_witness_non_bisimilarity<M>(&self, other: M) -> Option<Vec<SymbolOf<Self>>>
     where
         M: MooreLike<Alphabet = Self::Alphabet, StateColor = Self::StateColor>,
+        StateColor<Self>: Color,
     {
         let prod = self.ts_product(other);
         for (mr, idx) in prod.minimal_representatives() {
@@ -460,7 +501,10 @@ pub trait MooreLike: Deterministic + Pointed {
 
     /// Decomposes `self` into a sequence of DFAs, where the i-th DFA accepts all words which
     /// produce a color less than or equal to i.
-    fn decompose_dfa(&self) -> Vec<DFA<Self::Alphabet>> {
+    fn decompose_dfa(&self) -> Vec<DFA<Self::Alphabet>>
+    where
+        StateColor<Self>: Color,
+    {
         self.color_range()
             .into_iter()
             .sorted()
@@ -469,11 +513,14 @@ pub trait MooreLike: Deterministic + Pointed {
     }
 
     /// Builds a DFA that accepts all words which emit a color less than or equal to `color`.
-    fn color_or_below_dfa(&self, color: Self::StateColor) -> DFA<Self::Alphabet> {
+    fn color_or_below_dfa(&self, color: Self::StateColor) -> DFA<Self::Alphabet>
+    where
+        StateColor<Self>: Color,
+    {
         self.map_state_colors(|o| o <= color)
             .erase_edge_colors()
             .dfa_minimized()
             .collect_dfa()
     }
 }
-impl<Ts: Deterministic + Pointed> MooreLike for Ts {}
+impl<Ts: Congruence> MooreLike for Ts where StateColor<Ts>: Color {}

@@ -243,8 +243,7 @@ impl<A: Alphabet> PeriodicOmegaSample<A> {
 }
 
 impl<A: Alphabet, C: Color> OmegaSample<A, C> {
-    /// Create a new sample of infinite words. The alphabet is given as something which implements [`RawSymbols`]. The words
-    /// in the sample are given as an iterator yielding (word, color) pairs.
+    /// Create a new sample of infinite words. The words in the sample are given as an iterator yielding (word, color) pairs.
     pub fn new_omega<W: Into<Reduced<A::Symbol>>, J: IntoIterator<Item = (W, C)>>(
         alphabet: A,
         words: J,

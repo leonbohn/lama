@@ -16,8 +16,8 @@ use crate::{
         finite::{InfinityColors, ReachedColor},
         operations::{MapStateColor, MatchingProduct, Product, ProductIndex, ProductTransition},
         transition_system::IsEdge,
-        EdgeColor, HasMutableStates, HasStates, IndexType, Pointed, Quotient, Sproutable,
-        StateColor, SymbolOf, TransitionSystem, BTS,
+        EdgeColor, HashTs, IndexType, Pointed, Quotient, Sproutable, StateColor, SymbolOf,
+        TransitionSystem,
     },
     word::{OmegaWord, Reduced},
     Color, FiniteLength, InfiniteLength, Length,
@@ -42,6 +42,7 @@ pub use dpa::{DPALike, IntoDPA, DPA};
 mod dba;
 pub use dba::{DBALike, IntoDBA, DBA};
 
+#[allow(missing_docs)]
 mod omega;
 pub use omega::{
     AcceptanceMask, DeterministicOmegaAutomaton, OmegaAcceptanceCondition, OmegaAutomaton,
@@ -58,7 +59,7 @@ pub use with_initial::Initialized;
 
 /// Type alias for the unit type. Purpose is mainly to be used in Macros, as `()` is more difficult to
 /// handle than a simple alphabetic identifier.
-pub type NoColor = ();
+pub type NoColor = Void;
 
 #[allow(missing_docs)]
 macro_rules! impl_automaton_type {
@@ -119,7 +120,7 @@ macro_rules! impl_automaton_type {
         impl<Ts: PredecessorIterable> PredecessorIterable
             for $name<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts>
         {
-            type PreTransitionRef<'this> = Ts::PreTransitionRef<'this> where Self: 'this;
+            type PreEdgeRef<'this> = Ts::PreEdgeRef<'this> where Self: 'this;
             type EdgesToIter<'this> = Ts::EdgesToIter<'this> where Self: 'this;
             fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
                 self.ts().predecessors(state)
@@ -163,10 +164,24 @@ macro_rules! impl_automaton_type {
                 color: EdgeColor<Self>,
             ) -> Option<(Self::StateIndex, Self::EdgeColor)>
             where
-                X: Into<Self::StateIndex>,
-                Y: Into<Self::StateIndex>,
+                X: Indexes<Self>,
+                Y: Indexes<Self>,
             {
+                let from = from.to_index(self)?;
+                let to = to.to_index(self)?;
                 self.ts_mut().add_edge(from, on, to, color)
+            }
+            fn remove_edges<X>(
+                &mut self,
+                from: X,
+                on: <Self::Alphabet as Alphabet>::Expression,
+            ) -> bool
+            where
+                X: Indexes<Self>
+            {
+                from.to_index(self)
+                    .map(|idx| self.ts_mut().remove_edges(idx, on))
+                    .unwrap_or(false)
             }
             fn new_for_alphabet(alphabet: Self::Alphabet) -> Self {
                 Self {
@@ -176,13 +191,6 @@ macro_rules! impl_automaton_type {
             }
             fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
                 self.ts_mut().add_state(color)
-            }
-            fn remove_edges(
-                &mut self,
-                from: Self::StateIndex,
-                on: <Self::Alphabet as Alphabet>::Expression,
-            ) -> bool {
-                self.ts_mut().remove_edges(from, on)
             }
         }
         impl<Ts: TransitionSystem> TransitionSystem
@@ -195,7 +203,7 @@ macro_rules! impl_automaton_type {
             type StateIndex = Ts::StateIndex;
             type EdgeColor = Ts::EdgeColor;
             type StateColor = Ts::StateColor;
-            type TransitionRef<'this> = Ts::TransitionRef<'this> where Self: 'this;
+            type EdgeRef<'this> = Ts::EdgeRef<'this> where Self: 'this;
             type EdgesFromIter<'this> = Ts::EdgesFromIter<'this> where Self: 'this;
             type StateIndices<'this> = Ts::StateIndices<'this> where Self: 'this;
             fn state_indices(&self) -> Self::StateIndices<'_> {
@@ -223,7 +231,7 @@ macro_rules! impl_automaton_type {
                 &self,
                 state: Idx,
                 symbol: SymbolOf<Self>,
-            ) -> Option<Self::TransitionRef<'_>> {
+            ) -> Option<Self::EdgeRef<'_>> {
                 self.ts().transition(state.to_index(self)?, symbol)
             }
 
@@ -295,9 +303,8 @@ mod tests {
             NoColor,
         },
         prelude::*,
-        ts::BTS,
+        ts::HashTs,
     };
-    use pretty_assertions::{assert_eq, assert_ne};
 
     #[test]
     fn mealy_color_or_below() {

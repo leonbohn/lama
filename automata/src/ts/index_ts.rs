@@ -1,35 +1,29 @@
+use std::{fmt::Debug, hash::Hash};
+
 use itertools::Itertools;
 
-use crate::{alphabet::Alphabet, prelude::Initialized, ts::Deterministic, Color, Map, Set, Show};
+use crate::{
+    alphabet::Alphabet,
+    prelude::Initialized,
+    ts::{transition_system::IsEdge, Deterministic},
+    Color, Map, Set, Show,
+};
 
 use super::{
-    EdgeColor, ExpressionOf, HasColor, HasColorMut, HasMutableStates, HasStates, IndexType,
+    transition_system::Indexes, EdgeColor, ExpressionOf, HasColor, HasColorMut, IndexType,
     Sproutable, StateColor, SymbolOf, TransitionSystem,
 };
 
 /// A state in a transition system. This stores the color of the state and the index of the
 /// first edge leaving the state.
 #[derive(Clone, Eq, PartialEq, Debug)]
-pub struct BTState<A: Alphabet, Q, C: Color, Idx: IndexType> {
+pub struct HashTsState<A: Alphabet, Q, C: Hash + Eq, Idx: IndexType> {
     color: Q,
     edges: Map<A::Expression, (Idx, C)>,
     predecessors: Set<(Idx, A::Expression, C)>,
 }
 
-impl<A: Alphabet, Q: Color, C: Color, Idx: IndexType> HasColorMut for BTState<A, Q, C, Idx> {
-    fn set_color(&mut self, color: Q) {
-        self.color = color;
-    }
-}
-
-impl<A: Alphabet, Q: Color, C: Color, Idx: IndexType> HasColor for BTState<A, Q, C, Idx> {
-    type Color = Q;
-    fn color(&self) -> &Q {
-        &self.color
-    }
-}
-
-impl<A: Alphabet, Q, C: Color, Idx: IndexType> BTState<A, Q, C, Idx> {
+impl<A: Alphabet, Q, C: Hash + Eq, Idx: IndexType> HashTsState<A, Q, C, Idx> {
     /// Creates a new state with the given color.
     pub fn new(color: Q) -> Self {
         Self {
@@ -37,6 +31,10 @@ impl<A: Alphabet, Q, C: Color, Idx: IndexType> BTState<A, Q, C, Idx> {
             edges: Map::default(),
             predecessors: Set::default(),
         }
+    }
+
+    pub fn set_color(&mut self, color: Q) {
+        self.color = color;
     }
 
     pub fn predecessors(&self) -> &Set<(Idx, A::Expression, C)> {
@@ -75,8 +73,8 @@ impl<A: Alphabet, Q, C: Color, Idx: IndexType> BTState<A, Q, C, Idx> {
         self.edges.remove(on)
     }
 
-    pub fn recolor<P: Color>(self, color: P) -> BTState<A, P, C, Idx> {
-        BTState {
+    pub fn recolor<P: Color>(self, color: P) -> HashTsState<A, P, C, Idx> {
+        HashTsState {
             color,
             edges: self.edges,
             predecessors: self.predecessors,
@@ -90,7 +88,7 @@ impl<A: Alphabet, Q, C: Color, Idx: IndexType> BTState<A, Q, C, Idx> {
 }
 
 impl<A: Alphabet, Q: std::fmt::Display, C: Color, Idx: IndexType> std::fmt::Display
-    for BTState<A, Q, C, Idx>
+    for HashTsState<A, Q, C, Idx>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.color)
@@ -101,45 +99,53 @@ impl<A: Alphabet, Q: std::fmt::Display, C: Color, Idx: IndexType> std::fmt::Disp
 /// the states and edges in a vector, which allows for fast access and iteration. The states and edges
 /// are indexed by their position in the respective vector.
 #[derive(Clone, PartialEq, Eq)]
-pub struct BTS<A: Alphabet, Q, C: Color, Idx: IndexType = usize> {
+pub struct HashTs<A: Alphabet, Q = crate::Void, C: Hash + Eq = crate::Void, Idx: IndexType = usize>
+{
     pub(crate) alphabet: A,
-    pub(crate) states: Map<Idx, BTState<A, Q, C, Idx>>,
+    pub(crate) states: Map<Idx, HashTsState<A, Q, C, Idx>>,
 }
 
-pub type IntoBTS<Ts> = BTS<
+/// Type alias that takes a [`TransitionSystem`] and gives the type of a corresponding [`HashTs`], i.e. one
+/// with the same alphabet, edge and state colors.
+pub type IntoHashTs<Ts> = HashTs<
     <Ts as TransitionSystem>::Alphabet,
     <Ts as TransitionSystem>::StateColor,
     <Ts as TransitionSystem>::EdgeColor,
 >;
 
-pub type IntoInitialBTS<Ts> = Initialized<
-    BTS<
+/// Type alias for a [`HashTs`] with initial states. Given a [`TransitionSystem`] `Ts`, returns a [`HashTs`] with the
+/// same alphabet, edge and state colors, wrapped in a [`Initialized`] type.
+pub type IntoInitialHashTs<Ts> = Initialized<
+    HashTs<
         <Ts as TransitionSystem>::Alphabet,
         <Ts as TransitionSystem>::StateColor,
         <Ts as TransitionSystem>::EdgeColor,
     >,
 >;
 
-impl<A, C, Q, Idx> std::fmt::Debug for BTS<A, Q, C, Idx>
+impl<A, C, Q, Idx> std::fmt::Debug for HashTs<A, Q, C, Idx>
 where
     A: Alphabet,
-    C: Color + Show,
-    Q: Color + Show,
+    C: Debug + Clone + Hash + Eq,
+    Q: Debug + Clone + Hash + Eq,
     Idx: IndexType,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(
             f,
             "{}",
-            self.build_transition_table(|idx, c| format!("{} : {}", idx, c.show()))
+            self.build_transition_table(
+                |idx, c| format!("{} : {:?}", idx, c),
+                |edge| format!("{:?}->{}", edge.color(), edge.target())
+            )
         )
     }
 }
 
-pub type MealyTS<A, C, Idx = usize> = BTS<A, (), C, Idx>;
-pub type MooreTS<A, C, Idx = usize> = BTS<A, C, (), Idx>;
+pub type MealyTS<A, C, Idx = usize> = HashTs<A, (), C, Idx>;
+pub type MooreTS<A, C, Idx = usize> = HashTs<A, C, (), Idx>;
 
-impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
+impl<A: Alphabet, Idx: IndexType, C: Clone + Hash + Eq, Q: Clone> HashTs<A, Q, C, Idx> {
     /// Creates a new transition system with the given alphabet.
     pub fn new(alphabet: A) -> Self {
         Self {
@@ -148,7 +154,7 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
         }
     }
 
-    pub(crate) fn bts_remove_state(&mut self, idx: Idx) -> Option<Q> {
+    pub(crate) fn hashts_remove_state(&mut self, idx: Idx) -> Option<Q> {
         let state = self.states.remove(&idx)?;
         self.states.iter_mut().for_each(|(_, s)| {
             s.remove_incoming_edges_from(idx);
@@ -157,7 +163,7 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
         Some(state.color)
     }
 
-    pub(crate) fn bts_remove_edge(&mut self, from: Idx, on: &A::Expression) -> Option<(C, Idx)> {
+    pub(crate) fn hashts_remove_edge(&mut self, from: Idx, on: &A::Expression) -> Option<(C, Idx)> {
         let (to, color) = self.states.get_mut(&from)?.remove_edge(on)?;
         self.states
             .get_mut(&to)?
@@ -165,7 +171,7 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
         Some((color, to))
     }
 
-    pub(crate) fn bts_remove_transitions(
+    pub(crate) fn hashts_remove_transitions(
         &mut self,
         from: Idx,
         symbol: SymbolOf<Self>,
@@ -186,18 +192,18 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
             .collect()
     }
 
-    /// Creates a `BTS` from the given alphabet and states.
-    pub(crate) fn from_parts(alphabet: A, states: Map<Idx, BTState<A, Q, C, Idx>>) -> Self {
+    /// Creates a `HASHTS` from the given alphabet and states.
+    pub(crate) fn from_parts(alphabet: A, states: Map<Idx, HashTsState<A, Q, C, Idx>>) -> Self {
         Self { alphabet, states }
     }
 
-    /// Decomposes the `BTS` into its constituent parts.
+    /// Decomposes the `HASHTS` into its constituent parts.
     #[allow(clippy::type_complexity)]
-    pub(crate) fn into_parts(self) -> (A, Map<Idx, BTState<A, Q, C, Idx>>) {
+    pub(crate) fn into_parts(self) -> (A, Map<Idx, HashTsState<A, Q, C, Idx>>) {
         (self.alphabet, self.states)
     }
 
-    /// Creates an empty `BTS` ensuring the given capacity.
+    /// Creates an empty `HASHTS` ensuring the given capacity.
     pub fn with_capacity(alphabet: A, states: usize) -> Self
     where
         StateColor<Self>: Default,
@@ -209,7 +215,7 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
                 .map(|i| {
                     (
                         i.into(),
-                        BTState::new(<StateColor<Self> as Default>::default()),
+                        HashTsState::new(<StateColor<Self> as Default>::default()),
                     )
                 })
                 .collect(),
@@ -222,7 +228,7 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
     }
 
     /// Returns a reference to the underlying statemap.
-    pub fn raw_state_map(&self) -> &Map<Idx, BTState<A, Q, C, Idx>> {
+    pub fn raw_state_map(&self) -> &Map<Idx, HashTsState<A, Q, C, Idx>> {
         &self.states
     }
 
@@ -232,7 +238,10 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
     /// subsequent calls may lead to different results, if two states with the same color
     /// exist.
     #[inline(always)]
-    pub fn find_by_color(&self, color: &Q) -> Option<Idx> {
+    pub fn find_by_color(&self, color: &Q) -> Option<Idx>
+    where
+        Q: Eq,
+    {
         self.states.iter().find_map(|(idx, state)| {
             if state.color() == color {
                 Some(*idx)
@@ -248,7 +257,7 @@ impl<A: Alphabet, Idx: IndexType, C: Color, Q: Color> BTS<A, Q, C, Idx> {
     }
 }
 
-impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> BTS<A, Q, C, Idx> {
+impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Clone + Hash + Eq> HashTs<A, Q, C, Idx> {
     /// Returns an iterator over the [`EdgeIndex`]es of the edges leaving the given state.
     pub(crate) fn index_ts_edges_from(
         &self,
@@ -263,14 +272,14 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> BTS<A, Q, C, Idx> {
     }
 }
 
-impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
+impl<A: Alphabet, Q: Clone, C: Clone + Hash + Eq> Sproutable for HashTs<A, Q, C, usize> {
     type ExtendStateIndexIter = std::ops::Range<Self::StateIndex>;
     fn extend_states<I: IntoIterator<Item = StateColor<Self>>>(
         &mut self,
         iter: I,
     ) -> Self::ExtendStateIndexIter {
         let n = self.states.len();
-        let it = (n..).zip(iter.into_iter().map(|c| BTState::new(c)));
+        let it = (n..).zip(iter.into_iter().map(|c| HashTsState::new(c)));
         self.states.extend(it);
         n..self.states.len()
     }
@@ -279,7 +288,7 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
     /// the new state.
     fn add_state<X: Into<StateColor<Self>>>(&mut self, color: X) -> Self::StateIndex {
         let id = self.states.len();
-        let state = BTState::new(color.into());
+        let state = HashTsState::new(color.into());
         self.states.insert(id, state);
         id
     }
@@ -295,11 +304,11 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
         color: EdgeColor<Self>,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
-        X: Into<usize>,
-        Y: Into<usize>,
+        X: Indexes<Self>,
+        Y: Indexes<Self>,
     {
-        let source = from.into();
-        let target = to.into();
+        let source = from.to_index(self)?;
+        let target = to.to_index(self)?;
         assert!(
             self.contains_state(source) && self.contains_state(target),
             "Source {} or target {} vertex does not exist in the graph.",
@@ -329,11 +338,14 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
         }
     }
 
-    fn remove_edges(
+    fn remove_edges<X: Indexes<Self>>(
         &mut self,
-        from: Self::StateIndex,
+        from: X,
         on: <Self::Alphabet as Alphabet>::Expression,
     ) -> bool {
+        let Some(from) = from.to_index(self) else {
+            return false;
+        };
         let target = self.states.get_mut(&from).and_then(|o| o.remove_edge(&on));
         if let Some((target, color)) = target {
             let removed = self
@@ -346,32 +358,6 @@ impl<A: Alphabet, Q: Color, C: Color> Sproutable for BTS<A, Q, C, usize> {
         } else {
             false
         }
-    }
-}
-
-impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> HasStates for BTS<A, Q, C, Idx> {
-    type State<'this> = &'this BTState<A, Q, C, Idx> where Self: 'this;
-
-    type StatesIter<'this> = std::collections::hash_map::Iter<'this, Idx, BTState<A, Q, C, Idx>>
-    where
-        Self: 'this;
-
-    fn states_iter(&self) -> Self::StatesIter<'_> {
-        self.states.iter()
-    }
-    fn state(&self, index: Idx) -> Option<Self::State<'_>> {
-        self.states.get(&index)
-    }
-    fn hs_size(&self) -> usize {
-        self.states.len()
-    }
-}
-
-impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> HasMutableStates for BTS<A, Q, C, Idx> {
-    type StateMut<'this> = &'this mut BTState<A, Q, C, Idx>where Self: 'this;
-
-    fn state_mut(&mut self, index: Idx) -> Option<Self::StateMut<'_>> {
-        self.states.get_mut(&index)
     }
 }
 

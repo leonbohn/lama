@@ -7,9 +7,9 @@ use automata::{
     ts::{
         dot::{DotStateAttribute, DotTransitionAttribute},
         reachable::ReachableStateIndices,
-        Deterministic, Dottable, IndexType, Sproutable,
+        Deterministic, Dottable, EdgeColor, ExpressionOf, IndexType, Sproutable, StateColor,
     },
-    Alphabet, Map, Pointed, RightCongruence, Show, TransitionSystem,
+    Alphabet, Map, Pointed, RightCongruence, Show, TransitionSystem, Void,
 };
 use itertools::Itertools;
 use tracing::{info, trace};
@@ -171,7 +171,7 @@ impl<const N: usize> PState<N> {
 }
 
 /// The precise DPA is a construction for going from a specifically colored FORC to a deterministic
-/// parity automaton. It is described (https://arxiv.org/pdf/2302.11043.pdf)[here, below Lemma 15].
+/// parity automaton. It is described <https://arxiv.org/pdf/2302.11043.pdf>[here, below Lemma 15].
 #[derive(Clone)]
 pub struct PreciseDPA<A: Alphabet, const N: usize = 8> {
     states: Vec<PState<N>>,
@@ -279,11 +279,11 @@ pub struct PreciseDPAStatesIter<'a, A: Alphabet, const N: usize = 8> {
 impl<A: Alphabet, const N: usize> TransitionSystem for PreciseDPA<A, N> {
     type StateIndex = PState<N>;
 
-    type StateColor = ();
+    type StateColor = Void;
 
     type EdgeColor = usize;
 
-    type TransitionRef<'this> = PreciseDPATransition<'this, A, N>
+    type EdgeRef<'this> = PreciseDPATransition<'this, A, N>
     where
         Self: 'this;
 
@@ -303,7 +303,7 @@ impl<A: Alphabet, const N: usize> TransitionSystem for PreciseDPA<A, N> {
     }
 
     fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
-        Some(())
+        Some(Void)
     }
 
     fn edges_from<Idx: automata::prelude::Indexes<Self>>(
@@ -323,7 +323,7 @@ impl<A: Alphabet, const N: usize> Deterministic for PreciseDPA<A, N> {
         &self,
         state: Idx,
         symbol: automata::prelude::SymbolOf<Self>,
-    ) -> Option<Self::TransitionRef<'_>> {
+    ) -> Option<Self::EdgeRef<'_>> {
         let q = state.to_index(self)?;
         let (i, p) = self.take_precise_transition(&q, symbol);
         Some(PreciseDPATransition::new(
@@ -443,7 +443,7 @@ fn padding_universal_dfa<A: Alphabet>(alphabet: &A) -> DFA<A> {
     let e = dfa.initial();
     dfa.set_initial_color(true);
     for sym in alphabet.universe() {
-        dfa.add_edge(e, A::expression(sym), e, ());
+        dfa.add_edge(e, A::expression(sym), e, Void);
     }
     dfa
 }
@@ -493,7 +493,10 @@ impl<A: Alphabet, const N: usize> Dottable for PreciseDPA<A, N> {
     fn dot_state_attributes(
         &self,
         idx: Self::StateIndex,
-    ) -> impl IntoIterator<Item = automata::ts::dot::DotStateAttribute> {
+    ) -> impl IntoIterator<Item = automata::ts::dot::DotStateAttribute>
+    where
+        (String, StateColor<Self>): Show,
+    {
         [
             DotStateAttribute::Shape("box".to_string()),
             DotStateAttribute::Label(idx.to_string()),
@@ -502,8 +505,11 @@ impl<A: Alphabet, const N: usize> Dottable for PreciseDPA<A, N> {
 
     fn dot_transition_attributes<'a>(
         &'a self,
-        t: Self::TransitionRef<'a>,
-    ) -> impl IntoIterator<Item = automata::ts::dot::DotTransitionAttribute> {
+        t: Self::EdgeRef<'a>,
+    ) -> impl IntoIterator<Item = automata::ts::dot::DotTransitionAttribute>
+    where
+        (&'a ExpressionOf<Self>, EdgeColor<Self>): Show,
+    {
         [DotTransitionAttribute::Label(format!(
             "{}|{}",
             t.expression().show(),
@@ -524,62 +530,62 @@ mod tests {
 
         let cong = NTS::builder()
             .with_transitions([
-                (0, 'a', (), 1),
-                (0, 'b', (), 0),
-                (0, 'c', (), 0),
-                (1, 'a', (), 0),
-                (1, 'b', (), 1),
-                (1, 'c', (), 1),
+                (0, 'a', Void, 1),
+                (0, 'b', Void, 0),
+                (0, 'c', Void, 0),
+                (1, 'a', Void, 0),
+                (1, 'b', Void, 1),
+                (1, 'c', Void, 1),
             ])
             .default_color(())
             .into_right_congruence_bare(0);
 
         let de0 = NTS::builder()
             .with_transitions([
-                (0, 'a', (), 0),
-                (0, 'b', (), 1),
-                (0, 'c', (), 0),
-                (1, 'a', (), 1),
-                (1, 'b', (), 1),
-                (1, 'c', (), 1),
+                (0, 'a', Void, 0),
+                (0, 'b', Void, 1),
+                (0, 'c', Void, 0),
+                (1, 'a', Void, 1),
+                (1, 'b', Void, 1),
+                (1, 'c', Void, 1),
             ])
             .with_colors([false, true])
             .into_dfa(0);
         let da0 = NTS::builder()
             .with_transitions([
-                (0, 'a', (), 0),
-                (0, 'b', (), 0),
-                (0, 'c', (), 1),
-                (1, 'a', (), 1),
-                (1, 'b', (), 1),
-                (1, 'c', (), 1),
+                (0, 'a', Void, 0),
+                (0, 'b', Void, 0),
+                (0, 'c', Void, 1),
+                (1, 'a', Void, 1),
+                (1, 'b', Void, 1),
+                (1, 'c', Void, 1),
             ])
             .with_colors([false, true])
             .into_dfa(0);
 
         let de1 = NTS::builder()
             .with_transitions([
-                (0, 'a', (), 0),
-                (0, 'b', (), 2),
-                (0, 'c', (), 1),
-                (1, 'a', (), 0),
-                (1, 'b', (), 2),
-                (1, 'c', (), 2),
-                (2, 'a', (), 2),
-                (2, 'b', (), 2),
-                (2, 'c', (), 2),
+                (0, 'a', Void, 0),
+                (0, 'b', Void, 2),
+                (0, 'c', Void, 1),
+                (1, 'a', Void, 0),
+                (1, 'b', Void, 2),
+                (1, 'c', Void, 2),
+                (2, 'a', Void, 2),
+                (2, 'b', Void, 2),
+                (2, 'c', Void, 2),
             ])
             .with_colors([false, false, true])
             .into_dfa(0);
 
         let full = NTS::builder()
             .with_transitions([
-                (0, 'a', (), 1),
-                (0, 'b', (), 1),
-                (0, 'c', (), 1),
-                (1, 'a', (), 1),
-                (1, 'b', (), 1),
-                (1, 'c', (), 1),
+                (0, 'a', Void, 1),
+                (0, 'b', Void, 1),
+                (0, 'c', Void, 1),
+                (1, 'a', Void, 1),
+                (1, 'b', Void, 1),
+                (1, 'c', Void, 1),
             ])
             .with_colors([false, true])
             .into_dfa(0);
