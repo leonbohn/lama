@@ -45,8 +45,7 @@ pub use dba::{DBALike, IntoDBA, DBA};
 #[allow(missing_docs)]
 mod omega;
 pub use omega::{
-    AcceptanceMask, DeterministicOmegaAutomaton, OmegaAcceptanceCondition, OmegaAutomaton,
-    Buchi
+    AcceptanceMask, Buchi, DeterministicOmegaAutomaton, OmegaAcceptanceCondition, OmegaAutomaton,
 };
 
 mod acceptor;

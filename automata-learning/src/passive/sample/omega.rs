@@ -8,7 +8,8 @@ use crate::passive::{
     // sprout::{
     //     iteration_consistency_conflicts, prefix_consistency_conflicts, sprout, SeparatesIdempotents,
     // },
-    ClassOmegaSample, Sample,
+    ClassOmegaSample,
+    Sample,
 };
 
 use super::{OmegaSample, SplitOmegaSample};

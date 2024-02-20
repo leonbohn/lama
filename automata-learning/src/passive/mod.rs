@@ -26,7 +26,7 @@ pub use self::sample::{FiniteSample, OmegaSample};
 /// Module containing the implementation of the sprout algorithm.
 pub mod sprout;
 
-/// Module defining ConsistencyCheck and implementing it for various omega acceptance conditions 
+/// Module defining ConsistencyCheck and implementing it for various omega acceptance conditions
 pub mod consistency;
 
 /// Deals with families of weak priority mappings.
