@@ -186,6 +186,14 @@ mod tests {
             .default_color(())
             .deterministic()
             .with_initial(0);
+        let ts3 = NTS::builder()
+            .with_transitions([
+                (0, 'a', (), 0),
+                (0, 'b', (), 0)
+            ])
+            .default_color(())
+            .deterministic()
+            .with_initial(0);
         
         // build samples
         let sample1 = OmegaSample::new_omega_from_pos_neg(
@@ -203,9 +211,15 @@ mod tests {
             [Reduced::periodic("aab")],
             [Reduced::periodic("b")]
         );
+        let sample4 = OmegaSample::new_omega_from_pos_neg(
+            sigma(),
+            [Reduced::periodic("a")],
+            [Reduced::periodic("b")]
+        );
         
         assert_eq!(Buchi.consistent(&ts, &sample1, sigma()), true);
         assert_eq!(Buchi.consistent(&ts2, &sample2, sigma()), false);
         assert_eq!(Buchi.consistent(&ts2, &sample3, sigma()), true);
+        assert_eq!(Buchi.consistent(&ts3, &sample4, sigma()), true);
 	}
 }
