@@ -29,6 +29,7 @@ where
     A : Alphabet,
     T: Deterministic + Pointed,
     Reduced<char>: OmegaWord<<<T as TransitionSystem>::Alphabet as Alphabet>::Symbol>,
+    <T as TransitionSystem>::EdgeColor: Eq + std::hash::Hash,
 {
     fn consistent(&self, ts: &T, sample: &OmegaSample<Simple, bool>, alph: A) -> bool {
         // run transition system on sample words and
@@ -37,14 +38,14 @@ where
             .positive_words()
             .map(|w| (ts.omega_run(w), w))
             .partition_map(|r| match r {
-                (Ok(v), w) => Either::Left((v, w)),
+                (Ok(v), _) => Either::Left(v),
                 (Err(v), w) => Either::Right((v, w)),
             });
         let (neg_successful, neg_escaping): (Vec<_>, Vec<_>) = sample
             .negative_words()
             .map(|w| (ts.omega_run(w), w))
             .partition_map(|r| match r {
-                (Ok(v), w) => Either::Left((v, w)),
+                (Ok(v), _) => Either::Left(v),
                 (Err(v), w) => Either::Right((v, w)),
             });
         
@@ -61,13 +62,13 @@ where
         // the union of all infinity sets of negative words (see paper for details)
         let neg_union: Set<_> = neg_successful
             .into_iter()
-            .map(|r| {r.0.into_recurrent_state_indices()})
+            .map(|r| {r.into_recurrent_transitions()})
             .flatten()
             .collect();
 
         pos_successful
             .into_iter()
-            .map(|r| {r.0.into_recurrent_state_indices().collect::<Set<_>>()})
+            .map(|r| {r.into_recurrent_transitions().collect::<Set<_>>()})
             .any(|s| {s.is_subset(&neg_union)})
             .not()
     }
