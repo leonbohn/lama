@@ -1254,13 +1254,14 @@ mod tests {
 
     #[test]
     fn run() {
-        let mut ts = MealyTS::new(alphabet::Simple::from_iter(['a', 'b']));
+        let mut ts: MealyTS<_, usize, usize> =
+            MealyTS::new(alphabet::Simple::from_iter(['a', 'b']));
         let s0 = ts.add_state(());
         let s1 = ts.add_state(());
-        let _e0 = ts.add_edge(s0, 'a', s1, 0);
-        let _e1 = ts.add_edge(s0, 'b', s0, 1);
-        let _e2 = ts.add_edge(s1, 'a', s1, 0);
-        let _e3 = ts.add_edge(s1, 'b', s0, 1);
+        ts.add_edge(s0, 'a', s1, 0usize);
+        ts.add_edge(s0, 'b', s0, 1usize);
+        ts.add_edge(s1, 'a', s1, 0usize);
+        ts.add_edge(s1, 'b', s0, 1usize);
 
         let ts = ts.with_initial(s0);
         assert!(ts.finite_run("abba").is_ok());

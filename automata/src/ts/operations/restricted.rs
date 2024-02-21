@@ -323,7 +323,7 @@ mod tests {
     #[test]
     fn restrict_ts_by_state_index() {
         let mut dfa = DFA::new_for_alphabet(alphabet! {simple 'a', 'b'});
-        let q0 = dfa.initial();
+        let q0 = dfa.add_state(false);
         let q1 = dfa.add_state(false);
         let q2 = dfa.add_state(true);
 

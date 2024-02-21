@@ -109,7 +109,12 @@ pub trait Color: Clone + Eq + Ord + Hash + Show {
 
 impl<T: Eq + Ord + Clone + Hash + Show> Color for T {}
 
+/// Implementors of this trait can be constructed from a value of type `C`.
+/// This is useful for example when we want to collect a transition system into a different
+/// representation, but we don't care about the colors on the edges. In that case, the state
+/// colors may be kept and the edge colors are dropped.
 pub trait Constructible<C>: Clone {
+    /// Construct an instance of `Self` from a value of type `C`.
     fn construct(from: C) -> Self;
 }
 
@@ -405,8 +410,7 @@ mod tests {
 
     pub fn wiki_dfa() -> DFA<Simple> {
         let mut dfa = DFA::new_for_alphabet(alphabet!(simple 'a', 'b'));
-        let a = dfa.initial();
-        dfa.set_initial_color(false);
+        let a = dfa.add_state(false);
         let b = dfa.add_state(false);
         let c = dfa.add_state(true);
         let d = dfa.add_state(true);

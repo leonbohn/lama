@@ -99,7 +99,7 @@ pub fn infer_precise_dpa<A: Alphabet>(
 }
 
 /// Similar to [`dba_rpni`], but produces a DPA instead.
-pub fn dpa_rpni(sample: &OmegaSample<Simple, bool>) -> DPA<Simple, Void, MealyMachine> {
+pub fn dpa_rpni(sample: &OmegaSample<Simple, bool>) -> DPA {
     let precise = infer_precise_dpa(sample);
     let pta = sample.prefix_tree().erase_state_colors();
 
@@ -120,7 +120,7 @@ pub fn dpa_rpni(sample: &OmegaSample<Simple, bool>) -> DPA<Simple, Void, MealyMa
         "Learning representation of DPA with LStar took {}ms",
         start.elapsed().as_millis()
     );
-    learned.into_dpa()
+    learned.collect_dpa()
 }
 
 fn characterize_dpa(dpa: DPA) -> OmegaSample {
@@ -154,7 +154,7 @@ mod tests {
             (upw!("baacbacbac"), true),
         ];
         for (w, c) in &expected {
-            let b = dpa.accepts_omega(w);
+            let b = dpa.accepts(w);
             assert_eq!(b, *c, "{:?} is classified {b}, expected {c}", w);
         }
 

@@ -15,10 +15,8 @@ use itertools::Itertools;
 use tracing::{debug, info, trace};
 
 use crate::{
-    automaton::{AsMealyMachine, AsMooreMachine},
-    prelude::*,
-    ts::transition_system::IsEdge,
-    Alphabet, Map, Partition, Set,
+    automaton::AsMealyMachine, prelude::*, ts::transition_system::IsEdge, Alphabet, Map, Partition,
+    Set,
 };
 
 /// Computes the maximal bisimulation of the given [`MealyLike`] deterministic machine. The returned
@@ -186,7 +184,7 @@ where
 /// minimal automaton that is bisimilar to the input. This method computes the maximal bisimulation
 /// by using [`moore_greatest_bisimulation`] and then uses the partition to compute the quotient
 /// automaton.
-pub fn moore_partition_refinement<D>(mm: D) -> AsMooreMachine<D>
+pub fn moore_partition_refinement<D>(mm: D) -> MooreMachine<D::Alphabet, D::StateColor>
 where
     D: Congruence,
     StateColor<D>: Color,
@@ -209,7 +207,7 @@ where
             c[0].clone()
         })
         // TODO: Should we not get rid of the edge colors entirely?
-        .map_edge_colors(|c| c[0].clone())
+        .erase_edge_colors()
         .collect_moore();
     debug!(
         "Collecting into Moore machine took {} microseconds",

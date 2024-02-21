@@ -27,7 +27,7 @@ mod acceptance_type;
 
 #[macro_use]
 mod moore;
-pub use moore::{AsMooreMachine, IntoMooreMachine, MooreLike, MooreMachine};
+pub use moore::{IntoMooreMachine, MooreLike, MooreMachine};
 
 #[macro_use]
 mod mealy;
@@ -153,20 +153,21 @@ macro_rules! impl_automaton_type {
             ) {
                 self.ts_mut().set_state_color(index, color)
             }
-            fn add_edge<X, Y>(
+            fn add_edge<X, Y, CI>(
                 &mut self,
                 from: X,
                 on: <Self::Alphabet as Alphabet>::Expression,
                 to: Y,
-                color: EdgeColor<Self>,
+                color: CI,
             ) -> Option<(Self::StateIndex, Self::EdgeColor)>
             where
                 X: Indexes<Self>,
                 Y: Indexes<Self>,
+                CI: Into<EdgeColor<Self>>,
             {
                 let from = from.to_index(self)?;
                 let to = to.to_index(self)?;
-                self.ts_mut().add_edge(from, on, to, color)
+                self.ts_mut().add_edge(from, on, to, color.into())
             }
             fn remove_edges<X>(
                 &mut self,
@@ -298,12 +299,13 @@ mod tests {
 
     #[test]
     fn mealy_color_or_below() {
-        let mut mm = MooreMachine::new(alphabet!(simple 'a', 'b'), 2);
-        let a = mm.initial();
+        let mut mm: MooreMachine<Simple, usize> =
+            MooreMachine::new_for_alphabet(alphabet!(simple 'a', 'b'));
+        let a = mm.add_state(0usize);
         let b = mm.add_state(1usize);
         let c = mm.add_state(1usize);
         let d = mm.add_state(0usize);
-        mm.add_edge(a, 'a', b, ());
+        mm.add_edge(a, 'a', b, Void);
         mm.add_edge(a, 'b', c, ());
         mm.add_edge(b, 'a', c, ());
         mm.add_edge(b, 'b', c, ());
@@ -326,8 +328,8 @@ mod tests {
     #[test]
     fn dbas() {
         let mut dba = super::DBA::new_for_alphabet(Simple::from_iter(['a', 'b']));
+        let q0 = dba.add_state(());
         let q1 = dba.add_state(Void);
-        let q0 = dba.initial();
 
         let _e0 = dba.add_edge(q0, 'a', q1, true);
         let _e1 = dba.add_edge(q0, 'b', q0, false);
@@ -347,8 +349,7 @@ mod tests {
     #[test]
     fn dfas_and_boolean_operations() {
         let mut dfa = super::DFA::new_for_alphabet(Simple::new(['a', 'b']));
-        let s0 = dfa.initial();
-        dfa.set_initial_color(true);
+        let s0 = dfa.add_state(true);
         let s1 = dfa.add_state(false);
         let _e0 = dfa.add_edge(s0, 'a', s1, Void);
         let _e1 = dfa.add_edge(s0, 'b', s0, Void);

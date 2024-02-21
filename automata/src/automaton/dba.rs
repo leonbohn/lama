@@ -17,7 +17,11 @@ impl<Q> OmegaSemantics<Q, bool> for DBASemantics {
     }
 }
 
+/// A deterministic Büchi automaton (DBA) is a deterministic automaton with Büchi acceptance condition. It accepts a word if it visits an accepting state infinitely often.
+/// It is a special case of a deterministic parity automaton [`crate::DPA`] with
+/// min even and priorities 0 and 1.
 pub type DBA<A = Simple> = Automaton<Initialized<DTS<A, Void, bool>>, DBASemantics, true>;
+/// Helper trait for creating a [`DBA`] from a given transition system.
 pub type IntoDBA<T> = Automaton<T, DBASemantics, true>;
 
 /// Similar to [`DFALike`], this trait is supposed to be (automatically) implemented by everything that can be viewed

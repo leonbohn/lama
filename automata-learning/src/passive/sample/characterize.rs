@@ -83,15 +83,15 @@ fn right_congruence_by_omega_words<M: DPALike>(
 
             let suffix = cong
                 .ts()
-                .as_dpa()
+                .into_dpa()
                 .separate(p, q)
                 .expect("Separation must be possible");
 
             let w1 = Concat(&mtr, &suffix).normalized();
             let w2 = Concat(&mr, suffix).normalized();
 
-            let b1 = cong.ts().as_dpa().accepts_omega(&w1);
-            let b2 = cong.ts().as_dpa().accepts_omega(&w2);
+            let b1 = cong.ts().into_dpa().accepts(&w1);
+            let b2 = cong.ts().into_dpa().accepts(&w2);
             assert_ne!(b1, b2);
 
             if b1 {

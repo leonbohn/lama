@@ -5,6 +5,10 @@ use super::LStarHypothesis;
 impl<A: Alphabet, C: Color> LStarHypothesis for MooreMachine<A, C> {
     type Color = C;
 
+    fn transform(&self, word: &[SymbolOf<Self>]) -> Self::Color {
+        todo!()
+    }
+
     fn from_transition_system(
         ts: DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>,
         initial: usize,
@@ -45,6 +49,10 @@ impl<A: Alphabet, C: Color> LStarHypothesis for MooreMachine<A, C> {
 impl<C: Color> LStarHypothesis for MealyMachine<Simple, C> {
     type Color = C;
 
+    fn transform(&self, word: &[SymbolOf<Self>]) -> Self::Color {
+        todo!()
+    }
+
     fn from_transition_system(
         ts: DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>,
         initial: usize,
@@ -82,6 +90,10 @@ impl<C: Color> LStarHypothesis for MealyMachine<Simple, C> {
 
 impl LStarHypothesis for DFA {
     type Color = bool;
+
+    fn transform(&self, word: &[SymbolOf<Self>]) -> Self::Color {
+        todo!()
+    }
 
     fn mandatory_experiments(
         alphabet: &Self::Alphabet,

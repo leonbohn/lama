@@ -296,19 +296,22 @@ impl<A: Alphabet, Q: Clone, C: Clone + Hash + Eq> Sproutable for HashTs<A, Q, C,
     /// Adds an edge from `source` to `target` with the given `trigger` and `color`. If an edge
     /// was already present, its target index and color are returned, otherwise, the function gives back
     /// `None`. This method panics if `source` or `target` do not exist in the graph.
-    fn add_edge<X, Y>(
+    fn add_edge<X, Y, CI>(
         &mut self,
         from: X,
         on: <Self::Alphabet as Alphabet>::Expression,
         to: Y,
-        color: EdgeColor<Self>,
+        color: CI,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
         X: Indexes<Self>,
         Y: Indexes<Self>,
+        CI: Into<EdgeColor<Self>>,
     {
         let source = from.to_index(self)?;
         let target = to.to_index(self)?;
+        let color = color.into();
+
         assert!(
             self.contains_state(source) && self.contains_state(target),
             "Source {} or target {} vertex does not exist in the graph.",
@@ -386,13 +389,13 @@ mod tests {
 
     #[test]
     fn build_ts() {
-        let mut ts = MealyTS::new(alphabet::Simple::from_iter(['a', 'b']));
+        let mut ts: MealyTS<_, usize, _> = MealyTS::new(alphabet::Simple::from_iter(['a', 'b']));
         let s0 = ts.add_state(());
         let s1 = ts.add_state(());
-        let _e0 = ts.add_edge(s0, 'a', s1, 0);
-        let _e1 = ts.add_edge(s0, 'b', s0, 1);
-        let _e2 = ts.add_edge(s1, 'a', s1, 0);
-        let _e3 = ts.add_edge(s1, 'b', s0, 1);
+        let _e0 = ts.add_edge(s0, 'a', s1, 0usize);
+        let _e1 = ts.add_edge(s0, 'b', s0, 1usize);
+        let _e2 = ts.add_edge(s1, 'a', s1, 0usize);
+        let _e3 = ts.add_edge(s1, 'b', s0, 1usize);
         println!("{:?}", ts);
         assert!(ts.transition(s0, 'a').is_some());
         assert_eq!(ts.transition(s1, 'a').unwrap().target(), s1);

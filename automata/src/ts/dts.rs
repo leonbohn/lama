@@ -99,19 +99,20 @@ impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for DTS<A, Q, C> {
         self.0.set_state_color(index, color)
     }
 
-    fn add_edge<X, Y>(
+    fn add_edge<X, Y, CI>(
         &mut self,
         from: X,
         on: <Self::Alphabet as Alphabet>::Expression,
         to: Y,
-        color: EdgeColor<Self>,
+        color: CI,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
         X: Indexes<Self>,
         Y: Indexes<Self>,
+        CI: Into<EdgeColor<Self>>,
     {
         self.0
-            .add_edge(from.to_index(self)?, on, to.to_index(self)?, color)
+            .add_edge(from.to_index(self)?, on, to.to_index(self)?, color.into())
     }
     fn remove_edges<X>(&mut self, from: X, on: <Self::Alphabet as Alphabet>::Expression) -> bool
     where

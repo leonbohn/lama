@@ -439,9 +439,9 @@ impl<A: Alphabet, const N: usize> Debug for PreciseDPA<A, N> {
 }
 
 fn padding_universal_dfa<A: Alphabet>(alphabet: &A) -> DFA<A> {
-    let mut dfa = DFA::new(alphabet.clone());
-    let e = dfa.initial();
-    dfa.set_initial_color(true);
+    let mut dfa = DFA::new_for_alphabet(alphabet.clone());
+    let e = dfa.add_state(true);
+
     for sym in alphabet.universe() {
         dfa.add_edge(e, A::expression(sym), e, Void);
     }

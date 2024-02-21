@@ -9,10 +9,10 @@ use super::oracle::LStarOracle;
 
 const ITERATION_THRESHOLD: usize = if cfg!(debug_assertions) { 300 } else { 200000 };
 
-pub trait LStarHypothesis:
-    Deterministic + Sproutable + Pointed + FiniteWordTransformer<SymbolOf<Self>, Self::Color>
-{
+pub trait LStarHypothesis: Deterministic + Sproutable + Pointed {
     type Color: Color;
+
+    fn transform(&self, word: &[SymbolOf<Self>]) -> Self::Color;
 
     fn from_transition_system(
         ts: DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>,
@@ -189,7 +189,7 @@ impl<D: LStarHypothesis, T: LStarOracle<D>> LStar<D, T> {
             let hypothesis = self.hypothesis();
 
             if let Err((counterexample, color)) = self.oracle.equivalence(&hypothesis) {
-                assert!(hypothesis.transform_finite(&counterexample) != color);
+                assert!(hypothesis.transform(&counterexample) != color);
                 self.process_counterexample(counterexample, color);
                 continue 'outer;
             }
@@ -494,9 +494,8 @@ mod tests {
 
     fn test_dfa() -> DFA {
         let alphabet = Simple::from_iter(['a', 'b', 'c']);
-        let mut dfa = DFA::new(alphabet);
-        let q0 = dfa.initial();
-        dfa.set_initial_color(true);
+        let mut dfa = DFA::new_for_alphabet(alphabet);
+        let q0 = dfa.add_state(true);
         let q1 = dfa.add_state(false);
         let q2 = dfa.add_state(true);
         let q3 = dfa.add_state(false);

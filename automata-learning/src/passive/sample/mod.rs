@@ -277,7 +277,7 @@ mod tests {
 
         let dfa = cong.map_state_colors(|_| true).collect_dfa();
         for prf in ["aba", "ababbbbbb", "", "aa", "b", "bbabbab"] {
-            assert!(dfa.accepts_finite(prf));
+            assert!(dfa.accepts(prf));
         }
     }
 }

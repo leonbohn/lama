@@ -6,12 +6,11 @@ use crate::{
     ts::{
         finite::ReachedColor,
         operations::{MapStateColor, MatchingProduct},
-        run::FiniteRun,
         Quotient,
     },
 };
 
-use super::{acceptor::FiniteSemantics, AsMooreMachine, Automaton, StatesWithColor};
+use super::{acceptor::FiniteSemantics, Automaton, StatesWithColor};
 
 #[derive(Clone, Copy, Default, Hash, Eq, PartialEq)]
 pub struct DFASemantics;
@@ -34,20 +33,28 @@ impl<C> FiniteSemantics<bool, C> for DFASemantics {
     }
 }
 
+/// A deterministic finite automaton (DFA) is a deterministic automaton with a simple acceptance condition. It accepts a finite word if it reaches an accepting state.
 pub type DFA<A = Simple> = Automaton<Initialized<DTS<A, bool, Void>>, DFASemantics, false>;
+/// Helper trait for creating a [`DFA`] from a given transition system.
 pub type IntoDFA<T> = Automaton<T, DFASemantics, false>;
 
 impl<T> DFALike for T where T: Congruence<StateColor = bool> {}
+/// Implemented by a [`Congruence`] if it can be viewed as a [`DFA`], meaning
+/// it has a boolean state color.
 pub trait DFALike: Congruence<StateColor = bool> {
+    /// Consumes self and returns a [`DFA`].
     fn into_dfa(self) -> IntoDFA<Self> {
         Automaton::from_parts(self, DFASemantics)
     }
+    /// Uses a reference to `self` for creating a [`DFA`].
     fn borrow_dfa(&self) -> IntoDFA<&Self> {
         (self).into_dfa()
     }
+    /// Collects the transition structure of `self` and returns a [`DFA`].  
     fn collect_dfa(&self) -> DFA<Self::Alphabet> {
         DFA::from_parts(self.erase_edge_colors().collect().0, DFASemantics)
     }
+    /// Collects the reachable part of the transition structure of `self` and returns a [`DFA`].
     fn collect_trim_dfa(&self) -> DFA<Self::Alphabet> {
         self.erase_edge_colors().trim_collect().into_dfa()
     }
@@ -122,6 +129,9 @@ pub trait DFALike: Congruence<StateColor = bool> {
         self.map_state_colors(|x| !x).into_dfa()
     }
 
+    /// Attempts to separate the state `left` from the state `right` by finding a word that leads to different colors.
+    /// For a [`DFA`], this means that the returned word is in the symmetric difference of
+    /// the languages accepted by the two states.
     fn separate<X, Y>(&self, left: X, right: Y) -> Option<Vec<SymbolOf<Self>>>
     where
         X: Indexes<Self>,

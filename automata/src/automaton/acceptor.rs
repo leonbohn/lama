@@ -1,23 +1,56 @@
 use crate::{
-    ts::{
-        run::{FiniteRun, OmegaRun},
-        EdgeColor, Sproutable, StateColor, SymbolOf,
-    },
+    ts::{EdgeColor, Sproutable, StateColor, SymbolOf},
     word::OmegaWord,
     Alphabet, Pointed, TransitionSystem,
 };
 
-use super::{Congruence, Deterministic, FiniteWord, PredecessorIterable};
+use super::{Congruence, Deterministic, FiniteRun, FiniteWord, OmegaRun, PredecessorIterable};
 
+/// An automaton consists of a transition system and an acceptance condition.
+/// There are many different types of automata, which can be instantiated from
+/// this struct by setting the type parameters accordingly.
+///
+/// The const parameter `OMEGA` determines whether the input type of the automaton
+/// is finite or omega words. If `OMEGA` is `true`, the automaton accepts omega
+/// words, otherwise it accepts finite words.
+///
+/// The type parameter `D` is the type of the transition system, and `A` is the
+/// type of the acceptance condition.
+///
+/// In order for the automaton to be able to accept words, the acceptance condition
+/// must implement the `FiniteSemantics` or `OmegaSemantics` trait, depending on
+/// the value of `OMEGA` (in the former case `OMEGA` should be false, and in the
+/// latter case `OMEGA` should be true).
 #[derive(Clone, Eq, PartialEq, Copy)]
 pub struct Automaton<D, A, const OMEGA: bool = false> {
-    pub ts: D,
-    pub acceptance: A,
+    ts: D,
+    acceptance: A,
 }
 
 impl<D, A, const OMEGA: bool> Automaton<D, A, OMEGA> {
+    /// Creates a new automaton from the given transition system and acceptance condition.
     pub fn from_parts(ts: D, acceptance: A) -> Self {
         Self { ts, acceptance }
+    }
+
+    /// Decomposes the automaton into its parts: the transition system and the acceptance condition.
+    pub fn into_parts(self) -> (D, A) {
+        (self.ts, self.acceptance)
+    }
+
+    /// Returns a reference to the underlying transition system.
+    pub fn ts(&self) -> &D {
+        &self.ts
+    }
+
+    /// Gives a mutable reference to the underlying transition system.
+    pub fn ts_mut(&mut self) -> &mut D {
+        &mut self.ts
+    }
+
+    /// Returns a reference to the acceptance condition.
+    pub fn acceptance(&self) -> &A {
+        &self.acceptance
     }
 }
 
@@ -40,6 +73,7 @@ where
     D: Congruence,
     A: FiniteSemantics<StateColor<D>, EdgeColor<D>>,
 {
+    /// Returns whether the automaton accepts the given finite word.
     pub fn accepts<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> bool
     where
         A: FiniteSemantics<StateColor<D>, EdgeColor<D>, Output = bool>,
@@ -47,6 +81,8 @@ where
         self.transform(word)
     }
 
+    /// Transforms the given finite word using the automaton, that means it returns
+    /// the output of the acceptance condition on the run of the word.
     pub fn transform<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> A::Output {
         self.acceptance.finite_semantic(self.ts.finite_run(word))
     }
@@ -57,6 +93,7 @@ where
     D: Congruence,
     A: OmegaSemantics<StateColor<D>, EdgeColor<D>>,
 {
+    /// Returns whether the automaton accepts the given omega word.
     pub fn accepts<W: OmegaWord<SymbolOf<D>>>(&self, word: W) -> bool
     where
         A: OmegaSemantics<StateColor<D>, EdgeColor<D>, Output = bool>,
@@ -64,6 +101,8 @@ where
         self.acceptance.omega_semantic(self.ts.omega_run(word))
     }
 
+    /// Transforms the given omega word using the automaton, that means it returns
+    /// the output of the acceptance condition on the run of the word.
     pub fn transform<W: OmegaWord<SymbolOf<D>>>(&self, word: W) -> A::Output {
         self.acceptance.omega_semantic(self.ts.omega_run(word))
     }
@@ -119,20 +158,21 @@ impl<D: Sproutable, A: Default, const OMEGA: bool> Sproutable for Automaton<D, A
         self.ts.set_state_color(index, color)
     }
 
-    fn add_edge<X, Y>(
+    fn add_edge<X, Y, CI>(
         &mut self,
         from: X,
         on: <Self::Alphabet as Alphabet>::Expression,
         to: Y,
-        color: EdgeColor<Self>,
+        color: CI,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
         X: super::Indexes<Self>,
         Y: super::Indexes<Self>,
+        CI: Into<EdgeColor<Self>>,
     {
         let from = from.to_index(self)?;
         let to = to.to_index(self)?;
-        self.ts.add_edge(from, on, to, color)
+        self.ts.add_edge(from, on, to, color.into())
     }
 
     fn remove_edges<X: super::Indexes<Self>>(

@@ -13,13 +13,22 @@ pub mod successful;
 // /// Module that defines a walker, which can perform stepwise computations on a transition system.
 // pub mod walker;
 
+/// A run is a sequence of states and edges that is consistent with the transition system.
+/// Implementors of this trait represent such a run.
 pub trait FiniteRun {
+    /// The type of the state colors.
     type StateColor;
+    /// The type of the edge colors.
     type EdgeColor;
+    /// The type of the state indices.
     type StateIndex: IndexType;
+    /// Returns an iterator over the state colors.
     fn state_colors(self) -> Option<impl Iterator<Item = Self::StateColor>>;
+    /// Returns an iterator over the edge colors.
     fn edge_colors(self) -> Option<impl Iterator<Item = Self::EdgeColor>>;
+    /// Returns an iterator over the state indices.
     fn indices(self) -> Option<impl Iterator<Item = Self::StateIndex>>;
+    /// Returns whether the run is successful.
     fn successful(&self) -> bool;
 }
 
@@ -48,12 +57,20 @@ impl<A: Alphabet, Q: Clone, C: Clone, Idx: IndexType> FiniteRun for FiniteRunRes
     }
 }
 
+/// A run is a sequence of states and edges that is consistent with the transition system.
+/// Implementors of this trait represent an infinite run.
 pub trait OmegaRun {
+    /// The type of the state colors.
     type StateColor;
+    /// The type of the edge colors.
     type EdgeColor;
+    /// The type of the state indices.
     type StateIndex: IndexType;
+    /// Returns an iterator over the state colors.
     fn infinity_state_colors(self) -> Option<impl Iterator<Item = Self::StateColor>>;
+    /// Returns an iterator over the edge colors.
     fn infinity_edge_colors(self) -> Option<impl Iterator<Item = Self::EdgeColor>>;
+    /// Returns an iterator over the state indices.
     fn infinity_indices(self) -> Option<impl Iterator<Item = Self::StateIndex>>;
 }
 

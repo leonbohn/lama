@@ -681,7 +681,7 @@ mod tests {
         cong.add_edge(q1, 'a', q0, Void);
         cong.add_edge(q1, 'b', q1, Void);
 
-        let mut prc_e = RightCongruence::new(alphabet.clone());
+        let mut prc_e: RightCongruence<_, _, Void> = RightCongruence::new(alphabet.clone());
         let e0 = prc_e.initial();
         let e1 = prc_e.add_state(vec!['a']);
         let e2 = prc_e.add_state(vec!['b']);
@@ -715,7 +715,7 @@ mod tests {
     #[ignore]
     fn dot_render_and_display() {
         let alphabet = alphabet!(simple 'a', 'b');
-        let mut cong = RightCongruence::new(alphabet);
+        let mut cong: RightCongruence<_, _, Void> = RightCongruence::new(alphabet);
         let q0 = cong.initial();
         let q1 = cong.add_state(vec!['a']);
         cong.add_edge(q0, 'a', q1, Void);
@@ -733,13 +733,13 @@ mod tests {
     #[ignore]
     fn dot_render_dpa() {
         let alphabet = alphabet!(simple 'a', 'b');
-        let mut dpa = DPA::new_for_alphabet(alphabet);
+        let mut dpa: DPA<alphabet::Simple> = DPA::new_for_alphabet(alphabet);
         let q0 = dpa.initial();
         let q1 = dpa.add_state(Void);
-        dpa.add_edge(q0, 'a', q0, 1);
-        dpa.add_edge(q0, 'b', q1, 2);
-        dpa.add_edge(q1, 'a', q1, 0);
-        dpa.add_edge(q1, 'b', q0, 2);
+        dpa.add_edge(q0, 'a', q0, 1usize);
+        dpa.add_edge(q0, 'b', q1, 2usize);
+        dpa.add_edge(q1, 'a', q1, 0usize);
+        dpa.add_edge(q1, 'b', q0, 2usize);
         println!("{:?}", dpa);
         dpa.display_rendered();
     }

@@ -27,7 +27,10 @@ impl<Q> OmegaSemantics<Q, usize> for MinEven {
     where
         R: OmegaRun<StateColor = Q, EdgeColor = usize>,
     {
-        todo!()
+        run.infinity_edge_colors()
+            .and_then(|colors| colors.min())
+            .map(|x| x.is_even())
+            .unwrap_or(false)
     }
 }
 
@@ -38,7 +41,15 @@ pub struct MinOdd;
 #[derive(Clone, Debug, Default, Copy, Hash, Eq, PartialEq)]
 pub struct MaxOdd;
 
+/// A deterministic parity automaton (DPA). It uses a [`DTS`]
+/// as its transition system and a `usize` as its edge color.
+/// The acceptance condition is given by the type `Sem`, which
+/// defaults to [`MinEven`], meaning the automaton accepts
+/// if the least color that appears infinitely often during
+/// a run is even.
 pub type DPA<A = Simple, Sem = MinEven> = Automaton<Initialized<DTS<A, Void, usize>>, Sem, true>;
+/// Helper trait for converting a given transition system into a [`DPA`]
+/// with the given semantics.
 pub type IntoDPA<T, Sem = MinEven> = Automaton<T, Sem, true>;
 
 /// Trait that should be implemented by every object that can be viewed as a [`crate::DPA`].
