@@ -31,7 +31,7 @@ pub use moore::{IntoMooreMachine, MooreLike, MooreMachine};
 
 #[macro_use]
 mod mealy;
-pub use mealy::{AsMealyMachine, IntoMealyMachine, MealyLike, MealyMachine};
+pub use mealy::{IntoMealyMachine, MealyLike, MealyMachine};
 
 mod dfa;
 pub use dfa::{DFALike, IntoDFA, DFA};

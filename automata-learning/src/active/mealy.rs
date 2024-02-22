@@ -2,7 +2,7 @@ use automata::prelude::*;
 
 use super::LStarHypothesis;
 
-impl<A: Alphabet, C: Color> LStarHypothesis for MooreMachine<A, C> {
+impl<A: Alphabet, C: Color + Default> LStarHypothesis for MooreMachine<A, C> {
     type Color = C;
 
     fn transform(&self, word: &[SymbolOf<Self>]) -> Self::Color {
@@ -46,7 +46,7 @@ impl<A: Alphabet, C: Color> LStarHypothesis for MooreMachine<A, C> {
     }
 }
 
-impl<C: Color> LStarHypothesis for MealyMachine<Simple, C> {
+impl<C: Color + Default> LStarHypothesis for MealyMachine<Simple, C> {
     type Color = C;
 
     fn transform(&self, word: &[SymbolOf<Self>]) -> Self::Color {

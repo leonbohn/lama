@@ -7,6 +7,9 @@ use crate::{prelude::*, Void};
 
 use super::Automaton;
 
+/// Represents the semantics of a Moore machine, it produces the color of the
+/// state that is reached during a run on a word. If the input is empty, it
+/// produces the color of the initial state.
 #[derive(Debug, Clone, Default)]
 pub struct MooreSemantics<Q>(std::marker::PhantomData<Q>);
 
@@ -58,7 +61,21 @@ where
 {
     /// Consumes and thereby turns `self` into a [`MooreMachine`].
     fn into_moore(self) -> IntoMooreMachine<Self> {
-        todo!()
+        Automaton::from_parts(self, MooreSemantics(std::marker::PhantomData))
+    }
+
+    /// Pushes the state colors onto the outgoing edges of `self` and collects the resulting
+    /// transition system into a new [`MealyMachine`].
+    fn push_colors_to_outgoing_edges(&self) -> MealyMachine<Self::Alphabet, Self::StateColor>
+    where
+        Self::StateColor: Clone,
+    {
+        self.map_edge_colors_full(|p, a, c, q| {
+            self.state_color(p)
+                .expect("We know it is reachable and it must be colored")
+                .clone()
+        })
+        .collect_mealy()
     }
 
     /// Runs the given `input` word in self. If the run is successful, the color of the state that it reaches
@@ -83,8 +100,11 @@ where
 
     /// Builds a moore machine from a reference to `self`. Note that this allocates a new
     /// transition system, which is a copy of the underlying one.
-    fn collect_moore(&self) -> MooreMachine<Self::Alphabet, Self::StateColor> {
-        todo!()
+    fn collect_moore(&self) -> MooreMachine<Self::Alphabet, Self::StateColor>
+    where
+        Self::StateColor: Color,
+    {
+        self.erase_edge_colors().collect_pointed().0.into_moore()
     }
 
     /// Returns true if `self` is bisimilar to `other`, i.e. if the two moore machines

@@ -44,7 +44,9 @@ impl<A: Alphabet, W: LinearWord<A::Symbol>, C: Color> SampleOracle<A, W, C> {
     }
 }
 
-impl<C: Color> LStarOracle<MooreMachine<Simple, C>> for SampleOracle<Simple, Vec<char>, C> {
+impl<C: Color + Default> LStarOracle<MooreMachine<Simple, C>>
+    for SampleOracle<Simple, Vec<char>, C>
+{
     type Length = FiniteLength;
 
     fn alphabet(&self) -> Simple {
@@ -77,7 +79,9 @@ impl<C: Color> LStarOracle<MooreMachine<Simple, C>> for SampleOracle<Simple, Vec
     }
 }
 
-impl<C: Color> LStarOracle<MealyMachine<Simple, C>> for SampleOracle<Simple, Vec<char>, C> {
+impl<C: Color + Default> LStarOracle<MealyMachine<Simple, C>>
+    for SampleOracle<Simple, Vec<char>, C>
+{
     type Length = FiniteLength;
 
     fn alphabet(&self) -> Simple {
@@ -206,7 +210,7 @@ pub struct MealyOracle<D: MealyLike + Deterministic> {
 impl<D> LStarOracle<MealyMachine<Simple, D::EdgeColor>> for MealyOracle<D>
 where
     D: Congruence<Alphabet = Simple>,
-    EdgeColor<D>: Color,
+    EdgeColor<D>: Color + Default,
 {
     type Length = FiniteLength;
 
@@ -282,7 +286,7 @@ pub struct MooreOracle<D> {
 impl<D: MooreLike<Alphabet = Simple>> LStarOracle<MooreMachine<Simple, D::StateColor>>
     for MooreOracle<D>
 where
-    StateColor<D>: Color,
+    StateColor<D>: Color + Default,
 {
     type Length = FiniteLength;
 
