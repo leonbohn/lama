@@ -315,12 +315,12 @@ mod tests {
         mm.add_edge(d, 'b', d, ());
 
         let dfas = mm.decompose_dfa();
-        let dfa2 = &dfas[2];
+        let dfa1 = &dfas[1];
         let dfa0 = &dfas[0];
 
         println!("{:?}", dfa0);
-        assert!(dfa2.accepts(""));
-        assert!(dfa2.accepts("b"));
+        assert!(dfa1.accepts(""));
+        assert!(dfa1.accepts("b"));
         assert!(!dfa0.accepts("b"));
         assert!(dfa0.accepts("ba"));
     }

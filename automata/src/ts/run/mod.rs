@@ -50,10 +50,7 @@ impl<A: Alphabet, Q: Clone, C: Clone, Idx: IndexType> FiniteRun for FiniteRunRes
     }
 
     fn successful(&self) -> bool {
-        match self {
-            Ok(_) => true,
-            _ => false,
-        }
+        self.is_ok()
     }
 }
 

@@ -6,7 +6,8 @@ impl<A: Alphabet, C: Color + Default> LStarHypothesis for MooreMachine<A, C> {
     type Color = C;
 
     fn transform(&self, word: &[SymbolOf<Self>]) -> Self::Color {
-        todo!()
+        self.reached_state_color(word)
+            .expect("Hypothesis is not complete!")
     }
 
     fn from_transition_system(
@@ -50,7 +51,12 @@ impl<C: Color + Default> LStarHypothesis for MealyMachine<Simple, C> {
     type Color = C;
 
     fn transform(&self, word: &[SymbolOf<Self>]) -> Self::Color {
-        todo!()
+        assert!(
+            !word.is_empty(),
+            "Mealy machine can only deal with non-empty words!"
+        );
+        self.last_edge_color(word)
+            .expect("Hypothesis is not complete!")
     }
 
     fn from_transition_system(
@@ -92,7 +98,8 @@ impl LStarHypothesis for DFA {
     type Color = bool;
 
     fn transform(&self, word: &[SymbolOf<Self>]) -> Self::Color {
-        todo!()
+        self.reached_state_color(word)
+            .expect("Hypothesis must be complete")
     }
 
     fn mandatory_experiments(
