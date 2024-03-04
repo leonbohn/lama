@@ -233,10 +233,19 @@ impl<S: Symbol> OmegaWord<S> for PeriodicOmegaWord<S> {
 /// Represents a reduced omega word. For ultimately periodic words, this means we
 /// try to roll the prefix part into the looping part and deduplicate the looping
 /// part. For periodic words, we just deduplicate the looping part.
+///
+/// Crucially, an instance of this struct will always be in reduced form. Specifically,
+/// this means that there is no shorter representation of the omega word in the form
+/// of a finite spoke and finite, non-empty cycle.
+///
+/// The reduced representation can be computed in polynomial time and it is unique.
+/// We can compute it by calling [`ReducedOmegaWord::normalized()`] and it is possible to
+/// verify whether a word is normalized through the [`ReducedOmegaWord::is_normalized()`]
+/// method.
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct ReducedOmegaWord<S> {
-    pub(crate) word: Vec<S>,
-    pub(crate) loop_index: usize,
+    pub(super) word: Vec<S>,
+    pub(super) loop_index: usize,
 }
 
 impl<S: Symbol> Show for ReducedOmegaWord<S> {
@@ -292,6 +301,31 @@ impl<S: Symbol> OmegaWord<S> for ReducedOmegaWord<S> {
 }
 
 impl<S: Symbol> ReducedOmegaWord<S> {
+    /// Returns `true` if and only if `self` is already normalized. This is done by
+    /// computing the normalization of `self` and then comparing structural equality.
+    ///
+    /// # Example
+    /// ```
+    /// use automata::prelude::*;
+    /// let non_normalized = ReducedOmegaWord::from_raw_parts(vec!['a', 'a'], 0);
+    /// assert!(!non_normalized.is_normalized()); // the constructed word is not normalized
+    /// let normalized = non_normalized.normalized();
+    /// assert!(normalized.is_normalized()); // the normalization is normalized
+    /// assert!(normalized != non_normalized); // they are not syntactically equal
+    /// assert!(normalized.equals(non_normalized)); // but they are semantically equal
+    /// ```
+    pub fn is_normalized(&self) -> bool {
+        self.normalized() == *self
+    }
+
+    /// Creates a new instance from the given representation and loop index.
+    pub fn from_raw_parts(repr: Vec<S>, loop_index: usize) -> Self {
+        Self {
+            word: repr,
+            loop_index,
+        }
+    }
+
     /// Creates a new reduced omega word from a finite word. The input is deduplicated.
     pub fn periodic<W: FiniteWord<S>>(representation: W) -> Self {
         let representation = deduplicate(representation.to_vec());
