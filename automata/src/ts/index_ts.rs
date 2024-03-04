@@ -389,7 +389,8 @@ mod tests {
 
     #[test]
     fn build_ts() {
-        let mut ts: MealyTS<_, usize, _> = MealyTS::new(alphabet::Simple::from_iter(['a', 'b']));
+        let mut ts: MealyTS<_, usize, _> =
+            MealyTS::new(alphabet::CharAlphabet::from_iter(['a', 'b']));
         let s0 = ts.add_state(());
         let s1 = ts.add_state(());
         let _e0 = ts.add_edge(s0, 'a', s1, 0usize);

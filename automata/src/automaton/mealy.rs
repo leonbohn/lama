@@ -20,7 +20,7 @@ pub struct MealySemantics<C>(PhantomData<C>);
 /// Usually, we are interested in the output of the last state that is reached during a run
 /// on a word. In case of a deterministic Mealy machine, this is the only output that is
 /// produced.
-pub type MealyMachine<A = Simple, C = usize> =
+pub type MealyMachine<A = CharAlphabet, C = usize> =
     Automaton<Initialized<DTS<A, Void, C>>, MealySemantics<C>, false>;
 
 /// Helper type that takes a pointed transition system and returns the corresponding
@@ -88,7 +88,7 @@ macro_rules! impl_mealy_automaton {
         #[allow(missing_docs)]
         #[derive(Clone)]
         pub struct $name<
-            A = Simple,
+            A = CharAlphabet,
             Q = crate::Void,
             Ts = Initialized<DTS<A, Q, $color>>,
         > {

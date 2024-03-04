@@ -5,7 +5,7 @@ use itertools::Itertools;
 
 use crate::{prelude::Symbol, Show};
 
-use super::{omega::Reduced, Concat, LinearWord, Periodic};
+use super::{omega::ReducedOmegaWord, Concat, LinearWord, PeriodicOmegaWord};
 
 /// A finite word is a [`LinearWord`] that has a finite length.
 pub trait FiniteWord<S>: LinearWord<S> {
@@ -54,10 +54,10 @@ pub trait FiniteWord<S>: LinearWord<S> {
         VecDeque::from(self.to_vec())
     }
 
-    /// Builds the [`Periodic`] word that is the omega power of this word, i.e. if
+    /// Builds the [`PeriodicOmegaWord`] word that is the omega power of this word, i.e. if
     /// `self` is the word `u`, then the result is the word `u^ω` = `u u u u ...`.
     /// Panics if `self` is empty as the operation is not defined in that case.
-    fn omega_power(&self) -> Periodic<S>
+    fn omega_power(&self) -> PeriodicOmegaWord<S>
     where
         S: Symbol,
     {
@@ -65,7 +65,7 @@ pub trait FiniteWord<S>: LinearWord<S> {
             !self.is_empty(),
             "Omega iteration of an empty word is undefined!"
         );
-        Periodic::new(self)
+        PeriodicOmegaWord::new(self)
     }
 
     /// Gives the length of the word, i.e. the number of symbols.

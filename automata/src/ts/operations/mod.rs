@@ -21,7 +21,7 @@ mod tests {
 
     #[test]
     fn product() {
-        let mut dfa = crate::DFA::new_for_alphabet(Simple::new(['a', 'b']));
+        let mut dfa = crate::DFA::new_for_alphabet(CharAlphabet::new(['a', 'b']));
         let s0 = dfa.add_state(true);
         let s1 = dfa.add_state(false);
         let _e0 = dfa.add_edge(s0, 'a', s1, Void);
@@ -29,7 +29,7 @@ mod tests {
         let _e2 = dfa.add_edge(s1, 'a', s1, Void);
         let _e3 = dfa.add_edge(s1, 'b', s0, Void);
 
-        let mut dfb = crate::DFA::new_for_alphabet(Simple::new(['a', 'b']));
+        let mut dfb = crate::DFA::new_for_alphabet(CharAlphabet::new(['a', 'b']));
         let s0 = dfb.add_state(true);
         let s1 = dfb.add_state(true);
         let _e0 = dfb.add_edge(s0, 'a', s1, Void);

@@ -90,7 +90,7 @@ mod tests {
 
     use crate::{
         alphabet,
-        alphabet::Simple,
+        alphabet::CharAlphabet,
         ts::{
             connected_components::{Scc, SccDecomposition},
             Sproutable,
@@ -100,7 +100,7 @@ mod tests {
 
     use super::NTS;
 
-    pub(super) fn ts() -> RightCongruence<Simple> {
+    pub(super) fn ts() -> RightCongruence<CharAlphabet> {
         let mut cong = RightCongruence::new(alphabet!(simple 'a', 'b'));
         let q0 = cong.add_state(vec![]);
         let q1 = cong.add_state(vec!['a']);

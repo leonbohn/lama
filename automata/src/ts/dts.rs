@@ -7,7 +7,7 @@ use super::nts::{NTEdge, NTSEdgesFromIter, NTSEdgesTo, NTSPartsFor, NTState};
 /// A deterministic transition system. This is a thin wrapper around [`NTS`] and is only used to
 /// enforce that the underlying NTS is deterministic.
 #[derive(Clone, Eq, PartialEq)]
-pub struct DTS<A: Alphabet = Simple, Q = Void, C = Void>(pub(crate) NTS<A, Q, C>);
+pub struct DTS<A: Alphabet = CharAlphabet, Q = Void, C = Void>(pub(crate) NTS<A, Q, C>);
 
 /// Type alias to create a deterministic transition with the same alphabet, state and edge color
 /// as the given [`Ts`](`crate::prelude::TransitionSystem`).

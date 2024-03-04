@@ -328,13 +328,13 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Show for Lasso<A, Idx, Q, 
 
 #[cfg(test)]
 pub mod tests {
-    use crate::alphabet::Simple;
+    use crate::alphabet::CharAlphabet;
     use crate::ts::Path;
 
     #[test]
     fn path_transitions() {
         // make path
-        let path: Path<Simple, usize, bool, bool> = Path::from_parts(
+        let path: Path<CharAlphabet, usize, bool, bool> = Path::from_parts(
             0,
             vec![true, false, true],
             vec![(0, 'a', false), (1, 'b', true), (2, 'c', false)],

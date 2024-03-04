@@ -99,7 +99,7 @@ pub fn infer_precise_dpa<A: Alphabet>(
 }
 
 /// Similar to [`dba_rpni`], but produces a DPA instead.
-pub fn dpa_rpni(sample: &OmegaSample<Simple, bool>) -> DPA {
+pub fn dpa_rpni(sample: &OmegaSample<CharAlphabet, bool>) -> DPA {
     let precise = infer_precise_dpa(sample);
     let pta = sample.prefix_tree().erase_state_colors();
 

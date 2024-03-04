@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display};
 use itertools::{Itertools, MapInto};
 
 use crate::{
-    alphabet::{Simple, Symbol},
+    alphabet::{CharAlphabet, Symbol},
     automaton::IntoDFA,
     prelude::{DFALike, IsEdge},
     ts::{transition_system::Indexes, Deterministic, EdgeColor, Sproutable, DTS},
@@ -26,7 +26,7 @@ mod cayley;
 /// represent these as a transition system, where the states are the equivalence classes and the colors
 /// on edges are `()`.
 #[derive(Clone, Eq, PartialEq)]
-pub struct RightCongruence<A: Alphabet = Simple, Q = Void, C = Void> {
+pub struct RightCongruence<A: Alphabet = CharAlphabet, Q = Void, C = Void> {
     ts: DTS<A, ColoredClass<A::Symbol, Q>, C>,
 }
 

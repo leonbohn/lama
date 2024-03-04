@@ -1,7 +1,7 @@
-use automata::{alphabet::Simple, congruence::FORC};
+use automata::{alphabet::CharAlphabet, congruence::FORC};
 use automata_learning::passive::OmegaSample;
 
-fn build_sample() -> OmegaSample<Simple, bool> {
+fn build_sample() -> OmegaSample<CharAlphabet, bool> {
     let sample_str = r#"omega
     alphabet: a,b
     positive:
@@ -49,7 +49,7 @@ fn build_sample() -> OmegaSample<Simple, bool> {
     OmegaSample::try_from(sample_str).unwrap()
 }
 
-fn infer_forc(sample: &OmegaSample<Simple, bool>) -> FORC<Simple> {
+fn infer_forc(sample: &OmegaSample<CharAlphabet, bool>) -> FORC<CharAlphabet> {
     let cong = sample.infer_right_congruence();
     let split = sample.split(&cong);
     split.infer_forc()

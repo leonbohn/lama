@@ -10,7 +10,7 @@ use owo_colors::OwoColorize;
 
 use crate::{
     alphabet::{Alphabet, Symbol},
-    prelude::Simple,
+    prelude::CharAlphabet,
     prelude::*,
     ts::{
         finite::{InfinityColors, ReachedColor},
@@ -19,7 +19,7 @@ use crate::{
         EdgeColor, HashTs, IndexType, Pointed, Quotient, Sproutable, StateColor, SymbolOf,
         TransitionSystem,
     },
-    word::{OmegaWord, Reduced},
+    word::{OmegaWord, ReducedOmegaWord},
     Color, FiniteLength, InfiniteLength, Length,
 };
 
@@ -37,7 +37,7 @@ mod dfa;
 pub use dfa::{DFALike, IntoDFA, DFA};
 
 mod dpa;
-pub use dpa::{DPALike, IntoDPA, DPA};
+pub use dpa::{DPALike, IntoDPA, MinEven, DPA};
 
 mod dba;
 pub use dba::{DBALike, IntoDBA, DBA};
@@ -75,7 +75,7 @@ macro_rules! impl_automaton_type {
         #[allow(missing_docs)]
         #[derive(Clone)]
         pub struct $name<
-            A = Simple,
+            A = CharAlphabet,
             Q = $color,
             C = $edgecolor,
             Ts = Initialized<DTS<A, Q, C>>,
@@ -299,7 +299,7 @@ mod tests {
 
     #[test]
     fn mealy_color_or_below() {
-        let mut mm: MooreMachine<Simple, usize> =
+        let mut mm: MooreMachine<CharAlphabet, usize> =
             MooreMachine::new_for_alphabet(alphabet!(simple 'a', 'b'));
         let a = mm.add_state(0usize);
         let b = mm.add_state(1usize);
@@ -327,7 +327,7 @@ mod tests {
 
     #[test]
     fn dbas() {
-        let mut dba = super::DBA::new_for_alphabet(Simple::from_iter(['a', 'b']));
+        let mut dba = super::DBA::new_for_alphabet(CharAlphabet::from_iter(['a', 'b']));
         let q0 = dba.add_state(());
         let q1 = dba.add_state(Void);
 
@@ -335,8 +335,8 @@ mod tests {
         let _e1 = dba.add_edge(q0, 'b', q0, false);
         let _e2 = dba.add_edge(q1, 'a', q1, true);
         let _e3 = dba.add_edge(q1, 'b', q0, false);
-        assert!(dba.accepts(Reduced::periodic("abb")));
-        assert!(!dba.accepts(Reduced::periodic("b")));
+        assert!(dba.accepts(ReducedOmegaWord::periodic("abb")));
+        assert!(!dba.accepts(ReducedOmegaWord::periodic("b")));
         assert!(dba.accepts(upw!("a")));
         assert!(!dba.accepts(upw!("b")));
 
@@ -348,7 +348,7 @@ mod tests {
 
     #[test]
     fn dfas_and_boolean_operations() {
-        let mut dfa = super::DFA::new_for_alphabet(Simple::new(['a', 'b']));
+        let mut dfa = super::DFA::new_for_alphabet(CharAlphabet::new(['a', 'b']));
         let s0 = dfa.add_state(true);
         let s1 = dfa.add_state(false);
         let _e0 = dfa.add_edge(s0, 'a', s1, Void);

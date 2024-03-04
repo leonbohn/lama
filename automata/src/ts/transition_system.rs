@@ -3,7 +3,7 @@ use std::{any::Any, hash::Hash};
 use crate::{
     automaton::Initialized,
     congruence::ColoredClass,
-    prelude::{Expression, Simple, Symbol},
+    prelude::{CharAlphabet, Expression, Symbol},
     word::{FiniteWord, OmegaWord},
     Alphabet, Class, Color, FiniteLength, Map, Partition, Pointed, RightCongruence, Set, Show,
     Void,
@@ -1255,7 +1255,7 @@ mod tests {
     #[test]
     fn run() {
         let mut ts: MealyTS<_, usize, usize> =
-            MealyTS::new(alphabet::Simple::from_iter(['a', 'b']));
+            MealyTS::new(alphabet::CharAlphabet::from_iter(['a', 'b']));
         let s0 = ts.add_state(());
         let s1 = ts.add_state(());
         ts.add_edge(s0, 'a', s1, 0usize);

@@ -123,11 +123,11 @@ where
 mod tests {
     use itertools::Itertools;
 
-    use crate::{alphabet::Simple, ts::Sproutable, Pointed, TransitionSystem, Void};
+    use crate::{alphabet::CharAlphabet, ts::Sproutable, Pointed, TransitionSystem, Void};
 
     #[test]
     fn reachable_states() {
-        let mut dfa = crate::DFA::new_for_alphabet(Simple::from_iter("ab".chars()));
+        let mut dfa = crate::DFA::new_for_alphabet(CharAlphabet::from_iter("ab".chars()));
         let q0 = dfa.add_state(false);
         let q1 = dfa.add_state(false);
         let q2 = dfa.add_state(true);

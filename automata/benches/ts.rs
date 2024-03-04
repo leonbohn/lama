@@ -3,7 +3,7 @@ use automata::prelude::*;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use itertools::Itertools;
 
-fn bench_dts() -> Initialized<DTS<Simple, usize, usize>> {
+fn bench_dts() -> Initialized<DTS<CharAlphabet, usize, usize>> {
     TSBuilder::default()
         .with_colors([1, 13, 72, 891, 3, 5])
         .with_transitions([

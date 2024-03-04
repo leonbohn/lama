@@ -19,7 +19,7 @@ mod finite;
 pub use finite::FiniteWord;
 
 mod omega;
-pub use omega::{OmegaWord, Periodic, Reduced, ReducedParseError};
+pub use omega::{OmegaWord, PeriodicOmegaWord, ReducedOmegaWord, ReducedParseError};
 use tracing::subscriber::SetGlobalDefaultError;
 
 pub use self::subword::Infix;
@@ -124,20 +124,31 @@ impl<'a, S: Symbol, W: LinearWord<S>> ConsumingInfixIterator<'a, S, W> {
     }
 }
 
-/// This macro can be used to create a [`OmegaWord`] object from some representation, it is mainly interesting
-/// for quickly constructing infinite words without having to go through the [`OmegaWord`] struct.
+/// This macro can be used to create a [`ReducedOmegaWord`] object from some representation, it is mainly interesting
+/// for quickly constructing infinite words without having to go through the [`ReducedOmegaWord`] struct.
 ///
-/// There are essentially three distinct variants of using this macro:
-/// - `upw!(repr, loopindex index)` creates a word with the given representation and the given loopindex.
+/// There are essentially two distinct variants of using this macro:
 /// - `upw!(base, recur)` creates an ultimately word with the representation of `base` followed by the representation of `recur`.
 /// - `upw!(recur)` creates a periodic word that is the repetition of `recur`.
+///
+/// # Example:
+/// ```
+/// use automata::prelude::*;
+/// let ultimately_periodic = upw!("ab", "bb"); // represents the ultimately periodic word `ab(bb)^𝜔`
+/// assert!(ultimately_periodic.spoke().equals("a")); // the spoke is normalized to just `a`
+/// assert!(ultimately_periodic.cycle().equals("b")); // while the loop normalizes to `b`
+///
+/// let periodic_word = upw!("bbbbb"); // we can also create a periodic omega word
+/// assert!(periodic_word.spoke().is_empty()); // which is normlalized to have an empty spoke
+/// assert!(periodic_word.cycle().equals("b")); // and a cycle that equals the omega iteration of `b`.
+/// ```
 #[macro_export]
 macro_rules! upw {
     ($recur:expr) => {
-        $crate::word::Reduced::periodic($recur)
+        $crate::word::ReducedOmegaWord::periodic($recur)
     };
     ($base:expr, $recur:expr) => {
-        $crate::word::Reduced::ultimately_periodic($base, $recur)
+        $crate::word::ReducedOmegaWord::ultimately_periodic($base, $recur)
     };
 }
 
