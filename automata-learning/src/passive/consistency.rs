@@ -1,37 +1,37 @@
 use itertools::{Either, Itertools};
 use std::ops::Not;
+use std::iter;
 
 use automata::{
     automaton::{Buchi, DeterministicOmegaAutomaton, OmegaAcceptanceCondition},
     prelude::*,
     Set,
+    ts::IndexedAlphabet
 };
 
 use super::OmegaSample;
 
 /// Used to define consistency checks on various types of omega acceptance conditions
 /// required by the sprout algorithm for passively learning omega automata
-pub trait ConsistencyCheck<A: Alphabet, T: Deterministic> {
+pub trait ConsistencyCheck<T: Deterministic> {
     /// Checks if the given transition system is consistent with the sample
-    fn consistent(&self, ts: &T, sample: &OmegaSample, alph: A) -> bool;
+    fn consistent(&self, ts: &T, sample: &OmegaSample) -> bool;
     /// If the transition system is consistent with the sample,
     /// returns an automaton with underlying transition system ts
     /// that is consistent with the sample
     fn consistent_automaton(
         &self,
         ts: &T,
-        sample: &OmegaSample,
-    ) -> DeterministicOmegaAutomaton<alphabet::Simple>;
+        sample: &OmegaSample
+    ) -> DBA<Simple>;
 }
 
-impl<A, T> ConsistencyCheck<A, T> for Buchi
+impl<T> ConsistencyCheck<T> for Buchi
 where
-    A: Alphabet,
-    T: Deterministic + Pointed,
-    Reduced<char>: OmegaWord<<<T as TransitionSystem>::Alphabet as Alphabet>::Symbol>,
+    T: TransitionSystem<Alphabet = Simple, StateIndex = usize> + Deterministic + Pointed,
     <T as TransitionSystem>::EdgeColor: Eq + std::hash::Hash,
 {
-    fn consistent(&self, ts: &T, sample: &OmegaSample<Simple, bool>, alph: A) -> bool {
+    fn consistent(&self, ts: &T, sample: &OmegaSample) -> bool {
         // run transition system on sample words and
         // separate in escaping and non-escaping (successful) runs
         let (pos_successful, pos_escaping): (Vec<_>, Vec<_>) = sample
@@ -74,17 +74,44 @@ where
             .any(|s| s.is_subset(&neg_union))
             .not()
     }
+
     fn consistent_automaton(
         &self,
         ts: &T,
         sample: &OmegaSample,
-    ) -> DeterministicOmegaAutomaton<alphabet::Simple> {
+    ) -> DBA<Simple> {
         // check consistency
+        assert!(self.consistent(ts, sample));
+
         // derive acceptance condition: accepting transitions
         // -> all transitions besides the union of negative infinity sets
-        // make DBA (change edge colour to bool, then call as_dba(), set correct edge colours)
-        // add sink state and determinise
-        todo!()
+        let (neg_successful, neg_escaping): (Vec<_>, Vec<_>) = sample
+            .negative_words()
+            .map(|w| ts.omega_run(w))
+            .partition_map(|r| match r {
+                Ok(v) => Either::Left(v),
+                Err(v) => Either::Right(v),
+            });
+        let neg_union: Set<_> = neg_successful
+            .into_iter()
+            .map(|r| r.into_recurrent_transitions())
+            .flatten()
+            .collect();
+
+        let all_transitions: Set<_> = ts.transitions()
+            .map(|t| t.into_tuple())
+            .map(|(a,b,c,d)| (a, b.symbols().next().expect("edge expression shouldn't be empty"), c, d))
+            .collect();
+
+        let accepting: Set<_> = all_transitions.difference(&neg_union).collect();
+
+        // make DBA (change edge colour to bool with map_edge_colors_full or map_edge_colors, then call as_dba(), set correct edge colours
+        let mut aut = ts.map_edge_colors_full(move |a,b,c,d| accepting.contains(&(a,b.symbols().next().expect("edge expression shouldn't be empty"),d,c))).erase_state_colors();
+        
+        let (c, _) = aut.collect_pointed::<DTS<Simple, Void, bool>>();
+        c.into_dba()
+
+        // send missing transitions to initial state
     }
 }
 
@@ -134,11 +161,11 @@ mod tests {
         );
 
         // words escape from different states
-        assert_eq!(Buchi.consistent(&ts, &sample1, sigma()), true);
+        assert_eq!(Buchi.consistent(&ts, &sample1), true);
         // words escape from same state but with different exit strings
-        assert_eq!(Buchi.consistent(&ts, &sample2, sigma()), true);
+        assert_eq!(Buchi.consistent(&ts, &sample2), true);
         // words escape from same state with same exit string
-        assert_eq!(Buchi.consistent(&ts2, &sample3, sigma()), false);
+        assert_eq!(Buchi.consistent(&ts2, &sample3), false);
     }
 
     #[test]
@@ -158,7 +185,7 @@ mod tests {
         );
 
         // one word is escaping, the other is not
-        assert_eq!(Buchi.consistent(&ts, &sample, sigma()), true);
+        assert_eq!(Buchi.consistent(&ts, &sample), true);
     }
 
     #[test]
@@ -202,9 +229,9 @@ mod tests {
             [Reduced::periodic("b")],
         );
 
-        assert_eq!(Buchi.consistent(&ts, &sample1, sigma()), true);
-        assert_eq!(Buchi.consistent(&ts2, &sample2, sigma()), false);
-        assert_eq!(Buchi.consistent(&ts2, &sample3, sigma()), true);
-        assert_eq!(Buchi.consistent(&ts3, &sample4, sigma()), true);
+        assert_eq!(Buchi.consistent(&ts, &sample1), true);
+        assert_eq!(Buchi.consistent(&ts2, &sample2), false);
+        assert_eq!(Buchi.consistent(&ts2, &sample3), true);
+        assert_eq!(Buchi.consistent(&ts3, &sample4), true);
     }
 }
