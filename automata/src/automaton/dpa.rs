@@ -18,6 +18,8 @@ use crate::{
     HasParity, Partition, Set,
 };
 
+/// Represents a parity condition which accepts if and only if the least color that
+/// is seen infinitely often is even.
 #[derive(Clone, Debug, Default, Copy, Hash, Eq, PartialEq)]
 pub struct MinEven;
 
@@ -47,7 +49,8 @@ pub struct MaxOdd;
 /// defaults to [`MinEven`], meaning the automaton accepts
 /// if the least color that appears infinitely often during
 /// a run is even.
-pub type DPA<A = Simple, Sem = MinEven> = Automaton<Initialized<DTS<A, Void, usize>>, Sem, true>;
+pub type DPA<A = CharAlphabet, Sem = MinEven> =
+    Automaton<Initialized<DTS<A, Void, usize>>, Sem, true>;
 /// Helper trait for converting a given transition system into a [`DPA`]
 /// with the given semantics.
 pub type IntoDPA<T, Sem = MinEven> = Automaton<T, Sem, true>;
@@ -76,7 +79,7 @@ impl<Ts> DPALike for Ts where Ts: Congruence<EdgeColor = usize> {}
 impl<D: DPALike> IntoDPA<D> {
     /// Gives a witness for the fact that the language accepted by `self` is not empty. This is
     /// done by finding an accepting cycle in the underlying transition system.
-    pub fn give_word(&self) -> Option<Reduced<SymbolOf<Self>>> {
+    pub fn give_word(&self) -> Option<ReducedOmegaWord<SymbolOf<Self>>> {
         todo!()
     }
 
@@ -90,7 +93,7 @@ impl<D: DPALike> IntoDPA<D> {
     /// Gives a witness for the fact that `left` and `right` are not language-equivalent. This is
     /// done by finding a separating word, i.e. a word that is accepted from one of the two states
     /// but not by the other.
-    pub fn separate<X, Y>(&self, left: X, right: Y) -> Option<Reduced<SymbolOf<Self>>>
+    pub fn separate<X, Y>(&self, left: X, right: Y) -> Option<ReducedOmegaWord<SymbolOf<Self>>>
     where
         X: Indexes<Self>,
         Y: Indexes<Self>,
@@ -172,7 +175,7 @@ impl<D: DPALike> IntoDPA<D> {
     /// Attempts to find an omega-word that witnesses the given `color`, meaning the least color that
     /// appears infinitely often during the run of the returned word is equal to `color`. If no such
     /// word exists, `None` is returned.
-    pub fn witness_color(&self, color: D::EdgeColor) -> Option<Reduced<SymbolOf<Self>>> {
+    pub fn witness_color(&self, color: D::EdgeColor) -> Option<ReducedOmegaWord<SymbolOf<Self>>> {
         let restrict = self.edge_color_restricted(color, usize::MAX);
         let sccs = restrict.sccs();
         for scc in sccs.iter() {
@@ -187,7 +190,7 @@ impl<D: DPALike> IntoDPA<D> {
                 let cycle = scc
                     .maximal_loop_from(*rep)
                     .expect("This thing is non-transient");
-                return Some(Reduced::ultimately_periodic(q, cycle));
+                return Some(ReducedOmegaWord::ultimately_periodic(q, cycle));
             }
         }
         None
@@ -202,7 +205,7 @@ impl<D: DPALike> IntoDPA<D> {
         k: usize,
         other: &IntoDPA<O>,
         l: usize,
-    ) -> Option<Reduced<SymbolOf<Self>>> {
+    ) -> Option<ReducedOmegaWord<SymbolOf<Self>>> {
         trace!("attempting to witness colors {k} and {l}");
         let t1 = self.edge_color_restricted(k, usize::MAX);
         let t2 = other.edge_color_restricted(l, usize::MAX);
@@ -224,7 +227,7 @@ impl<D: DPALike> IntoDPA<D> {
                 let cycle = scc
                     .maximal_loop_from(*spoke)
                     .expect("This thing is non-transient");
-                return Some(Reduced::ultimately_periodic(mr, cycle));
+                return Some(ReducedOmegaWord::ultimately_periodic(mr, cycle));
             }
         }
         None
@@ -241,7 +244,7 @@ impl<D: DPALike> IntoDPA<D> {
     pub fn witness_inequivalence<O: DPALike<Alphabet = D::Alphabet>>(
         &self,
         other: &IntoDPA<O>,
-    ) -> Option<Reduced<SymbolOf<D>>> {
+    ) -> Option<ReducedOmegaWord<SymbolOf<D>>> {
         self.witness_not_subset_of(other)
             .or(other.witness_not_subset_of(self))
     }
@@ -272,7 +275,7 @@ impl<D: DPALike> IntoDPA<D> {
     pub fn witness_not_subset_of<O: DPALike<Alphabet = D::Alphabet>>(
         &self,
         other: &IntoDPA<O>,
-    ) -> Option<Reduced<SymbolOf<D>>> {
+    ) -> Option<ReducedOmegaWord<SymbolOf<D>>> {
         for i in self.colors().filter(|x| x.is_even()) {
             for j in other.colors().filter(|x| x.is_odd()) {
                 if let Some(cex) = self.as_ref().witness_colors(i, other, j) {

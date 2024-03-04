@@ -13,7 +13,7 @@ use automata::{
 
 /// A priority mapping is essentially a [`crate::MealyMachine`], i.e. it reads
 /// finite words and ouptuts a priority (which in this case is a `usize`).
-pub type PriorityMapping<A = Simple> = MealyMachine<A, usize>;
+pub type PriorityMapping<A = CharAlphabet> = MealyMachine<A, usize>;
 
 #[derive(Debug, Clone)]
 pub struct CongruentPriorityMapping<'ts, A: Alphabet> {
@@ -92,7 +92,7 @@ impl Annotation {
 /// This a simple newtype wrapper around a congruence, which has no edge colors and uses
 /// [`Annotation`]s as state colors.
 #[derive(Clone)]
-pub struct AnnotatedCongruence<A: Alphabet = Simple>(RightCongruence<A, Annotation, Void>);
+pub struct AnnotatedCongruence<A: Alphabet = CharAlphabet>(RightCongruence<A, Annotation, Void>);
 
 impl<A: Alphabet> AnnotatedCongruence<A> {
     pub fn new(rc: RightCongruence<A, Annotation, Void>) -> Self {
@@ -204,7 +204,7 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
 /// it computes (on non-empty words) is weak in the sense that M_c(xy) <= M_c(x)
 /// for all x and y.
 #[derive(Debug, Clone)]
-pub struct Fwpm<A: Alphabet = Simple> {
+pub struct Fwpm<A: Alphabet = CharAlphabet> {
     cong: RightCongruence<A>,
     pms: Vec<PriorityMapping<A>>,
 }

@@ -14,7 +14,7 @@ use crate::{
 #[derive(Clone)]
 pub struct Cayley<
     'a,
-    Ts: Deterministic<Alphabet = Simple> + Pointed,
+    Ts: Deterministic<Alphabet = CharAlphabet> + Pointed,
     SA: Accumulates<X = Ts::StateColor>,
     EA: Accumulates<X = Ts::EdgeColor>,
 > {
@@ -26,7 +26,7 @@ pub struct Cayley<
 
 impl<
         'a,
-        Ts: Deterministic<Alphabet = Simple> + Pointed,
+        Ts: Deterministic<Alphabet = CharAlphabet> + Pointed,
         SA: Accumulates<X = Ts::StateColor>,
         EA: Accumulates<X = Ts::EdgeColor>,
     > Cayley<'a, Ts, SA, EA>
@@ -43,7 +43,7 @@ impl<
 impl<'a, Ts, SA: Accumulates<X = Ts::StateColor>, EA: Accumulates<X = Ts::EdgeColor>>
     TransitionSystem for Cayley<'a, Ts, SA, EA>
 where
-    Ts: Deterministic<Alphabet = Simple> + Pointed,
+    Ts: Deterministic<Alphabet = CharAlphabet> + Pointed,
 {
     type StateIndex = usize;
 
@@ -79,7 +79,7 @@ where
 impl<'a, Ts, SA: Accumulates<X = Ts::StateColor>, EA: Accumulates<X = Ts::EdgeColor>> Deterministic
     for Cayley<'a, Ts, SA, EA>
 where
-    Ts: Deterministic<Alphabet = Simple> + Pointed,
+    Ts: Deterministic<Alphabet = CharAlphabet> + Pointed,
 {
     fn transition<Idx: Indexes<Self>>(
         &self,
@@ -102,7 +102,7 @@ where
 
 impl<'a, Ts> Cayley<'a, Ts, Reduces<Ts::StateColor>, Reduces<Ts::EdgeColor>>
 where
-    Ts: Deterministic<Alphabet = Simple> + Pointed,
+    Ts: Deterministic<Alphabet = CharAlphabet> + Pointed,
     Reduces<Ts::EdgeColor>: Accumulates<X = Ts::EdgeColor>,
     Reduces<Ts::StateColor>: Accumulates<X = Ts::StateColor>,
 {
@@ -118,7 +118,7 @@ where
 }
 impl<'a, Ts> Cayley<'a, Ts, Replaces<Ts::StateColor>, Replaces<Ts::EdgeColor>>
 where
-    Ts: Deterministic<Alphabet = Simple> + Pointed,
+    Ts: Deterministic<Alphabet = CharAlphabet> + Pointed,
     Replaces<Ts::EdgeColor>: Accumulates<X = Ts::EdgeColor>,
     Replaces<Ts::StateColor>: Accumulates<X = Ts::StateColor>,
 {
@@ -136,7 +136,7 @@ where
 impl<'a, Ts, SA: Accumulates<X = Ts::StateColor>, EA: Accumulates<X = Ts::EdgeColor>>
     Cayley<'a, Ts, SA, EA>
 where
-    Ts: Deterministic<Alphabet = Simple> + Pointed,
+    Ts: Deterministic<Alphabet = CharAlphabet> + Pointed,
     Ts::StateColor: Accumulates,
     Ts::EdgeColor: Accumulates,
 {

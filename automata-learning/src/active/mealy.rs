@@ -47,7 +47,7 @@ impl<A: Alphabet, C: Color + Default> LStarHypothesis for MooreMachine<A, C> {
     }
 }
 
-impl<C: Color + Default> LStarHypothesis for MealyMachine<Simple, C> {
+impl<C: Color + Default> LStarHypothesis for MealyMachine<CharAlphabet, C> {
     type Color = C;
 
     fn transform(&self, word: &[SymbolOf<Self>]) -> Self::Color {

@@ -12,13 +12,13 @@ use crate::{word::FiniteWord, Map, Show};
 
 /// A symbol of an alphabet, which is also the type of the symbols in a word. We consider different types
 /// of alphabets:
-/// - [`Simple`] alphabets, which are just a set of symbols.
+/// - [`CharAlphabet`] alphabets, which are just a set of symbols.
 /// - Propositional alphabets, where a symbol is a valuation of all propositional variables. This is for example
 /// implemented in the `hoars` crate.
 pub trait Symbol: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash + Show {}
 impl<S: PartialEq + Eq + Debug + Copy + Ord + PartialOrd + Hash + Show> Symbol for S {}
 
-/// An expression is used to label edges of a [`crate::ts::TransitionSystem`]. For [`Simple`]
+/// An expression is used to label edges of a [`crate::ts::TransitionSystem`]. For [`CharAlphabet`]
 /// alphabets, an expression is simply a single symbol, whereas for a propositional alphabet, an expression
 /// is a propositional formula over the atomic propositions. See propositional for more details.
 pub trait Expression<S: Symbol>: Hash + Clone + Debug + Eq + Ord + Show {
@@ -29,7 +29,7 @@ pub trait Expression<S: Symbol>: Hash + Clone + Debug + Eq + Ord + Show {
     /// Returns an iterator over the [`Symbol`]s that match this expression.
     fn symbols(&self) -> Self::SymbolsIter<'_>;
 
-    /// Checks whether the given [`Symbol`] matches the expression `self`. For [`Simple`] alphabets, this just
+    /// Checks whether the given [`Symbol`] matches the expression `self`. For [`CharAlphabet`] alphabets, this just
     /// means that the expression equals the given symbol. For a propositional alphabet, this means that
     /// the expression is satisfied by the given symbol, an example of this is illustrated in propositional.
     fn matches(&self, symbol: S) -> bool;
@@ -58,7 +58,7 @@ pub trait Alphabet: Clone {
             .collect()
     }
 
-    /// This method is used for an optimization: If we have a [`Simple`] alphabet, then an edge list essentially
+    /// This method is used for an optimization: If we have a [`CharAlphabet`] alphabet, then an edge list essentially
     /// boils down to a map from `Self::Symbol` to an edge. For more complicated alphabets, this may not always
     /// be so easy. To allow for an optimization (i.e. just lookup the corresponding edge in a [`crate::Map`]),
     /// we force alphabets to implement this method.
@@ -80,7 +80,7 @@ pub trait Alphabet: Clone {
     /// Returns true if the given symbol is present in the alphabet.
     fn contains(&self, symbol: Self::Symbol) -> bool;
 
-    /// Checks whether the given expression matches the given symbol. For [`Simple`] alphabets, this just
+    /// Checks whether the given expression matches the given symbol. For [`CharAlphabet`]s, this just
     /// means that the expression equals the given symbol. For a propositional alphabet, this means that
     /// the expression is satisfied by the given symbol, an example of this is illustrated in propositional.
     fn matches(&self, expression: &Self::Expression, symbol: Self::Symbol) -> bool;
@@ -92,18 +92,18 @@ pub trait Alphabet: Clone {
     fn size(&self) -> usize;
 }
 
-/// A simple alphabet is an alphabet where a [`Symbol`] is just a single character.
+/// Represents an alphabet where a [`Symbol`] is just a single `char`.
 ///
 /// # Example
-/// Assume we have a simple alphabet over the symbols 'a' and 'b'. Then a **symbol** would be just one of these
+/// Assume we have a `CharAlphabet` over the symbols 'a' and 'b'. Then a **symbol** would be just one of these
 /// characters, e.g. 'a'. This is used to label transitions in a [`crate::ts::TransitionSystem`].
 /// Now an **expression** would also be just a single character, e.g. 'a'. Then such an expression is
 /// matched by a symbol if the expression equals the symbol.
 #[derive(Clone, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
-pub struct Simple(pub(crate) Vec<char>);
+pub struct CharAlphabet(pub(crate) Vec<char>);
 
-impl Simple {
-    /// Creates a new [`Simple`] alphabet of the given size. The symbols are just the first `size` letters
+impl CharAlphabet {
+    /// Creates a new [`CharAlphabet`] alphabet of the given size. The symbols are just the first `size` letters
     /// of the alphabet, i.e. 'a' to 'z'.
     pub fn alphabetic(size: usize) -> Self {
         assert!(size < 26, "Alphabet is too large");
@@ -111,7 +111,7 @@ impl Simple {
     }
 }
 
-impl std::ops::Index<usize> for Simple {
+impl std::ops::Index<usize> for CharAlphabet {
     type Output = char;
 
     fn index(&self, index: usize) -> &Self::Output {
@@ -194,29 +194,36 @@ impl Expression<Empty> for Empty {
     }
 }
 
-/// Helper macro for creating a [`Simple`] alphabet. Is called simply with a list of symbols
+/// Helper macro for creating a [`CharAlphabet`] alphabet. Is called simply with a list of symbols
 /// that are separated by commata.
+///
+/// # Examples
+/// ```
+/// use automata::prelude::*;
+/// let alphabet = alphabet!(simple 'a', 'b', 'c');
+/// assert_eq!(alphabet.size(), 3);
+/// ```
 #[macro_export]
 macro_rules! alphabet {
     (simple $($c:literal),*) => {
-        $crate::alphabet::Simple::new(vec![$($c),*])
+        $crate::alphabet::CharAlphabet::new(vec![$($c),*])
     };
 }
 
-impl From<Vec<char>> for Simple {
+impl From<Vec<char>> for CharAlphabet {
     fn from(value: Vec<char>) -> Self {
         Self(value)
     }
 }
 
-impl FromIterator<char> for Simple {
+impl FromIterator<char> for CharAlphabet {
     fn from_iter<T: IntoIterator<Item = char>>(iter: T) -> Self {
         Self(iter.into_iter().unique().collect())
     }
 }
 
-impl Simple {
-    /// Creates a new [`Simple`] alphabet from an iterator over the symbols.
+impl CharAlphabet {
+    /// Creates a new [`CharAlphabet`] alphabet from an iterator over the symbols.
     pub fn new<I>(symbols: I) -> Self
     where
         I: IntoIterator<Item = char>,
@@ -255,7 +262,7 @@ impl Expression<char> for char {
     }
 }
 
-impl Alphabet for Simple {
+impl Alphabet for CharAlphabet {
     type Symbol = char;
 
     type Expression = char;
@@ -369,7 +376,7 @@ impl<S: Symbol + Expression<S>, const N: usize> Alphabet for Fixed<S, N> {
     }
 }
 
-/// A [`Simple`] alphabet where symbols can be inverted. This means that a symbol can either be
+/// A [`CharAlphabet`] alphabet where symbols can be inverted. This means that a symbol can either be
 /// appended to the end of a word or prepended to the beginning of a word. This is used to
 /// implement the [`Directional`] alphabet.
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, PartialOrd, Ord)]
@@ -418,7 +425,7 @@ impl Show for InvertibleChar {
     }
 }
 
-/// A [`Simple`] alphabet where each symbol can be inverted. This means that a symbol can either be
+/// A [`CharAlphabet`] alphabet where each symbol can be inverted. This means that a symbol can either be
 /// appended to the end of a word or prepended to the beginning of a word. This can be used to
 /// represent two-sided congruences.
 #[derive(Clone, Debug)]
@@ -438,7 +445,7 @@ impl FromIterator<char> for Directional {
 impl Directional {
     /// Takes a 'usual' alphabet and turns every symbol into an [`InvertibleChar`], that is every
     /// char can now be an append- or a prepend-symbol.
-    pub fn from_alphabet<A: std::borrow::Borrow<Simple>>(alphabet: A) -> Self {
+    pub fn from_alphabet<A: std::borrow::Borrow<CharAlphabet>>(alphabet: A) -> Self {
         Self::from_iter(alphabet.borrow().universe())
     }
 }
@@ -489,13 +496,13 @@ impl Alphabet for Directional {
 
 #[cfg(test)]
 mod tests {
-    use super::{Directional, Simple};
+    use super::{CharAlphabet, Directional};
     use crate::Alphabet;
     use itertools::Itertools;
 
     #[test]
     fn bialphabet() {
-        let alph = Simple::from_iter(['a', 'b', 'c']);
+        let alph = CharAlphabet::from_iter(['a', 'b', 'c']);
         let bi = Directional::from_alphabet(alph);
         println!("{:?}", bi.universe().collect_vec())
     }

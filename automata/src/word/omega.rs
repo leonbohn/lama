@@ -29,8 +29,8 @@ use super::{FiniteWord, LinearWord};
 ///
 /// # Example
 /// ```
-/// use automata::word::{Reduced, OmegaWord, LinearWord};
-/// let word = Reduced::ultimately_periodic("abc", "def"); // represents abc(def)^𝜔 = abcdefdefdef...
+/// use automata::prelude::*;
+/// let word = upw!("abc", "def"); // represents abc(def)^𝜔 = abcdefdefdef...
 /// assert_eq!(word.loop_index(), 3);
 /// assert_eq!(word.cycle_length(), 3);
 /// ```
@@ -56,22 +56,22 @@ pub trait OmegaWord<S>: LinearWord<S> {
     /// # Example
     /// ```
     /// use automata::prelude::*;
-    /// let word = Reduced::ultimately_periodic("abac", "acac");
+    /// let word = upw!("abac", "acac");
     /// assert!(word.spoke().equals("ab"));
     /// assert!(word.cycle().equals("ac"));
     /// ```
-    fn normalized(&self) -> Reduced<S>
+    fn normalized(&self) -> ReducedOmegaWord<S>
     where
         S: Symbol,
     {
-        Reduced::ultimately_periodic(self.spoke(), self.cycle())
+        ReducedOmegaWord::ultimately_periodic(self.spoke(), self.cycle())
     }
 
     /// Tests whether `self` is *semantically* equal to `other`. To see the difference compared to syntactic
     /// equality, consider the exampe below.
     /// ```
     /// use automata::prelude::*;
-    /// let word = Reduced::periodic("a"); // represents the periodic omega word a^𝜔 = aaa...
+    /// let word = upw!("a"); // represents the periodic omega word a^𝜔 = aaa...
     /// let offset1 = word.offset(1); // the word obtained by skipping the first symbol of `word`
     /// let offset2 = word.offset(2);
     ///
@@ -146,13 +146,13 @@ fn deduplicate<S: Eq>(input: Vec<S>) -> Vec<S> {
 /// repeated infinitely often. Note, that the loop cannot be empty.
 /// TODO: make non-empty word into a new type
 #[derive(Clone, Eq, PartialEq, Hash)]
-pub struct Periodic<S> {
+pub struct PeriodicOmegaWord<S> {
     representation: Vec<S>,
 }
 
-impl<S: Symbol> TryFrom<Reduced<S>> for Periodic<S> {
+impl<S: Symbol> TryFrom<ReducedOmegaWord<S>> for PeriodicOmegaWord<S> {
     type Error = ();
-    fn try_from(value: Reduced<S>) -> Result<Self, Self::Error> {
+    fn try_from(value: ReducedOmegaWord<S>) -> Result<Self, Self::Error> {
         if value.loop_index() > 0 {
             Err(())
         } else {
@@ -163,34 +163,35 @@ impl<S: Symbol> TryFrom<Reduced<S>> for Periodic<S> {
     }
 }
 
-impl<S: Symbol> From<Periodic<S>> for Reduced<S> {
-    fn from(value: Periodic<S>) -> Self {
+impl<S: Symbol> From<PeriodicOmegaWord<S>> for ReducedOmegaWord<S> {
+    fn from(value: PeriodicOmegaWord<S>) -> Self {
         Self::periodic(value.representation)
     }
 }
-impl<S: Symbol> From<&Periodic<S>> for Reduced<S> {
-    fn from(value: &Periodic<S>) -> Self {
+impl<S: Symbol> From<&PeriodicOmegaWord<S>> for ReducedOmegaWord<S> {
+    fn from(value: &PeriodicOmegaWord<S>) -> Self {
         Self::periodic(value.representation.clone())
     }
 }
 
-impl<S: Symbol> From<&Reduced<S>> for Reduced<S> {
-    fn from(value: &Reduced<S>) -> Self {
+impl<S: Symbol> From<&ReducedOmegaWord<S>> for ReducedOmegaWord<S> {
+    fn from(value: &ReducedOmegaWord<S>) -> Self {
         Self::ultimately_periodic(value.spoke(), value.cycle())
     }
 }
 
-impl<S: Symbol> Periodic<S> {
+impl<S: Symbol> PeriodicOmegaWord<S> {
     /// Creates a new periodic omega word from a finite word. The word must not be empty and
     /// it is deduplicated.
     ///
     /// # Example
     /// ```
-    /// use automata::word::{Periodic, OmegaWord};
-    /// let word = Periodic::new("abcabcabc");
+    /// use automata::prelude::*;
+    /// let word = upw!("abcabcabc");
     /// assert_eq!(word.cycle_length(), 3);
     /// assert_eq!(word.loop_index(), 0);
-    /// assert_eq!(word.representation(), &['a', 'b', 'c']);
+    /// assert!(word.spoke().is_empty());
+    /// assert!(word.cycle().equals("abc"));
     /// ```
     pub fn new<W: FiniteWord<S>>(word: W) -> Self {
         let mut representation = word.to_vec();
@@ -204,12 +205,12 @@ impl<S: Symbol> Periodic<S> {
     }
 }
 
-impl<S: Symbol> LinearWord<S> for Periodic<S> {
+impl<S: Symbol> LinearWord<S> for PeriodicOmegaWord<S> {
     fn nth(&self, position: usize) -> Option<S> {
         todo!()
     }
 }
-impl<S: Symbol> OmegaWord<S> for Periodic<S> {
+impl<S: Symbol> OmegaWord<S> for PeriodicOmegaWord<S> {
     fn loop_index(&self) -> usize {
         0
     }
@@ -233,12 +234,12 @@ impl<S: Symbol> OmegaWord<S> for Periodic<S> {
 /// try to roll the prefix part into the looping part and deduplicate the looping
 /// part. For periodic words, we just deduplicate the looping part.
 #[derive(Clone, Eq, PartialEq, Hash)]
-pub struct Reduced<S> {
+pub struct ReducedOmegaWord<S> {
     pub(crate) word: Vec<S>,
     pub(crate) loop_index: usize,
 }
 
-impl<S: Symbol> Show for Reduced<S> {
+impl<S: Symbol> Show for ReducedOmegaWord<S> {
     fn show(&self) -> String {
         format!(
             "{},({})",
@@ -262,7 +263,7 @@ impl<S: Symbol> Show for Reduced<S> {
     }
 }
 
-impl<S: Symbol> LinearWord<S> for Reduced<S> {
+impl<S: Symbol> LinearWord<S> for ReducedOmegaWord<S> {
     fn nth(&self, position: usize) -> Option<S> {
         if position >= self.word.len() {
             let loop_position = (position - self.loop_index) % self.cycle_length();
@@ -272,7 +273,7 @@ impl<S: Symbol> LinearWord<S> for Reduced<S> {
         }
     }
 }
-impl<S: Symbol> OmegaWord<S> for Reduced<S> {
+impl<S: Symbol> OmegaWord<S> for ReducedOmegaWord<S> {
     fn loop_index(&self) -> usize {
         self.loop_index
     }
@@ -290,7 +291,7 @@ impl<S: Symbol> OmegaWord<S> for Reduced<S> {
     }
 }
 
-impl<S: Symbol> Reduced<S> {
+impl<S: Symbol> ReducedOmegaWord<S> {
     /// Creates a new reduced omega word from a finite word. The input is deduplicated.
     pub fn periodic<W: FiniteWord<S>>(representation: W) -> Self {
         let representation = deduplicate(representation.to_vec());
@@ -363,7 +364,7 @@ impl<S: Symbol> Reduced<S> {
     }
 }
 
-impl TryFrom<&str> for Reduced<char> {
+impl TryFrom<&str> for ReducedOmegaWord<char> {
     type Error = ReducedParseError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
@@ -418,16 +419,28 @@ impl<S: Symbol> FiniteWord<S> for Epsilon {
     }
 }
 
+/// Represents the omega iteration of a (non-empty) finite word.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Repeating<W>(pub W);
+pub struct OmegaIteration<W>(W);
 
-impl<S: Symbol, W: FiniteWord<S>> LinearWord<S> for Repeating<W> {
+impl<W> OmegaIteration<W> {
+    /// Iterate the given finite word `from`, panics if the word is empty.
+    pub fn new<S: Symbol>(from: W) -> Self
+    where
+        W: FiniteWord<S>,
+    {
+        assert!(!from.is_empty(), "Cannot iterate an empty word");
+        Self(from)
+    }
+}
+
+impl<S: Symbol, W: FiniteWord<S>> LinearWord<S> for OmegaIteration<W> {
     fn nth(&self, position: usize) -> Option<S> {
         self.0.nth(position % self.0.len())
     }
 }
 
-impl<S: Symbol, W: FiniteWord<S>> OmegaWord<S> for Repeating<W> {
+impl<S: Symbol, W: FiniteWord<S>> OmegaWord<S> for OmegaIteration<W> {
     type Spoke<'this> = Epsilon
     where
         Self: 'this;
@@ -466,7 +479,7 @@ impl std::fmt::Display for ReducedParseError {
     }
 }
 
-impl<S: Show> Debug for Reduced<S> {
+impl<S: Show> Debug for ReducedOmegaWord<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.loop_index == 0 {
             write!(f, "({})𝜔", self.word.iter().map(|sym| sym.show()).join(""))
@@ -487,7 +500,7 @@ impl<S: Show> Debug for Reduced<S> {
     }
 }
 
-impl<S: Show> Debug for Periodic<S> {
+impl<S: Show> Debug for PeriodicOmegaWord<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -500,7 +513,7 @@ impl<S: Show> Debug for Periodic<S> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        word::{omega::deduplicate, Reduced},
+        word::{omega::deduplicate, ReducedOmegaWord},
         InfiniteLength,
     };
 
@@ -509,7 +522,7 @@ mod tests {
     #[test]
     fn parse_reduced() {
         let repr = "abab";
-        let nupw = super::Reduced::try_from(repr).unwrap();
+        let nupw = super::ReducedOmegaWord::try_from(repr).unwrap();
         let mut start = vec!['a', 'b', 'a', 'b'];
         deduplicate_inplace(&mut start);
         assert_eq!(start, vec!['a', 'b']);
@@ -530,10 +543,10 @@ mod tests {
 
     #[test]
     fn normalizing_upws() {
-        let reduced = super::Reduced::ultimately_periodic("aaaaaaa", "aaaaaaaaa");
+        let reduced = super::ReducedOmegaWord::ultimately_periodic("aaaaaaa", "aaaaaaaaa");
         assert_eq!(reduced.word, vec!['a']);
         assert_eq!(
-            Reduced::ultimately_periodic("aaaaaaaaa", "a").word,
+            ReducedOmegaWord::ultimately_periodic("aaaaaaaaa", "a").word,
             vec!['a']
         );
     }

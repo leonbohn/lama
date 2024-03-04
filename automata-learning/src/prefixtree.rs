@@ -7,13 +7,13 @@ use automata::{
 use itertools::Itertools;
 use tracing::trace;
 
-use automata::word::Reduced;
+use automata::word::ReducedOmegaWord;
 
-pub fn prefix_tree<A: Alphabet, W: Into<Reduced<A::Symbol>>, I: IntoIterator<Item = W>>(
+pub fn prefix_tree<A: Alphabet, W: Into<ReducedOmegaWord<A::Symbol>>, I: IntoIterator<Item = W>>(
     alphabet: A,
     words: I,
 ) -> RightCongruence<A> {
-    let words: Vec<Reduced<_>> = words.into_iter().map(|word| word.into()).collect_vec();
+    let words: Vec<ReducedOmegaWord<_>> = words.into_iter().map(|word| word.into()).collect_vec();
     debug_assert!(words.iter().all(|word| !word.raw_word().is_empty()));
     fn build_accepting_loop<A: Alphabet>(
         tree: &mut RightCongruence<A>,
@@ -82,10 +82,10 @@ pub fn prefix_tree<A: Alphabet, W: Into<Reduced<A::Symbol>>, I: IntoIterator<Ite
 #[cfg(test)]
 mod tests {
     use automata::{
-        alphabet::Simple,
+        alphabet::CharAlphabet,
         ts::{Deterministic, Dottable, Sproutable},
         upw,
-        word::Periodic,
+        word::PeriodicOmegaWord,
         TransitionSystem, Void,
     };
 
@@ -94,7 +94,7 @@ mod tests {
     #[test]
     fn build_prefix_tree() {
         let words = [upw!("aa"), upw!("aba"), upw!("bbaab"), upw!("bb")];
-        let alphabet = Simple::from_iter(['a', 'b']);
+        let alphabet = CharAlphabet::from_iter(['a', 'b']);
         let pta = prefix_tree(alphabet, words);
         let completed = pta
             .erase_state_colors()

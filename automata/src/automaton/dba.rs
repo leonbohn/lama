@@ -20,7 +20,7 @@ impl<Q> OmegaSemantics<Q, bool> for DBASemantics {
 /// A deterministic Büchi automaton (DBA) is a deterministic automaton with Büchi acceptance condition. It accepts a word if it visits an accepting state infinitely often.
 /// It is a special case of a deterministic parity automaton [`crate::DPA`] with
 /// min even and priorities 0 and 1.
-pub type DBA<A = Simple> = Automaton<Initialized<DTS<A, Void, bool>>, DBASemantics, true>;
+pub type DBA<A = CharAlphabet> = Automaton<Initialized<DTS<A, Void, bool>>, DBASemantics, true>;
 /// Helper trait for creating a [`DBA`] from a given transition system.
 pub type IntoDBA<T> = Automaton<T, DBASemantics, true>;
 
@@ -39,7 +39,7 @@ pub trait DBALike: Congruence<EdgeColor = bool> {
 
     /// Tries to identify a word which is accepted by `self`. If such a word exists, it returns it and otherwise
     /// the function gives back `None`.
-    fn dba_give_word(&self) -> Option<Reduced<SymbolOf<Self>>> {
+    fn dba_give_word(&self) -> Option<ReducedOmegaWord<SymbolOf<Self>>> {
         for good_scc in self
             .sccs()
             .iter()
@@ -56,7 +56,7 @@ pub trait DBALike: Congruence<EdgeColor = bool> {
                         let spoke = self
                             .word_from_to(self.initial(), *good_scc.first().unwrap())
                             .expect("We know this is reachable!");
-                        return Some(Reduced::ultimately_periodic(spoke, full_word));
+                        return Some(ReducedOmegaWord::ultimately_periodic(spoke, full_word));
                     }
                 }
                 // if colors.contains(&true) {

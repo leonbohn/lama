@@ -9,8 +9,8 @@ use crate::{
     automaton::{Initialized, IntoDPA},
     congruence::{ColoredClass, FORC},
     prelude::{
-        DPALike, EdgeColor, ExpressionOf, IntoMealyMachine, IntoMooreMachine, MealyLike, MooreLike,
-        Simple, StateColor, Symbol, SymbolOf,
+        CharAlphabet, DPALike, EdgeColor, ExpressionOf, IntoMealyMachine, IntoMooreMachine,
+        MealyLike, MooreLike, StateColor, Symbol, SymbolOf,
     },
     ts::dot,
     Alphabet, Class, Color, Map, Pointed, RightCongruence, Show, TransitionSystem,
@@ -733,7 +733,7 @@ mod tests {
     #[ignore]
     fn dot_render_dpa() {
         let alphabet = alphabet!(simple 'a', 'b');
-        let mut dpa: DPA<alphabet::Simple> = DPA::new_for_alphabet(alphabet);
+        let mut dpa: DPA<alphabet::CharAlphabet> = DPA::new_for_alphabet(alphabet);
         let q0 = dpa.initial();
         let q1 = dpa.add_state(Void);
         dpa.add_edge(q0, 'a', q0, 1usize);

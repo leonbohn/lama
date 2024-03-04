@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::{length::HasLength, prelude::Symbol, FiniteLength, Length};
 
-use super::{omega::Periodic, ConsumingInfixIterator, FiniteWord, LinearWord, OmegaWord};
+use super::{omega::PeriodicOmegaWord, ConsumingInfixIterator, FiniteWord, LinearWord, OmegaWord};
 
 /// A suffix of a [`LinearWord`] which skips a fixed number of symbols. If the underlying
 /// word is infinite, the suffix is also infinite. If the underlying word is finite, the suffix
@@ -201,7 +201,7 @@ mod tests {
 
     use crate::{
         upw,
-        word::{FiniteWord, LinearWord, OmegaWord, Reduced},
+        word::{FiniteWord, LinearWord, OmegaWord, ReducedOmegaWord},
         FiniteLength,
     };
 
@@ -214,7 +214,7 @@ mod tests {
 
     #[test]
     fn subwords() {
-        let word = Reduced::periodic("abab");
+        let word = ReducedOmegaWord::periodic("abab");
         let pref = word.prefix(2);
         assert_eq!(pref.symbols().collect_vec(), vec!['a', 'b']);
 

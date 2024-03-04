@@ -4,7 +4,7 @@ use automata_learning::{
     passive::FiniteSample,
 };
 
-fn build_sample_oracle_last_sym() -> SampleOracle<Simple, Vec<char>, usize> {
+fn build_sample_oracle_last_sym() -> SampleOracle<CharAlphabet, Vec<char>, usize> {
     let alphabet = alphabet!(simple 'a', 'b');
     let classified_words = [
         "a", "b", "aa", "ab", "ba", "bb", "aaa", "aab", "aba", "abb", "baa", "bab", "bba", "bbb",
@@ -15,7 +15,9 @@ fn build_sample_oracle_last_sym() -> SampleOracle<Simple, Vec<char>, usize> {
     SampleOracle::new(sample, 0)
 }
 
-fn lstar_last_sym(sample: SampleOracle<Simple, Vec<char>, usize>) -> MooreMachine<Simple, usize> {
+fn lstar_last_sym(
+    sample: SampleOracle<CharAlphabet, Vec<char>, usize>,
+) -> MooreMachine<CharAlphabet, usize> {
     let alphabet = sample.alphabet().clone();
     let mut lstar = LStar::for_moore(alphabet, sample);
     lstar.infer()
@@ -27,8 +29,8 @@ fn iai_lstar_last_sym() {
 }
 
 fn lstar_last_sym_mealy(
-    sample: SampleOracle<Simple, Vec<char>, usize>,
-) -> MealyMachine<Simple, usize> {
+    sample: SampleOracle<CharAlphabet, Vec<char>, usize>,
+) -> MealyMachine<CharAlphabet, usize> {
     let alphabet = sample.alphabet().clone();
     let mut lstar = LStar::for_mealy(alphabet, sample);
     lstar.infer()

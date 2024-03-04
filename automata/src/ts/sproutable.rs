@@ -1,7 +1,7 @@
 use bit_set::BitSet;
 use itertools::Itertools;
 
-use crate::{prelude::Simple, Alphabet, Bijection, Pointed, TransitionSystem};
+use crate::{prelude::CharAlphabet, Alphabet, Bijection, Pointed, TransitionSystem};
 
 use super::{
     transition_system::{Indexes, IsEdge},
@@ -29,7 +29,7 @@ pub trait IndexedAlphabet: Alphabet {
     }
 }
 
-impl IndexedAlphabet for Simple {
+impl IndexedAlphabet for CharAlphabet {
     fn symbol_to_index(&self, sym: Self::Symbol) -> usize {
         self.expression_to_index(&sym)
     }
@@ -76,8 +76,8 @@ pub trait Sproutable: TransitionSystem {
     ///     .with_colors([0])
     ///     .deterministic();
     ///
-    /// let (without_edge_colors, _): (DTS<Simple, usize, Void>, _) = DTS::collect_from(&source);
-    /// let (without_state_colors, _): (DTS<Simple, Void, usize>, _) = DTS::collect_from(&source);
+    /// let (without_edge_colors, _): (DTS<CharAlphabet, usize, Void>, _) = DTS::collect_from(&source);
+    /// let (without_state_colors, _): (DTS<CharAlphabet, Void, usize>, _) = DTS::collect_from(&source);
     /// ```
     fn collect_from<Ts>(ts: Ts) -> (Self, Bijection<Ts::StateIndex, Self::StateIndex>)
     where

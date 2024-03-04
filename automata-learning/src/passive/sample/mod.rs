@@ -34,10 +34,11 @@ pub struct Sample<A: Alphabet, W: LinearWord<A::Symbol> + Hash, C: Color = bool>
 
 /// Type alias for samples over the alphabet `A`, containing finite words which are classified with color `C`,
 /// which defaults to `bool`.
-pub type FiniteSample<A = Simple, C = bool> = Sample<A, Vec<<A as Alphabet>::Symbol>, C>;
+pub type FiniteSample<A = CharAlphabet, C = bool> = Sample<A, Vec<<A as Alphabet>::Symbol>, C>;
 /// Type alias for samples over alphabet `A` which contain infinite/omega words that are classified with `C`,
 /// which defaults to `bool`.
-pub type OmegaSample<A = Simple, C = bool> = Sample<A, Reduced<<A as Alphabet>::Symbol>, C>;
+pub type OmegaSample<A = CharAlphabet, C = bool> =
+    Sample<A, ReducedOmegaWord<<A as Alphabet>::Symbol>, C>;
 
 impl<A: Alphabet> OmegaSample<A> {
     pub fn prefix_tree(&self) -> RightCongruence<A> {
@@ -164,12 +165,12 @@ where
     }
 }
 
-/// Macro for creating an alphabet. For now, this is limited to creating [`Simple`] alphabets. Invocation is
+/// Macro for creating an alphabet. For now, this is limited to creating [`CharAlphabet`]s. Invocation is
 /// done as `alphabet!(simple 'a', 'b', 'c')` to create such an alphabet with the symbols 'a', 'b' and 'c'.
 #[macro_export]
 macro_rules! sample {
     ($alph:expr; pos $($pos:expr),+; neg $($neg:expr),+) => {
-        $crate::passive::Sample::new_omega($alph, [$($pos),+].into_iter().map(|p| ($crate::passive::Reduced::try_from(p).unwrap(), true)).chain([$($neg),+].into_iter().map(|n| ($crate::passive::Reduced::try_from(n).unwrap(), false))).collect::<automata::Map<_, bool>>())
+        $crate::passive::Sample::new_omega($alph, [$($pos),+].into_iter().map(|p| ($crate::passive::ReducedOmegaWord::try_from(p).unwrap(), true)).chain([$($neg),+].into_iter().map(|n| ($crate::passive::ReducedOmegaWord::try_from(n).unwrap(), false))).collect::<automata::Map<_, bool>>())
     };
 }
 
@@ -181,7 +182,7 @@ mod tests {
 
     use crate::passive::Sample;
 
-    use super::Reduced;
+    use super::ReducedOmegaWord;
 
     #[test]
     fn parse_sample() {
@@ -220,9 +221,12 @@ mod tests {
         let periodic_sample = sample.to_periodic_sample();
         assert_eq!(periodic_sample.positive_size(), 1);
         assert_eq!(periodic_sample.negative_size(), 1);
-        assert!(periodic_sample.contains(Periodic::new("b")));
-        assert!(periodic_sample.contains(Periodic::new("a")));
-        assert_eq!(periodic_sample.classify(Periodic::new("bb")), Some(true));
+        assert!(periodic_sample.contains(PeriodicOmegaWord::new("b")));
+        assert!(periodic_sample.contains(PeriodicOmegaWord::new("a")));
+        assert_eq!(
+            periodic_sample.classify(PeriodicOmegaWord::new("bb")),
+            Some(true)
+        );
     }
 
     #[test]
@@ -264,7 +268,7 @@ mod tests {
         ];
 
         let time_start = std::time::Instant::now();
-        let cong = crate::prefixtree::prefix_tree(Simple::from_iter("ab".chars()), words);
+        let cong = crate::prefixtree::prefix_tree(CharAlphabet::from_iter("ab".chars()), words);
         info!(
             "Construction of congruence took {}μs",
             time_start.elapsed().as_micros()

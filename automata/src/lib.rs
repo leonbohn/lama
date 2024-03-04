@@ -25,7 +25,7 @@
 pub mod prelude {
     pub use super::{
         alphabet,
-        alphabet::{Expression, Simple, Symbol},
+        alphabet::{CharAlphabet, Expression, Symbol},
         automaton::{
             DBALike, DFALike, DPALike, Initialized, IntoDBA, IntoDFA, IntoDPA, IntoMealyMachine,
             IntoMooreMachine, MealyLike, MealyMachine, MooreLike, MooreMachine, NoColor,
@@ -45,7 +45,10 @@ pub mod prelude {
             TransitionSystem, DTS, NTS,
         },
         upw,
-        word::{FiniteWord, LinearWord, OmegaWord, Periodic, Reduced, ReducedParseError},
+        word::{
+            FiniteWord, LinearWord, OmegaWord, PeriodicOmegaWord, ReducedOmegaWord,
+            ReducedParseError,
+        },
         Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length, Pointed,
         RightCongruence, Show, Void,
     };
@@ -408,7 +411,7 @@ impl HasParity for usize {
 mod tests {
     use crate::{alphabet, prelude::*, Void};
 
-    pub fn wiki_dfa() -> DFA<Simple> {
+    pub fn wiki_dfa() -> DFA<CharAlphabet> {
         let mut dfa = DFA::new_for_alphabet(alphabet!(simple 'a', 'b'));
         let a = dfa.add_state(false);
         let b = dfa.add_state(false);

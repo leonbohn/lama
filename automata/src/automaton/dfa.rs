@@ -34,7 +34,7 @@ impl<C> FiniteSemantics<bool, C> for DFASemantics {
 }
 
 /// A deterministic finite automaton (DFA) is a deterministic automaton with a simple acceptance condition. It accepts a finite word if it reaches an accepting state.
-pub type DFA<A = Simple> = Automaton<Initialized<DTS<A, bool, Void>>, DFASemantics, false>;
+pub type DFA<A = CharAlphabet> = Automaton<Initialized<DTS<A, bool, Void>>, DFASemantics, false>;
 /// Helper trait for creating a [`DFA`] from a given transition system.
 pub type IntoDFA<T> = Automaton<T, DFASemantics, false>;
 

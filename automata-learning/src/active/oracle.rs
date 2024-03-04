@@ -44,16 +44,16 @@ impl<A: Alphabet, W: LinearWord<A::Symbol>, C: Color> SampleOracle<A, W, C> {
     }
 }
 
-impl<C: Color + Default> LStarOracle<MooreMachine<Simple, C>>
-    for SampleOracle<Simple, Vec<char>, C>
+impl<C: Color + Default> LStarOracle<MooreMachine<CharAlphabet, C>>
+    for SampleOracle<CharAlphabet, Vec<char>, C>
 {
     type Length = FiniteLength;
 
-    fn alphabet(&self) -> Simple {
+    fn alphabet(&self) -> CharAlphabet {
         self.sample.alphabet().clone()
     }
 
-    fn output<V: FiniteWord<SymbolOf<MooreMachine<Simple, C>>>>(&self, word: V) -> C {
+    fn output<V: FiniteWord<SymbolOf<MooreMachine<CharAlphabet, C>>>>(&self, word: V) -> C {
         self.sample
             .entries()
             .find_map(|(w, c)| {
@@ -68,8 +68,8 @@ impl<C: Color + Default> LStarOracle<MooreMachine<Simple, C>>
 
     fn equivalence(
         &self,
-        hypothesis: &MooreMachine<Simple, C>,
-    ) -> Result<(), (Vec<SymbolOf<MooreMachine<Simple, C>>>, C)> {
+        hypothesis: &MooreMachine<CharAlphabet, C>,
+    ) -> Result<(), (Vec<SymbolOf<MooreMachine<CharAlphabet, C>>>, C)> {
         for (w, c) in self.sample.entries() {
             if hypothesis.reached_state_color(w).as_ref() != Some(c) {
                 return Err((w.to_vec(), c.clone()));
@@ -79,16 +79,16 @@ impl<C: Color + Default> LStarOracle<MooreMachine<Simple, C>>
     }
 }
 
-impl<C: Color + Default> LStarOracle<MealyMachine<Simple, C>>
-    for SampleOracle<Simple, Vec<char>, C>
+impl<C: Color + Default> LStarOracle<MealyMachine<CharAlphabet, C>>
+    for SampleOracle<CharAlphabet, Vec<char>, C>
 {
     type Length = FiniteLength;
 
-    fn alphabet(&self) -> Simple {
+    fn alphabet(&self) -> CharAlphabet {
         self.sample.alphabet().clone()
     }
 
-    fn output<W: FiniteWord<SymbolOf<MealyMachine<Simple, C>>>>(&self, word: W) -> C {
+    fn output<W: FiniteWord<SymbolOf<MealyMachine<CharAlphabet, C>>>>(&self, word: W) -> C {
         self.sample
             .entries()
             .find_map(|(w, c)| {
@@ -102,8 +102,8 @@ impl<C: Color + Default> LStarOracle<MealyMachine<Simple, C>>
     }
     fn equivalence(
         &self,
-        hypothesis: &MealyMachine<Simple, C>,
-    ) -> Result<(), (Vec<SymbolOf<MealyMachine<Simple, C>>>, C)> {
+        hypothesis: &MealyMachine<CharAlphabet, C>,
+    ) -> Result<(), (Vec<SymbolOf<MealyMachine<CharAlphabet, C>>>, C)> {
         let Some(cex) = self.sample.entries().find_map(|(w, c)| {
             if hypothesis.last_edge_color(w).as_ref() != Some(c) {
                 Some((w.to_vec(), c.clone()))
@@ -151,7 +151,7 @@ impl<D: DFALike + Clone> DFAOracle<D> {
     }
 }
 
-impl<D: DFALike<Alphabet = Simple>> LStarOracle<DFA> for DFAOracle<D> {
+impl<D: DFALike<Alphabet = CharAlphabet>> LStarOracle<DFA> for DFAOracle<D> {
     type Length = FiniteLength;
 
     fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> bool {
@@ -169,12 +169,14 @@ impl<D: DFALike<Alphabet = Simple>> LStarOracle<DFA> for DFAOracle<D> {
         }
     }
 
-    fn alphabet(&self) -> Simple {
+    fn alphabet(&self) -> CharAlphabet {
         self.automaton.alphabet().clone()
     }
 }
 
-impl<D: DFALike<Alphabet = Simple>> LStarOracle<MooreMachine<Simple, bool>> for DFAOracle<D> {
+impl<D: DFALike<Alphabet = CharAlphabet>> LStarOracle<MooreMachine<CharAlphabet, bool>>
+    for DFAOracle<D>
+{
     type Length = FiniteLength;
 
     fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> bool {
@@ -195,7 +197,7 @@ impl<D: DFALike<Alphabet = Simple>> LStarOracle<MooreMachine<Simple, bool>> for 
         }
     }
 
-    fn alphabet(&self) -> Simple {
+    fn alphabet(&self) -> CharAlphabet {
         self.automaton.alphabet().clone()
     }
 }
@@ -207,9 +209,9 @@ pub struct MealyOracle<D: MealyLike + Deterministic> {
     default: Option<D::EdgeColor>,
 }
 
-impl<D> LStarOracle<MealyMachine<Simple, D::EdgeColor>> for MealyOracle<D>
+impl<D> LStarOracle<MealyMachine<CharAlphabet, D::EdgeColor>> for MealyOracle<D>
 where
-    D: Congruence<Alphabet = Simple>,
+    D: Congruence<Alphabet = CharAlphabet>,
     EdgeColor<D>: Color + Default,
 {
     type Length = FiniteLength;
@@ -254,7 +256,7 @@ where
         }
     }
 
-    fn alphabet(&self) -> Simple {
+    fn alphabet(&self) -> CharAlphabet {
         self.automaton.alphabet().clone()
     }
 }
@@ -283,14 +285,14 @@ pub struct MooreOracle<D> {
     automaton: D,
 }
 
-impl<D: MooreLike<Alphabet = Simple>> LStarOracle<MooreMachine<Simple, D::StateColor>>
+impl<D: MooreLike<Alphabet = CharAlphabet>> LStarOracle<MooreMachine<CharAlphabet, D::StateColor>>
     for MooreOracle<D>
 where
     StateColor<D>: Color + Default,
 {
     type Length = FiniteLength;
 
-    fn alphabet(&self) -> Simple {
+    fn alphabet(&self) -> CharAlphabet {
         self.automaton.alphabet().clone()
     }
 

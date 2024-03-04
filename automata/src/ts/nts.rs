@@ -103,7 +103,7 @@ impl<E, C> NTEdge<E, C> {
 /// Represents a non-deterministic transition system. It stores an [`Alphabet`], a list of [`NTState`]s and a list of [`NTEdge`]s.
 /// Each state
 #[derive(Clone, Eq, PartialEq)]
-pub struct NTS<A: Alphabet = Simple, Q = Void, C = Void> {
+pub struct NTS<A: Alphabet = CharAlphabet, Q = Void, C = Void> {
     alphabet: A,
     states: Vec<NTState<Q>>,
     edges: Vec<NTEdge<A::Expression, C>>,
@@ -196,7 +196,7 @@ impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for NTS<A, Q, C> {
     }
 }
 
-impl<Q, C> NTS<Simple, Q, C> {
+impl<Q, C> NTS<CharAlphabet, Q, C> {
     /// Returns a transition system builder for a non-deterministic transition system. This should be the main method for the
     /// construction of non-deterministic transition systems on the fly.
     ///

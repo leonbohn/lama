@@ -388,7 +388,7 @@ where
 pub(crate) mod tests {
     use automata::{
         alphabet,
-        alphabet::Simple,
+        alphabet::CharAlphabet,
         congruence::FORC,
         prelude::*,
         ts::{
@@ -401,7 +401,7 @@ pub(crate) mod tests {
 
     use crate::passive::{sample::OmegaSample, sprout::ConflictRelation, Sample};
 
-    pub fn inf_aba_sample() -> (Simple, OmegaSample<Simple, bool>) {
+    pub fn inf_aba_sample() -> (CharAlphabet, OmegaSample<CharAlphabet, bool>) {
         let Ok(sample) = OmegaSample::try_from(
             r#"omega
             alphabet: a,b
@@ -429,7 +429,7 @@ pub(crate) mod tests {
         (sample.alphabet.clone(), sample)
     }
 
-    pub fn testing_larger_forc_sample() -> (Simple, OmegaSample<Simple, bool>) {
+    pub fn testing_larger_forc_sample() -> (CharAlphabet, OmegaSample<CharAlphabet, bool>) {
         let Ok(sample) = OmegaSample::try_from(
             r#"omega
         alphabet: a,b
@@ -486,7 +486,7 @@ pub(crate) mod tests {
         (sample.alphabet.clone(), sample)
     }
 
-    fn testing_smaller_forc_smaple() -> (Simple, OmegaSample<Simple, bool>) {
+    fn testing_smaller_forc_smaple() -> (CharAlphabet, OmegaSample<CharAlphabet, bool>) {
         let alphabet = alphabet!(simple 'a', 'b', 'c');
         (
             alphabet.clone(),
@@ -533,7 +533,7 @@ pub(crate) mod tests {
         let eps = Class::epsilon();
         let eps_sample = split_sample.get(&eps).unwrap();
 
-        let conflicts: ConflictRelation<Simple> =
+        let conflicts: ConflictRelation<CharAlphabet> =
             super::iteration_consistency_conflicts(&split_sample, eps);
         // conflicts.dfas[0].deprecated_display_rendered();
         // conflicts.dfas[1].deprecated_display_rendered();
@@ -572,7 +572,7 @@ pub(crate) mod tests {
                 (upw!("bb", "a"), true),
             ],
         );
-        let mut expected_cong: RightCongruence<Simple, Void, Void> =
+        let mut expected_cong: RightCongruence<CharAlphabet, Void, Void> =
             RightCongruence::new(alphabet!(simple 'a', 'b'));
         let q0 = expected_cong.add_state(vec![]);
         let q1 = expected_cong.add_state(vec!['b']);

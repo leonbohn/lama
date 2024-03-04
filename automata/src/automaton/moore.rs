@@ -27,7 +27,7 @@ pub struct MooreSemantics<Q>(std::marker::PhantomData<Q>);
 /// consider the colors that are produced infinitely often and base acceptance around them. It
 /// is, however, prefered to use a [`MealyMachine`] for this purpose, as for infinite inputs
 /// switching to transition-based acceptance is preferable.
-pub type MooreMachine<A = Simple, Q = usize> =
+pub type MooreMachine<A = CharAlphabet, Q = usize> =
     Automaton<Initialized<DTS<A, Q, Void>>, MooreSemantics<Q>, false>;
 
 /// Helper type that takes a pointed transition system and returns the corresponding
