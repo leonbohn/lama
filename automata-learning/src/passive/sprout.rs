@@ -150,14 +150,16 @@ pub fn iteration_consistency_conflicts<A: Alphabet>(
             !mr.class().is_empty()
                 && periodic_sample.classify(mr.class().omega_power()) == Some(true)
         })
-        .intersection(&looping_words);
+        .intersection(&looping_words)
+        .collect_dfa();
 
     let right_pta = prefix_tree(sample.alphabet.clone(), periodic_sample.negative())
         .map_state_colors(|mr| {
             !mr.class().is_empty()
                 && periodic_sample.classify(mr.class().omega_power()) == Some(false)
         })
-        .intersection(&looping_words);
+        .intersection(&looping_words)
+        .collect_dfa();
 
     let mut conflicts = Set::default();
     let mut queue = VecDeque::from_iter(
@@ -570,7 +572,8 @@ pub(crate) mod tests {
                 (upw!("bb", "a"), true),
             ],
         );
-        let mut expected_cong = RightCongruence::new(alphabet!(simple 'a', 'b'));
+        let mut expected_cong: RightCongruence<Simple, Void, Void> =
+            RightCongruence::new(alphabet!(simple 'a', 'b'));
         let q0 = expected_cong.add_state(vec![]);
         let q1 = expected_cong.add_state(vec!['b']);
         expected_cong.add_edge(q0, 'b', q1, ());

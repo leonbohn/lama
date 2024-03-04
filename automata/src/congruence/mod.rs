@@ -4,6 +4,7 @@ use itertools::{Itertools, MapInto};
 
 use crate::{
     alphabet::{Simple, Symbol},
+    automaton::IntoDFA,
     prelude::{DFALike, IsEdge},
     ts::{transition_system::Indexes, Deterministic, EdgeColor, Sproutable, DTS},
     word::FiniteWord,
@@ -184,21 +185,21 @@ impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for RightCongruence<A, Q, C> {
         let mut ts = DTS::new_for_alphabet(alphabet);
         Self { ts }
     }
-
-    fn add_edge<X, Y>(
+    fn add_edge<X, Y, CI>(
         &mut self,
         from: X,
         on: <Self::Alphabet as Alphabet>::Expression,
         to: Y,
-        color: EdgeColor<Self>,
+        color: CI,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
         X: Indexes<Self>,
         Y: Indexes<Self>,
+        CI: Into<EdgeColor<Self>>,
     {
         let from = from.to_index(self)?;
         let to = to.to_index(self)?;
-        self.ts_mut().add_edge(from, on, to, color)
+        self.ts_mut().add_edge(from, on, to, color.into())
     }
     fn remove_edges<X>(&mut self, from: X, on: <Self::Alphabet as Alphabet>::Expression) -> bool
     where
@@ -221,7 +222,7 @@ impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for RightCongruence<A, Q, C> {
 
 impl<A: Alphabet, Q: Clone + Default, C: Clone> RightCongruence<A, Q, C> {
     /// Creates a new [`RightCongruence`] for the given alphabet.
-    pub fn new(alphabet: A) -> Self {
+    pub fn new(alphabet: A) -> RightCongruence<A, Q, C> {
         Self::new_for_alphabet(alphabet)
     }
 }

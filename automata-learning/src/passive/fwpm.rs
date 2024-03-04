@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use automata::{
-    automaton::MealyLike,
+    automaton::{MealyLike, MooreLike},
     congruence::FORC,
     prelude::{Indexes, MealyMachine, MooreMachine},
     Alphabet, Map, RightCongruence, TransitionSystem,
@@ -17,7 +17,7 @@ use super::precise::PreciseDPA;
 #[derive(Clone)]
 pub struct FWPM<A: Alphabet> {
     leading: RightCongruence<A>,
-    pm: Map<usize, MooreMachine<A, usize, usize>>,
+    pm: Map<usize, MooreMachine<A>>,
 }
 
 impl<A: Alphabet> FWPM<A> {
@@ -31,7 +31,7 @@ impl<A: Alphabet> FWPM<A> {
 
     pub fn complexity(&self) -> usize {
         self.pms()
-            .map(|(_, pm)| pm.color_range().count())
+            .map(|(_, pm)| pm.color_range().len())
             .max()
             .unwrap_or(0)
     }
@@ -46,8 +46,8 @@ impl<A: Alphabet> FWPM<A> {
     pub fn insert_pm<I: Indexes<RightCongruence<A>>>(
         &mut self,
         index: I,
-        pm: MooreMachine<A, usize, usize>,
-    ) -> Option<MooreMachine<A, usize, usize>> {
+        pm: MooreMachine<A>,
+    ) -> Option<MooreMachine<A>> {
         self.pm.insert(
             index
                 .to_index(&self.leading)
@@ -63,7 +63,7 @@ impl<A: Alphabet> FWPM<A> {
 
     /// Returns an iterator over the progress mealy machines, sorted by the index of the
     /// corresponding congruence class.
-    pub fn pms(&self) -> impl Iterator<Item = (usize, &MooreMachine<A, usize, usize>)> {
+    pub fn pms(&self) -> impl Iterator<Item = (usize, &MooreMachine<A>)> {
         self.pm
             .iter()
             .sorted_by(|x, y| x.0.cmp(y.0))
@@ -72,7 +72,7 @@ impl<A: Alphabet> FWPM<A> {
 
     /// Constructs a new FWPM from a given right congruence and map associating each class of the congruence
     /// with a priority mapping. Ensures that the each class has a priority mapping.
-    pub fn new(leading: RightCongruence<A>, pm: Map<usize, MooreMachine<A, usize, usize>>) -> Self {
+    pub fn new(leading: RightCongruence<A>, pm: Map<usize, MooreMachine<A>>) -> Self {
         assert_eq!(
             leading.size(),
             pm.len(),

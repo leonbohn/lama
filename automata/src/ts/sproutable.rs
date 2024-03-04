@@ -179,16 +179,17 @@ pub trait Sproutable: TransitionSystem {
     /// a transition already exists, the method returns the index of the original target and the
     /// color of the original edge. Otherwise, the method returns `None`.
     ///
-    fn add_edge<X, Y>(
+    fn add_edge<X, Y, CI>(
         &mut self,
         from: X,
         on: <Self::Alphabet as Alphabet>::Expression,
         to: Y,
-        color: EdgeColor<Self>,
+        color: CI,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
         X: Indexes<Self>,
-        Y: Indexes<Self>;
+        Y: Indexes<Self>,
+        CI: Into<EdgeColor<Self>>;
 
     /// Removes the transition from the state `from` to the state `to` on the given expression.
     /// Returns `true` if the transition existed and was removed, `false` otherwise.

@@ -148,21 +148,22 @@ impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for NTS<A, Q, C> {
         self.states[index].color = color.into();
     }
 
-    fn add_edge<X, Y>(
+    fn add_edge<X, Y, CI>(
         &mut self,
         from: X,
         on: <Self::Alphabet as Alphabet>::Expression,
         to: Y,
-        color: EdgeColor<Self>,
+        color: CI,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
         X: Indexes<Self>,
         Y: Indexes<Self>,
+        CI: Into<EdgeColor<Self>>,
     {
         let source = from.to_index(self)?;
         let target = to.to_index(self)?;
 
-        let mut edge = NTEdge::new(source, on, color, target);
+        let mut edge = NTEdge::new(source, on, color.into(), target);
         let edge_id = self.edges.len();
 
         if let Some(last_edge_id) = self.last_edge(source) {

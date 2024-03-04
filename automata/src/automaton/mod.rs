@@ -23,15 +23,15 @@ use crate::{
     Color, FiniteLength, InfiniteLength, Length,
 };
 
-mod semantics;
+mod acceptance_type;
 
 #[macro_use]
 mod moore;
-pub use moore::{AsMooreMachine, IntoMooreMachine, MooreLike, MooreMachine};
+pub use moore::{IntoMooreMachine, MooreLike, MooreMachine};
 
 #[macro_use]
 mod mealy;
-pub use mealy::{AsMealyMachine, IntoMealyMachine, MealyLike, MealyMachine};
+pub use mealy::{IntoMealyMachine, MealyLike, MealyMachine};
 
 mod dfa;
 pub use dfa::{DFALike, IntoDFA, DFA};
@@ -49,9 +49,7 @@ pub use omega::{
 };
 
 mod acceptor;
-pub use acceptor::{
-    FiniteWordAcceptor, FiniteWordTransformer, OmegaWordAcceptor, OmegaWordTransformer,
-};
+pub use acceptor::Automaton;
 
 mod with_initial;
 pub use with_initial::Initialized;
@@ -155,20 +153,21 @@ macro_rules! impl_automaton_type {
             ) {
                 self.ts_mut().set_state_color(index, color)
             }
-            fn add_edge<X, Y>(
+            fn add_edge<X, Y, CI>(
                 &mut self,
                 from: X,
                 on: <Self::Alphabet as Alphabet>::Expression,
                 to: Y,
-                color: EdgeColor<Self>,
+                color: CI,
             ) -> Option<(Self::StateIndex, Self::EdgeColor)>
             where
                 X: Indexes<Self>,
                 Y: Indexes<Self>,
+                CI: Into<EdgeColor<Self>>,
             {
                 let from = from.to_index(self)?;
                 let to = to.to_index(self)?;
-                self.ts_mut().add_edge(from, on, to, color)
+                self.ts_mut().add_edge(from, on, to, color.into())
             }
             fn remove_edges<X>(
                 &mut self,
@@ -296,23 +295,17 @@ impl<'a, Ts: TransitionSystem<StateColor = bool>> Iterator for StatesWithColor<'
 #[cfg(test)]
 mod tests {
     use super::{DFALike, Initialized, MooreLike};
-    use crate::{
-        automaton::{
-            acceptor::{FiniteWordAcceptor, OmegaWordAcceptor},
-            NoColor,
-        },
-        prelude::*,
-        ts::HashTs,
-    };
+    use crate::{automaton::NoColor, prelude::*, ts::HashTs};
 
     #[test]
     fn mealy_color_or_below() {
-        let mut mm = MooreMachine::new(alphabet!(simple 'a', 'b'), 2);
-        let a = mm.initial();
+        let mut mm: MooreMachine<Simple, usize> =
+            MooreMachine::new_for_alphabet(alphabet!(simple 'a', 'b'));
+        let a = mm.add_state(0usize);
         let b = mm.add_state(1usize);
         let c = mm.add_state(1usize);
         let d = mm.add_state(0usize);
-        mm.add_edge(a, 'a', b, ());
+        mm.add_edge(a, 'a', b, Void);
         mm.add_edge(a, 'b', c, ());
         mm.add_edge(b, 'a', c, ());
         mm.add_edge(b, 'b', c, ());
@@ -322,30 +315,30 @@ mod tests {
         mm.add_edge(d, 'b', d, ());
 
         let dfas = mm.decompose_dfa();
-        let dfa2 = &dfas[2];
+        let dfa1 = &dfas[1];
         let dfa0 = &dfas[0];
 
         println!("{:?}", dfa0);
-        assert!(dfa2.accepts_finite(""));
-        assert!(dfa2.accepts_finite("b"));
-        assert!(!dfa0.accepts_finite("b"));
-        assert!(dfa0.accepts_finite("ba"));
+        assert!(dfa1.accepts(""));
+        assert!(dfa1.accepts("b"));
+        assert!(!dfa0.accepts("b"));
+        assert!(dfa0.accepts("ba"));
     }
 
     #[test]
     fn dbas() {
-        let mut dba = super::DBA::new(Simple::from_iter(['a', 'b']), ());
-        let q1 = dba.add_state(());
-        let q0 = dba.initial();
+        let mut dba = super::DBA::new_for_alphabet(Simple::from_iter(['a', 'b']));
+        let q0 = dba.add_state(());
+        let q1 = dba.add_state(Void);
 
         let _e0 = dba.add_edge(q0, 'a', q1, true);
         let _e1 = dba.add_edge(q0, 'b', q0, false);
         let _e2 = dba.add_edge(q1, 'a', q1, true);
         let _e3 = dba.add_edge(q1, 'b', q0, false);
-        assert!(dba.accepts_omega(Reduced::periodic("abb")));
-        assert!(!dba.accepts_omega(Reduced::periodic("b")));
-        assert!(dba.accepts_omega(upw!("a")));
-        assert!(!dba.accepts_omega(upw!("b")));
+        assert!(dba.accepts(Reduced::periodic("abb")));
+        assert!(!dba.accepts(Reduced::periodic("b")));
+        assert!(dba.accepts(upw!("a")));
+        assert!(!dba.accepts(upw!("b")));
 
         assert!(!dba.dba_is_empty());
         println!("{:?}", dba.dba_give_word());
@@ -355,33 +348,32 @@ mod tests {
 
     #[test]
     fn dfas_and_boolean_operations() {
-        let mut dfa = super::DFA::new(Simple::new(['a', 'b']));
-        let s0 = dfa.initial();
-        dfa.set_initial_color(true);
+        let mut dfa = super::DFA::new_for_alphabet(Simple::new(['a', 'b']));
+        let s0 = dfa.add_state(true);
         let s1 = dfa.add_state(false);
-        let _e0 = dfa.add_edge(s0, 'a', s1, ());
-        let _e1 = dfa.add_edge(s0, 'b', s0, ());
-        let _e2 = dfa.add_edge(s1, 'a', s1, ());
-        let _e3 = dfa.add_edge(s1, 'b', s0, ());
+        let _e0 = dfa.add_edge(s0, 'a', s1, Void);
+        let _e1 = dfa.add_edge(s0, 'b', s0, Void);
+        let _e2 = dfa.add_edge(s1, 'a', s1, Void);
+        let _e3 = dfa.add_edge(s1, 'b', s0, Void);
 
-        assert!(!dfa.dfa_is_empty());
-        assert_eq!(dfa.dfa_give_word(), Some(vec![]));
+        assert!(!dfa.is_empty_language());
+        assert_eq!(dfa.give_word(), Some(vec![]));
 
         let _dfb = dfa.clone();
 
-        assert!(dfa.accepts_finite("ababab"));
-        assert!(!dfa.accepts_finite("a"));
+        assert!(dfa.accepts("ababab"));
+        assert!(!dfa.accepts("a"));
 
-        let notdfa = (&dfa).negation().into_dfa();
-        assert!(!notdfa.accepts_finite("ababab"));
-        assert!(notdfa.accepts_finite("a"));
+        let notdfa = dfa.as_ref().negation().into_dfa();
+        assert!(!notdfa.accepts("ababab"));
+        assert!(notdfa.accepts("a"));
 
-        let intersection = (&dfa).intersection(&notdfa).into_dfa();
-        assert!(!intersection.accepts_finite("ababab"));
-        assert!(!intersection.accepts_finite("a"));
+        let intersection = dfa.as_ref().intersection(&notdfa).into_dfa();
+        assert!(!intersection.accepts("ababab"));
+        assert!(!intersection.accepts("a"));
 
-        let union = (&dfa).union(&notdfa).into_dfa();
-        assert!(union.accepts_finite("ababab"));
-        assert!(union.accepts_finite("a"));
+        let union = dfa.as_ref().union(&notdfa).into_dfa();
+        assert!(union.accepts("ababab"));
+        assert!(union.accepts("a"));
     }
 }
