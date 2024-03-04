@@ -1,12 +1,12 @@
 use itertools::{Either, Itertools};
-use std::ops::Not;
 use std::iter;
+use std::ops::Not;
 
 use automata::{
     automaton::{Buchi, DeterministicOmegaAutomaton, OmegaAcceptanceCondition},
     prelude::*,
+    ts::IndexedAlphabet,
     Set,
-    ts::IndexedAlphabet
 };
 
 use super::OmegaSample;
@@ -19,11 +19,7 @@ pub trait ConsistencyCheck<T: Deterministic> {
     /// If the transition system is consistent with the sample,
     /// returns an automaton with underlying transition system ts
     /// that is consistent with the sample
-    fn consistent_automaton(
-        &self,
-        ts: &T,
-        sample: &OmegaSample
-    ) -> DBA<Simple>;
+    fn consistent_automaton(&self, ts: &T, sample: &OmegaSample) -> DBA<Simple>;
 }
 
 impl<T> ConsistencyCheck<T> for Buchi
@@ -75,11 +71,7 @@ where
             .not()
     }
 
-    fn consistent_automaton(
-        &self,
-        ts: &T,
-        sample: &OmegaSample,
-    ) -> DBA<Simple> {
+    fn consistent_automaton(&self, ts: &T, sample: &OmegaSample) -> DBA<Simple> {
         // check consistency
         assert!(self.consistent(ts, sample));
 
@@ -98,16 +90,37 @@ where
             .flatten()
             .collect();
 
-        let all_transitions: Set<_> = ts.transitions()
+        let all_transitions: Set<_> = ts
+            .transitions()
             .map(|t| t.into_tuple())
-            .map(|(a,b,c,d)| (a, b.symbols().next().expect("edge expression shouldn't be empty"), c, d))
+            .map(|(a, b, c, d)| {
+                (
+                    a,
+                    b.symbols()
+                        .next()
+                        .expect("edge expression shouldn't be empty"),
+                    c,
+                    d,
+                )
+            })
             .collect();
 
         let accepting: Set<_> = all_transitions.difference(&neg_union).collect();
 
         // make DBA (change edge colour to bool with map_edge_colors_full or map_edge_colors, then call as_dba(), set correct edge colours
-        let mut aut = ts.map_edge_colors_full(move |a,b,c,d| accepting.contains(&(a,b.symbols().next().expect("edge expression shouldn't be empty"),d,c))).erase_state_colors();
-        
+        let mut aut = ts
+            .map_edge_colors_full(move |a, b, c, d| {
+                accepting.contains(&(
+                    a,
+                    b.symbols()
+                        .next()
+                        .expect("edge expression shouldn't be empty"),
+                    d,
+                    c,
+                ))
+            })
+            .erase_state_colors();
+
         let (c, _) = aut.collect_pointed::<DTS<Simple, Void, bool>>();
         c.into_dba()
 
@@ -133,13 +146,13 @@ mod tests {
     fn buchi_both_escaping() {
         // build transition systems
         let ts = NTS::builder()
-            .with_transitions([(0, 'a', (), 1)])
-            .default_color(())
+            .with_transitions([(0, 'a', Void, 1)])
+            .default_color(Void)
             .deterministic()
             .with_initial(0);
         let ts2 = NTS::builder()
-            .with_transitions([(0, 'a', (), 0)])
-            .default_color(())
+            .with_transitions([(0, 'a', Void, 0)])
+            .default_color(Void)
             .deterministic()
             .with_initial(0);
 
@@ -172,8 +185,8 @@ mod tests {
     fn buchi_one_escaping() {
         // build transition system
         let ts = NTS::builder()
-            .with_transitions([(0, 'a', (), 0)])
-            .default_color(())
+            .with_transitions([(0, 'a', Void, 0)])
+            .default_color(Void)
             .deterministic()
             .with_initial(0);
 
@@ -192,18 +205,18 @@ mod tests {
     fn buchi_consistency() {
         // build transition systems
         let ts = NTS::builder()
-            .with_transitions([(0, 'b', (), 0), (0, 'a', (), 1), (1, 'b', (), 1)])
-            .default_color(())
+            .with_transitions([(0, 'b', Void, 0), (0, 'a', Void, 1), (1, 'b', Void, 1)])
+            .default_color(Void)
             .deterministic()
             .with_initial(0);
         let ts2 = NTS::builder()
-            .with_transitions([(0, 'b', (), 0), (0, 'a', (), 1), (1, 'a', (), 0)])
-            .default_color(())
+            .with_transitions([(0, 'b', Void, 0), (0, 'a', Void, 1), (1, 'a', Void, 0)])
+            .default_color(Void)
             .deterministic()
             .with_initial(0);
         let ts3 = NTS::builder()
-            .with_transitions([(0, 'a', (), 0), (0, 'b', (), 0)])
-            .default_color(())
+            .with_transitions([(0, 'a', Void, 0), (0, 'b', Void, 0)])
+            .default_color(Void)
             .deterministic()
             .with_initial(0);
 
