@@ -11,6 +11,22 @@ use super::{FiniteWord, LinearWord};
 /// omega words can be represented as a concatenation of a finite prefix which we call spoke
 /// and a finite loop which we call cycle. The loop index is the length of the spoke.
 ///
+/// # Normalization
+/// Omega words can be brought into a normalized form, where the prefix/spoke is rolled into
+/// the loop as far as possible. Specifically, this means that the word `w = abca(caca)^𝜔` can be
+/// transformed into the equivalent omega word `ab(caca)^𝜔`. Subsequently, we normalize the
+/// looping/cycling part by attempting to find a factor such that the loop is some repetition
+/// of the factor. In this instance, that would mean to normalize `w` into `ab(ca)^𝜔`.
+///
+/// Normalization is always possible and leads to a minimal representation of an omega word.
+/// This representation is unique and can be computed in polynomial time.
+///
+/// # Equality testing
+/// Most implementors of `OmegaWord` should also implement `PartialEq`/`Eq`. Note, that this
+/// represents syntactical/structural equality. To test for syntactic equality (i.e. equality
+/// of the represented word itself), the method [`OmegaWord::equals()`] should be used. This
+/// method first normalizes the words in question and subsequently compares the loop and spoke.
+///
 /// # Example
 /// ```
 /// use automata::word::{Reduced, OmegaWord, LinearWord};
@@ -33,11 +49,40 @@ pub trait OmegaWord<S>: LinearWord<S> {
     /// Returns a normalized ultimately periodic word that is equal to `self`. This is done by
     /// first folding the prefix into the loop as far as possible and then deduplicating the
     /// loop.
+    ///
+    /// The representation returned by this method is unique and minimal for `self`. It is computed
+    /// in polynomial time.
+    ///
+    /// # Example
+    /// ```
+    /// use automata::prelude::*;
+    /// let word = Reduced::ultimately_periodic("abac", "acac");
+    /// assert!(word.spoke().equals("ab"));
+    /// assert!(word.cycle().equals("ac"));
+    /// ```
     fn normalized(&self) -> Reduced<S>
     where
         S: Symbol,
     {
         Reduced::ultimately_periodic(self.spoke(), self.cycle())
+    }
+
+    /// Tests whether `self` is *semantically* equal to `other`. To see the difference compared to syntactic
+    /// equality, consider the exampe below.
+    /// ```
+    /// use automata::prelude::*;
+    /// let word = Reduced::periodic("a"); // represents the periodic omega word a^𝜔 = aaa...
+    /// let offset1 = word.offset(1); // the word obtained by skipping the first symbol of `word`
+    /// let offset2 = word.offset(2);
+    ///
+    /// assert!(offset1 != offset2); // two different offsets are syntactically distinct
+    /// assert!(offset1.equals(offset2)); // but they are semantically equal
+    /// ```
+    fn equals<W: OmegaWord<S>>(&self, other: W) -> bool
+    where
+        S: Symbol,
+    {
+        self.normalized() == other.normalized()
     }
 
     /// Returns the spoke of the word, i.e. the finite prefix of the word before the loop index.
