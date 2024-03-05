@@ -354,6 +354,18 @@ impl<'a, E, C: Clone> IsEdge<'a, E, usize, C> for &'a Edge<E, C> {
     }
 }
 
+impl<E, C> Edge<E, C> {
+    /// Creates a new edge with the given source, expression, color and target.
+    pub fn new(source: usize, expression: E, color: C, target: usize) -> Self {
+        Self {
+            source,
+            target,
+            color,
+            expression,
+        }
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use crate::alphabet::CharAlphabet;
