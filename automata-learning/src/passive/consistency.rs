@@ -19,7 +19,11 @@ pub trait ConsistencyCheck<T: Deterministic> {
     /// If the transition system is consistent with the sample,
     /// returns an automaton with underlying transition system ts
     /// that is consistent with the sample
-    fn consistent_automaton(&self, ts: &T, sample: &OmegaSample) -> DBA<Simple>;
+    fn consistent_automaton(
+        &self,
+        ts: &T,
+        sample: &OmegaSample,
+    ) -> Initialized<DTS<Simple, Void, bool>>;
 }
 
 impl<T> ConsistencyCheck<T> for Buchi
@@ -71,7 +75,11 @@ where
             .not()
     }
 
-    fn consistent_automaton(&self, ts: &T, sample: &OmegaSample) -> DBA<Simple> {
+    fn consistent_automaton(
+        &self,
+        ts: &T,
+        sample: &OmegaSample,
+    ) -> Initialized<DTS<Simple, Void, bool>> {
         // check consistency
         assert!(self.consistent(ts, sample));
 
@@ -122,7 +130,7 @@ where
             .erase_state_colors();
 
         let (c, _) = aut.collect_pointed::<DTS<Simple, Void, bool>>();
-        c.into_dba()
+        c
 
         // send missing transitions to initial state
     }
@@ -246,5 +254,31 @@ mod tests {
         assert_eq!(Buchi.consistent(&ts2, &sample2), false);
         assert_eq!(Buchi.consistent(&ts2, &sample3), true);
         assert_eq!(Buchi.consistent(&ts3, &sample4), true);
+    }
+
+    #[test]
+    fn buchi_consistent_automaton() {
+        // build transition system
+        let ts = NTS::builder()
+            .with_transitions([(0, 'b', Void, 0), (0, 'a', Void, 1), (1, 'b', Void, 1)])
+            .default_color(Void)
+            .deterministic()
+            .with_initial(0);
+
+        // build sample
+        let sample1 = OmegaSample::new_omega_from_pos_neg(
+            sigma(),
+            [Reduced::ultimately_periodic("a", "b")],
+            [Reduced::periodic("b")],
+        );
+
+        // build automaton
+        let dba = NTS::builder()
+            .with_transitions([(0, 'b', false, 0), (0, 'a', true, 1), (1, 'b', true, 1)])
+            .default_color(Void)
+            .deterministic()
+            .with_initial(0);
+
+        assert!(Buchi.consistent_automaton(&ts, &sample1).eq(&dba));
     }
 }
