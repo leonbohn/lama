@@ -326,6 +326,34 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Show for Lasso<A, Idx, Q, 
     }
 }
 
+/// Represents an edge that is not associated to a transition system. It stores a color, an
+/// expression, as well as a source and target state index.
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct Edge<E, C> {
+    source: usize,
+    target: usize,
+    color: C,
+    expression: E,
+}
+
+impl<'a, E, C: Clone> IsEdge<'a, E, usize, C> for &'a Edge<E, C> {
+    fn target(&self) -> usize {
+        self.target
+    }
+
+    fn color(&self) -> C {
+        self.color.clone()
+    }
+
+    fn expression(&self) -> &'a E {
+        &self.expression
+    }
+
+    fn source(&self) -> usize {
+        self.source
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use crate::alphabet::CharAlphabet;
