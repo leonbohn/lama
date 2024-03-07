@@ -327,7 +327,15 @@ impl<A: Alphabet, Q: Clone, C: Clone + Hash + Eq> Sproutable for HashTs<A, Q, C,
             .and_then(|o| o.add_edge(on, target, color))
     }
 
-    fn set_state_color<X: Into<StateColor<Self>>>(&mut self, index: Self::StateIndex, color: X) {
+    fn set_state_color<Idx: Indexes<Self>, X: Into<StateColor<Self>>>(
+        &mut self,
+        index: Idx,
+        color: X,
+    ) {
+        let Some(index) = index.to_index(self) else {
+            tracing::error!("cannot set color of state that does not exist");
+            return;
+        };
         self.states
             .get_mut(&index)
             .expect("State must exist")

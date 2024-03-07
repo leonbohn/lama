@@ -4,7 +4,9 @@ use crate::{
     Alphabet, Pointed, TransitionSystem,
 };
 
-use super::{Congruence, Deterministic, FiniteRun, FiniteWord, OmegaRun, PredecessorIterable};
+use super::{
+    Congruence, Deterministic, FiniteRun, FiniteWord, Indexes, OmegaRun, PredecessorIterable,
+};
 
 /// An automaton consists of a transition system and an acceptance condition.
 /// There are many different types of automata, which can be instantiated from
@@ -125,8 +127,8 @@ impl<D: PredecessorIterable, A, const OMEGA: bool> PredecessorIterable for Autom
     where
         Self: 'this;
 
-    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
-        self.ts.predecessors(state)
+    fn predecessors<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesToIter<'_>> {
+        self.ts.predecessors(state.to_index(self)?)
     }
 }
 
@@ -153,11 +155,18 @@ impl<D: Sproutable, A: Default, const OMEGA: bool> Sproutable for Automaton<D, A
     ) -> Self::ExtendStateIndexIter {
         self.ts.extend_states(iter)
     }
-
-    fn set_state_color<X: Into<StateColor<Self>>>(&mut self, index: Self::StateIndex, color: X) {
-        self.ts.set_state_color(index, color)
+    fn set_state_color<Idx: Indexes<Self>, X: Into<StateColor<Self>>>(
+        &mut self,
+        index: Idx,
+        color: X,
+    ) {
+        self.ts.set_state_color(
+            index
+                .to_index(self)
+                .expect("cannot set color of state that does not exist"),
+            color,
+        )
     }
-
     fn add_edge<X, Y, CI>(
         &mut self,
         from: X,
@@ -220,8 +229,8 @@ impl<D: TransitionSystem, A, const OMEGA: bool> TransitionSystem for Automaton<D
         self.ts.edges_from(state.to_index(self)?)
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
-        self.ts.state_color(state)
+    fn state_color<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::StateColor> {
+        self.ts.state_color(state.to_index(self)?)
     }
 }
 

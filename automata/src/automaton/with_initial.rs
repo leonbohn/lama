@@ -120,7 +120,15 @@ impl<Ts: TransitionSystem + Sproutable> Sproutable for Initialized<Ts> {
         self.ts_mut().add_state(color)
     }
 
-    fn set_state_color<X: Into<StateColor<Self>>>(&mut self, index: Self::StateIndex, color: X) {
+    fn set_state_color<Idx: Indexes<Self>, X: Into<StateColor<Self>>>(
+        &mut self,
+        index: Idx,
+        color: X,
+    ) {
+        let Some(index) = index.to_index(self) else {
+            tracing::error!("cannot set color of state that does not exist");
+            return;
+        };
         self.ts_mut().set_state_color(index, color)
     }
 

@@ -71,8 +71,10 @@ where
         Some(DeterministicEdgesFrom::new(self, state.to_index(self)?))
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
-        self.monoid().get_profile(state).map(|p| p.0.clone())
+    fn state_color<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::StateColor> {
+        self.monoid()
+            .get_profile(state.to_index(self)?)
+            .map(|p| p.0.clone())
     }
 }
 
@@ -211,8 +213,10 @@ where
         Some(DeterministicEdgesFrom::new(self, state.to_index(self)?))
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
-        self.monoid().get_profile(state).map(|p| p.0.clone())
+    fn state_color<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::StateColor> {
+        self.monoid()
+            .get_profile(state.to_index(self)?)
+            .map(|p| p.0.clone())
     }
 }
 

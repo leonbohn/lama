@@ -225,7 +225,8 @@ where
         })
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
+    fn state_color<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::StateColor> {
+        let state = state.to_index(self)?;
         self.ts().state_color(state)
     }
 }
@@ -239,7 +240,7 @@ impl<D: PredecessorIterable<EdgeColor = usize>> PredecessorIterable for ColorRes
     where
         Self: 'this;
 
-    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
+    fn predecessors<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesToIter<'_>> {
         todo!()
     }
 }

@@ -142,7 +142,8 @@ impl<Ts: TransitionSystem> TransitionSystem for SubsetConstruction<Ts> {
         Some(DeterministicEdgesFrom::new(self, state.to_index(self)?))
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
+    fn state_color<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::StateColor> {
+        let state = state.to_index(self)?;
         let Some(color) = self.states.borrow().get(state).map(|q| {
             q.iter()
                 .map(|idx| {

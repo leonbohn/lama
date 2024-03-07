@@ -6,7 +6,7 @@ use crate::{
     alphabet::{CharAlphabet, Symbol},
     automaton::IntoDFA,
     prelude::{DFALike, IsEdge},
-    ts::{transition_system::Indexes, Deterministic, EdgeColor, Sproutable, DTS},
+    ts::{transition_system::Indexes, Deterministic, EdgeColor, Sproutable, StateColor, DTS},
     word::FiniteWord,
     Alphabet, Color, FiniteLength, HasLength, Map, Pointed, Show, TransitionSystem, Void, DFA,
 };
@@ -173,11 +173,15 @@ impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for RightCongruence<A, Q, C> {
         self.ts.add_state(color.into())
     }
 
-    fn set_state_color<X: Into<crate::ts::StateColor<Self>>>(
+    fn set_state_color<Idx: Indexes<Self>, X: Into<StateColor<Self>>>(
         &mut self,
-        index: Self::StateIndex,
+        index: Idx,
         color: X,
     ) {
+        let Some(index) = index.to_index(self) else {
+            tracing::error!("cannot set color of state that does not exist");
+            return;
+        };
         self.ts.set_state_color(index, color.into())
     }
 
