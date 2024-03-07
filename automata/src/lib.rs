@@ -40,9 +40,9 @@ pub mod prelude {
             predecessors::PredecessorIterable,
             run::{FiniteRun, OmegaRun},
             transition_system::{EdgeReference, FullTransition, Indexes, IsEdge},
-            Congruence, Deterministic, DeterministicEdgesFrom, EdgeColor, ExpressionOf, HasColor,
-            HasColorMut, HashTs, IndexType, Path, Sproutable, StateColor, SymbolOf, TSBuilder,
-            TransitionSystem, DTS, NTS,
+            Congruence, Deterministic, DeterministicEdgesFrom, EdgeColor, ExpressionOf, HashTs,
+            IndexType, Path, Sproutable, StateColor, SymbolOf, TSBuilder, TransitionSystem, DTS,
+            NTS,
         },
         upw,
         word::{

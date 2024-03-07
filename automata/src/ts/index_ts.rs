@@ -10,8 +10,8 @@ use crate::{
 };
 
 use super::{
-    transition_system::Indexes, EdgeColor, ExpressionOf, HasColor, HasColorMut, IndexType,
-    Sproutable, StateColor, SymbolOf, TransitionSystem,
+    transition_system::Indexes, EdgeColor, ExpressionOf, IndexType, Sproutable, StateColor,
+    SymbolOf, TransitionSystem,
 };
 
 /// A state in a transition system. This stores the color of the state and the index of the
