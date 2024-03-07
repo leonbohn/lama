@@ -6,7 +6,7 @@ use crate::{alphabet::Alphabet, Color, Set, Show};
 
 use super::{
     transition_system::{Indexes, IsEdge},
-    Deterministic, ExpressionOf, Idx, IndexType, SymbolOf, TransitionSystem,
+    Deterministic, ExpressionOf, IndexType, SymbolOf, TransitionSystem,
 };
 
 /// Represents a path through a transition system. Note, that the path itself is decoupled from the
