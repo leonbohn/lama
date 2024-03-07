@@ -1,5 +1,8 @@
 use crate::{
-    ts::{predecessors::PredecessorIterable, transition_system::IsEdge},
+    ts::{
+        predecessors::PredecessorIterable,
+        transition_system::{Indexes, IsEdge},
+    },
     TransitionSystem,
 };
 
@@ -64,7 +67,8 @@ where
         Some(self.0.predecessors(state.to_index(self)?)?.map(Reversed))
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
+    fn state_color<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::StateColor> {
+        let state = state.to_index(self)?;
         self.0.state_color(state)
     }
 }
@@ -81,7 +85,7 @@ where
     where
         Self: 'this;
 
-    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
-        Some(self.0.edges_from(state)?.map(Reversed))
+    fn predecessors<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesToIter<'_>> {
+        Some(self.0.edges_from(state.to_index(self)?)?.map(Reversed))
     }
 }

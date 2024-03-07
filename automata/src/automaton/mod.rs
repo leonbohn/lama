@@ -119,8 +119,8 @@ macro_rules! impl_automaton_type {
         {
             type PreEdgeRef<'this> = Ts::PreEdgeRef<'this> where Self: 'this;
             type EdgesToIter<'this> = Ts::EdgesToIter<'this> where Self: 'this;
-            fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
-                self.ts().predecessors(state)
+            fn predecessors<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesToIter<'_>> {
+                self.ts().predecessors(state.to_index(self)?)
             }
         }
         impl<Ts: Pointed> std::fmt::Debug for $name<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts> {
@@ -146,11 +146,15 @@ macro_rules! impl_automaton_type {
             ) -> Self::ExtendStateIndexIter {
                 self.ts_mut().extend_states(iter)
             }
-            fn set_state_color<X: Into<StateColor<Self>>>(
+            fn set_state_color<Idx: Indexes<Self>, X: Into<StateColor<Self>>>(
                 &mut self,
-                index: Self::StateIndex,
+                index: Idx,
                 color: X,
             ) {
+                let Some(index) = index.to_index(self) else {
+                    tracing::error!("Cannot set color of state that does not exist");
+                    return;
+                };
                 self.ts_mut().set_state_color(index, color)
             }
             fn add_edge<X, Y, CI>(
@@ -208,8 +212,8 @@ macro_rules! impl_automaton_type {
                 self.ts().state_indices()
             }
 
-            fn state_color(&self, state: Self::StateIndex) -> Option<StateColor<Self>> {
-                self.ts().state_color(state)
+            fn state_color<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::StateColor> {
+                self.ts().state_color(state.to_index(self)?)
             }
 
             fn edges_from<Idx: $crate::prelude::Indexes<Self>>(
@@ -233,12 +237,12 @@ macro_rules! impl_automaton_type {
                 self.ts().transition(state.to_index(self)?, symbol)
             }
 
-            fn edge_color(
+            fn edge_color<Idx: Indexes<Self>>(
                 &self,
-                state: Self::StateIndex,
+                state: Idx,
                 expression: &ExpressionOf<Self>,
             ) -> Option<EdgeColor<Self>> {
-                self.ts().edge_color(state, expression)
+                self.ts().edge_color(state.to_index(self)?, expression)
             }
         }
         impl<Ts: Pointed> Pointed for $name<Ts::Alphabet, Ts::StateColor, Ts::EdgeColor, Ts> {

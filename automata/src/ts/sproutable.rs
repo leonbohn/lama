@@ -164,11 +164,14 @@ pub trait Sproutable: TransitionSystem {
     ) -> Self::ExtendStateIndexIter;
     /// Removes the state with the given index. Note, that this should also remove all transitions
     /// that start or end in the given state. If the no state with the given `index` exists, the
-    /// method is a no-op.
-    ///
-    fn set_state_color<X: Into<StateColor<Self>>>(&mut self, index: Self::StateIndex, color: X);
+    /// method may panic or simply print an error!
+    /// TODO: Decide on the behavior of this method for states that do not exist.
+    fn set_state_color<Idx: Indexes<Self>, X: Into<StateColor<Self>>>(
+        &mut self,
+        index: Idx,
+        color: X,
+    );
     /// Sets the state color of the initial state.
-    ///
     fn set_initial_color<X: Into<StateColor<Self>>>(&mut self, color: X)
     where
         Self: Pointed,

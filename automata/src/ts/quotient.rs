@@ -4,7 +4,10 @@ use itertools::Itertools;
 
 use crate::{Alphabet, Partition, Pointed, RightCongruence, Set, Show, TransitionSystem};
 
-use super::{transition_system::IsEdge, Deterministic, ExpressionOf, SymbolOf};
+use super::{
+    transition_system::{Indexes, IsEdge},
+    Deterministic, ExpressionOf, SymbolOf,
+};
 
 /// A quotient takes a transition system and merges states which are in the same
 /// congruence class of some [`Partition`]. We assume that the [`Partition`] is
@@ -205,7 +208,8 @@ impl<Ts: Deterministic> TransitionSystem for Quotient<Ts> {
         0..self.partition.len()
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
+    fn state_color<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::StateColor> {
+        let state = state.to_index(self)?;
         let mut it = self.class_iter_by_id(state)?;
         it.map(|o| self.ts.state_color(o)).collect()
     }
