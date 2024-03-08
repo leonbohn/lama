@@ -5,7 +5,7 @@ use std::ops::Not;
 use automata::{
     automaton::{Buchi, DeterministicOmegaAutomaton, OmegaAcceptanceCondition},
     prelude::*,
-    ts::IndexedAlphabet,
+    ts::{IndexedAlphabet, path::Edge},
     Set,
 };
 
@@ -23,12 +23,12 @@ pub trait ConsistencyCheck<T: Deterministic> {
         &self,
         ts: &T,
         sample: &OmegaSample,
-    ) -> Initialized<DTS<Simple, Void, bool>>;
+    ) -> Initialized<DTS<CharAlphabet, Void, bool>>;
 }
 
 impl<T> ConsistencyCheck<T> for Buchi
 where
-    T: TransitionSystem<Alphabet = Simple, StateIndex = usize> + Deterministic + Pointed,
+    T: TransitionSystem<Alphabet = CharAlphabet, StateIndex = usize> + Deterministic + Pointed,
     <T as TransitionSystem>::EdgeColor: Eq + std::hash::Hash,
 {
     fn consistent(&self, ts: &T, sample: &OmegaSample) -> bool {
@@ -79,7 +79,7 @@ where
         &self,
         ts: &T,
         sample: &OmegaSample,
-    ) -> Initialized<DTS<Simple, Void, bool>> {
+    ) -> Initialized<DTS<CharAlphabet, Void, bool>> {
         // check consistency
         assert!(self.consistent(ts, sample));
 
@@ -102,14 +102,7 @@ where
             .transitions()
             .map(|t| t.into_tuple())
             .map(|(a, b, c, d)| {
-                (
-                    a,
-                    b.symbols()
-                        .next()
-                        .expect("edge expression shouldn't be empty"),
-                    c,
-                    d,
-                )
+                Edge::new(a, *b, d, c)
             })
             .collect();
 
@@ -118,18 +111,13 @@ where
         // make DBA (change edge colour to bool with map_edge_colors_full or map_edge_colors, then call as_dba(), set correct edge colours
         let mut aut = ts
             .map_edge_colors_full(move |a, b, c, d| {
-                accepting.contains(&(
-                    a,
-                    b.symbols()
-                        .next()
-                        .expect("edge expression shouldn't be empty"),
-                    d,
-                    c,
-                ))
+                accepting.contains(
+                    &Edge::new(a, *b, c, d)
+                )
             })
             .erase_state_colors();
 
-        let (c, _) = aut.collect_pointed::<DTS<Simple, Void, bool>>();
+        let (c, _) = aut.collect_pointed::<DTS<CharAlphabet, Void, bool>>();
         c
 
         // send missing transitions to initial state
@@ -146,7 +134,7 @@ mod tests {
     };
 
     // default alphabet
-    fn sigma() -> Simple {
+    fn sigma() -> CharAlphabet {
         alphabet!(simple 'a', 'b')
     }
 
@@ -167,18 +155,18 @@ mod tests {
         // build samples
         let sample1 = OmegaSample::new_omega_from_pos_neg(
             sigma(),
-            [Reduced::periodic("a")],
-            [Reduced::periodic("b")],
+            [upw!("a")],
+            [upw!("b")],
         );
         let sample2 = OmegaSample::new_omega_from_pos_neg(
             sigma(),
-            [Reduced::periodic("a")],
-            [Reduced::ultimately_periodic("a", "b")],
+            [upw!("a")],
+            [upw!("a", "b")],
         );
         let sample3 = OmegaSample::new_omega_from_pos_neg(
             sigma(),
-            [Reduced::ultimately_periodic("a", "b")],
-            [Reduced::periodic("b")],
+            [upw!("a", "b")],
+            [upw!("b")],
         );
 
         // words escape from different states
@@ -201,8 +189,8 @@ mod tests {
         // build sample
         let sample = OmegaSample::new_omega_from_pos_neg(
             sigma(),
-            [Reduced::periodic("a")],
-            [Reduced::periodic("b")],
+            [upw!("a")],
+            [upw!("b")],
         );
 
         // one word is escaping, the other is not
@@ -231,23 +219,23 @@ mod tests {
         // build samples
         let sample1 = OmegaSample::new_omega_from_pos_neg(
             sigma(),
-            [Reduced::ultimately_periodic("a", "b")],
-            [Reduced::periodic("b")],
+            [upw!("a", "b")],
+            [upw!("b")],
         );
         let sample2 = OmegaSample::new_omega_from_pos_neg(
             sigma(),
-            [Reduced::periodic("b")],
-            [Reduced::periodic("aab")],
+            [upw!("b")],
+            [upw!("aab")],
         );
         let sample3 = OmegaSample::new_omega_from_pos_neg(
             sigma(),
-            [Reduced::periodic("aab")],
-            [Reduced::periodic("b")],
+            [upw!("aab")],
+            [upw!("b")],
         );
         let sample4 = OmegaSample::new_omega_from_pos_neg(
             sigma(),
-            [Reduced::periodic("a")],
-            [Reduced::periodic("b")],
+            [upw!("a")],
+            [upw!("b")],
         );
 
         assert_eq!(Buchi.consistent(&ts, &sample1), true);
@@ -268,8 +256,8 @@ mod tests {
         // build sample
         let sample1 = OmegaSample::new_omega_from_pos_neg(
             sigma(),
-            [Reduced::ultimately_periodic("a", "b")],
-            [Reduced::periodic("b")],
+            [upw!("a", "b")],
+            [upw!("b")],
         );
 
         // build automaton

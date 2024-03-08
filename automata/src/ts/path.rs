@@ -333,7 +333,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Show for Lasso<A, Idx, Q, 
 
 /// Represents an edge that is not associated to a transition system. It stores a color, an
 /// expression, as well as a source and target state index.
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub struct Edge<E, Idx, C> {
     source: Idx,
     target: Idx,
