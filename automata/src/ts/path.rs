@@ -205,14 +205,19 @@ impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Clone> Path<A, Idx, Q, C> {
     }
 
     /// Returns an iterator over the transitions in the form (src, symbol, target, color)
-    pub fn transitions(&self) -> impl Iterator<Item = (Idx, A::Symbol, Idx, C)> + '_ {
+    pub fn transitions(&self) -> impl Iterator<Item = Edge<A::Symbol, Idx, C>> + '_ {
         if let Some(last) = self.transitions.last() {
             Either::Left(
                 self.transitions
                     .iter()
                     .tuple_windows::<(_, _)>()
-                    .map(|((q0, a0, c0), (q1, _, _))| (*q0, *a0, *q1, c0.clone()))
-                    .chain(std::iter::once((last.0, last.1, self.end, last.2.clone()))),
+                    .map(|((q0, a0, c0), (q1, _, _))| Edge::new(*q0, *a0, c0.clone(), *q1))
+                    .chain(std::iter::once(Edge::new(
+                        last.0,
+                        last.1,
+                        last.2.clone(),
+                        self.end,
+                    ))),
             )
         } else {
             Either::Right(std::iter::empty())
@@ -220,14 +225,14 @@ impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Clone> Path<A, Idx, Q, C> {
     }
 
     /// Consumes `self` and returns an iterator over the transitions in the form (src, symbol, target, color)
-    pub fn into_transitions(self) -> impl Iterator<Item = (Idx, A::Symbol, Idx, C)> {
+    pub fn into_transitions(self) -> impl Iterator<Item = Edge<A::Symbol, Idx, C>> {
         if let Some(last) = self.transitions.last().cloned() {
             Either::Left(
                 self.transitions
                     .into_iter()
                     .tuple_windows::<(_, _)>()
-                    .map(|((q0, a0, c0), (q1, _, _))| (q0, a0, q1, c0))
-                    .chain(std::iter::once((last.0, last.1, self.end, last.2))),
+                    .map(|((q0, a0, c0), (q1, _, _))| Edge::new(q0, a0, c0, q1))
+                    .chain(std::iter::once(Edge::new(last.0, last.1, last.2, self.end))),
             )
         } else {
             Either::Right(std::iter::empty())
@@ -235,7 +240,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Clone> Path<A, Idx, Q, C> {
     }
 }
 
-impl<A: Alphabet, Idx: IndexType, Q: Show, C: Show> Debug for Path<A, Idx, Q, C> {
+impl<A: Alphabet, Idx: IndexType, Q: Show, C: Show> std::fmt::Debug for Path<A, Idx, Q, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.show())
     }
@@ -293,7 +298,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Clone> Lasso<A, Idx, Q, C> {
 
     /// Gives the transitions along the loop, so transitions that appear infinitely often
     /// as tuples of the form (src, smbol, target, color)
-    pub fn recurrent_transitions(&self) -> impl Iterator<Item = (Idx, A::Symbol, Idx, C)> + '_ {
+    pub fn recurrent_transitions(&self) -> impl Iterator<Item = Edge<A::Symbol, Idx, C>> + '_ {
         self.cycle.transitions()
     }
 
@@ -315,7 +320,7 @@ impl<A: Alphabet, Idx: IndexType, Q: Clone, C: Clone> Lasso<A, Idx, Q, C> {
 
     /// Consumes `self` and gives the transitions along the loop, so transitions that appear infinitely often
     /// as tuples of the form (src, smbol, target, color)
-    pub fn into_recurrent_transitions(self) -> impl Iterator<Item = (Idx, A::Symbol, Idx, C)> {
+    pub fn into_recurrent_transitions(self) -> impl Iterator<Item = Edge<A::Symbol, Idx, C>> {
         self.cycle.into_transitions()
     }
 }
@@ -326,20 +331,64 @@ impl<A: Alphabet, Idx: IndexType, Q: Color, C: Color> Show for Lasso<A, Idx, Q, 
     }
 }
 
+/// Represents an edge that is not associated to a transition system. It stores a color, an
+/// expression, as well as a source and target state index.
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct Edge<E, Idx, C> {
+    source: Idx,
+    target: Idx,
+    color: C,
+    expression: E,
+}
+
+impl<'a, E, Idx: Copy, C: Clone> IsEdge<'a, E, Idx, C> for &'a Edge<E, Idx, C> {
+    fn target(&self) -> Idx {
+        self.target
+    }
+
+    fn color(&self) -> C {
+        self.color.clone()
+    }
+
+    fn expression(&self) -> &'a E {
+        &self.expression
+    }
+
+    fn source(&self) -> Idx {
+        self.source
+    }
+}
+
+impl<E, Idx, C> Edge<E, Idx, C> {
+    /// Creates a new edge with the given source, expression, color and target.
+    pub fn new(source: Idx, expression: E, color: C, target: Idx) -> Self {
+        Self {
+            source,
+            target,
+            color,
+            expression,
+        }
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
-    use crate::alphabet::Simple;
-    use crate::ts::Path;
+    use crate::alphabet::CharAlphabet;
+    use crate::ts::{path::Edge, Path};
 
     #[test]
     fn path_transitions() {
         // make path
-        let path: Path<Simple, usize, bool, bool> = Path::from_parts(
+        let path: Path<CharAlphabet, usize, bool, bool> = Path::from_parts(
             0,
             vec![true, false, true],
             vec![(0, 'a', false), (1, 'b', true), (2, 'c', false)],
         );
-        let transitions = vec![(0, 'a', 1, false), (1, 'b', 2, true), (2, 'c', 0, false)];
+        let transitions = vec![
+            Edge::new(0, 'a', false, 1),
+            Edge::new(1, 'b', true, 2),
+            Edge::new(2, 'c', false, 0),
+        ];
 
         assert!(path.transitions().eq(transitions));
     }

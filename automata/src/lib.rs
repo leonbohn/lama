@@ -25,11 +25,10 @@
 pub mod prelude {
     pub use super::{
         alphabet,
-        alphabet::{Expression, Simple, Symbol},
+        alphabet::{CharAlphabet, Expression, Symbol},
         automaton::{
-            DBALike, DFALike, DPALike, FiniteWordAcceptor, FiniteWordTransformer, Initialized,
-            IntoDBA, IntoDFA, IntoDPA, IntoMealyMachine, IntoMooreMachine, MealyLike, MealyMachine,
-            MooreLike, MooreMachine, NoColor, OmegaWordAcceptor, OmegaWordTransformer,
+            DBALike, DFALike, DPALike, Initialized, IntoDBA, IntoDFA, IntoDPA, IntoMealyMachine,
+            IntoMooreMachine, MealyLike, MealyMachine, MooreLike, MooreMachine, NoColor,
             StateBasedDBA, StateBasedDPA, DBA, DFA, DPA,
         },
         mapping::Morphism,
@@ -39,13 +38,17 @@ pub mod prelude {
             finite::ReachedState,
             operations::{Product, ProductIndex},
             predecessors::PredecessorIterable,
+            run::{FiniteRun, OmegaRun},
             transition_system::{EdgeReference, FullTransition, Indexes, IsEdge},
-            Congruence, Deterministic, DeterministicEdgesFrom, EdgeColor, ExpressionOf, HasColor,
-            HasColorMut, HashTs, IndexType, Path, Sproutable, StateColor, SymbolOf, TSBuilder,
-            TransitionSystem, DTS, NTS,
+            Congruence, Deterministic, DeterministicEdgesFrom, EdgeColor, ExpressionOf, HashTs,
+            IndexType, Path, Sproutable, StateColor, SymbolOf, TSBuilder, TransitionSystem, DTS,
+            NTS,
         },
         upw,
-        word::{FiniteWord, LinearWord, OmegaWord, Periodic, Reduced, ReducedParseError},
+        word::{
+            FiniteWord, LinearWord, OmegaWord, PeriodicOmegaWord, ReducedOmegaWord,
+            ReducedParseError,
+        },
         Alphabet, Class, Color, FiniteLength, HasLength, InfiniteLength, Length, Pointed,
         RightCongruence, Show, Void,
     };
@@ -109,6 +112,15 @@ pub trait Color: Clone + Eq + Ord + Hash + Show {
 
 impl<T: Eq + Ord + Clone + Hash + Show> Color for T {}
 
+/// Implementors of this trait can be constructed from a value of type `C`.
+/// This is useful for example when we want to collect a transition system into a different
+/// representation, but we don't care about the colors on the edges. In that case, the state
+/// colors may be kept and the edge colors are dropped.
+pub trait Constructible<C>: Clone {
+    /// Construct an instance of `Self` from a value of type `C`.
+    fn construct(from: C) -> Self;
+}
+
 /// Represents the absence of a color. The idea is that this can be used when collecting
 /// a transitions system as it can always be constructed from a color by simply forgetting it.
 /// This is useful for example when we want to collect a transition system into a different
@@ -116,6 +128,18 @@ impl<T: Eq + Ord + Clone + Hash + Show> Color for T {}
 /// colors may be kept and the edge colors are dropped.
 #[derive(Hash, Eq, PartialEq, PartialOrd, Ord, Clone, Copy, Default)]
 pub struct Void;
+
+impl<T> Constructible<T> for Void {
+    fn construct(_: T) -> Self {
+        Void
+    }
+}
+
+impl<C: Color> Constructible<C> for C {
+    fn construct(from: C) -> Self {
+        from
+    }
+}
 
 impl<C: Color> From<C> for Void {
     fn from(_: C) -> Self {
@@ -387,10 +411,9 @@ impl HasParity for usize {
 mod tests {
     use crate::{alphabet, prelude::*, Void};
 
-    pub fn wiki_dfa() -> DFA<Simple> {
-        let mut dfa = DFA::new(alphabet!(simple 'a', 'b'));
-        let a = dfa.initial();
-        dfa.set_initial_color(false);
+    pub fn wiki_dfa() -> DFA<CharAlphabet> {
+        let mut dfa = DFA::new_for_alphabet(alphabet!(simple 'a', 'b'));
+        let a = dfa.add_state(false);
         let b = dfa.add_state(false);
         let c = dfa.add_state(true);
         let d = dfa.add_state(true);

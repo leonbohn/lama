@@ -1,7 +1,7 @@
 use bit_set::BitSet;
 use itertools::Itertools;
 
-use crate::{prelude::Simple, Alphabet, Bijection, Pointed, TransitionSystem};
+use crate::{prelude::CharAlphabet, Alphabet, Bijection, Pointed, TransitionSystem};
 
 use super::{
     transition_system::{Indexes, IsEdge},
@@ -29,7 +29,7 @@ pub trait IndexedAlphabet: Alphabet {
     }
 }
 
-impl IndexedAlphabet for Simple {
+impl IndexedAlphabet for CharAlphabet {
     fn symbol_to_index(&self, sym: Self::Symbol) -> usize {
         self.expression_to_index(&sym)
     }
@@ -76,8 +76,8 @@ pub trait Sproutable: TransitionSystem {
     ///     .with_colors([0])
     ///     .deterministic();
     ///
-    /// let (without_edge_colors, _): (DTS<Simple, usize, Void>, _) = DTS::collect_from(&source);
-    /// let (without_state_colors, _): (DTS<Simple, Void, usize>, _) = DTS::collect_from(&source);
+    /// let (without_edge_colors, _): (DTS<CharAlphabet, usize, Void>, _) = DTS::collect_from(&source);
+    /// let (without_state_colors, _): (DTS<CharAlphabet, Void, usize>, _) = DTS::collect_from(&source);
     /// ```
     fn collect_from<Ts>(ts: Ts) -> (Self, Bijection<Ts::StateIndex, Self::StateIndex>)
     where
@@ -164,11 +164,14 @@ pub trait Sproutable: TransitionSystem {
     ) -> Self::ExtendStateIndexIter;
     /// Removes the state with the given index. Note, that this should also remove all transitions
     /// that start or end in the given state. If the no state with the given `index` exists, the
-    /// method is a no-op.
-    ///
-    fn set_state_color<X: Into<StateColor<Self>>>(&mut self, index: Self::StateIndex, color: X);
+    /// method may panic or simply print an error!
+    /// TODO: Decide on the behavior of this method for states that do not exist.
+    fn set_state_color<Idx: Indexes<Self>, X: Into<StateColor<Self>>>(
+        &mut self,
+        index: Idx,
+        color: X,
+    );
     /// Sets the state color of the initial state.
-    ///
     fn set_initial_color<X: Into<StateColor<Self>>>(&mut self, color: X)
     where
         Self: Pointed,
@@ -179,16 +182,17 @@ pub trait Sproutable: TransitionSystem {
     /// a transition already exists, the method returns the index of the original target and the
     /// color of the original edge. Otherwise, the method returns `None`.
     ///
-    fn add_edge<X, Y>(
+    fn add_edge<X, Y, CI>(
         &mut self,
         from: X,
         on: <Self::Alphabet as Alphabet>::Expression,
         to: Y,
-        color: EdgeColor<Self>,
+        color: CI,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
         X: Indexes<Self>,
-        Y: Indexes<Self>;
+        Y: Indexes<Self>,
+        CI: Into<EdgeColor<Self>>;
 
     /// Removes the transition from the state `from` to the state `to` on the given expression.
     /// Returns `true` if the transition existed and was removed, `false` otherwise.

@@ -8,13 +8,13 @@ use super::LinearWord;
 
 #[derive(Clone)]
 pub struct Normalized<S: Symbol> {
-    upw: Reduced<S>,
+    upw: ReducedOmegaWord<S>,
     pre_loop_count: usize,
     loop_size: usize,
 }
 
 impl<S: Symbol> Normalized<S> {
-    pub fn new(upw: Reduced<S>, pre_loop_count: usize, loop_size: usize) -> Self {
+    pub fn new(upw: ReducedOmegaWord<S>, pre_loop_count: usize, loop_size: usize) -> Self {
         assert!(loop_size > 0, "loop size must be positive");
         Self {
             upw,

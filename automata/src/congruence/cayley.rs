@@ -14,7 +14,7 @@ use crate::{
 #[derive(Clone)]
 pub struct Cayley<
     'a,
-    Ts: Deterministic<Alphabet = Simple> + Pointed,
+    Ts: Deterministic<Alphabet = CharAlphabet> + Pointed,
     SA: Accumulates<X = Ts::StateColor>,
     EA: Accumulates<X = Ts::EdgeColor>,
 > {
@@ -26,7 +26,7 @@ pub struct Cayley<
 
 impl<
         'a,
-        Ts: Deterministic<Alphabet = Simple> + Pointed,
+        Ts: Deterministic<Alphabet = CharAlphabet> + Pointed,
         SA: Accumulates<X = Ts::StateColor>,
         EA: Accumulates<X = Ts::EdgeColor>,
     > Cayley<'a, Ts, SA, EA>
@@ -43,7 +43,7 @@ impl<
 impl<'a, Ts, SA: Accumulates<X = Ts::StateColor>, EA: Accumulates<X = Ts::EdgeColor>>
     TransitionSystem for Cayley<'a, Ts, SA, EA>
 where
-    Ts: Deterministic<Alphabet = Simple> + Pointed,
+    Ts: Deterministic<Alphabet = CharAlphabet> + Pointed,
 {
     type StateIndex = usize;
 
@@ -71,15 +71,17 @@ where
         Some(DeterministicEdgesFrom::new(self, state.to_index(self)?))
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
-        self.monoid().get_profile(state).map(|p| p.0.clone())
+    fn state_color<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::StateColor> {
+        self.monoid()
+            .get_profile(state.to_index(self)?)
+            .map(|p| p.0.clone())
     }
 }
 
 impl<'a, Ts, SA: Accumulates<X = Ts::StateColor>, EA: Accumulates<X = Ts::EdgeColor>> Deterministic
     for Cayley<'a, Ts, SA, EA>
 where
-    Ts: Deterministic<Alphabet = Simple> + Pointed,
+    Ts: Deterministic<Alphabet = CharAlphabet> + Pointed,
 {
     fn transition<Idx: Indexes<Self>>(
         &self,
@@ -102,7 +104,7 @@ where
 
 impl<'a, Ts> Cayley<'a, Ts, Reduces<Ts::StateColor>, Reduces<Ts::EdgeColor>>
 where
-    Ts: Deterministic<Alphabet = Simple> + Pointed,
+    Ts: Deterministic<Alphabet = CharAlphabet> + Pointed,
     Reduces<Ts::EdgeColor>: Accumulates<X = Ts::EdgeColor>,
     Reduces<Ts::StateColor>: Accumulates<X = Ts::StateColor>,
 {
@@ -118,7 +120,7 @@ where
 }
 impl<'a, Ts> Cayley<'a, Ts, Replaces<Ts::StateColor>, Replaces<Ts::EdgeColor>>
 where
-    Ts: Deterministic<Alphabet = Simple> + Pointed,
+    Ts: Deterministic<Alphabet = CharAlphabet> + Pointed,
     Replaces<Ts::EdgeColor>: Accumulates<X = Ts::EdgeColor>,
     Replaces<Ts::StateColor>: Accumulates<X = Ts::StateColor>,
 {
@@ -136,7 +138,7 @@ where
 impl<'a, Ts, SA: Accumulates<X = Ts::StateColor>, EA: Accumulates<X = Ts::EdgeColor>>
     Cayley<'a, Ts, SA, EA>
 where
-    Ts: Deterministic<Alphabet = Simple> + Pointed,
+    Ts: Deterministic<Alphabet = CharAlphabet> + Pointed,
     Ts::StateColor: Accumulates,
     Ts::EdgeColor: Accumulates,
 {
@@ -211,8 +213,10 @@ where
         Some(DeterministicEdgesFrom::new(self, state.to_index(self)?))
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
-        self.monoid().get_profile(state).map(|p| p.0.clone())
+    fn state_color<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::StateColor> {
+        self.monoid()
+            .get_profile(state.to_index(self)?)
+            .map(|p| p.0.clone())
     }
 }
 

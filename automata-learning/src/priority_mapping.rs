@@ -13,7 +13,7 @@ use automata::{
 
 /// A priority mapping is essentially a [`crate::MealyMachine`], i.e. it reads
 /// finite words and ouptuts a priority (which in this case is a `usize`).
-pub type PriorityMapping<A = Simple> = MealyMachine<A, usize>;
+pub type PriorityMapping<A = CharAlphabet> = MealyMachine<A, usize>;
 
 #[derive(Debug, Clone)]
 pub struct CongruentPriorityMapping<'ts, A: Alphabet> {
@@ -92,7 +92,7 @@ impl Annotation {
 /// This a simple newtype wrapper around a congruence, which has no edge colors and uses
 /// [`Annotation`]s as state colors.
 #[derive(Clone)]
-pub struct AnnotatedCongruence<A: Alphabet = Simple>(RightCongruence<A, Annotation, Void>);
+pub struct AnnotatedCongruence<A: Alphabet = CharAlphabet>(RightCongruence<A, Annotation, Void>);
 
 impl<A: Alphabet> AnnotatedCongruence<A> {
     pub fn new(rc: RightCongruence<A, Annotation, Void>) -> Self {
@@ -115,7 +115,7 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
     /// Computes the canonic coloring on a given annotated congruence. This makes use
     /// of the dag of strongly connected components of the congruence. For more information
     /// on how the computation is done exactly, see [Section 5, Step 2](https://arxiv.org/pdf/2302.11043.pdf).
-    pub fn canonic_coloring(&self) -> MooreMachine<A, usize, usize> {
+    pub fn canonic_coloring(&self) -> MooreMachine<A, usize> {
         // we first need to decompose into sccs and mark them with the color of the
         // idempotent that it contains.
         let tjdag = self.0.tarjan_dag();
@@ -204,7 +204,7 @@ impl<A: Alphabet> AnnotatedCongruence<A> {
 /// it computes (on non-empty words) is weak in the sense that M_c(xy) <= M_c(x)
 /// for all x and y.
 #[derive(Debug, Clone)]
-pub struct Fwpm<A: Alphabet = Simple> {
+pub struct Fwpm<A: Alphabet = CharAlphabet> {
     cong: RightCongruence<A>,
     pms: Vec<PriorityMapping<A>>,
 }

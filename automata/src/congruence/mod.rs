@@ -3,9 +3,10 @@ use std::fmt::{Debug, Display};
 use itertools::{Itertools, MapInto};
 
 use crate::{
-    alphabet::{Simple, Symbol},
+    alphabet::{CharAlphabet, Symbol},
+    automaton::IntoDFA,
     prelude::{DFALike, IsEdge},
-    ts::{transition_system::Indexes, Deterministic, EdgeColor, Sproutable, DTS},
+    ts::{transition_system::Indexes, Deterministic, EdgeColor, Sproutable, StateColor, DTS},
     word::FiniteWord,
     Alphabet, Color, FiniteLength, HasLength, Map, Pointed, Show, TransitionSystem, Void, DFA,
 };
@@ -25,7 +26,7 @@ mod cayley;
 /// represent these as a transition system, where the states are the equivalence classes and the colors
 /// on edges are `()`.
 #[derive(Clone, Eq, PartialEq)]
-pub struct RightCongruence<A: Alphabet = Simple, Q = Void, C = Void> {
+pub struct RightCongruence<A: Alphabet = CharAlphabet, Q = Void, C = Void> {
     ts: DTS<A, ColoredClass<A::Symbol, Q>, C>,
 }
 
@@ -172,11 +173,15 @@ impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for RightCongruence<A, Q, C> {
         self.ts.add_state(color.into())
     }
 
-    fn set_state_color<X: Into<crate::ts::StateColor<Self>>>(
+    fn set_state_color<Idx: Indexes<Self>, X: Into<StateColor<Self>>>(
         &mut self,
-        index: Self::StateIndex,
+        index: Idx,
         color: X,
     ) {
+        let Some(index) = index.to_index(self) else {
+            tracing::error!("cannot set color of state that does not exist");
+            return;
+        };
         self.ts.set_state_color(index, color.into())
     }
 
@@ -184,21 +189,21 @@ impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for RightCongruence<A, Q, C> {
         let mut ts = DTS::new_for_alphabet(alphabet);
         Self { ts }
     }
-
-    fn add_edge<X, Y>(
+    fn add_edge<X, Y, CI>(
         &mut self,
         from: X,
         on: <Self::Alphabet as Alphabet>::Expression,
         to: Y,
-        color: EdgeColor<Self>,
+        color: CI,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
         X: Indexes<Self>,
         Y: Indexes<Self>,
+        CI: Into<EdgeColor<Self>>,
     {
         let from = from.to_index(self)?;
         let to = to.to_index(self)?;
-        self.ts_mut().add_edge(from, on, to, color)
+        self.ts_mut().add_edge(from, on, to, color.into())
     }
     fn remove_edges<X>(&mut self, from: X, on: <Self::Alphabet as Alphabet>::Expression) -> bool
     where
@@ -221,7 +226,7 @@ impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for RightCongruence<A, Q, C> {
 
 impl<A: Alphabet, Q: Clone + Default, C: Clone> RightCongruence<A, Q, C> {
     /// Creates a new [`RightCongruence`] for the given alphabet.
-    pub fn new(alphabet: A) -> Self {
+    pub fn new(alphabet: A) -> RightCongruence<A, Q, C> {
         Self::new_for_alphabet(alphabet)
     }
 }

@@ -225,7 +225,8 @@ where
         })
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
+    fn state_color<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::StateColor> {
+        let state = state.to_index(self)?;
         self.ts().state_color(state)
     }
 }
@@ -239,7 +240,7 @@ impl<D: PredecessorIterable<EdgeColor = usize>> PredecessorIterable for ColorRes
     where
         Self: 'this;
 
-    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
+    fn predecessors<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesToIter<'_>> {
         todo!()
     }
 }
@@ -322,20 +323,20 @@ mod tests {
 
     #[test]
     fn restrict_ts_by_state_index() {
-        let mut dfa = DFA::new(alphabet! {simple 'a', 'b'});
-        let q0 = dfa.initial();
+        let mut dfa = DFA::new_for_alphabet(alphabet! {simple 'a', 'b'});
+        let q0 = dfa.add_state(false);
         let q1 = dfa.add_state(false);
         let q2 = dfa.add_state(true);
 
-        dfa.add_edge(q0, 'a', q1, ());
-        dfa.add_edge(q0, 'b', q0, ());
-        dfa.add_edge(q1, 'a', q2, ());
-        dfa.add_edge(q1, 'b', q1, ());
-        dfa.add_edge(q2, 'a', q0, ());
-        dfa.add_edge(q2, 'b', q2, ());
-        assert!(dfa.accepts_finite("aa"));
+        dfa.add_edge(q0, 'a', q1, Void);
+        dfa.add_edge(q0, 'b', q0, Void);
+        dfa.add_edge(q1, 'a', q2, Void);
+        dfa.add_edge(q1, 'b', q1, Void);
+        dfa.add_edge(q2, 'a', q0, Void);
+        dfa.add_edge(q2, 'b', q2, Void);
+        assert!(dfa.accepts("aa"));
 
         let restricted = dfa.restrict_state_indices(|idx| idx != q2);
-        assert!(!restricted.into_dfa().accepts_finite("aa"));
+        assert!(!restricted.into_dfa().accepts("aa"));
     }
 }

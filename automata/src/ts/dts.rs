@@ -7,7 +7,7 @@ use super::nts::{NTEdge, NTSEdgesFromIter, NTSEdgesTo, NTSPartsFor, NTState};
 /// A deterministic transition system. This is a thin wrapper around [`NTS`] and is only used to
 /// enforce that the underlying NTS is deterministic.
 #[derive(Clone, Eq, PartialEq)]
-pub struct DTS<A: Alphabet = Simple, Q = Void, C = Void>(pub(crate) NTS<A, Q, C>);
+pub struct DTS<A: Alphabet = CharAlphabet, Q = Void, C = Void>(pub(crate) NTS<A, Q, C>);
 
 /// Type alias to create a deterministic transition with the same alphabet, state and edge color
 /// as the given [`Ts`](`crate::prelude::TransitionSystem`).
@@ -57,9 +57,8 @@ impl<A: Alphabet, Q: Clone, C: Clone> TransitionSystem for DTS<A, Q, C> {
     fn edges_from<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesFromIter<'_>> {
         self.0.edges_from(state.to_index(self)?)
     }
-
-    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
-        self.0.state_color(state)
+    fn state_color<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::StateColor> {
+        self.0.state_color(state.to_index(self)?)
     }
 }
 
@@ -72,8 +71,8 @@ impl<A: Alphabet, Q: Clone, C: Clone> PredecessorIterable for DTS<A, Q, C> {
     where
         Self: 'this;
 
-    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
-        self.0.predecessors(state)
+    fn predecessors<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesToIter<'_>> {
+        self.0.predecessors(state.to_index(self)?)
     }
 }
 
@@ -95,23 +94,32 @@ impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for DTS<A, Q, C> {
         self.0.extend_states(iter)
     }
 
-    fn set_state_color<X: Into<StateColor<Self>>>(&mut self, index: Self::StateIndex, color: X) {
+    fn set_state_color<Idx: Indexes<Self>, X: Into<StateColor<Self>>>(
+        &mut self,
+        index: Idx,
+        color: X,
+    ) {
+        let Some(index) = index.to_index(self) else {
+            tracing::error!("cannot set color of state that does not exist");
+            return;
+        };
         self.0.set_state_color(index, color)
     }
 
-    fn add_edge<X, Y>(
+    fn add_edge<X, Y, CI>(
         &mut self,
         from: X,
         on: <Self::Alphabet as Alphabet>::Expression,
         to: Y,
-        color: EdgeColor<Self>,
+        color: CI,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
         X: Indexes<Self>,
         Y: Indexes<Self>,
+        CI: Into<EdgeColor<Self>>,
     {
         self.0
-            .add_edge(from.to_index(self)?, on, to.to_index(self)?, color)
+            .add_edge(from.to_index(self)?, on, to.to_index(self)?, color.into())
     }
     fn remove_edges<X>(&mut self, from: X, on: <Self::Alphabet as Alphabet>::Expression) -> bool
     where

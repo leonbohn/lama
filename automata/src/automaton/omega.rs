@@ -192,8 +192,8 @@ impl<A: Alphabet> TransitionSystem for OmegaAutomaton<A> {
         self.ts.edges_from(state.to_index(self)?)
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
-        self.ts.state_color(state)
+    fn state_color<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::StateColor> {
+        self.ts.state_color(state.to_index(self)?)
     }
 }
 
@@ -230,8 +230,8 @@ impl<A: Alphabet> TransitionSystem for DeterministicOmegaAutomaton<A> {
         self.ts.edges_from(state.to_index(self)?)
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
-        self.ts.state_color(state)
+    fn state_color<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::StateColor> {
+        self.ts.state_color(state.to_index(self)?)
     }
 }
 
@@ -244,8 +244,8 @@ impl<A: Alphabet> PredecessorIterable for OmegaAutomaton<A> {
     where
         Self: 'this;
 
-    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
-        self.ts.predecessors(state)
+    fn predecessors<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesToIter<'_>> {
+        self.ts.predecessors(state.to_index(self)?)
     }
 }
 
@@ -258,8 +258,8 @@ impl<A: Alphabet> PredecessorIterable for DeterministicOmegaAutomaton<A> {
     where
         Self: 'this;
 
-    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
-        self.ts.predecessors(state)
+    fn predecessors<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesToIter<'_>> {
+        self.ts.predecessors(state.to_index(self)?)
     }
 }
 
@@ -270,17 +270,6 @@ impl<A: Alphabet> Deterministic for DeterministicOmegaAutomaton<A> {
         symbol: SymbolOf<Self>,
     ) -> Option<Self::EdgeRef<'_>> {
         self.ts.transition(state.to_index(self)?, symbol)
-    }
-}
-
-impl<A: Alphabet> OmegaWordAcceptor<A::Symbol> for DeterministicOmegaAutomaton<A> {
-    fn accepts_omega<W: OmegaWord<A::Symbol>>(&self, word: W) -> bool {
-        match self.omega_run(word) {
-            Ok(r) => self
-                .acc
-                .satisfied(&r.into_recurrent_edge_colors().collect()),
-            Err(_) => false,
-        }
     }
 }
 

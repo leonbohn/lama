@@ -91,21 +91,21 @@ impl<Ts: TransitionSystem + Sproutable> Sproutable for Initialized<Ts> {
         let mut ts = Ts::new_for_alphabet(alphabet);
         Self(ts, <Ts::StateIndex as IndexType>::first())
     }
-
-    fn add_edge<X, Y>(
+    fn add_edge<X, Y, CI>(
         &mut self,
         from: X,
         on: <Self::Alphabet as Alphabet>::Expression,
         to: Y,
-        color: EdgeColor<Self>,
+        color: CI,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
         X: Indexes<Self>,
         Y: Indexes<Self>,
+        CI: Into<EdgeColor<Self>>,
     {
         let from = from.to_index(self)?;
         let to = to.to_index(self)?;
-        self.ts_mut().add_edge(from, on, to, color)
+        self.ts_mut().add_edge(from, on, to, color.into())
     }
     fn remove_edges<X>(&mut self, from: X, on: <Self::Alphabet as Alphabet>::Expression) -> bool
     where
@@ -120,7 +120,15 @@ impl<Ts: TransitionSystem + Sproutable> Sproutable for Initialized<Ts> {
         self.ts_mut().add_state(color)
     }
 
-    fn set_state_color<X: Into<StateColor<Self>>>(&mut self, index: Self::StateIndex, color: X) {
+    fn set_state_color<Idx: Indexes<Self>, X: Into<StateColor<Self>>>(
+        &mut self,
+        index: Idx,
+        color: X,
+    ) {
+        let Some(index) = index.to_index(self) else {
+            tracing::error!("cannot set color of state that does not exist");
+            return;
+        };
         self.ts_mut().set_state_color(index, color)
     }
 

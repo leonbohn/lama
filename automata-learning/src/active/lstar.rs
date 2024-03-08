@@ -9,10 +9,10 @@ use super::oracle::LStarOracle;
 
 const ITERATION_THRESHOLD: usize = if cfg!(debug_assertions) { 300 } else { 200000 };
 
-pub trait LStarHypothesis:
-    Deterministic + Sproutable + Pointed + FiniteWordTransformer<SymbolOf<Self>, Self::Color>
-{
+pub trait LStarHypothesis: Deterministic + Sproutable + Pointed {
     type Color: Color;
+
+    fn transform(&self, word: &[SymbolOf<Self>]) -> Self::Color;
 
     fn from_transition_system(
         ts: DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>,
@@ -62,25 +62,25 @@ impl<T: LStarOracle<DFA>> LStar<DFA, T> {
     pub fn dfa(oracle: T) -> DFA {
         Self::new(oracle.alphabet(), oracle).infer()
     }
-    pub fn for_dfa(alphabet: Simple, oracle: T) -> LStar<DFA, T> {
+    pub fn for_dfa(alphabet: CharAlphabet, oracle: T) -> LStar<DFA, T> {
         Self::new(alphabet, oracle)
     }
 }
 
-impl<T: LStarOracle<MealyMachine<Simple>>> LStar<MealyMachine<Simple>, T> {
-    pub fn mealy(oracle: T) -> MealyMachine<Simple> {
+impl<T: LStarOracle<MealyMachine<CharAlphabet>>> LStar<MealyMachine<CharAlphabet>, T> {
+    pub fn mealy(oracle: T) -> MealyMachine<CharAlphabet> {
         Self::new(oracle.alphabet(), oracle).infer()
     }
-    pub fn for_mealy(alphabet: Simple, oracle: T) -> LStar<MealyMachine<Simple>, T> {
+    pub fn for_mealy(alphabet: CharAlphabet, oracle: T) -> LStar<MealyMachine<CharAlphabet>, T> {
         Self::new(alphabet, oracle)
     }
 }
 
-impl<T: LStarOracle<MooreMachine<Simple>>> LStar<MooreMachine<Simple>, T> {
-    pub fn moore(alphabet: Simple, oracle: T) -> MooreMachine<Simple> {
+impl<T: LStarOracle<MooreMachine<CharAlphabet>>> LStar<MooreMachine<CharAlphabet>, T> {
+    pub fn moore(alphabet: CharAlphabet, oracle: T) -> MooreMachine<CharAlphabet> {
         Self::new(alphabet, oracle).infer()
     }
-    pub fn for_moore(alphabet: Simple, oracle: T) -> LStar<MooreMachine<Simple>, T> {
+    pub fn for_moore(alphabet: CharAlphabet, oracle: T) -> LStar<MooreMachine<CharAlphabet>, T> {
         Self::new(alphabet, oracle)
     }
 }
@@ -189,7 +189,7 @@ impl<D: LStarHypothesis, T: LStarOracle<D>> LStar<D, T> {
             let hypothesis = self.hypothesis();
 
             if let Err((counterexample, color)) = self.oracle.equivalence(&hypothesis) {
-                assert!(hypothesis.transform_finite(&counterexample) != color);
+                assert!(hypothesis.transform(&counterexample) != color);
                 self.process_counterexample(counterexample, color);
                 continue 'outer;
             }
@@ -395,10 +395,10 @@ mod tests {
 
     use super::LStar;
 
-    struct ModkAmodlB(Simple);
-    struct WordLenModk(Simple, usize);
+    struct ModkAmodlB(CharAlphabet);
+    struct WordLenModk(CharAlphabet, usize);
 
-    impl LStarOracle<MooreMachine<Simple>> for ModkAmodlB {
+    impl LStarOracle<MooreMachine<CharAlphabet>> for ModkAmodlB {
         fn output<W: FiniteWord<char>>(&self, word: W) -> usize {
             let (count_a, count_b) = word.symbols().fold((0, 0), |(a, b), c| match c {
                 'a' => (a + 1, b),
@@ -413,7 +413,10 @@ mod tests {
             }
         }
 
-        fn equivalence(&self, hypothesis: &MooreMachine<Simple>) -> Result<(), (Vec<char>, usize)> {
+        fn equivalence(
+            &self,
+            hypothesis: &MooreMachine<CharAlphabet>,
+        ) -> Result<(), (Vec<char>, usize)> {
             for word in [
                 "aa", "bb", "bab", "aba", "abba", "bbab", "", "b", "a", "abaaabab", "bbababa",
             ] {
@@ -431,13 +434,13 @@ mod tests {
 
         type Length = FiniteLength;
 
-        fn alphabet(&self) -> Simple {
-            Simple::from_iter(['a', 'b'])
+        fn alphabet(&self) -> CharAlphabet {
+            CharAlphabet::from_iter(['a', 'b'])
         }
     }
 
     #[cfg(test)]
-    impl LStarOracle<MooreMachine<Simple, usize>> for WordLenModk {
+    impl LStarOracle<MooreMachine<CharAlphabet, usize>> for WordLenModk {
         type Length = FiniteLength;
 
         fn output<W: FiniteWord<char>>(&self, word: W) -> usize {
@@ -446,7 +449,7 @@ mod tests {
 
         fn equivalence(
             &self,
-            hypothesis: &MooreMachine<Simple, usize>,
+            hypothesis: &MooreMachine<CharAlphabet, usize>,
         ) -> Result<(), (Vec<char>, usize)> {
             for word in [
                 "aa", "bb", "bab", "bbabba", "aba", "abba", "bbab", "", "b", "a",
@@ -459,14 +462,14 @@ mod tests {
             Ok(())
         }
 
-        fn alphabet(&self) -> Simple {
+        fn alphabet(&self) -> CharAlphabet {
             vec!['a', 'b'].into()
         }
     }
 
     #[test]
     fn lstar_word_len_mod_k() {
-        let alphabet = Simple::from_iter(vec!['a', 'b']);
+        let alphabet = CharAlphabet::from_iter(vec!['a', 'b']);
 
         for k in (3..10) {
             let time_start = std::time::Instant::now();
@@ -481,7 +484,7 @@ mod tests {
 
     #[test]
     fn lstar_even_a_even_b() {
-        let alphabet = Simple::from_iter(vec!['a', 'b']);
+        let alphabet = CharAlphabet::from_iter(vec!['a', 'b']);
         let mut oracle = ModkAmodlB(alphabet.clone());
         let mut lstar = super::LStar::for_moore(alphabet, oracle);
 
@@ -493,10 +496,9 @@ mod tests {
     }
 
     fn test_dfa() -> DFA {
-        let alphabet = Simple::from_iter(['a', 'b', 'c']);
-        let mut dfa = DFA::new(alphabet);
-        let q0 = dfa.initial();
-        dfa.set_initial_color(true);
+        let alphabet = CharAlphabet::from_iter(['a', 'b', 'c']);
+        let mut dfa = DFA::new_for_alphabet(alphabet);
+        let q0 = dfa.add_state(true);
         let q1 = dfa.add_state(false);
         let q2 = dfa.add_state(true);
         let q3 = dfa.add_state(false);

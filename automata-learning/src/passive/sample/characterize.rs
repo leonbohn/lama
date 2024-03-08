@@ -38,7 +38,7 @@ where
 
     for (i, class) in quot.partition().iter().enumerate() {
         let class_pm = priority_mapping_set_backed(&dpa, class);
-        let cpm = CongruentPriorityMapping::new(&cong, i, class_pm.collect_mealy());
+        let cpm = CongruentPriorityMapping::new(&cong, i, class_pm.push_colors_to_outgoing_edges());
         let class_sample = priority_mapping_by_omega_words(cpm);
         sample.append(class_sample);
     }
@@ -83,15 +83,15 @@ fn right_congruence_by_omega_words<M: DPALike>(
 
             let suffix = cong
                 .ts()
-                .as_dpa()
+                .into_dpa()
                 .separate(p, q)
                 .expect("Separation must be possible");
 
             let w1 = Concat(&mtr, &suffix).normalized();
             let w2 = Concat(&mr, suffix).normalized();
 
-            let b1 = cong.ts().as_dpa().accepts_omega(&w1);
-            let b2 = cong.ts().as_dpa().accepts_omega(&w2);
+            let b1 = cong.ts().into_dpa().accepts(&w1);
+            let b2 = cong.ts().into_dpa().accepts(&w2);
             assert_ne!(b1, b2);
 
             if b1 {
@@ -205,7 +205,7 @@ impl<Idx: IndexType, C: Color> StateCollection<Idx, C> for BTreeSet<(Idx, C)> {
 fn priority_mapping_set_backed<D: DPALike, X: Borrow<D::StateIndex>, I: IntoIterator<Item = X>>(
     dpa: D,
     initial: I,
-) -> MooreMachine<D::Alphabet, D::EdgeColor, D::EdgeColor> {
+) -> MooreMachine<D::Alphabet, D::EdgeColor> {
     let neutral_high = dpa
         .edge_colors()
         .max()
@@ -221,7 +221,7 @@ fn priority_mapping_set_backed<D: DPALike, X: Borrow<D::StateIndex>, I: IntoIter
 fn priority_mapping_vec_backed<D: DPALike, I: IntoIterator<Item = D::StateIndex>>(
     dpa: D,
     initial: I,
-) -> MooreMachine<D::Alphabet, D::EdgeColor, D::EdgeColor> {
+) -> MooreMachine<D::Alphabet, D::EdgeColor> {
     let neutral_high = dpa
         .edge_colors()
         .max()
@@ -238,7 +238,7 @@ fn priority_mapping_vec_backed<D: DPALike, I: IntoIterator<Item = D::StateIndex>
 fn build_generic_priority_mapping<D, Coll>(
     dpa: D,
     initial: Coll,
-) -> MooreMachine<D::Alphabet, D::EdgeColor, D::EdgeColor>
+) -> MooreMachine<D::Alphabet, D::EdgeColor>
 where
     D: DPALike,
     Coll: StateCollection<D::StateIndex, D::EdgeColor>,
@@ -459,7 +459,10 @@ mod tests {
             start.elapsed().as_micros()
         );
         mm.display_rendered();
-        mm.into_mealy().minimize().display_rendered().unwrap();
+        mm.push_colors_to_outgoing_edges()
+            .minimize()
+            .display_rendered()
+            .unwrap();
     }
 
     fn simple_dpa() -> DPA {

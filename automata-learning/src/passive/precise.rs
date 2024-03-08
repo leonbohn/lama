@@ -7,6 +7,7 @@ use automata::{
     ts::{
         dot::{DotStateAttribute, DotTransitionAttribute},
         reachable::ReachableStateIndices,
+        transition_system::Indexes,
         Deterministic, Dottable, EdgeColor, ExpressionOf, IndexType, Sproutable, StateColor,
     },
     Alphabet, Map, Pointed, RightCongruence, Show, TransitionSystem, Void,
@@ -302,7 +303,8 @@ impl<A: Alphabet, const N: usize> TransitionSystem for PreciseDPA<A, N> {
         self.reachable_state_indices()
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
+    fn state_color<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::StateColor> {
+        let state = state.to_index(self)?;
         Some(Void)
     }
 
@@ -439,9 +441,9 @@ impl<A: Alphabet, const N: usize> Debug for PreciseDPA<A, N> {
 }
 
 fn padding_universal_dfa<A: Alphabet>(alphabet: &A) -> DFA<A> {
-    let mut dfa = DFA::new(alphabet.clone());
-    let e = dfa.initial();
-    dfa.set_initial_color(true);
+    let mut dfa = DFA::new_for_alphabet(alphabet.clone());
+    let e = dfa.add_state(true);
+
     for sym in alphabet.universe() {
         dfa.add_edge(e, A::expression(sym), e, Void);
     }

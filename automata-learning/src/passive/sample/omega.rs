@@ -46,7 +46,7 @@ impl std::fmt::Display for OmegaSampleParseError {
     }
 }
 
-impl TryFrom<&str> for OmegaSample<Simple, bool> {
+impl TryFrom<&str> for OmegaSample<CharAlphabet, bool> {
     type Error = OmegaSampleParseError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
@@ -54,7 +54,7 @@ impl TryFrom<&str> for OmegaSample<Simple, bool> {
     }
 }
 
-impl TryFrom<Vec<String>> for OmegaSample<Simple, bool> {
+impl TryFrom<Vec<String>> for OmegaSample<CharAlphabet, bool> {
     type Error = OmegaSampleParseError;
 
     fn try_from(value: Vec<String>) -> Result<Self, Self::Error> {
@@ -102,7 +102,7 @@ impl TryFrom<Vec<String>> for OmegaSample<Simple, bool> {
                     if trim.is_empty() || trim.starts_with('#') || trim == "negative:" {
                         break 'positive;
                     }
-                    let parsed = Reduced::try_from(word.as_str())
+                    let parsed = ReducedOmegaWord::try_from(word.as_str())
                         .map_err(OmegaSampleParseError::OmegaWordParseError)?;
                     if let Some(old_classification) = words.insert(parsed, true) {
                         debug!("Duplicate positive word found");
@@ -113,7 +113,7 @@ impl TryFrom<Vec<String>> for OmegaSample<Simple, bool> {
         }
         for word in lines {
             trace!("Parsing negative word \"{word}\"");
-            let parsed = Reduced::try_from(word.as_str())
+            let parsed = ReducedOmegaWord::try_from(word.as_str())
                 .map_err(OmegaSampleParseError::OmegaWordParseError)?;
             if let Some(old_classification) = words.insert(parsed, false) {
                 if old_classification {
@@ -131,7 +131,7 @@ impl<A: Alphabet> OmegaSample<A, bool> {
     /// Creates a new `OmegaSample` from an alphabet as well as two iterators, one
     /// over positive words and one over negative words.
     pub fn new_omega_from_pos_neg<
-        W: Into<Reduced<A::Symbol>>,
+        W: Into<ReducedOmegaWord<A::Symbol>>,
         I: IntoIterator<Item = W>,
         J: IntoIterator<Item = W>,
     >(
@@ -150,15 +150,15 @@ impl<A: Alphabet> OmegaSample<A, bool> {
     }
 
     /// Returns an iterator over the positive periodic words in the sample.
-    pub fn positive_periodic(&self) -> impl Iterator<Item = Periodic<A::Symbol>> + '_ {
+    pub fn positive_periodic(&self) -> impl Iterator<Item = PeriodicOmegaWord<A::Symbol>> + '_ {
         self.positive_words()
-            .filter_map(|w| Periodic::try_from(w.clone()).ok())
+            .filter_map(|w| PeriodicOmegaWord::try_from(w.clone()).ok())
     }
 
     /// Returns an iterator over the negative periodic words in the sample.
-    pub fn negative_periodic(&self) -> impl Iterator<Item = Periodic<A::Symbol>> + '_ {
+    pub fn negative_periodic(&self) -> impl Iterator<Item = PeriodicOmegaWord<A::Symbol>> + '_ {
         self.negative_words()
-            .filter_map(|w| Periodic::try_from(w.clone()).ok())
+            .filter_map(|w| PeriodicOmegaWord::try_from(w.clone()).ok())
     }
 
     /// Computes a `PeriodicOmegaSample` containing only the periodic words in the sample.
@@ -190,18 +190,18 @@ impl<A: Alphabet> OmegaSample<A, bool> {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct PeriodicOmegaSample<A: Alphabet> {
     alphabet: A,
-    positive: Set<Periodic<A::Symbol>>,
-    negative: Set<Periodic<A::Symbol>>,
+    positive: Set<PeriodicOmegaWord<A::Symbol>>,
+    negative: Set<PeriodicOmegaWord<A::Symbol>>,
 }
 
 impl<A: Alphabet> PeriodicOmegaSample<A> {
     /// Gives an iterator over all positive periodic words in the sample.
-    pub fn positive(&self) -> impl Iterator<Item = &Periodic<A::Symbol>> + '_ {
+    pub fn positive(&self) -> impl Iterator<Item = &PeriodicOmegaWord<A::Symbol>> + '_ {
         self.positive.iter()
     }
 
     /// Gives an iterator over all negative periodic words in the sample.
-    pub fn negative(&self) -> impl Iterator<Item = &Periodic<A::Symbol>> + '_ {
+    pub fn negative(&self) -> impl Iterator<Item = &PeriodicOmegaWord<A::Symbol>> + '_ {
         self.negative.iter()
     }
 
@@ -226,7 +226,7 @@ impl<A: Alphabet> PeriodicOmegaSample<A> {
     }
 
     /// Classify the given word, i.e. return `true` if it is a positive word, `false` if it is a negative word and `None` if it is neither.
-    pub fn classify<W: Into<Periodic<A::Symbol>>>(&self, word: W) -> Option<bool> {
+    pub fn classify<W: Into<PeriodicOmegaWord<A::Symbol>>>(&self, word: W) -> Option<bool> {
         let word = word.into();
         if self.positive.contains(&word) {
             Some(true)
@@ -238,14 +238,14 @@ impl<A: Alphabet> PeriodicOmegaSample<A> {
     }
 
     /// Check whether the given word is contained in the sample.
-    pub fn contains<W: Into<Periodic<A::Symbol>>>(&self, word: W) -> bool {
+    pub fn contains<W: Into<PeriodicOmegaWord<A::Symbol>>>(&self, word: W) -> bool {
         self.classify(word).is_some()
     }
 }
 
 impl<A: Alphabet, C: Color> OmegaSample<A, C> {
     /// Create a new sample of infinite words. The words in the sample are given as an iterator yielding (word, color) pairs.
-    pub fn new_omega<W: Into<Reduced<A::Symbol>>, J: IntoIterator<Item = (W, C)>>(
+    pub fn new_omega<W: Into<ReducedOmegaWord<A::Symbol>>, J: IntoIterator<Item = (W, C)>>(
         alphabet: A,
         words: J,
     ) -> Self {

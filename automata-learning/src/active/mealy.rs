@@ -2,8 +2,13 @@ use automata::prelude::*;
 
 use super::LStarHypothesis;
 
-impl<A: Alphabet, C: Color> LStarHypothesis for MooreMachine<A, C> {
+impl<A: Alphabet, C: Color + Default> LStarHypothesis for MooreMachine<A, C> {
     type Color = C;
+
+    fn transform(&self, word: &[SymbolOf<Self>]) -> Self::Color {
+        self.reached_state_color(word)
+            .expect("Hypothesis is not complete!")
+    }
 
     fn from_transition_system(
         ts: DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>,
@@ -42,8 +47,17 @@ impl<A: Alphabet, C: Color> LStarHypothesis for MooreMachine<A, C> {
     }
 }
 
-impl<C: Color> LStarHypothesis for MealyMachine<Simple, C> {
+impl<C: Color + Default> LStarHypothesis for MealyMachine<CharAlphabet, C> {
     type Color = C;
+
+    fn transform(&self, word: &[SymbolOf<Self>]) -> Self::Color {
+        assert!(
+            !word.is_empty(),
+            "Mealy machine can only deal with non-empty words!"
+        );
+        self.last_edge_color(word)
+            .expect("Hypothesis is not complete!")
+    }
 
     fn from_transition_system(
         ts: DTS<Self::Alphabet, Self::StateColor, Self::EdgeColor>,
@@ -82,6 +96,11 @@ impl<C: Color> LStarHypothesis for MealyMachine<Simple, C> {
 
 impl LStarHypothesis for DFA {
     type Color = bool;
+
+    fn transform(&self, word: &[SymbolOf<Self>]) -> Self::Color {
+        self.reached_state_color(word)
+            .expect("Hypothesis must be complete")
+    }
 
     fn mandatory_experiments(
         alphabet: &Self::Alphabet,

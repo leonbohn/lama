@@ -103,7 +103,7 @@ impl<E, C> NTEdge<E, C> {
 /// Represents a non-deterministic transition system. It stores an [`Alphabet`], a list of [`NTState`]s and a list of [`NTEdge`]s.
 /// Each state
 #[derive(Clone, Eq, PartialEq)]
-pub struct NTS<A: Alphabet = Simple, Q = Void, C = Void> {
+pub struct NTS<A: Alphabet = CharAlphabet, Q = Void, C = Void> {
     alphabet: A,
     states: Vec<NTState<Q>>,
     edges: Vec<NTEdge<A::Expression, C>>,
@@ -138,7 +138,15 @@ impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for NTS<A, Q, C> {
         i..self.states.len()
     }
 
-    fn set_state_color<X: Into<StateColor<Self>>>(&mut self, index: Self::StateIndex, color: X) {
+    fn set_state_color<Idx: Indexes<Self>, X: Into<StateColor<Self>>>(
+        &mut self,
+        index: Idx,
+        color: X,
+    ) {
+        let Some(index) = index.to_index(self) else {
+            tracing::error!("cannot set color of state that does not exist");
+            return;
+        };
         if index >= self.states.len() {
             panic!(
                 "Index {index} is out of bounds, there are only {} states",
@@ -148,21 +156,22 @@ impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for NTS<A, Q, C> {
         self.states[index].color = color.into();
     }
 
-    fn add_edge<X, Y>(
+    fn add_edge<X, Y, CI>(
         &mut self,
         from: X,
         on: <Self::Alphabet as Alphabet>::Expression,
         to: Y,
-        color: EdgeColor<Self>,
+        color: CI,
     ) -> Option<(Self::StateIndex, Self::EdgeColor)>
     where
         X: Indexes<Self>,
         Y: Indexes<Self>,
+        CI: Into<EdgeColor<Self>>,
     {
         let source = from.to_index(self)?;
         let target = to.to_index(self)?;
 
-        let mut edge = NTEdge::new(source, on, color, target);
+        let mut edge = NTEdge::new(source, on, color.into(), target);
         let edge_id = self.edges.len();
 
         if let Some(last_edge_id) = self.last_edge(source) {
@@ -195,7 +204,7 @@ impl<A: Alphabet, Q: Clone, C: Clone> Sproutable for NTS<A, Q, C> {
     }
 }
 
-impl<Q, C> NTS<Simple, Q, C> {
+impl<Q, C> NTS<CharAlphabet, Q, C> {
     /// Returns a transition system builder for a non-deterministic transition system. This should be the main method for the
     /// construction of non-deterministic transition systems on the fly.
     ///
@@ -427,7 +436,8 @@ impl<A: Alphabet, Q: Clone, C: Clone> TransitionSystem for NTS<A, Q, C> {
         ))
     }
 
-    fn state_color(&self, state: Self::StateIndex) -> Option<Self::StateColor> {
+    fn state_color<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::StateColor> {
+        let state = state.to_index(self)?;
         if state >= self.states.len() {
             panic!(
                 "index {state} is out of bounds, there are only {} states",
@@ -474,7 +484,8 @@ impl<A: Alphabet, Q: Clone, C: Clone> PredecessorIterable for NTS<A, Q, C> {
     where
         Self: 'this;
 
-    fn predecessors(&self, state: Self::StateIndex) -> Option<Self::EdgesToIter<'_>> {
+    fn predecessors<Idx: Indexes<Self>>(&self, state: Idx) -> Option<Self::EdgesToIter<'_>> {
+        let state = state.to_index(self)?;
         if state < self.states.len() {
             Some(NTSEdgesTo::new(self, state))
         } else {

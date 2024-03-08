@@ -50,14 +50,14 @@ impl<Q, C> Default for TSBuilder<Q, C> {
 
 impl TSBuilder<bool, Void> {
     /// Tries to turn `self` into a deterministic finite automaton. Panics if `self` is not deterministic.
-    pub fn into_dfa(mut self, initial: usize) -> DFA<Simple> {
+    pub fn into_dfa(mut self, initial: usize) -> DFA<CharAlphabet> {
         self.deterministic().with_initial(initial).collect_dfa()
     }
 }
 
 impl TSBuilder<Void, usize> {
     /// Attempts to turn `self` into a deterministic parity automaton. Panics if `self` is not deterministic.
-    pub fn into_dpa(mut self, initial: usize) -> DPA<Simple> {
+    pub fn into_dpa(mut self, initial: usize) -> DPA<CharAlphabet> {
         self.default_color(Void)
             .deterministic()
             .with_initial(initial)
@@ -65,7 +65,7 @@ impl TSBuilder<Void, usize> {
     }
 
     /// Builds a Mealy machine from `self`. Panics if `self` is not deterministic.
-    pub fn into_mealy_machine(mut self, initial: usize) -> MealyMachine<Simple> {
+    pub fn into_mealy_machine(mut self, initial: usize) -> MealyMachine<CharAlphabet> {
         self.default_color(Void)
             .deterministic()
             .with_initial(initial)
@@ -76,7 +76,7 @@ impl TSBuilder<Void, usize> {
 impl<Q: Clone, C: Clone> TSBuilder<Q, C> {
     /// Turns `self` into a [`RightCongruence`] with the given initial state while also erasing all state and edge
     /// colors. Panics if `self` is not deterministic.
-    pub fn into_right_congruence_bare(self, initial: usize) -> RightCongruence<Simple> {
+    pub fn into_right_congruence_bare(self, initial: usize) -> RightCongruence<CharAlphabet> {
         self.deterministic()
             .with_initial(initial)
             .collect_right_congruence_bare()
@@ -100,7 +100,7 @@ impl<Q: Clone, C: Clone> TSBuilder<Q, C> {
     }
 
     /// Build a deterministic transition system from `self`. Panics if `self` is not deterministic.
-    pub fn deterministic(mut self) -> DTS<Simple, Q, C> {
+    pub fn deterministic(mut self) -> DTS<CharAlphabet, Q, C> {
         self.collect().try_into().expect("Not deterministic!")
     }
 
@@ -139,15 +139,15 @@ impl<Q: Clone, C: Clone> TSBuilder<Q, C> {
     }
 
     /// Turns `self` into a [`RightCongruence`] with the given initial state. Panics if `self` is not deterministic.
-    pub fn into_right_congruence(self, initial: usize) -> RightCongruence<Simple, Q, C> {
+    pub fn into_right_congruence(self, initial: usize) -> RightCongruence<CharAlphabet, Q, C> {
         self.deterministic()
             .with_initial(initial)
             .collect_right_congruence()
     }
 
     /// Collects self into a non-deterministic transition system.
-    pub fn collect(mut self) -> NTS<Simple, Q, C> {
-        let alphabet = Simple::from_iter(self.edges.iter().map(|(_, a, _, _)| *a));
+    pub fn collect(mut self) -> NTS<CharAlphabet, Q, C> {
+        let alphabet = CharAlphabet::from_iter(self.edges.iter().map(|(_, a, _, _)| *a));
         let num_states = self
             .edges
             .iter()

@@ -123,20 +123,20 @@ where
 mod tests {
     use itertools::Itertools;
 
-    use crate::{alphabet::Simple, ts::Sproutable, Pointed, TransitionSystem};
+    use crate::{alphabet::CharAlphabet, ts::Sproutable, Pointed, TransitionSystem, Void};
 
     #[test]
     fn reachable_states() {
-        let mut dfa = crate::DFA::new(Simple::from_iter("ab".chars()));
-        let q0 = dfa.initial();
+        let mut dfa = crate::DFA::new_for_alphabet(CharAlphabet::from_iter("ab".chars()));
+        let q0 = dfa.add_state(false);
         let q1 = dfa.add_state(false);
         let q2 = dfa.add_state(true);
-        dfa.add_edge(q0, 'a', q1, ());
-        dfa.add_edge(q0, 'b', q0, ());
-        dfa.add_edge(q1, 'a', q2, ());
-        dfa.add_edge(q1, 'b', q0, ());
-        dfa.add_edge(q2, 'a', q2, ());
-        dfa.add_edge(q2, 'b', q2, ());
+        dfa.add_edge(q0, 'a', q1, Void);
+        dfa.add_edge(q0, 'b', q0, Void);
+        dfa.add_edge(q1, 'a', q2, Void);
+        dfa.add_edge(q1, 'b', q0, Void);
+        dfa.add_edge(q2, 'a', q2, Void);
+        dfa.add_edge(q2, 'b', q2, Void);
 
         assert_eq!(
             dfa.minimal_representatives_from(q0).collect::<Vec<_>>(),
