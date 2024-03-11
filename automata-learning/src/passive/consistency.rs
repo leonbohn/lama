@@ -8,7 +8,8 @@ use super::OmegaSample;
 
 /// Used to define consistency checks on various types of omega acceptance conditions
 /// required by the sprout algorithm for passively learning omega automata
-pub trait ConsistencyCheck<T: Deterministic> {
+pub trait ConsistencyCheck<T> {
+    /// the type of the automaton to be returned
     type Aut;
     /// Checks if the given transition system is consistent with the sample
     fn consistent(&self, ts: &T, sample: &OmegaSample) -> bool;
@@ -100,10 +101,20 @@ where
             .map_edge_colors_full(move |a, b, c, d| accepting.contains(&Edge::new(a, *b, c, d)))
             .erase_state_colors();
 
-        aut.collect_pointed::<DTS<CharAlphabet, Void, bool>>()
+        let mut dba = aut
+            .collect_pointed::<DTS<CharAlphabet, Void, bool>>()
             .0
-            .into_dba()
+            .into_dba();
+
         // send missing transitions to initial state
+        for q in dba.state_indices() {
+            for sym in ts.alphabet().universe() {
+                if dba.transition(q, sym).is_none() {
+                    dba.add_edge(q, sym, dba.initial(), true);
+                }
+            }
+        }
+        dba
     }
 }
 
@@ -205,16 +216,21 @@ mod tests {
             .with_initial(0);
 
         // build sample
-        let sample1 = OmegaSample::new_omega_from_pos_neg(sigma(), [upw!("a", "b")], [upw!("b")]);
+        let sample = OmegaSample::new_omega_from_pos_neg(sigma(), [upw!("a", "b")], [upw!("b")]);
 
         // build automaton
         let dba = NTS::builder()
-            .with_transitions([(0, 'b', false, 0), (0, 'a', true, 1), (1, 'b', true, 1)])
+            .with_transitions([
+                (0, 'b', false, 0),
+                (0, 'a', true, 1),
+                (1, 'b', true, 1),
+                (1, 'a', true, 0),
+            ])
             .default_color(Void)
             .deterministic()
             .with_initial(0)
             .into_dba();
 
-        assert!(Buchi.consistent_automaton(&ts, &sample1).eq(&dba));
+        assert!(Buchi.consistent_automaton(&ts, &sample).eq(&dba));
     }
 }
