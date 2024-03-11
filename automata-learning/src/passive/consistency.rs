@@ -46,9 +46,9 @@ where
         for ((pos_path, w0), (neg_path, w1)) in
             pos_escaping.into_iter().cartesian_product(neg_escaping)
         {
-            let pos_esc_str = w0.offset(pos_path.len()).normalized();
-            let neg_esc_str = w1.offset(neg_path.len()).normalized();
-            if pos_path.reached() == neg_path.reached() && pos_esc_str == neg_esc_str {
+            let pos_esc_str = w0.offset(pos_path.len());
+            let neg_esc_str = w1.offset(neg_path.len());
+            if pos_path.reached() == neg_path.reached() && pos_esc_str.equals(neg_esc_str) {
                 return false;
             }
         }
