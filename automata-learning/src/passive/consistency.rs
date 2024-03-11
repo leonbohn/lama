@@ -2,28 +2,20 @@ use itertools::{Either, Itertools};
 use std::iter;
 use std::ops::Not;
 
-use automata::{
-    automaton::{Buchi, DeterministicOmegaAutomaton, OmegaAcceptanceCondition},
-    prelude::*,
-    ts::{IndexedAlphabet, path::Edge},
-    Set,
-};
+use automata::{automaton::Buchi, prelude::*, ts::path::Edge, Set};
 
 use super::OmegaSample;
 
 /// Used to define consistency checks on various types of omega acceptance conditions
 /// required by the sprout algorithm for passively learning omega automata
 pub trait ConsistencyCheck<T: Deterministic> {
+    type Aut;
     /// Checks if the given transition system is consistent with the sample
     fn consistent(&self, ts: &T, sample: &OmegaSample) -> bool;
     /// If the transition system is consistent with the sample,
     /// returns an automaton with underlying transition system ts
     /// that is consistent with the sample
-    fn consistent_automaton(
-        &self,
-        ts: &T,
-        sample: &OmegaSample,
-    ) -> Initialized<DTS<CharAlphabet, Void, bool>>;
+    fn consistent_automaton(&self, ts: &T, sample: &OmegaSample) -> Self::Aut;
 }
 
 impl<T> ConsistencyCheck<T> for Buchi
@@ -31,6 +23,7 @@ where
     T: TransitionSystem<Alphabet = CharAlphabet, StateIndex = usize> + Deterministic + Pointed,
     <T as TransitionSystem>::EdgeColor: Eq + std::hash::Hash,
 {
+    type Aut = DBA;
     fn consistent(&self, ts: &T, sample: &OmegaSample) -> bool {
         // run transition system on sample words and
         // separate in escaping and non-escaping (successful) runs
@@ -75,11 +68,7 @@ where
             .not()
     }
 
-    fn consistent_automaton(
-        &self,
-        ts: &T,
-        sample: &OmegaSample,
-    ) -> Initialized<DTS<CharAlphabet, Void, bool>> {
+    fn consistent_automaton(&self, ts: &T, sample: &OmegaSample) -> Self::Aut {
         // check consistency
         assert!(self.consistent(ts, sample));
 
@@ -101,25 +90,19 @@ where
         let all_transitions: Set<_> = ts
             .transitions()
             .map(|t| t.into_tuple())
-            .map(|(a, b, c, d)| {
-                Edge::new(a, *b, d, c)
-            })
+            .map(|(a, b, c, d)| Edge::new(a, *b, d, c))
             .collect();
 
         let accepting: Set<_> = all_transitions.difference(&neg_union).collect();
 
-        // make DBA (change edge colour to bool with map_edge_colors_full or map_edge_colors, then call as_dba(), set correct edge colours
+        // make DBA
         let mut aut = ts
-            .map_edge_colors_full(move |a, b, c, d| {
-                accepting.contains(
-                    &Edge::new(a, *b, c, d)
-                )
-            })
+            .map_edge_colors_full(move |a, b, c, d| accepting.contains(&Edge::new(a, *b, c, d)))
             .erase_state_colors();
 
-        let (c, _) = aut.collect_pointed::<DTS<CharAlphabet, Void, bool>>();
-        c
-
+        aut.collect_pointed::<DTS<CharAlphabet, Void, bool>>()
+            .0
+            .into_dba()
         // send missing transitions to initial state
     }
 }
@@ -153,21 +136,9 @@ mod tests {
             .with_initial(0);
 
         // build samples
-        let sample1 = OmegaSample::new_omega_from_pos_neg(
-            sigma(),
-            [upw!("a")],
-            [upw!("b")],
-        );
-        let sample2 = OmegaSample::new_omega_from_pos_neg(
-            sigma(),
-            [upw!("a")],
-            [upw!("a", "b")],
-        );
-        let sample3 = OmegaSample::new_omega_from_pos_neg(
-            sigma(),
-            [upw!("a", "b")],
-            [upw!("b")],
-        );
+        let sample1 = OmegaSample::new_omega_from_pos_neg(sigma(), [upw!("a")], [upw!("b")]);
+        let sample2 = OmegaSample::new_omega_from_pos_neg(sigma(), [upw!("a")], [upw!("a", "b")]);
+        let sample3 = OmegaSample::new_omega_from_pos_neg(sigma(), [upw!("a", "b")], [upw!("b")]);
 
         // words escape from different states
         assert_eq!(Buchi.consistent(&ts, &sample1), true);
@@ -187,11 +158,7 @@ mod tests {
             .with_initial(0);
 
         // build sample
-        let sample = OmegaSample::new_omega_from_pos_neg(
-            sigma(),
-            [upw!("a")],
-            [upw!("b")],
-        );
+        let sample = OmegaSample::new_omega_from_pos_neg(sigma(), [upw!("a")], [upw!("b")]);
 
         // one word is escaping, the other is not
         assert_eq!(Buchi.consistent(&ts, &sample), true);
@@ -217,26 +184,10 @@ mod tests {
             .with_initial(0);
 
         // build samples
-        let sample1 = OmegaSample::new_omega_from_pos_neg(
-            sigma(),
-            [upw!("a", "b")],
-            [upw!("b")],
-        );
-        let sample2 = OmegaSample::new_omega_from_pos_neg(
-            sigma(),
-            [upw!("b")],
-            [upw!("aab")],
-        );
-        let sample3 = OmegaSample::new_omega_from_pos_neg(
-            sigma(),
-            [upw!("aab")],
-            [upw!("b")],
-        );
-        let sample4 = OmegaSample::new_omega_from_pos_neg(
-            sigma(),
-            [upw!("a")],
-            [upw!("b")],
-        );
+        let sample1 = OmegaSample::new_omega_from_pos_neg(sigma(), [upw!("a", "b")], [upw!("b")]);
+        let sample2 = OmegaSample::new_omega_from_pos_neg(sigma(), [upw!("b")], [upw!("aab")]);
+        let sample3 = OmegaSample::new_omega_from_pos_neg(sigma(), [upw!("aab")], [upw!("b")]);
+        let sample4 = OmegaSample::new_omega_from_pos_neg(sigma(), [upw!("a")], [upw!("b")]);
 
         assert_eq!(Buchi.consistent(&ts, &sample1), true);
         assert_eq!(Buchi.consistent(&ts2, &sample2), false);
@@ -254,18 +205,15 @@ mod tests {
             .with_initial(0);
 
         // build sample
-        let sample1 = OmegaSample::new_omega_from_pos_neg(
-            sigma(),
-            [upw!("a", "b")],
-            [upw!("b")],
-        );
+        let sample1 = OmegaSample::new_omega_from_pos_neg(sigma(), [upw!("a", "b")], [upw!("b")]);
 
         // build automaton
         let dba = NTS::builder()
             .with_transitions([(0, 'b', false, 0), (0, 'a', true, 1), (1, 'b', true, 1)])
             .default_color(Void)
             .deterministic()
-            .with_initial(0);
+            .with_initial(0)
+            .into_dba();
 
         assert!(Buchi.consistent_automaton(&ts, &sample1).eq(&dba));
     }
