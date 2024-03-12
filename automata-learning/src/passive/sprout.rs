@@ -17,6 +17,18 @@ impl SproutLearner for Buchi {
     type Aut = DBA;
 
     fn sprout(&self, sample: OmegaSample) -> Self::Aut {
+        // make empty ts
+        let mut ts = DBA::new_for_alphabet(sample.alphabet());
+        ts.add_state(Void);
+
+        // compute escapes
+        // while escapes left
+        //      get first escape prefix
+        //      check thresh
+        //      for each state
+        //          try adding transition
+        //          continue if consistent
+        //      if none consistent add new state
         todo!()
     }
 }
