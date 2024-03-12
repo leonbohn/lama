@@ -1,4 +1,6 @@
-use automata::{automaton::Buchi, prelude::*};
+use automata::{automaton::Buchi, prelude::*, ts::path, Set};
+
+use std::collections::HashSet;
 
 use super::OmegaSample;
 
@@ -33,8 +35,25 @@ impl SproutLearner for Buchi {
     }
 }
 
+/// Compute the escape prefixes of a set of omega words on a transition system
+pub fn escape_prefixes<T: TransitionSystem<Alphabet = CharAlphabet> + Deterministic + Pointed>(
+    ts: T,
+    words: &HashSet<ReducedOmegaWord<char>>,
+) -> HashSet<String> {
+    words
+        .into_iter()
+        .filter_map(|w| {
+            ts.omega_run(w)
+                .err()
+                .map(|path| w.prefix(path.len() + 1).as_string())
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use super::*;
     use crate::passive::OmegaSample;
     use automata::{automaton::Buchi, prelude::*};
@@ -61,5 +80,22 @@ mod tests {
             .into_dba();
 
         assert!(Buchi.sprout(sample).eq(&dba))
+    }
+
+    #[test]
+    fn escapes() {
+        // build set of words
+        let words = HashSet::from([upw!("a"), upw!("a", "b"), upw!("b"), upw!("aa", "b")]);
+
+        // build transition system
+        let ts = NTS::builder()
+            .with_transitions([(0, 'a', Void, 1), (1, 'b', Void, 1)])
+            .default_color(Void)
+            .deterministic()
+            .with_initial(0);
+
+        let escapes = HashSet::from([String::from("aa"), String::from("b")]);
+
+        assert_eq!(escape_prefixes(ts, &words), escapes);
     }
 }
