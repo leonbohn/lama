@@ -35,19 +35,37 @@ impl SproutLearner for Buchi {
     }
 }
 
-/// Compute the escape prefixes of a set of omega words on a transition system
+/// Compute the escape prefixes of a set of omega words on a transition system.
+/// The returned vector is sorted length lexicographically
 pub fn escape_prefixes<T: TransitionSystem<Alphabet = CharAlphabet> + Deterministic + Pointed>(
     ts: T,
     words: &HashSet<ReducedOmegaWord<char>>,
-) -> HashSet<String> {
-    words
+) -> Vec<String> {
+    let prefixes: HashSet<String> = words
         .into_iter()
         .filter_map(|w| {
             ts.omega_run(w)
                 .err()
                 .map(|path| w.prefix(path.len() + 1).as_string())
         })
-        .collect()
+        .collect();
+    length_lexicographical_sort(Vec::from_iter(prefixes))
+}
+
+/// sort a vector of Strings length lexicographically
+pub fn length_lexicographical_sort(mut words: Vec<String>) -> Vec<String> {
+    words.sort_by(|a, b| {
+        // Compare by length first
+        let length_comparison = a.len().cmp(&b.len());
+
+        // If lengths are equal, compare lexicographically
+        if length_comparison == std::cmp::Ordering::Equal {
+            a.cmp(b)
+        } else {
+            length_comparison
+        }
+    });
+    words
 }
 
 #[cfg(test)]
@@ -94,8 +112,6 @@ mod tests {
             .deterministic()
             .with_initial(0);
 
-        let escapes = HashSet::from([String::from("aa"), String::from("b")]);
-
-        assert_eq!(escape_prefixes(ts, &words), escapes);
+        assert_eq!(escape_prefixes(ts, &words), vec![String::from("b"),String::from("aa")]);
     }
 }
