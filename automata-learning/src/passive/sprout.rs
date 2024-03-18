@@ -1,4 +1,9 @@
-use automata::{automaton::Buchi, prelude::*, ts::path, Set};
+use automata::{
+    automaton::Buchi,
+    prelude::*,
+    ts::{nts::NTState, path},
+    Set,
+};
 
 use std::collections::HashSet;
 
@@ -7,9 +12,9 @@ use super::{consistency::ConsistencyCheck, OmegaSample};
 /// gives a deterministic acc_type omega automaton that is consistent with the given sample
 /// implements the sprout passive learning algorithm for omega automata from <https://arxiv.org/pdf/2108.03735.pdf>
 pub fn sprout<A: ConsistencyCheck<Initialized<DTS>>>(sample: OmegaSample, acc_type: A) -> A::Aut {
-    // make empty ts
-    let mut dba = DBA::new_for_alphabet(sample.alphabet().clone());
-    dba.add_state(Void);
+    // make ts with initial state
+    let mut ts = DTS::from_parts(sample.alphabet().clone(), vec![NTState::new(Void)], vec![])
+        .with_initial(0);
 
     // compute threshold
     let (lb, le) = sample
@@ -19,7 +24,7 @@ pub fn sprout<A: ConsistencyCheck<Initialized<DTS>>>(sample: OmegaSample, acc_ty
     let thresh = lb + le ^ 2 + 1;
 
     // while there are positive sample words that are escaping
-    while let Some(escape_prefix) = escape_prefixes(&dba, sample.positive_words().collect()).first()
+    while let Some(escape_prefix) = escape_prefixes(&ts, sample.positive_words().collect()).first()
     {
         let u = escape_prefix[..escape_prefix.len() - 1].to_string();
         let a = escape_prefix.chars().last().expect("empty escape prefix");
@@ -28,16 +33,22 @@ pub fn sprout<A: ConsistencyCheck<Initialized<DTS>>>(sample: OmegaSample, acc_ty
             // compute default automaton
             todo!()
         }
-        let source = dba.finite_run(u).unwrap().reached();
-        for q in dba.state_indices() {
-            // symbol is the last in escape_prefix, must exist
-            // to get state: maybe remember this from escape_prefixes, otherwise do a run
+        let source = ts.finite_run(u).unwrap().reached();
+        for q in ts.state_indices() {
             // try adding transition
+            ts.add_edge(source, a, q, Void);
             // continue if consistent
+            if acc_type.consistent(&ts, &sample) {
+                continue;
+            } else {
+                ts.remove_edges(source, a);
+            }
         }
         // if none consistent add new state
+        let new_state = ts.add_state(Void);
+        ts.add_edge(source, a, new_state, Void);
     }
-    todo!()
+    acc_type.consistent_automaton(&ts, &sample)
 }
 
 /// Compute the escape prefixes of a set of omega words on a transition system.

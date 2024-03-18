@@ -2,7 +2,12 @@ use itertools::{Either, Itertools};
 use std::iter;
 use std::ops::Not;
 
-use automata::{automaton::{Buchi, Parity}, prelude::*, ts::path::Edge, Set};
+use automata::{
+    automaton::{Buchi, Parity},
+    prelude::*,
+    ts::path::Edge,
+    Set,
+};
 
 use super::OmegaSample;
 
