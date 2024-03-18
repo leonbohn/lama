@@ -2,44 +2,49 @@ use automata::{automaton::Buchi, prelude::*, ts::path, Set};
 
 use std::collections::HashSet;
 
-use super::OmegaSample;
+use super::{consistency::ConsistencyCheck, OmegaSample};
 
-/// This trait represents the sprout passive learning algorithm for omega automata
-/// from <https://arxiv.org/pdf/2108.03735.pdf>.
-/// The trait is supposed to be implemented on omega acceptance types
-pub trait SproutLearner {
-    /// type of the automaton to be returned
-    type Aut;
+/// gives a deterministic acc_type omega automaton that is consistent with the given sample
+/// implements the sprout passive learning algorithm for omega automata from <https://arxiv.org/pdf/2108.03735.pdf>
+pub fn sprout<A: ConsistencyCheck<Initialized<DTS>>>(sample: OmegaSample, acc_type: A) -> A::Aut {
+    // make empty ts
+    let mut dba = DBA::new_for_alphabet(sample.alphabet().clone());
+    dba.add_state(Void);
 
-    /// gives a deterministic omega automaton that is consistent with the given sample
-    fn sprout(&self, sample: OmegaSample) -> Self::Aut;
-}
+    // compute threshold
+    let (lb, le) = sample
+        .words()
+        .map(|w| (w.spoke().len(), w.cycle().len()))
+        .fold((0, 0), |(a0, a1), (b0, b1)| (a0.max(b0), a1.max(b1)));
+    let thresh = lb + le ^ 2 + 1;
 
-impl SproutLearner for Buchi {
-    type Aut = DBA;
-
-    fn sprout(&self, sample: OmegaSample) -> Self::Aut {
-        // make empty ts
-        let mut ts = DBA::new_for_alphabet(sample.alphabet());
-        ts.add_state(Void);
-
-        // compute escapes
-        // while escapes left
-        //      get first escape prefix
-        //      check thresh
-        //      for each state
-        //          try adding transition
-        //          continue if consistent
-        //      if none consistent add new state
-        todo!()
+    // while there are positive sample words that are escaping
+    while let Some(escape_prefix) = escape_prefixes(&dba, sample.positive_words().collect()).first()
+    {
+        let u = escape_prefix[..escape_prefix.len() - 1].to_string();
+        let a = escape_prefix.chars().last().expect("empty escape prefix");
+        // check thresh
+        if u.len() - 1 > thresh {
+            // compute default automaton
+            todo!()
+        }
+        let source = dba.finite_run(u).unwrap().reached();
+        for q in dba.state_indices() {
+            // symbol is the last in escape_prefix, must exist
+            // to get state: maybe remember this from escape_prefixes, otherwise do a run
+            // try adding transition
+            // continue if consistent
+        }
+        // if none consistent add new state
     }
+    todo!()
 }
 
 /// Compute the escape prefixes of a set of omega words on a transition system.
 /// The returned vector is sorted length lexicographically
 pub fn escape_prefixes<T: TransitionSystem<Alphabet = CharAlphabet> + Deterministic + Pointed>(
-    ts: T,
-    words: &HashSet<ReducedOmegaWord<char>>,
+    ts: &T,
+    words: HashSet<&ReducedOmegaWord<char>>,
 ) -> Vec<String> {
     let prefixes: HashSet<String> = words
         .into_iter()
@@ -97,13 +102,13 @@ mod tests {
             .with_initial(0)
             .into_dba();
 
-        assert!(Buchi.sprout(sample).eq(&dba))
+        assert!(sprout(sample, Buchi).eq(&dba));
     }
 
     #[test]
     fn escapes() {
         // build set of words
-        let words = HashSet::from([upw!("a"), upw!("a", "b"), upw!("b"), upw!("aa", "b")]);
+        let words = HashSet::from([&upw!("a"), &upw!("a", "b"), &upw!("b"), &upw!("aa", "b")]);
 
         // build transition system
         let ts = NTS::builder()
@@ -112,6 +117,27 @@ mod tests {
             .deterministic()
             .with_initial(0);
 
-        assert_eq!(escape_prefixes(ts, &words), vec![String::from("b"),String::from("aa")]);
+        assert_eq!(
+            escape_prefixes(&ts, words),
+            vec![String::from("b"), String::from("aa")]
+        );
+    }
+
+    #[test]
+    fn llex_sort() {
+        assert_eq!(
+            length_lexicographical_sort(vec![
+                String::from("ca"),
+                String::from("ac"),
+                String::from("aaa"),
+                String::from("b")
+            ]),
+            vec![
+                String::from("b"),
+                String::from("ac"),
+                String::from("ca"),
+                String::from("aaa")
+            ]
+        );
     }
 }
