@@ -2,7 +2,7 @@ use itertools::{Either, Itertools};
 use std::iter;
 use std::ops::Not;
 
-use automata::{automaton::Buchi, prelude::*, ts::path::Edge, Set};
+use automata::{automaton::{Buchi, Parity}, prelude::*, ts::path::Edge, Set};
 
 use super::OmegaSample;
 
@@ -115,6 +115,18 @@ where
             }
         }
         dba
+    }
+}
+
+impl<T> ConsistencyCheck<T> for Parity {
+    type Aut = DPA;
+
+    fn consistent(&self, ts: &T, sample: &OmegaSample) -> bool {
+        todo!()
+    }
+
+    fn consistent_automaton(&self, ts: &T, sample: &OmegaSample) -> Self::Aut {
+        todo!()
     }
 }
 
@@ -232,5 +244,10 @@ mod tests {
             .into_dba();
 
         assert!(Buchi.consistent_automaton(&ts, &sample).eq(&dba));
+    }
+
+    #[test]
+    fn parity_consistency() {
+        panic!()
     }
 }

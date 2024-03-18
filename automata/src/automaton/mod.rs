@@ -46,6 +46,7 @@ pub use dba::{DBALike, IntoDBA, DBA};
 mod omega;
 pub use omega::{
     AcceptanceMask, Buchi, DeterministicOmegaAutomaton, OmegaAcceptanceCondition, OmegaAutomaton,
+    Parity,
 };
 
 mod acceptor;
