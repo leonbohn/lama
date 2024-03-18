@@ -1,8 +1,7 @@
 use std::collections::VecDeque;
 
 use automata::{
-    ts::Sproutable, word::OmegaWord, Alphabet, HasLength, InfiniteLength, Map, Pointed,
-    RightCongruence, Set, Void,
+    ts::Sproutable, word::OmegaWord, Alphabet, Map, Pointed, RightCongruence, Set, Void,
 };
 use itertools::Itertools;
 use tracing::trace;

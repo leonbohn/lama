@@ -13,9 +13,6 @@ use super::LStarHypothesis;
 /// the `Output` type, but it also enables us to learn a regular language/deterministic finite automaton by using
 /// `bool` as the `Output` type.
 pub trait LStarOracle<H: LStarHypothesis> {
-    /// The length type of the words that this oracle can handle.
-    type Length: Length;
-
     /// Query the desired output for the given word.
     fn output<W: FiniteWord<SymbolOf<H>>>(&self, word: W) -> H::Color;
 
@@ -47,8 +44,6 @@ impl<A: Alphabet, W: LinearWord<A::Symbol>, C: Color> SampleOracle<A, W, C> {
 impl<C: Color + Default> LStarOracle<MooreMachine<CharAlphabet, C>>
     for SampleOracle<CharAlphabet, Vec<char>, C>
 {
-    type Length = FiniteLength;
-
     fn alphabet(&self) -> CharAlphabet {
         self.sample.alphabet().clone()
     }
@@ -82,8 +77,6 @@ impl<C: Color + Default> LStarOracle<MooreMachine<CharAlphabet, C>>
 impl<C: Color + Default> LStarOracle<MealyMachine<CharAlphabet, C>>
     for SampleOracle<CharAlphabet, Vec<char>, C>
 {
-    type Length = FiniteLength;
-
     fn alphabet(&self) -> CharAlphabet {
         self.sample.alphabet().clone()
     }
@@ -152,8 +145,6 @@ impl<D: DFALike + Clone> DFAOracle<D> {
 }
 
 impl<D: DFALike<Alphabet = CharAlphabet>> LStarOracle<DFA> for DFAOracle<D> {
-    type Length = FiniteLength;
-
     fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> bool {
         (&self.automaton).into_dfa().accepts(word)
     }
@@ -177,8 +168,6 @@ impl<D: DFALike<Alphabet = CharAlphabet>> LStarOracle<DFA> for DFAOracle<D> {
 impl<D: DFALike<Alphabet = CharAlphabet>> LStarOracle<MooreMachine<CharAlphabet, bool>>
     for DFAOracle<D>
 {
-    type Length = FiniteLength;
-
     fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> bool {
         (&self.automaton).into_dfa().accepts(word)
     }
@@ -214,8 +203,6 @@ where
     D: Congruence<Alphabet = CharAlphabet>,
     EdgeColor<D>: Color + Default,
 {
-    type Length = FiniteLength;
-
     fn output<W: FiniteWord<SymbolOf<D>>>(&self, word: W) -> D::EdgeColor {
         self.automaton
             .try_mealy_map(word)
@@ -290,8 +277,6 @@ impl<D: MooreLike<Alphabet = CharAlphabet>> LStarOracle<MooreMachine<CharAlphabe
 where
     StateColor<D>: Color + Default,
 {
-    type Length = FiniteLength;
-
     fn alphabet(&self) -> CharAlphabet {
         self.automaton.alphabet().clone()
     }
