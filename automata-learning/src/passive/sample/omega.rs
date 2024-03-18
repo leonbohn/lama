@@ -272,7 +272,7 @@ impl<A: Alphabet, C: Color> OmegaSample<A, C> {
         let mut queue: VecDeque<_> = self
             .words
             .iter()
-            .map(|(w, c)| (initial, w.normalized(), c))
+            .map(|(w, c)| (initial, w.reduced(), c))
             .collect();
 
         while let Some((state, word, color)) = queue.pop_front() {
@@ -295,11 +295,11 @@ impl<A: Alphabet, C: Color> OmegaSample<A, C> {
                     })
                     .sample_mut()
                     .words
-                    .insert(suffix.normalized(), color.clone())
+                    .insert(suffix.reduced(), color.clone())
                     .is_none()
                 {
                     trace!("Added word {:?} to state {}", suffix, reached);
-                    queue.push_back((reached, suffix.normalized(), color));
+                    queue.push_back((reached, suffix.reduced(), color));
                 }
             }
         }

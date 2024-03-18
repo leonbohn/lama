@@ -391,10 +391,7 @@ pub(crate) mod tests {
         alphabet::CharAlphabet,
         congruence::FORC,
         prelude::*,
-        ts::{
-            finite::{ReachedColor, ReachedState},
-            Dottable, Sproutable,
-        },
+        ts::{Dottable, Sproutable},
         Class, Pointed, RightCongruence, TransitionSystem,
     };
     use itertools::Itertools;

@@ -432,8 +432,6 @@ mod tests {
             Ok(())
         }
 
-        type Length = FiniteLength;
-
         fn alphabet(&self) -> CharAlphabet {
             CharAlphabet::from_iter(['a', 'b'])
         }
@@ -441,8 +439,6 @@ mod tests {
 
     #[cfg(test)]
     impl LStarOracle<MooreMachine<CharAlphabet, usize>> for WordLenModk {
-        type Length = FiniteLength;
-
         fn output<W: FiniteWord<char>>(&self, word: W) -> usize {
             word.len() % self.1
         }

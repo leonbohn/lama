@@ -1,6 +1,6 @@
 use automata::{
-    congruence::FORC, ts::transition_system::Indexes, Alphabet, Class, Color, InfiniteLength, Map,
-    RightCongruence, TransitionSystem,
+    congruence::FORC, ts::transition_system::Indexes, Alphabet, Class, Color, Map, RightCongruence,
+    TransitionSystem,
 };
 use itertools::Itertools;
 

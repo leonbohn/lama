@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 tracing = "0.1"
 tracing-subscriber = "0.3"
-automata = { version = "0.2", path = "../automata", features = ["graphviz"] }
+automata = { git = "https://github.com/leonbohn/automata" }
 itertools = "0.12"
 impl-tools = "0.10.0"
 tabled = { version = "0.15.0", features = ["ansi"] }
