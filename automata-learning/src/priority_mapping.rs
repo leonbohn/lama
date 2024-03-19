@@ -6,8 +6,9 @@ use owo_colors::OwoColorize;
 use automata::{
     automaton::MooreLike,
     congruence::ColoredClass,
+    dag::Dag,
     prelude::*,
-    ts::dot::{DotStateAttribute, Dottable},
+    transition_system::dot::{DotStateAttribute, Dottable},
     Set,
 };
 

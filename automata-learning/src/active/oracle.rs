@@ -1,4 +1,4 @@
-use automata::{prelude::*, ts::operations::MapStateColor, word::LinearWord};
+use automata::{prelude::*, transition_system::operations::MapStateColor, word::LinearWord};
 
 use crate::passive::Sample;
 
@@ -309,7 +309,7 @@ where
 #[cfg(test)]
 mod tests {
     use automata::{
-        ts::{Dottable, NTS},
+        transition_system::{Dottable, NTS},
         TransitionSystem,
     };
 

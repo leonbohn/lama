@@ -10,7 +10,7 @@ use std::{
 use automata::{
     automaton::{IntoDPA, OmegaAcceptanceCondition},
     prelude::*,
-    ts::{reachable::ReachableStateIndices, Quotient},
+    transition_system::{operations::Quotient, reachable::ReachableStateIndices},
     word::Concat,
     Map, Set,
 };
@@ -390,7 +390,7 @@ mod tests {
 
     use automata::{
         automaton::{DPALike, MealyLike, MooreLike, DPA},
-        ts::{Deterministic, Dottable, NTS},
+        transition_system::{Deterministic, Dottable, NTS},
         TransitionSystem,
     };
 

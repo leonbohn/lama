@@ -4,11 +4,11 @@ use automata::{
     automaton::{DPALike, MealyLike, MooreLike, DPA},
     congruence::ColoredClass,
     prelude::{Expression, IsEdge, DFA},
-    ts::{
+    transition_system::{
         dot::{DotStateAttribute, DotTransitionAttribute},
         reachable::ReachableStateIndices,
-        transition_system::Indexes,
-        Deterministic, Dottable, EdgeColor, ExpressionOf, IndexType, Sproutable, StateColor,
+        Deterministic, Dottable, EdgeColor, ExpressionOf, IndexType, Indexes, Sproutable,
+        StateColor,
     },
     Alphabet, Map, Pointed, RightCongruence, Show, TransitionSystem, Void,
 };
@@ -495,7 +495,7 @@ impl<A: Alphabet, const N: usize> Dottable for PreciseDPA<A, N> {
     fn dot_state_attributes(
         &self,
         idx: Self::StateIndex,
-    ) -> impl IntoIterator<Item = automata::ts::dot::DotStateAttribute>
+    ) -> impl IntoIterator<Item = automata::transition_system::dot::DotStateAttribute>
     where
         (String, StateColor<Self>): Show,
     {
@@ -508,7 +508,7 @@ impl<A: Alphabet, const N: usize> Dottable for PreciseDPA<A, N> {
     fn dot_transition_attributes<'a>(
         &'a self,
         t: Self::EdgeRef<'a>,
-    ) -> impl IntoIterator<Item = automata::ts::dot::DotTransitionAttribute>
+    ) -> impl IntoIterator<Item = automata::transition_system::dot::DotTransitionAttribute>
     where
         (&'a ExpressionOf<Self>, EdgeColor<Self>): Show,
     {

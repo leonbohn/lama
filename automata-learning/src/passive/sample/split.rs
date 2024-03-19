@@ -1,5 +1,5 @@
 use automata::{
-    congruence::FORC, ts::transition_system::Indexes, Alphabet, Class, Color, Map, RightCongruence,
+    congruence::FORC, transition_system::Indexes, Alphabet, Class, Color, Map, RightCongruence,
     TransitionSystem,
 };
 use itertools::Itertools;

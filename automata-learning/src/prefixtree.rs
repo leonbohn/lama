@@ -1,7 +1,8 @@
 use std::collections::VecDeque;
 
 use automata::{
-    ts::Sproutable, word::OmegaWord, Alphabet, Map, Pointed, RightCongruence, Set, Void,
+    transition_system::Sproutable, word::OmegaWord, Alphabet, Map, Pointed, RightCongruence, Set,
+    Void,
 };
 use itertools::Itertools;
 use tracing::trace;
@@ -82,7 +83,7 @@ pub fn prefix_tree<A: Alphabet, W: Into<ReducedOmegaWord<A::Symbol>>, I: IntoIte
 mod tests {
     use automata::{
         alphabet::CharAlphabet,
-        ts::{Deterministic, Dottable, Sproutable},
+        transition_system::{Deterministic, Dottable, Sproutable},
         upw,
         word::PeriodicOmegaWord,
         TransitionSystem, Void,
