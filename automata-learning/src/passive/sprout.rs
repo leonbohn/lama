@@ -3,7 +3,7 @@ use std::{
     fmt::Display,
 };
 
-use automata::{prelude::*, ts::operations::ProductIndex, Map, Set};
+use automata::{prelude::*, transition_system::operations::ProductIndex, Map, Set};
 use itertools::Itertools;
 use tracing::trace;
 
@@ -391,7 +391,7 @@ pub(crate) mod tests {
         alphabet::CharAlphabet,
         congruence::FORC,
         prelude::*,
-        ts::{Dottable, Sproutable},
+        transition_system::{Dottable, Sproutable},
         Class, Pointed, RightCongruence, TransitionSystem,
     };
     use itertools::Itertools;

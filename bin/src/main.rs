@@ -1,4 +1,4 @@
-use automata::{congruence::FORC, ts::dot::display_dot, Map, TransitionSystem};
+use automata::{congruence::FORC, transition_system::dot::display_dot, Map, TransitionSystem};
 use automata_learning::passive::{
     sprout::{iteration_consistency_conflicts, prefix_consistency_conflicts, sprout},
     OmegaSample,
