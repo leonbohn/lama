@@ -3,13 +3,12 @@ use std::iter;
 use std::ops::Not;
 
 use automata::{
-    automaton::{Buchi, Parity},
     prelude::*,
-    ts::path::Edge,
+    transition_system::Edge,
     Set,
 };
 
-use super::OmegaSample;
+use super::{Buchi, OmegaSample, Parity};
 
 /// Used to define consistency checks on various types of omega acceptance conditions
 /// required by the sprout algorithm for passively learning omega automata
@@ -52,8 +51,8 @@ where
         for ((pos_path, w0), (neg_path, w1)) in
             pos_escaping.into_iter().cartesian_product(neg_escaping)
         {
-            let pos_esc_str = w0.offset(pos_path.len());
-            let neg_esc_str = w1.offset(neg_path.len());
+            let pos_esc_str = w0.skip(pos_path.len());
+            let neg_esc_str = w1.skip(neg_path.len());
             if pos_path.reached() == neg_path.reached() && pos_esc_str.equals(neg_esc_str) {
                 return false;
             }
@@ -138,9 +137,9 @@ impl<T> ConsistencyCheck<T> for Parity {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::passive::OmegaSample;
+    use crate::passive::{Buchi, OmegaSample, Parity};
     use automata::{
-        automaton::{Buchi, DeterministicOmegaAutomaton, OmegaAcceptanceCondition},
+        automaton::{DeterministicOmegaAutomaton, OmegaAcceptanceCondition},
         prelude::*,
     };
 

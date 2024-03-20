@@ -35,6 +35,12 @@ pub mod fwpm;
 /// Defines the precise DPA.
 pub mod precise;
 
+/// Represents Buchi acceptance
+pub struct Buchi;
+
+/// Represents Parity acceptance
+pub struct Parity;
+
 /// Executes the RPNI algorithm on the given sample. This returns a DFA that is
 /// composed of a right congruence as well as an acceptance condition, which marks
 /// a classes as accepting if it is reached by a positive sample word.

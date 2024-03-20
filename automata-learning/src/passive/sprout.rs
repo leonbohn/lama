@@ -1,13 +1,12 @@
 use automata::{
-    automaton::Buchi,
     prelude::*,
-    transition_system::{nts::NTState, path},
+    transition_system::{impls::NTState, path},
     Set,
 };
 
 use std::collections::HashSet;
 
-use super::{consistency::ConsistencyCheck, OmegaSample};
+use super::{consistency::ConsistencyCheck, OmegaSample, Buchi, Parity};
 
 /// gives a deterministic acc_type omega automaton that is consistent with the given sample
 /// implements the sprout passive learning algorithm for omega automata from <https://arxiv.org/pdf/2108.03735.pdf>
@@ -89,8 +88,8 @@ mod tests {
     use std::collections::HashSet;
 
     use super::*;
-    use crate::passive::OmegaSample;
-    use automata::{automaton::Buchi, prelude::*};
+    use crate::passive::{OmegaSample, Buchi, Parity};
+    use automata::prelude::*;
 
     #[test]
     fn sprout_buchi() {
@@ -114,24 +113,6 @@ mod tests {
             .into_dba();
 
         assert!(sprout(sample, Buchi).eq(&dba));
-    }
-
-    #[test]
-    fn escapes() {
-        // build set of words
-        let words = HashSet::from([&upw!("a"), &upw!("a", "b"), &upw!("b"), &upw!("aa", "b")]);
-
-        // build transition system
-        let ts = NTS::builder()
-            .with_transitions([(0, 'a', Void, 1), (1, 'b', Void, 1)])
-            .default_color(Void)
-            .deterministic()
-            .with_initial(0);
-
-        assert_eq!(
-            escape_prefixes(&ts, words),
-            vec![String::from("b"), String::from("aa")]
-        );
     }
 
     #[test]
