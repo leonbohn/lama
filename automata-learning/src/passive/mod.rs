@@ -1,7 +1,7 @@
 use automata::{
     congruence::ColoredClass,
     prelude::*,
-    ts::{operations::MapStateColor, IndexedAlphabet},
+    transition_system::{operations::MapStateColor, IndexedAlphabet},
 };
 use owo_colors::OwoColorize;
 use tracing::{debug, trace};

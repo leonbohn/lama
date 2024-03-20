@@ -177,7 +177,7 @@ macro_rules! sample {
 
 #[cfg(test)]
 mod tests {
-    use automata::{prelude::*, ts::finite::ReachedColor, word::LinearWord};
+    use automata::{prelude::*, word::LinearWord};
     use itertools::Itertools;
     use tracing::info;
 

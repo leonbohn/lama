@@ -1,7 +1,7 @@
 use automata::{
     automaton::Buchi,
     prelude::*,
-    ts::{nts::NTState, path},
+    transition_system::{nts::NTState, path},
     Set,
 };
 

@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.78"
-automata = { version = "0.2", path = "../automata" }
+automata = { git = "https://github.com/leonbohn/automata", rev = "7264bb8" }
 automata-learning = { version = "0.1", path = "../automata-learning" }
 clap = { version = "4.4", features = ["cargo"] }
 tracing = "0.1"

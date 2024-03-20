@@ -10,7 +10,7 @@ use std::{
 use automata::{
     automaton::{IntoDPA, OmegaAcceptanceCondition},
     prelude::*,
-    ts::{reachable::ReachableStateIndices, Quotient},
+    transition_system::{operations::Quotient, reachable::ReachableStateIndices},
     word::Concat,
     Map, Set,
 };
@@ -87,8 +87,8 @@ fn right_congruence_by_omega_words<M: DPALike>(
                 .separate(p, q)
                 .expect("Separation must be possible");
 
-            let w1 = Concat(&mtr, &suffix).normalized();
-            let w2 = Concat(&mr, suffix).normalized();
+            let w1 = Concat(&mtr, &suffix).reduced();
+            let w2 = Concat(&mr, suffix).reduced();
 
             let b1 = cong.ts().into_dpa().accepts(&w1);
             let b2 = cong.ts().into_dpa().accepts(&w2);
@@ -390,7 +390,7 @@ mod tests {
 
     use automata::{
         automaton::{DPALike, MealyLike, MooreLike, DPA},
-        ts::{Deterministic, Dottable, NTS},
+        transition_system::{Deterministic, Dottable, NTS},
         TransitionSystem,
     };
 
