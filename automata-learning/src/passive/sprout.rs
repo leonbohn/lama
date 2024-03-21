@@ -6,7 +6,7 @@ use automata::{
 
 use std::collections::HashSet;
 
-use super::{consistency::ConsistencyCheck, OmegaSample, Buchi, Parity};
+use super::{consistency::ConsistencyCheck, Buchi, OmegaSample, Parity};
 
 /// gives a deterministic acc_type omega automaton that is consistent with the given sample
 /// implements the sprout passive learning algorithm for omega automata from <https://arxiv.org/pdf/2108.03735.pdf>
@@ -23,7 +23,8 @@ pub fn sprout<A: ConsistencyCheck<Initialized<DTS>>>(sample: OmegaSample, acc_ty
     let thresh = lb + le ^ 2 + 1;
 
     // while there are positive sample words that are escaping
-    while let Some(escape_prefix) = escape_prefixes(&ts, sample.positive_words().collect()).first()
+    while let Some(escape_prefix) =
+        length_lexicographical_sort(ts.escape_prefixes(sample.positive_words()).collect()).first()
     {
         let u = escape_prefix[..escape_prefix.len() - 1].to_string();
         let a = escape_prefix.chars().last().expect("empty escape prefix");
@@ -50,23 +51,6 @@ pub fn sprout<A: ConsistencyCheck<Initialized<DTS>>>(sample: OmegaSample, acc_ty
     acc_type.consistent_automaton(&ts, &sample)
 }
 
-/// Compute the escape prefixes of a set of omega words on a transition system.
-/// The returned vector is sorted length lexicographically
-pub fn escape_prefixes<T: TransitionSystem<Alphabet = CharAlphabet> + Deterministic + Pointed>(
-    ts: &T,
-    words: HashSet<&ReducedOmegaWord<char>>,
-) -> Vec<String> {
-    let prefixes: HashSet<String> = words
-        .into_iter()
-        .filter_map(|w| {
-            ts.omega_run(w)
-                .err()
-                .map(|path| w.prefix(path.len() + 1).as_string())
-        })
-        .collect();
-    length_lexicographical_sort(Vec::from_iter(prefixes))
-}
-
 /// sort a vector of Strings length lexicographically
 pub fn length_lexicographical_sort(mut words: Vec<String>) -> Vec<String> {
     words.sort_by(|a, b| {
@@ -88,7 +72,7 @@ mod tests {
     use std::collections::HashSet;
 
     use super::*;
-    use crate::passive::{OmegaSample, Buchi, Parity};
+    use crate::passive::{Buchi, OmegaSample, Parity};
     use automata::prelude::*;
 
     #[test]

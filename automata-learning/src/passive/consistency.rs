@@ -2,11 +2,7 @@ use itertools::{Either, Itertools};
 use std::iter;
 use std::ops::Not;
 
-use automata::{
-    prelude::*,
-    transition_system::Edge,
-    Set,
-};
+use automata::{prelude::*, transition_system::Edge, Set};
 
 use super::{Buchi, OmegaSample, Parity};
 
