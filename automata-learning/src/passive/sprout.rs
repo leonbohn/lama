@@ -20,16 +20,16 @@ pub fn sprout<A: ConsistencyCheck<Initialized<DTS>>>(sample: OmegaSample, acc_ty
         .words()
         .map(|w| (w.spoke().len(), w.cycle().len()))
         .fold((0, 0), |(a0, a1), (b0, b1)| (a0.max(b0), a1.max(b1)));
-    let thresh = lb + le ^ 2 + 1;
+    let thresh = (lb + le ^ 2 + 1) as isize;
 
     // while there are positive sample words that are escaping
-    while let Some(escape_prefix) =
+    'outer: while let Some(escape_prefix) =
         length_lexicographical_sort(ts.escape_prefixes(sample.positive_words()).collect()).first()
     {
         let u = escape_prefix[..escape_prefix.len() - 1].to_string();
         let a = escape_prefix.chars().last().expect("empty escape prefix");
         // check thresh
-        if u.len() - 1 > thresh {
+        if (u.len() as isize) - 1 > thresh {
             // compute default automaton
             todo!()
         }
@@ -39,7 +39,7 @@ pub fn sprout<A: ConsistencyCheck<Initialized<DTS>>>(sample: OmegaSample, acc_ty
             ts.add_edge(source, a, q, Void);
             // continue if consistent
             if acc_type.consistent(&ts, &sample) {
-                continue;
+                continue 'outer;
             } else {
                 ts.remove_edges(source, a);
             }
@@ -96,7 +96,9 @@ mod tests {
             .with_initial(0)
             .into_dba();
 
-        assert!(sprout(sample, Buchi).eq(&dba));
+        let res = sprout(sample, Buchi);
+        println!("{:?}", res);
+        assert!(res.eq(&dba));
     }
 
     #[test]

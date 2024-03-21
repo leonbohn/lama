@@ -110,7 +110,7 @@ where
         for q in dba.state_indices() {
             for sym in ts.alphabet().universe() {
                 if dba.transition(q, sym).is_none() {
-                    dba.add_edge(q, sym, dba.initial(), true);
+                    dba.add_edge(q, sym, dba.initial(), false);
                 }
             }
         }
