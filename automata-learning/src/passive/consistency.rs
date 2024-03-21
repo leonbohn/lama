@@ -236,7 +236,7 @@ mod tests {
                 (0, 'b', false, 0),
                 (0, 'a', true, 1),
                 (1, 'b', true, 1),
-                (1, 'a', true, 0),
+                (1, 'a', false, 0),
             ])
             .default_color(Void)
             .deterministic()
@@ -248,6 +248,38 @@ mod tests {
 
     #[test]
     fn parity_consistency() {
-        panic!()
+        // build transition systems
+        let ts = NTS::builder()
+            .with_transitions([(0, 'a', Void, 0)])
+            .default_color(Void)
+            .deterministic()
+            .with_initial(0);
+        let ts2 = NTS::builder()
+            .with_transitions([(0, 'a', Void, 0), (0, 'b', Void, 0)])
+            .default_color(Void)
+            .deterministic()
+            .with_initial(0);
+        let ts3 = NTS::builder()
+            .with_transitions([
+                (0, 'a', Void, 0),
+                (0, 'b', Void, 1),
+                (1, 'a', Void, 0),
+                (1, 'b', Void, 0),
+            ])
+            .default_color(Void)
+            .deterministic()
+            .with_initial(0);
+
+        // build samples
+        let sample1 = OmegaSample::new_omega_from_pos_neg(sigma(), [upw!("a")], [upw!("b")]);
+        let sample2 = OmegaSample::new_omega_from_pos_neg(sigma(), [upw!("a")], [upw!("ab")]);
+        let sample3 = OmegaSample::new_omega_from_pos_neg(sigma(), [upw!("a", "b")], [upw!("ab")]);
+        let sample4 =
+            OmegaSample::new_omega_from_pos_neg(sigma(), [upw!("bab", "aba")], [upw!("ba")]);
+
+        assert_eq!(Parity.consistent(&ts, &sample1), true);
+        assert_eq!(Parity.consistent(&ts2, &sample2), true);
+        assert_eq!(Parity.consistent(&ts2, &sample3), false);
+        assert_eq!(Parity.consistent(&ts3, &sample4), false);
     }
 }
