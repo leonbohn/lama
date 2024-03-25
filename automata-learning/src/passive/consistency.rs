@@ -4,6 +4,8 @@ use std::ops::Not;
 
 use automata::{prelude::*, transition_system::Edge, Set};
 
+use crate::prefixtree::prefix_tree;
+
 use super::{Buchi, OmegaSample, Parity};
 
 /// Used to define consistency checks on various types of omega acceptance conditions
@@ -17,6 +19,9 @@ pub trait ConsistencyCheck<T> {
     /// returns an automaton with underlying transition system ts
     /// that is consistent with the sample
     fn consistent_automaton(&self, ts: &T, sample: &OmegaSample) -> Self::Aut;
+    /// Automaton that accepts precisely the positive example words
+    /// in case no other solution can be found
+    fn default_automaton(&self, sample: &OmegaSample) -> Self::Aut;
 }
 
 impl<T> ConsistencyCheck<T> for Buchi
@@ -116,16 +121,40 @@ where
         }
         dba
     }
+
+    fn default_automaton(&self, sample: &OmegaSample) -> Self::Aut {
+        let mut dba = prefix_tree(sample.alphabet().clone(), sample.positive_words())
+            .map_edge_colors(|_| true)
+            .erase_state_colors()
+            .collect_dts()
+            .with_initial(0)
+            .into_dba();
+        dba.complete_with_colors(Void, false);
+        dba
+    }
 }
 
 impl<T> ConsistencyCheck<T> for Parity {
     type Aut = DPA;
 
     fn consistent(&self, ts: &T, sample: &OmegaSample) -> bool {
+        // compute runs
+        // check escape properties
+        // initialisations for Z, s and i
+        // Note: if s not clear for all transitions, test both
+        // while Z nonempty
+        //      increase index
+        //      new Z to union of subsets with different classification
+        //      if same: false
+        // set Z, sigma
         todo!()
     }
 
     fn consistent_automaton(&self, ts: &T, sample: &OmegaSample) -> Self::Aut {
+        todo!()
+    }
+
+    fn default_automaton(&self, sample: &OmegaSample) -> Self::Aut {
         todo!()
     }
 }
