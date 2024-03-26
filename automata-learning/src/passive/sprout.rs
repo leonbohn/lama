@@ -6,6 +6,8 @@ use automata::{
 
 use std::collections::HashSet;
 
+use crate::prefixtree::prefix_tree;
+
 use super::{consistency::ConsistencyCheck, Buchi, OmegaSample, Parity};
 
 /// gives a deterministic acc_type omega automaton that is consistent with the given sample
@@ -31,7 +33,7 @@ pub fn sprout<A: ConsistencyCheck<Initialized<DTS>>>(sample: OmegaSample, acc_ty
         // check thresh
         if (u.len() as isize) - 1 > thresh {
             // compute default automaton
-            todo!()
+            return acc_type.default_automaton(&sample);
         }
         let source = ts.finite_run(u).unwrap().reached();
         for q in ts.state_indices() {
@@ -97,8 +99,43 @@ mod tests {
             .into_dba();
 
         let res = sprout(sample, Buchi);
-        println!("{:?}", res);
-        assert!(res.eq(&dba));
+        assert_eq!(format!("{:?}", res), format!("{:?}", dba));
+    }
+
+    #[test]
+    fn sprout_buchi_thresh() {
+        let sigma = alphabet!(simple 'a', 'b');
+
+        // build sample
+        let sample = OmegaSample::new_omega_from_pos_neg(
+            sigma,
+            [upw!("a"), upw!("baa")],
+            [upw!("ab"), upw!("ba"), upw!("babaa"), upw!("baaba")],
+        );
+
+        // build dba
+        let mut dba = NTS::builder()
+            .with_transitions([
+                (0, 'a', true, 1),
+                (0, 'b', true, 2),
+                (1, 'a', true, 1),
+                (1, 'b', false, 5),
+                (2, 'a', true, 3),
+                (2, 'b', false, 5),
+                (3, 'a', true, 4),
+                (3, 'b', false, 5),
+                (4, 'b', true, 2),
+                (4, 'a', false, 5),
+                (5, 'a', false, 5),
+                (5, 'b', false, 5),
+            ])
+            .default_color(Void)
+            .deterministic()
+            .with_initial(0)
+            .into_dba();
+
+        let res = sprout(sample, Buchi);
+        assert_eq!(format!("{:?}", res), format!("{:?}", dba));
     }
 
     #[test]
