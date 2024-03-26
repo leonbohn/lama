@@ -111,14 +111,8 @@ where
             .0
             .into_dba();
 
-        // send missing transitions to initial state
-        for q in dba.state_indices() {
-            for sym in ts.alphabet().universe() {
-                if dba.transition(q, sym).is_none() {
-                    dba.add_edge(q, sym, dba.initial(), false);
-                }
-            }
-        }
+        // complete with sink state
+        dba.complete_with_colors(Void, false);
         dba
     }
 
@@ -265,14 +259,17 @@ mod tests {
                 (0, 'b', false, 0),
                 (0, 'a', true, 1),
                 (1, 'b', true, 1),
-                (1, 'a', false, 0),
+                (1, 'a', false, 2),
+                (2, 'a', false, 2),
+                (2, 'b', false, 2),
             ])
             .default_color(Void)
             .deterministic()
             .with_initial(0)
             .into_dba();
 
-        assert!(Buchi.consistent_automaton(&ts, &sample).eq(&dba));
+        let res = Buchi.consistent_automaton(&ts, &sample);
+        assert_eq!(format!("{:?}", res), format!("{:?}", dba));
     }
 
     #[test]
