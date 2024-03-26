@@ -91,7 +91,9 @@ mod tests {
                 (0, 'a', true, 1),
                 (1, 'a', true, 0),
                 (1, 'b', true, 1),
-                (0, 'b', false, 0),
+                (0, 'b', false, 2),
+                (2, 'a', false, 2),
+                (2, 'b', false, 2),
             ])
             .default_color(Void)
             .deterministic()
