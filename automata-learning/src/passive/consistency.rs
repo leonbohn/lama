@@ -2,7 +2,11 @@ use itertools::{Either, Itertools};
 use std::iter;
 use std::ops::Not;
 
-use automata::{prelude::*, transition_system::Edge, Set};
+use automata::{
+    prelude::*,
+    transition_system::{path::Lasso, Edge},
+    Set,
+};
 
 use crate::prefixtree::prefix_tree;
 
@@ -31,47 +35,24 @@ where
 {
     type Aut = DBA;
     fn consistent(&self, ts: &T, sample: &OmegaSample) -> bool {
-        // run transition system on sample words and
-        // separate in escaping and non-escaping (successful) runs
-        let (pos_successful, pos_escaping): (Vec<_>, Vec<_>) = sample
-            .positive_words()
-            .map(|w| (ts.omega_run(w), w))
-            .partition_map(|r| match r {
-                (Ok(v), _) => Either::Left(v),
-                (Err(v), w) => Either::Right((v, w)),
-            });
-        let (neg_successful, neg_escaping): (Vec<_>, Vec<_>) = sample
-            .negative_words()
-            .map(|w| (ts.omega_run(w), w))
-            .partition_map(|r| match r {
-                (Ok(v), _) => Either::Left(v),
-                (Err(v), w) => Either::Right((v, w)),
-            });
+        if let Some((pos_successful, neg_successful)) = successful_runs(ts, sample) {
+            // check if the infinity set of a positive word is subset of
+            // the union of all infinity sets of negative words (see paper for details)
+            let neg_union: Set<_> = neg_successful
+                .into_iter()
+                .map(|r| r.into_recurrent_transitions())
+                .flatten()
+                .collect();
 
-        // reject if a pair escaping from the same state with the same escape string is found
-        for ((pos_path, w0), (neg_path, w1)) in
-            pos_escaping.into_iter().cartesian_product(neg_escaping)
-        {
-            let pos_esc_str = w0.skip(pos_path.len());
-            let neg_esc_str = w1.skip(neg_path.len());
-            if pos_path.reached() == neg_path.reached() && pos_esc_str.equals(neg_esc_str) {
-                return false;
-            }
+            pos_successful
+                .into_iter()
+                .map(|r| r.into_recurrent_transitions().collect::<Set<_>>())
+                .any(|s| s.is_subset(&neg_union))
+                .not()
+        } else {
+            // bad pair was found when runnning sample words on transition system
+            false
         }
-
-        // check if the infinity set of a positive word is subset of
-        // the union of all infinity sets of negative words (see paper for details)
-        let neg_union: Set<_> = neg_successful
-            .into_iter()
-            .map(|r| r.into_recurrent_transitions())
-            .flatten()
-            .collect();
-
-        pos_successful
-            .into_iter()
-            .map(|r| r.into_recurrent_transitions().collect::<Set<_>>())
-            .any(|s| s.is_subset(&neg_union))
-            .not()
     }
 
     fn consistent_automaton(&self, ts: &T, sample: &OmegaSample) -> Self::Aut {
@@ -80,13 +61,9 @@ where
 
         // derive acceptance condition: accepting transitions
         // -> all transitions besides the union of negative infinity sets
-        let (neg_successful, neg_escaping): (Vec<_>, Vec<_>) = sample
-            .negative_words()
-            .map(|w| ts.omega_run(w))
-            .partition_map(|r| match r {
-                Ok(v) => Either::Left(v),
-                Err(v) => Either::Right(v),
-            });
+        let (_, neg_successful) =
+            successful_runs(ts, sample).expect("ts cannot be consistent with sample");
+
         let neg_union: Set<_> = neg_successful
             .into_iter()
             .map(|r| r.into_recurrent_transitions())
@@ -151,6 +128,63 @@ impl<T> ConsistencyCheck<T> for Parity {
     fn default_automaton(&self, sample: &OmegaSample) -> Self::Aut {
         todo!()
     }
+}
+
+/// Run positive and negative sample words on the given transition system.
+/// If there is a pair of words escaping with the same escape string from the same state, return None.
+/// Otherwise return non-escaping runs of positive and negative example words
+fn successful_runs<T>(
+    ts: T,
+    sample: &OmegaSample,
+) -> Option<(
+    Vec<
+        Lasso<
+            CharAlphabet,
+            usize,
+            <T as TransitionSystem>::StateColor,
+            <T as TransitionSystem>::EdgeColor,
+        >,
+    >,
+    Vec<
+        Lasso<
+            CharAlphabet,
+            usize,
+            <T as TransitionSystem>::StateColor,
+            <T as TransitionSystem>::EdgeColor,
+        >,
+    >,
+)>
+where
+    T: TransitionSystem<Alphabet = CharAlphabet, StateIndex = usize> + Deterministic + Pointed,
+    <T as TransitionSystem>::EdgeColor: Eq + std::hash::Hash,
+{
+    // run transition system on sample words and
+    // separate in escaping and non-escaping (successful) runs
+    let (pos_successful, pos_escaping): (Vec<_>, Vec<_>) = sample
+        .positive_words()
+        .map(|w| (ts.omega_run(w), w))
+        .partition_map(|r| match r {
+            (Ok(v), _) => Either::Left(v),
+            (Err(v), w) => Either::Right((v, w)),
+        });
+    let (neg_successful, neg_escaping): (Vec<_>, Vec<_>) = sample
+        .negative_words()
+        .map(|w| (ts.omega_run(w), w))
+        .partition_map(|r| match r {
+            (Ok(v), _) => Either::Left(v),
+            (Err(v), w) => Either::Right((v, w)),
+        });
+
+    // reject if a pair escaping from the same state with the same escape string is found
+    for ((pos_path, w0), (neg_path, w1)) in pos_escaping.into_iter().cartesian_product(neg_escaping)
+    {
+        let pos_esc_str = w0.skip(pos_path.len());
+        let neg_esc_str = w1.skip(neg_path.len());
+        if pos_path.reached() == neg_path.reached() && pos_esc_str.equals(neg_esc_str) {
+            return None;
+        }
+    }
+    Some((pos_successful, neg_successful))
 }
 
 #[cfg(test)]
