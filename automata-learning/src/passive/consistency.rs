@@ -1,4 +1,5 @@
 use itertools::{all, Either, Itertools};
+use std::collections::HashMap;
 use std::iter;
 use std::ops::Not;
 
@@ -142,9 +143,10 @@ where
                 .state_indices()
                 .cartesian_product(ts.alphabet().universe())
                 .collect();
-            let p = pos_sets.contains(&all_transitions);
-            let n = neg_sets.contains(&all_transitions);
-            match (p, n) {
+            match (
+                pos_sets.contains(&all_transitions),
+                neg_sets.contains(&all_transitions),
+            ) {
                 (true, false) => {
                     // set of all transitions is accepting
                     has_zielonka_path(pos_sets, neg_sets, all_transitions, true)
@@ -174,7 +176,104 @@ where
     }
 
     fn consistent_automaton(&self, ts: &T, sample: &OmegaSample) -> Self::Aut {
-        todo!()
+        // check consistency
+        assert!(self.consistent(ts, sample));
+
+        let (pos_successful, neg_successful) =
+            successful_runs(ts, sample).expect("ts cannot be consistent with sample");
+
+        // convert runs to infinity sets with elements of the form (source, symbol)
+        let pos_sets: Vec<Set<(usize, char)>> = pos_successful
+            .iter()
+            .map(|run| {
+                run.recurrent_transitions()
+                    .map(|e| {
+                        let (src, &sym, _, _) = e.into_tuple();
+                        (src, sym)
+                    })
+                    .collect()
+            })
+            .collect();
+        let neg_sets: Vec<Set<(usize, char)>> = neg_successful
+            .iter()
+            .map(|run| {
+                run.recurrent_transitions()
+                    .map(|e| {
+                        let (src, &sym, _, _) = e.into_tuple();
+                        (src, sym)
+                    })
+                    .collect()
+            })
+            .collect();
+
+        let all_transitions: Set<(usize, char)> = ts
+            .state_indices()
+            .cartesian_product(ts.alphabet().universe())
+            .collect();
+        let z_path: Vec<Set<(usize, char)>>;
+        let lowest: bool;
+        match (
+            pos_sets.contains(&all_transitions),
+            neg_sets.contains(&all_transitions),
+        ) {
+            (true, false) => {
+                // set of all transitions is accepting
+                z_path = zielonka_path(pos_sets, neg_sets, all_transitions, true).unwrap();
+                lowest = true;
+            }
+            (false, true) => {
+                // set of all transitions is non-accepting
+                z_path = zielonka_path(pos_sets, neg_sets, all_transitions, false).unwrap();
+                lowest = false;
+            }
+            (false, false) => {
+                // class of set of all transitions not clear, check both options
+                let path1 = zielonka_path(
+                    pos_sets.clone(),
+                    neg_sets.clone(),
+                    all_transitions.clone(),
+                    false,
+                )
+                .unwrap();
+                let path2 = zielonka_path(pos_sets, neg_sets, all_transitions, true).unwrap();
+                // select smaller one
+                (z_path, lowest) = if path1.len() >= path2.len() {
+                    (path2, true)
+                } else {
+                    (path1, false)
+                };
+            }
+            (true, true) => {
+                // this shouldn't happen, pos and neg induce same infinity set
+                panic!("Set of all transitions cannot be both accepting and non-accepting");
+            }
+        }
+        // build dpa from Zielonka path
+
+        let mut prio_map: HashMap<(usize, char), usize> = HashMap::new();
+        let mut prio = if lowest { 0 } else { 1 };
+        for i in 0..z_path.len() - 1 {
+            for t in z_path[i].difference(&z_path[i + 1]) {
+                prio_map.insert(*t, prio);
+            }
+            prio += 1;
+        }
+        let mut aut = ts
+            .map_edge_colors_full(move |a, b, c, d| {
+                *prio_map
+                    .get(&(a, *b))
+                    .expect("transition missing in Zielonka path")
+            })
+            .erase_state_colors();
+
+        let mut dpa = aut
+            .collect_pointed::<DTS<CharAlphabet, Void, usize>>()
+            .0
+            .into_dpa();
+
+        // complete with sink state
+        dpa.complete_with_colors(Void, prio - 1);
+        dpa
     }
 
     fn default_automaton(&self, sample: &OmegaSample) -> Self::Aut {
@@ -217,6 +316,52 @@ fn has_zielonka_path(
         class = !class;
     }
     true
+}
+
+/// For given sets compute Zielonka path consistent with given classification.
+/// `class` is the classification of the set of all transitions
+/// returns `None` if no consistent Zielonka path exists
+fn zielonka_path(
+    mut pos_sets: Vec<Set<(usize, char)>>,
+    mut neg_sets: Vec<Set<(usize, char)>>,
+    all_transitions: Set<(usize, char)>,
+    mut class: bool,
+) -> Option<Vec<Set<(usize, char)>>> {
+    // check if class of set with all transitions is valid
+    if class {
+        assert!(!neg_sets.contains(&all_transitions));
+    } else {
+        assert!(!pos_sets.contains(&all_transitions));
+    }
+
+    let mut z_path = vec![all_transitions];
+    let mut i = 0;
+    while !z_path[i].is_empty() {
+        // set new Z to union of subsets with different classification
+        let z_new: Set<(usize, char)>;
+        if class {
+            // Z accepting
+            neg_sets = neg_sets
+                .into_iter()
+                .filter(|s| s.is_subset(&z_path[i]))
+                .collect();
+            z_new = neg_sets.iter().cloned().flatten().collect();
+        } else {
+            // Z non-accepting
+            pos_sets = pos_sets
+                .into_iter()
+                .filter(|s| s.is_subset(&z_path[i]))
+                .collect();
+            z_new = pos_sets.iter().cloned().flatten().collect();
+        }
+        if z_path[i] == z_new {
+            return None;
+        }
+        z_path.push(z_new);
+        class = !class;
+        i += 1;
+    }
+    Some(z_path)
 }
 
 /// Run positive and negative sample words on the given transition system.
@@ -449,11 +594,57 @@ mod tests {
             [upw!("a")],
         );
 
-        // assert_eq!(Parity.consistent(&ts, &sample1), true);
-        // assert_eq!(Parity.consistent(&ts2, &sample2), true);
-        // assert_eq!(Parity.consistent(&ts2, &sample3), false);
-        // assert_eq!(Parity.consistent(&ts3, &sample4), false);
-        // assert_eq!(Parity.consistent(&ts4, &sample5), false);
+        assert_eq!(Parity.consistent(&ts, &sample1), true);
+        assert_eq!(Parity.consistent(&ts2, &sample2), true);
+        assert_eq!(Parity.consistent(&ts2, &sample3), false);
+        assert_eq!(Parity.consistent(&ts3, &sample4), false);
+        assert_eq!(Parity.consistent(&ts4, &sample5), false);
         assert_eq!(Parity.consistent(&ts4, &sample6), true);
+    }
+
+    #[test]
+    fn parity_consistent_automaton() {
+        // build transition system
+        let ts = NTS::builder()
+            .with_transitions([
+                (0, 'a', Void, 0),
+                (0, 'b', Void, 1),
+                (1, 'a', Void, 0),
+                (1, 'b', Void, 2),
+                (2, 'a', Void, 0),
+                (2, 'b', Void, 2),
+            ])
+            .default_color(Void)
+            .deterministic()
+            .with_initial(0);
+
+        // build sample
+        let sample = OmegaSample::new_omega_from_pos_neg(
+            sigma(),
+            [upw!("bbba"), upw!("ababbba")],
+            [upw!("b"), upw!("babbba")],
+        );
+
+        // build automaton
+        let mut dpa = NTS::builder()
+            .with_transitions([
+                (0, 'a', 0, 0),
+                (0, 'b', 2, 1),
+                (1, 'a', 1, 0),
+                (1, 'b', 2, 2),
+                (2, 'a', 2, 0),
+                (2, 'b', 3, 2),
+            ])
+            .default_color(Void)
+            .deterministic()
+            .with_initial(0)
+            .into_dpa();
+        // only needed because already complete automata not recognized yet
+        dpa.complete_with_colors(Void, 3);
+
+        let res = Parity.consistent_automaton(&ts, &sample);
+        println!("{:?}", res);
+        println!("{:?}", dpa);
+        assert_eq!(format!("{:?}", res), format!("{:?}", dpa));
     }
 }
